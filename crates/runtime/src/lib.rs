@@ -1,5 +1,6 @@
-#[allow(dead_code)]
+use core::Args;
 
-fn main() {
+pub fn run(text: &Args) {
     println!("Hello, world!");
+    println!("{:?}", &text);
 }

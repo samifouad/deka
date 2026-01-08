@@ -48,7 +48,7 @@ fn main() {
             // commands
             "init" => cli::init::cmd(&cmd),
 
-            //"tree" => cli::tree::cmd(&cmd),
+            "run" => runtime::run(&cmd),
 
             //"route" => cli::route::cmd(&cmd),
 

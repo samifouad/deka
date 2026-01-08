@@ -1,11 +1,6 @@
-pub mod init;
+use core::Args;
 
-#[derive(Debug, Clone)]
-pub struct Args {
-    pub flags: std::collections::HashMap<String, bool>,
-    pub params: std::collections::HashMap<String, String>,
-    pub commands: Vec<String>,
-}
+pub mod init;
 
 pub fn collect(args: Vec<String>) -> Args {
     let mut flags = std::collections::HashMap::new();
