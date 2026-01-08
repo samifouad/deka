@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cli",
+    "crates/runtime"
+]
+
+[workspace.dependencies]
+# V8 Runtime (Deno Core)
+deno_core = "0.338"
+deno_napi = "0.124.0"
+deno_permissions = "0.52.0"
+deno_error = "0.5.5"
+
+# Async Runtime
+tokio = { version = "1.41", features = ["full"] }
+
+# HTTP Server
+axum = { version = "0.7", features = ["ws"] }
+tower-http = { version = "0.6", features = ["cors"] }
+hyper = "1"
+hyper-util = { version = "0.1", features = ["tokio"] }
+futures-util = "0.3"
+notify = "6"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
