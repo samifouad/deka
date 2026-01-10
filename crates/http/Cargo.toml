@@ -1,0 +1,20 @@
+[package]
+name = "http"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = { workspace = true, features = ["ws"] }
+base64 = "0.22"
+bytes = { workspace = true }
+futures-util = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+socket2 = { workspace = true, features = ["all"] }
+tokio = { workspace = true, features = ["full"] }
+tracing = "0.1"
+libc = "0.2"
+engine = { path = "../engine" }
+pool = { path = "../pool" }
+serde_json = { workspace = true }

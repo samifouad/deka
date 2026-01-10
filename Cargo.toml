@@ -1,7 +1,20 @@
 [workspace]
 resolver = "2"
-members = ["crates/core","crates/cli",
-    "crates/runtime"
+members = [
+    "crates/core",
+    "crates/cli",
+    "crates/runtime",
+    "crates/stdio",
+    "crates/http",
+    "crates/transport",
+    "crates/pool",
+    "crates/engine",
+    "crates/bundler",
+    "crates/modules_common",
+    "crates/modules_js",
+    "crates/modules_php",
+    "crates/php-rs",
+    "crates/pm",
 ]
 
 [workspace.dependencies]
@@ -19,10 +32,23 @@ axum = { version = "0.7", features = ["ws"] }
 tower-http = { version = "0.6", features = ["cors"] }
 hyper = "1"
 hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+bytes = "1"
 futures-util = "0.3"
 notify = "6"
+socket2 = { version = "0.5", features = ["all"] }
+core_affinity = "0.8"
+nanoid = "0.4"
+num_cpus = "1.16"
+
+# TypeScript/JavaScript parsing (handler validation)
+swc_ecma_parser = { version = "31.0.0", features = ["typescript"] }
+swc_ecma_ast = "19.0.0"
+swc_common = "18.0.1"
+swc_ecma_visit = "19.0.0"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"
+pm = { path = "crates/pm" }

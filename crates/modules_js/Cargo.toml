@@ -1,0 +1,60 @@
+[package]
+name = "modules_js"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0"
+base64 = "0.22"
+bytes = { workspace = true }
+core_affinity = { workspace = true }
+deno_core = { workspace = true }
+deno_error = { workspace = true }
+deno_napi = { workspace = true }
+deno_permissions = { workspace = true }
+engine = { path = "../engine" }
+flate2 = "1.1"
+futures-util = { workspace = true }
+getrandom = "0.2"
+http-body-util = { workspace = true }
+http = { path = "../http" }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+num_cpus = { workspace = true }
+openssl = { version = "0.10", features = ["vendored"] }
+pbkdf2 = "0.12"
+pool = { path = "../pool" }
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+socket2 = { workspace = true, features = ["all"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls"] }
+swc_common = { workspace = true }
+swc_ecma_ast = { workspace = true }
+swc_ecma_codegen = "21.0.0"
+swc_ecma_parser = { workspace = true }
+swc_ecma_transforms_base = "34.0.0"
+swc_ecma_transforms_react = "37.0.0"
+swc_ecma_transforms_typescript = "37.0.0"
+swc_ecma_visit = "19.0.0"
+thiserror = "1.0"
+tokio = { workspace = true, features = ["full"] }
+tower-http = { workspace = true, features = ["cors"] }
+tracing = "0.1"
+url = "2.5"
+bundler = { path = "../bundler" }
+
+# Module-specific deps
+bollard = "0.17"
+rusqlite = { version = "0.32", features = ["bundled"] }
+mime_guess = "2.0"
+sha1 = "0.10"
+hmac = "0.12"
+aes-gcm = "0.10"
+dns-lookup = "2"
+hex = "0.4"
+lazy_static = "1.4"
+libc = "0.2"
+nanoid = { workspace = true }
+which = "6.0"

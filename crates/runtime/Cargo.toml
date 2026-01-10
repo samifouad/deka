@@ -5,3 +5,18 @@ edition = "2024"
 
 [dependencies]
 core = { path = "../core" }
+engine = { path = "../engine" }
+pool = { path = "../pool" }
+transport = { path = "../transport" }
+stdio = { path = "../stdio" }
+modules_common = { path = "../modules_common" }
+modules_js = { path = "../modules_js" }
+modules_php = { path = "../modules_php" }
+deno_core = { workspace = true }
+deno_napi = { workspace = true }
+deno_permissions = { workspace = true }
+notify = { workspace = true }
+num_cpus = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tracing = "0.1"
