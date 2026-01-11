@@ -5,6 +5,7 @@ use stdio::{ascii, error as stdio_error, raw};
 
 // define & export cli's submodules
 pub mod build;
+pub mod compile;
 pub mod init;
 pub mod install;
 pub mod run;
@@ -34,6 +35,16 @@ pub fn register_global_flags(registry: &mut Registry) {
         aliases: &["-d", "debug"],
         description: "enable debug logging",
     });
+    registry.add_flag(FlagSpec {
+        name: "--desktop",
+        aliases: &[],
+        description: "compile as desktop app (requires compile command)",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--bundle",
+        aliases: &[],
+        description: "create platform-native bundle (macOS: .app, Windows: installer, Linux: AppImage)",
+    });
 }
 
 pub fn register_global_params(registry: &mut Registry) {
@@ -56,6 +67,10 @@ pub fn register_global_params(registry: &mut Registry) {
     registry.add_param(ParamSpec {
         name: "-o",
         description: "build output directory",
+    });
+    registry.add_param(ParamSpec {
+        name: "--name",
+        description: "app name for bundled apps",
     });
 }
 
@@ -124,6 +139,44 @@ pub fn error(msg: Option<&str>) {
 }
 
 pub fn execute(registry: &Registry) {
+    // Check for embedded VFS (compiled binary mode)
+    // When a binary is compiled with VFS, it should automatically start in the appropriate mode
+    if runtime::has_embedded_vfs() {
+        let context = match Context::from_env(registry) {
+            Ok(context) => context,
+            Err(_) => {
+                // For compiled binaries, create a minimal context
+                let args = core::Args {
+                    flags: std::collections::HashMap::new(),
+                    params: std::collections::HashMap::new(),
+                    commands: Vec::new(),
+                    positionals: Vec::new(),
+                };
+                let env = core::EnvContext::load();
+                let handler = match core::HandlerContext::from_env(&args) {
+                    Ok(h) => h,
+                    Err(_) => {
+                        // Use current directory as handler
+                        let resolved = core::resolve_handler_path(".").unwrap();
+                        let static_config = core::StaticServeConfig::load(&resolved.directory);
+                        core::HandlerContext {
+                            input: ".".to_string(),
+                            resolved,
+                            static_config,
+                            serve_config_path: None,
+                            package_json_path: None,
+                        }
+                    }
+                };
+                Context { args, env, handler }
+            }
+        };
+
+        // Automatically serve (which will detect desktop vs server mode from VFS)
+        runtime::serve(&context);
+        return;
+    }
+
     let context = match Context::from_env(registry) {
         Ok(context) => context,
         Err(core::ContextError::Parse(errors)) => {

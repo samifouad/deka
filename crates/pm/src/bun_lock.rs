@@ -75,20 +75,26 @@ impl BunLock {
     pub fn lookup(&self, lock_key: Option<&str>, name: &str) -> Option<&BunLockPackage> {
         if let Some(key) = lock_key {
             if let Some(entry) = self.packages.get(key) {
-                eprintln!("[DEBUG LOOKUP] Found '{}' in lockfile", key);
+                if std::env::var("DEKA_DEBUG").is_ok() {
+                    eprintln!("[DEBUG LOOKUP] Found '{}' in lockfile", key);
+                }
                 return Some(entry);
             } else {
-                eprintln!(
-                    "[DEBUG LOOKUP] Key '{}' not found, falling back to '{}'",
-                    key, name
-                );
+                if std::env::var("DEKA_DEBUG").is_ok() {
+                    eprintln!(
+                        "[DEBUG LOOKUP] Key '{}' not found, falling back to '{}'",
+                        key, name
+                    );
+                }
             }
         }
         let result = self.packages.get(name);
-        if result.is_some() {
-            eprintln!("[DEBUG LOOKUP] Found '{}' in lockfile (fallback)", name);
-        } else {
-            eprintln!("[DEBUG LOOKUP] '{}' not found in lockfile", name);
+        if std::env::var("DEKA_DEBUG").is_ok() {
+            if result.is_some() {
+                eprintln!("[DEBUG LOOKUP] Found '{}' in lockfile (fallback)", name);
+            } else {
+                eprintln!("[DEBUG LOOKUP] '{}' not found in lockfile", name);
+            }
         }
         result
     }

@@ -2,17 +2,24 @@ use anyhow::{Context, Result, bail};
 use serde_json::Value;
 use urlencoding::encode;
 
-pub fn fetch_npm_metadata(name: &str) -> Result<Value> {
+pub async fn fetch_npm_metadata(name: &str) -> Result<Value> {
     let encoded = encode(name);
     let url = format!("https://registry.npmjs.org/{encoded}");
-    eprintln!("helper    metadata url {}", url);
-    let response = reqwest::blocking::get(&url)
+
+    // Only show debug info if RUST_LOG or DEKA_DEBUG is set
+    if std::env::var("RUST_LOG").is_ok() || std::env::var("DEKA_DEBUG").is_ok() {
+        eprintln!("[DEBUG] Fetching metadata from {}", url);
+    }
+
+    let response = reqwest::get(&url)
+        .await
         .with_context(|| format!("failed to fetch npm metadata for {name}"))?;
     if !response.status().is_success() {
         bail!("npm metadata request failed: {}", response.status())
     }
     let value = response
         .json::<Value>()
+        .await
         .context("failed to parse npm metadata")?;
     Ok(value)
 }

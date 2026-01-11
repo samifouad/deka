@@ -206,7 +206,7 @@ pub fn init() -> deno_core::Extension {
     deka_core::init_ops_and_esm()
 }
 
-pub use cache::module_cache_stats;
+pub use cache::{module_cache_stats, mount_vfs, is_vfs_mounted};
 
 #[op2]
 fn op_async_context_get<'a>(scope: &mut v8::HandleScope<'a>) -> v8::Local<'a, v8::Value> {

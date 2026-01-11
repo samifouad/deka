@@ -1,8 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use dirs::home_dir;
-use fs_extra::dir::{CopyOptions, copy as copy_dir};
-use reqwest::blocking::get;
 use sha2::{Digest, Sha512};
 use std::env;
 use std::fs::{self, File};
@@ -101,12 +99,14 @@ pub fn cache_key(name: &str, version: &str) -> String {
     format!("{}@{}", sanitize_name(name), version)
 }
 
-pub fn download_tarball(url: &str) -> Result<Vec<u8>> {
-    let response = get(url).with_context(|| format!("failed to download tarball {}", url))?;
+pub async fn download_tarball(url: &str) -> Result<Vec<u8>> {
+    let response = reqwest::get(url)
+        .await
+        .with_context(|| format!("failed to download tarball {}", url))?;
     if !response.status().is_success() {
         anyhow::bail!("tarball request failed ({})", response.status())
     }
-    Ok(response.bytes()?.to_vec())
+    Ok(response.bytes().await?.to_vec())
 }
 
 pub fn compute_sha512(data: &[u8]) -> String {
@@ -165,12 +165,57 @@ pub fn copy_package(source: &Path, destination: &Path) -> Result<()> {
         fs::create_dir_all(parent)?;
     }
 
-    let mut options = CopyOptions::new();
-    options.overwrite = true;
-    options.copy_inside = true;
-    copy_dir(source, destination, &options)
-        .map(|_| ())
-        .context("failed to copy package")
+    // Use hardlinks for instant "copying" - like Bun does
+    hardlink_dir(source, destination)
+        .context("failed to link package")
+}
+
+fn hardlink_dir(source: &Path, destination: &Path) -> Result<()> {
+    fs::create_dir_all(destination)?;
+
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = destination.join(entry.file_name());
+
+        if src_path.is_dir() {
+            hardlink_dir(&src_path, &dst_path)?;
+        } else {
+            // Try clonefile (macOS APFS), then hardlink, then copy
+            if !try_clonefile(&src_path, &dst_path) {
+                if fs::hard_link(&src_path, &dst_path).is_err() {
+                    fs::copy(&src_path, &dst_path)?;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn try_clonefile(source: &Path, destination: &Path) -> bool {
+    use std::ffi::CString;
+    use std::os::unix::ffi::OsStrExt;
+
+    let src = match CString::new(source.as_os_str().as_bytes()) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    let dst = match CString::new(destination.as_os_str().as_bytes()) {
+        Ok(d) => d,
+        Err(_) => return false,
+    };
+
+    // clonefile(2) - creates a copy-on-write clone on APFS
+    unsafe {
+        libc::clonefile(src.as_ptr(), dst.as_ptr(), 0) == 0
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn try_clonefile(_source: &Path, _destination: &Path) -> bool {
+    false
 }
 
 pub fn write_metadata(path: &Path, metadata: &serde_json::Value) -> Result<()> {

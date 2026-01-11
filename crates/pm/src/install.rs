@@ -18,8 +18,9 @@ use std::{
     sync::Arc,
     time::Instant,
 };
+use tokio::{task::JoinSet, sync::Semaphore};
 
-pub fn run_install(payload: InstallPayload) -> Result<()> {
+pub async fn run_install(payload: InstallPayload) -> Result<()> {
     let mut specs = payload.specs.clone();
     let auto_resolved = specs.is_empty();
     if auto_resolved {
@@ -44,122 +45,193 @@ pub fn run_install(payload: InstallPayload) -> Result<()> {
         }
     }
 
-    let cache = CachePaths::new()?;
+    let cache = Arc::new(CachePaths::new()?);
     cache.ensure()?;
 
-    let bun_lock = BunLock::load()?;
-    let mut ctx = InstallContext::new(cache, bun_lock.map(Arc::new));
+    let bun_lock = BunLock::load()?.map(Arc::new);
+    let mut ctx = InstallContext::new(cache.clone(), bun_lock.clone());
     for spec in specs {
         ctx.enqueue(spec, None, false, None);
     }
 
     let start = Instant::now();
+    let semaphore = Arc::new(Semaphore::new(100)); // Allow many concurrent downloads like Bun
+    let mut join_set = JoinSet::new();
+    let mut copy_tasks = JoinSet::new();
+    let mut installed_count = 0;
 
+    // Spawn initial tasks
     while let Some(task) = ctx.next_task() {
-        let sequence = ctx.completed_count + 1;
-        emit_progress(ctx.scheduled_count(), ctx.completed_count, 1)?;
         let (ecosystem, spec_str) = parse_hinted_spec(&task.spec, Some(override_ecosystem))?;
         if ecosystem != Ecosystem::Node {
             if !quiet {
                 eprintln!(
-                    "helper    skipping unsupported ecosystem {} for {}",
+                    "⚠️  Skipping unsupported ecosystem {} for {}",
                     ecosystem.as_str(),
                     spec_str
                 );
             }
-            ctx.completed_count += 1;
-            emit_progress(
-                ctx.scheduled_count(),
-                ctx.completed_count,
-                ctx.pending_count(),
-            )?;
             continue;
         }
 
-        emit_package(
-            &spec_str,
-            "fetching",
-            ecosystem.as_str(),
-            sequence,
-            ctx.scheduled_count(),
-            0,
-        )?;
+        let cache_clone = cache.clone();
+        let bun_lock_clone = bun_lock.clone();
+        let spec_clone = spec_str.clone();
+        let lock_key_clone = task.lock_key.clone();
+        let sem_clone = semaphore.clone();
+        let optional = task.optional;
 
-        match install_node_package(&mut ctx, &spec_str, task.lock_key.as_deref()) {
-            Ok(result) => {
+        join_set.spawn(async move {
+            let _permit = sem_clone.acquire().await.unwrap();
+            let result = install_node_package(
+                &cache_clone,
+                bun_lock_clone.as_deref(),
+                &spec_clone,
+                lock_key_clone.as_deref(),
+            )
+            .await;
+            (spec_clone, optional, result)
+        });
+    }
+
+    // Process all tasks as they complete
+    while let Some(res) = join_set.join_next().await {
+        match res {
+            Ok((_spec, _optional, Ok(result))) => {
+                // Copy package to final location (spawn in parallel)
+                let destination = ctx.determine_install_path(&result.name, &result.version, result.lock_key.as_deref());
+                if let Some(dest) = destination {
+                    let cache_dir = result.cache_dir.clone();
+                    let name = result.name.clone();
+                    let version = result.version.clone();
+                    let resolved = result.resolved.clone();
+                    let metadata = result.metadata.clone();
+                    let integrity = result.integrity.clone();
+                    let dest_clone = dest.clone();
+
+                    // Spawn copy operation without awaiting (runs in parallel)
+                    copy_tasks.spawn_blocking(move || -> Result<()> {
+                        copy_package(&cache_dir, &dest_clone)?;
+                        let descriptor = format!("{}@{}", name, version);
+                        lock::update_lock_entry(
+                            "node",
+                            &name,
+                            descriptor,
+                            resolved,
+                            metadata,
+                            integrity,
+                        )?;
+                        Ok(())
+                    });
+
+                    installed_count += 1;
+                }
+
+                // Enqueue dependencies
                 for dep in result.dependencies {
-                    let lock_key = dep.lock_key.clone();
-                    ctx.enqueue(
-                        dep.spec,
-                        Some(dep.descriptor.clone()),
-                        false,
-                        Some(lock_key),
-                    );
+                    ctx.enqueue(dep.spec.clone(), Some(dep.descriptor.clone()), false, Some(dep.lock_key.clone()));
                 }
                 for opt in result.optional_dependencies {
                     if ctx.should_install_optional(&opt.lock_key, &opt.spec) {
-                        let lock_key = opt.lock_key.clone();
-                        ctx.enqueue(opt.spec, Some(opt.descriptor.clone()), true, Some(lock_key));
+                        ctx.enqueue(opt.spec.clone(), Some(opt.descriptor.clone()), true, Some(opt.lock_key));
                     }
                 }
                 for peer in result.optional_peers {
-                    if let Some(lock) = ctx.bun_lock.as_deref() {
+                    if let Some(lock) = bun_lock.as_deref() {
                         if lock.get(&peer.lock_key).is_some() {
-                            eprintln!(
-                                "[DEBUG] optionalPeer {} exists in lockfile, installing",
-                                peer.lock_key
-                            );
-                            let lock_key = peer.lock_key.clone();
-                            ctx.enqueue(
-                                peer.spec,
-                                Some(peer.descriptor.clone()),
-                                true,
-                                Some(lock_key),
-                            );
-                        } else {
-                            eprintln!(
-                                "[DEBUG] optionalPeer {} not in lockfile, skipping",
-                                peer.lock_key
-                            );
+                            ctx.enqueue(peer.spec.clone(), Some(peer.descriptor.clone()), true, Some(peer.lock_key));
                         }
                     }
                 }
-
-                ctx.completed_count += 1;
-                emit_progress(
-                    ctx.scheduled_count(),
-                    ctx.completed_count,
-                    ctx.pending_count(),
-                )?;
-                emit_package(
-                    &spec_str,
-                    "installed",
-                    ecosystem.as_str(),
-                    sequence,
-                    ctx.scheduled_count(),
-                    result.duration_ms,
-                )?;
             }
-            Err(err) => {
-                if task.optional {
+            Ok((spec, optional, Err(err))) => {
+                if optional {
                     if !quiet {
-                        eprintln!("helper    skipping optional {}: {}", spec_str, err);
+                        eprintln!("⚠️  Skipping optional {}: {}", spec, err);
                     }
-                    ctx.completed_count += 1;
-                    emit_progress(
-                        ctx.scheduled_count(),
-                        ctx.completed_count,
-                        ctx.pending_count(),
-                    )?;
-                    continue;
+                } else {
+                    return Err(err);
                 }
-                return Err(err);
             }
+            Err(e) => return Err(anyhow::anyhow!("task join error: {}", e)),
+        }
+
+        // Spawn ALL queued tasks after processing each completed task
+        while let Some(task) = ctx.next_task() {
+            let (ecosystem, spec_str) = parse_hinted_spec(&task.spec, Some(override_ecosystem))?;
+            if ecosystem != Ecosystem::Node {
+                if !quiet {
+                    eprintln!(
+                        "⚠️  Skipping unsupported ecosystem {} for {}",
+                        ecosystem.as_str(),
+                        spec_str
+                    );
+                }
+                continue;
+            }
+
+            let cache_c = cache.clone();
+            let lock_c = bun_lock.clone();
+            let spec_c = spec_str.clone();
+            let key_c = task.lock_key.clone();
+            let sem_c = semaphore.clone();
+            let opt = task.optional;
+
+            join_set.spawn(async move {
+                let _permit = sem_c.acquire().await.unwrap();
+                let result = install_node_package(&cache_c, lock_c.as_deref(), &spec_c, key_c.as_deref()).await;
+                (spec_c, opt, result)
+            });
+        }
+    }
+
+    // Process remaining tasks
+    while let Some(res) = join_set.join_next().await {
+        match res {
+            Ok((_spec, _optional, Ok(result))) => {
+                let destination = ctx.determine_install_path(&result.name, &result.version, result.lock_key.as_deref());
+                if let Some(dest) = destination {
+                    let cache_dir = result.cache_dir.clone();
+                    let name = result.name.clone();
+                    let version = result.version.clone();
+                    let resolved = result.resolved.clone();
+                    let metadata = result.metadata.clone();
+                    let integrity = result.integrity.clone();
+
+                    copy_tasks.spawn_blocking(move || -> Result<()> {
+                        copy_package(&cache_dir, &dest)?;
+                        let descriptor = format!("{}@{}", name, version);
+                        lock::update_lock_entry("node", &name, descriptor, resolved, metadata, integrity)?;
+                        Ok(())
+                    });
+
+                    installed_count += 1;
+                }
+            }
+            Ok((spec, optional, Err(err))) => {
+                if optional {
+                    if !quiet {
+                        eprintln!("⚠️  Skipping optional {}: {}", spec, err);
+                    }
+                } else {
+                    return Err(err);
+                }
+            }
+            Err(e) => return Err(anyhow::anyhow!("task join error: {}", e)),
+        }
+    }
+
+    // Wait for all copy operations to complete
+    while let Some(res) = copy_tasks.join_next().await {
+        match res {
+            Ok(Ok(_)) => {},
+            Ok(Err(e)) => return Err(e),
+            Err(e) => return Err(anyhow::anyhow!("copy task join error: {}", e)),
         }
     }
 
     let duration = Instant::now().duration_since(start);
-    emit_summary(ctx.installed.len(), duration.as_millis() as u64)?;
+    emit_summary(installed_count, duration.as_millis() as u64, quiet)?;
     Ok(())
 }
 
@@ -169,18 +241,15 @@ pub fn run_probe(path: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn install_node_package(
-    ctx: &mut InstallContext,
+async fn install_node_package(
+    cache: &CachePaths,
+    bun_lock: Option<&BunLock>,
     spec: &str,
     lock_key: Option<&str>,
 ) -> Result<InstallResult> {
-    let job_start = Instant::now();
     let (name, version_spec) = parse_package_spec(spec);
-    let metadata = fetch_npm_metadata(&name)?;
-    let lock_entry = ctx
-        .bun_lock
-        .as_deref()
-        .and_then(|lock| lock.lookup(lock_key, &name));
+    let metadata = fetch_npm_metadata(&name).await?;
+    let lock_entry = bun_lock.and_then(|lock| lock.lookup(lock_key, &name));
     let version = lock_entry
         .map(|entry| entry.version.clone())
         .or_else(|| resolve_package_version(&metadata, version_spec.as_deref()))
@@ -190,11 +259,11 @@ fn install_node_package(
         .get("versions")
         .and_then(|versions| versions.get(&version))
         .context("missing version info")?;
-    let cache_key = cache_key(&name, &version);
-    let cache_dir = ctx.cache.cache_dir(&cache_key);
+    let key = cache_key(&name, &version);
+    let cache_dir = cache.cache_dir(&key);
 
     let (integrity, resolved) = if cache_dir.exists() {
-        let meta_path = ctx.cache.metadata_path(&cache_key);
+        let meta_path = cache.metadata_path(&key);
         let meta = crate::cache::read_metadata(&meta_path);
         let integrity = meta
             .as_ref()
@@ -229,55 +298,34 @@ fn install_node_package(
             .and_then(|dist| dist.get("tarball"))
             .and_then(|value| value.as_str())
             .context("tarball URL missing")?;
-        let bytes = download_tarball(tarball_url)?;
+        let bytes = download_tarball(tarball_url).await?;
         let integrity = version_info
             .get("dist")
             .and_then(|dist| dist.get("integrity"))
             .and_then(|value| value.as_str())
             .map(|s| s.to_string())
             .unwrap_or_else(|| compute_sha512(&bytes));
-        let archive_path = ctx.cache.archive_path(&cache_key);
+        let archive_path = cache.archive_path(&key);
         fs::write(&archive_path, &bytes)?;
-        extract_tarball(&archive_path, &cache_dir, &ctx.cache.tmp)?;
+        extract_tarball(&archive_path, &cache_dir, &cache.tmp)?;
         let meta = json!({
             "integrity": integrity,
             "resolved": tarball_url,
             "version": version,
         });
-        crate::cache::write_metadata(&ctx.cache.metadata_path(&cache_key), &meta)?;
+        crate::cache::write_metadata(&cache.metadata_path(&key), &meta)?;
         (integrity, tarball_url.to_string())
     };
-
-    let install_path = ctx.determine_install_path(&name, &version, lock_key);
-
-    if let Some(destination) = install_path {
-        copy_package(&cache_dir, &destination)?;
-
-        let descriptor = format!("{name}@{version}");
-        let metadata_value = build_lock_metadata(version_info);
-        lock::update_lock_entry(
-            "node",
-            &name,
-            descriptor,
-            resolved,
-            metadata_value,
-            integrity.clone(),
-        )?;
-
-        let path_str = destination.to_string_lossy();
-        let install_key = format!("{}:{}@{}", path_str, name, version);
-        ctx.installed.insert(install_key);
-    }
 
     let dependencies = build_dependency_specs(
         lock_key,
         collect_spec_list(version_info.get("dependencies")),
-        ctx.bun_lock.as_deref(),
+        bun_lock,
     );
     let optional_dependencies = build_dependency_specs(
         lock_key,
         collect_spec_list(version_info.get("optionalDependencies")),
-        ctx.bun_lock.as_deref(),
+        bun_lock,
     );
 
     let optional_peers = if let Some(entry) = lock_entry {
@@ -285,28 +333,35 @@ fn install_node_package(
         let peer_deps = version_info.get("peerDependencies");
         let peer_specs: Vec<String> = peer_names
             .into_iter()
-            .filter_map(|name| {
+            .filter_map(|peer_name| {
                 if let Some(Value::Object(peers)) = peer_deps {
-                    peers.get(&name).and_then(|v| v.as_str()).map(|range| {
-                        eprintln!("[DEBUG] optionalPeer found: {}@{}", name, range);
-                        format!("{name}@{range}")
+                    peers.get(&peer_name).and_then(|v| v.as_str()).map(|range| {
+                        if std::env::var("DEKA_DEBUG").is_ok() {
+                            eprintln!("[DEBUG] optionalPeer found: {}@{}", peer_name, range);
+                        }
+                        format!("{peer_name}@{range}")
                     })
                 } else {
                     None
                 }
             })
             .collect();
-        build_dependency_specs(lock_key, peer_specs, ctx.bun_lock.as_deref())
+        build_dependency_specs(lock_key, peer_specs, bun_lock)
     } else {
         Vec::new()
     };
 
-    let duration_ms = job_start.elapsed().as_millis() as u64;
     Ok(InstallResult {
+        name: name.to_string(),
+        version,
+        cache_dir,
+        lock_key: lock_key.map(|s| s.to_string()),
+        integrity,
+        resolved,
+        metadata: build_lock_metadata(version_info),
         dependencies,
         optional_dependencies,
         optional_peers,
-        duration_ms,
     })
 }
 
@@ -388,62 +443,32 @@ fn prompt_yes_no(message: &str) -> Result<bool> {
     Ok(normalized == "y" || normalized == "yes")
 }
 
-fn emit_event(value: &Value) -> Result<()> {
-    println!("{}", value);
+fn emit_summary(installed: usize, duration_ms: u64, quiet: bool) -> Result<()> {
+    if quiet {
+        return Ok(());
+    }
+
+    if installed > 0 {
+        if installed == 1 {
+            eprintln!(" 1 package installed [{:.2}ms]", duration_ms);
+        } else {
+            eprintln!(" {} packages installed [{:.2}ms]", installed, duration_ms);
+        }
+    }
     Ok(())
 }
 
-fn emit_progress(scheduled: usize, completed: usize, active: usize) -> Result<()> {
-    emit_event(&json!({
-        "type": "progress",
-        "scheduled": scheduled,
-        "completed": completed,
-        "active": active,
-    }))
-}
-
-fn emit_package(
-    name: &str,
-    status: &str,
-    ecosystem: &str,
-    sequence: usize,
-    total: usize,
-    time_ms: u64,
-) -> Result<()> {
-    emit_event(&json!({
-        "type": "package",
-        "name": name,
-        "status": status,
-        "ecosystem": ecosystem,
-        "sequence": sequence,
-        "total": total,
-        "timeMs": time_ms,
-    }))
-}
-
-fn emit_summary(installed: usize, duration_ms: u64) -> Result<()> {
-    emit_event(&json!({
-        "type": "summary",
-        "packagesInstalled": installed,
-        "durationMs": duration_ms,
-    }))
-}
-
 fn emit_probe(path: &PathBuf) -> Result<()> {
-    emit_event(&json!({
-        "type": "probe",
-        "path": path,
-        "status": "ok",
-    }))
+    eprintln!("📁 {}", path.display());
+    Ok(())
 }
 
 struct InstallContext {
-    cache: CachePaths,
+    cache: Arc<CachePaths>,
     queue: VecDeque<InstallTask>,
     scheduled: HashSet<String>,
     installed: HashSet<String>,
     bun_lock: Option<Arc<BunLock>>,
-    completed_count: usize,
     current_os: String,
     current_cpu: String,
 }
@@ -455,14 +480,13 @@ struct InstallTask {
 }
 
 impl InstallContext {
-    fn new(cache: CachePaths, bun_lock: Option<Arc<BunLock>>) -> Self {
+    fn new(cache: Arc<CachePaths>, bun_lock: Option<Arc<BunLock>>) -> Self {
         Self {
             cache,
             queue: VecDeque::new(),
             scheduled: HashSet::new(),
             installed: HashSet::new(),
             bun_lock,
-            completed_count: 0,
             current_os: normalize_os(),
             current_cpu: normalize_cpu(),
         }
@@ -490,14 +514,6 @@ impl InstallContext {
 
     fn next_task(&mut self) -> Option<InstallTask> {
         self.queue.pop_front()
-    }
-
-    fn scheduled_count(&self) -> usize {
-        self.scheduled.len()
-    }
-
-    fn pending_count(&self) -> usize {
-        self.queue.len()
     }
 
     fn should_install_optional(&self, lock_key: &str, spec: &str) -> bool {
@@ -559,17 +575,21 @@ impl InstallContext {
         let install_key = format!("{}:{}@{}", path_str, name, version);
 
         if self.installed.contains(&install_key) {
-            eprintln!(
-                "[DEBUG] {} already installed at {:?}, skipping",
-                install_key, target_path
-            );
+            if std::env::var("DEKA_DEBUG").is_ok() {
+                eprintln!(
+                    "[DEBUG] {} already installed at {:?}, skipping",
+                    install_key, target_path
+                );
+            }
             return None;
         }
 
-        eprintln!(
-            "[DEBUG] {} (lock_key={:?}) -> {:?}",
-            name, lock_key, target_path
-        );
+        if std::env::var("DEKA_DEBUG").is_ok() {
+            eprintln!(
+                "[DEBUG] {} (lock_key={:?}) -> {:?}",
+                name, lock_key, target_path
+            );
+        }
         Some(target_path)
     }
 }
@@ -581,10 +601,16 @@ struct DependencySpec {
 }
 
 struct InstallResult {
+    name: String,
+    version: String,
+    cache_dir: PathBuf,
+    lock_key: Option<String>,
+    integrity: String,
+    resolved: String,
+    metadata: Value,
     dependencies: Vec<DependencySpec>,
     optional_dependencies: Vec<DependencySpec>,
     optional_peers: Vec<DependencySpec>,
-    duration_ms: u64,
 }
 
 fn normalize_os() -> String {
@@ -641,16 +667,22 @@ fn build_dependency_specs(
                 if let Some(parent) = parent_lock_key {
                     let nested_key = build_child_lock_key(Some(parent), &name);
                     if let Some(entry) = lock.get(&nested_key) {
-                        eprintln!("[DEBUG] {}: nested key '{}' found", name, nested_key);
+                        if std::env::var("DEKA_DEBUG").is_ok() {
+                            eprintln!("[DEBUG] {}: nested key '{}' found", name, nested_key);
+                        }
                         (nested_key, entry.descriptor.clone())
                     } else if let Some(entry) = lock.get(&name) {
-                        eprintln!(
-                            "[DEBUG] {}: using top-level key '{}' (parent={})",
-                            name, name, parent
-                        );
+                        if std::env::var("DEKA_DEBUG").is_ok() {
+                            eprintln!(
+                                "[DEBUG] {}: using top-level key '{}' (parent={})",
+                                name, name, parent
+                            );
+                        }
                         (name.clone(), entry.descriptor.clone())
                     } else {
-                        eprintln!("[DEBUG] {}: not in lockfile", name);
+                        if std::env::var("DEKA_DEBUG").is_ok() {
+                            eprintln!("[DEBUG] {}: not in lockfile", name);
+                        }
                         (name.clone(), spec.clone())
                     }
                 } else {

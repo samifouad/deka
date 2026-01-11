@@ -51,7 +51,8 @@ pub fn register(registry: &mut Registry) {
 pub fn cmd(context: &Context) {
     match build_payload(context) {
         Ok(payload) => {
-            if let Err(err) = run_install(payload) {
+            let runtime = tokio::runtime::Runtime::new().unwrap();
+            if let Err(err) = runtime.block_on(run_install(payload)) {
                 let message = err.to_string();
                 stdio::error("install", &message);
             }
