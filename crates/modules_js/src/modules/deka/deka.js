@@ -7976,9 +7976,11 @@ class Server extends EventEmitter {
         }
         const urlObj = new URL(req.url || "/", "http://localhost");
         const path = urlObj.pathname || "/";
-        if (!path.startsWith("/_introspect")) {
+        const prefix = path.startsWith("/_introspect") ? "/_introspect" : path.startsWith("/_deka") ? "/_deka" : null;
+        if (!prefix) {
             return false;
         }
+        const routePath = path.slice(prefix.length) || "/";
         const json = (status, body)=>{
             res.writeHead(status, {
                 "content-type": "application/json; charset=utf-8"
@@ -7986,7 +7988,7 @@ class Server extends EventEmitter {
             res.end(JSON.stringify(body));
         };
         try {
-            if (path === "/_introspect/health") {
+            if (routePath === "/health") {
                 json(200, {
                     status: "ok",
                     runtime: "deka-runtime",
@@ -7994,26 +7996,26 @@ class Server extends EventEmitter {
                 });
                 return true;
             }
-            if (path === "/_introspect/stats") {
+            if (routePath === "/stats") {
                 json(200, await op_introspect_stats2());
                 return true;
             }
-            if (path === "/_introspect/evict" && req.method === "POST") {
+            if (routePath === "/evict" && req.method === "POST") {
                 json(200, await op_introspect_evict2());
                 return true;
             }
-            if (path === "/_introspect/debug/top") {
+            if (routePath === "/debug/top") {
                 const sort = urlObj.searchParams.get("sort") || "cpu";
                 const limit = Number(urlObj.searchParams.get("limit") || "10");
                 json(200, await op_introspect_top2(sort, limit));
                 return true;
             }
-            if (path === "/_introspect/debug/workers") {
+            if (routePath === "/debug/workers") {
                 json(200, await op_introspect_workers2());
                 return true;
             }
-            if (path.startsWith("/_introspect/debug/isolate/")) {
-                const handler = decodeURIComponent(path.replace("/_introspect/debug/isolate/", ""));
+            if (routePath.startsWith("/debug/isolate/")) {
+                const handler = decodeURIComponent(routePath.replace("/debug/isolate/", ""));
                 if (req.method === "DELETE") {
                     json(200, await op_introspect_kill_isolate2(handler));
                     return true;
@@ -8031,7 +8033,7 @@ class Server extends EventEmitter {
                 });
                 return true;
             }
-            if (path === "/_introspect/debug/requests") {
+            if (routePath === "/debug/requests") {
                 const limit = Number(urlObj.searchParams.get("limit") || "200");
                 const archive = [
                     "1",
