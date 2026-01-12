@@ -2699,6 +2699,21 @@ function resolveWithExtensions(path, context = {}) {
         } else if (ext === ".jsx") {
             candidates.push(base.slice(0, -4) + ".tsx");
         }
+        const fallbackExts = [
+            ".js",
+            ".json",
+            ".node",
+            ".ts",
+            ".tsx",
+            ".jsx",
+            ".mjs",
+            ".cjs"
+        ];
+        for (const fallback of fallbackExts){
+            if (!candidates.includes(base + fallback)) {
+                candidates.push(base + fallback);
+            }
+        }
         for (const candidate of candidates){
             try {
                 return readModuleSource(candidate);
@@ -16035,6 +16050,21 @@ function resolveWithExtensions1(path, context = {}) {
             candidates.push(base.slice(0, -3) + ".ts");
         } else if (ext === ".jsx") {
             candidates.push(base.slice(0, -4) + ".tsx");
+        }
+        const fallbackExts = [
+            ".js",
+            ".json",
+            ".node",
+            ".ts",
+            ".tsx",
+            ".jsx",
+            ".mjs",
+            ".cjs"
+        ];
+        for (const fallback of fallbackExts){
+            if (!candidates.includes(base + fallback)) {
+                candidates.push(base + fallback);
+            }
         }
         for (const candidate of candidates){
             try {
