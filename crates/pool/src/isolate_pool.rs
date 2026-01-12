@@ -226,8 +226,7 @@ impl PoolConfig {
 }
 
 fn default_num_workers() -> usize {
-    let cores = num_cpus::get();
-    if cores < 2 { 1 } else { 2 }
+    num_cpus::get().max(1)
 }
 
 /// Scheduler strategy for routing requests to workers
