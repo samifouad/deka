@@ -68,21 +68,21 @@ async fn build_async(context: &Context) -> Result<(), String> {
         .map_err(|e| format!("Failed to create output directory: {}", e))?;
 
     // Bundle the entry file
-    // Use parallel bundler if DEKA_PARALLEL_BUNDLER=1
+    // Parallel bundler is default (set DEKA_PARALLEL_BUNDLER=0 to disable)
     let use_parallel = std::env::var("DEKA_PARALLEL_BUNDLER")
-        .map(|v| v == "1" || v == "true")
-        .unwrap_or(false);
+        .map(|v| v != "0" && v != "false")
+        .unwrap_or(true);
 
-    // Bundle the code (with or without parallelization)
+    // Bundle the code (parallel by default)
     let (bundle_code, css_code) = if use_parallel {
-        eprintln!(" using parallel bundler ({} workers)", num_cpus::get());
+        eprintln!(" [parallel] bundling with {} workers", num_cpus::get());
         let root = PathBuf::from(".").canonicalize()
             .map_err(|e| format!("Failed to get current directory: {}", e))?;
         let bundler = bundler::ParallelBundler::new(root);
         let code = bundler.bundle(&entry_path).await?;
         (code, None)  // Parallel bundler doesn't support CSS yet
     } else {
-        // Use cached bundler
+        // Use standard cached bundler
         let bundle = bundler::bundle_browser_assets_cached(&entry_path, &mut cache)
             .map_err(|e| format!("Bundle failed: {}", e))?;
         (bundle.code, bundle.css)
