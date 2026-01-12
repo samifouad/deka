@@ -25,6 +25,13 @@ async fn build_async(context: &Context) -> Result<(), String> {
     init_env();
     let start = Instant::now();
 
+    // Initialize module cache
+    let mut cache = bundler::ModuleCache::new(None);
+    if cache.is_enabled() {
+        let stats = cache.stats();
+        eprintln!(" [cache] enabled ({} in memory, {} on disk)", stats.memory_count, stats.disk_count);
+    }
+
     let entry = context
         .args
         .positionals
@@ -56,16 +63,19 @@ async fn build_async(context: &Context) -> Result<(), String> {
         .map(|v| v == "1" || v == "true")
         .unwrap_or(false);
 
-    let bundle_code = if use_parallel {
+    // Bundle the code (with or without parallelization)
+    let (bundle_code, css_code) = if use_parallel {
         eprintln!(" using parallel bundler ({} workers)", num_cpus::get());
         let root = PathBuf::from(".").canonicalize()
             .map_err(|e| format!("Failed to get current directory: {}", e))?;
         let bundler = bundler::ParallelBundler::new(root);
-        bundler.bundle(&entry_path).await?
+        let code = bundler.bundle(&entry_path).await?;
+        (code, None)  // Parallel bundler doesn't support CSS yet
     } else {
-        let bundle = bundler::bundle_browser_assets(&entry_path)
+        // Use cached bundler
+        let bundle = bundler::bundle_browser_assets_cached(&entry_path, &mut cache)
             .map_err(|e| format!("Bundle failed: {}", e))?;
-        bundle.code
+        (bundle.code, bundle.css)
     };
 
     // Generate filenames
@@ -82,19 +92,15 @@ async fn build_async(context: &Context) -> Result<(), String> {
     std::fs::write(&js_path, &bundle_code)
         .map_err(|e| format!("Failed to write JS bundle: {}", e))?;
 
-    // Write CSS if present (only with standard bundler for now)
+    // Write CSS if present
     let mut css_name = None;
-    if !use_parallel {
-        let bundle = bundler::bundle_browser_assets(&entry_path)
-            .map_err(|e| format!("Bundle failed: {}", e))?;
-        if let Some(css_code) = bundle.css {
-            let css_hash = hash_string(&css_code);
-            let css_file = format!("{}-{}.css", entry_name, css_hash);
-            css_name = Some(css_file.clone());
-            let css_path = outdir_path.join(&css_file);
-            std::fs::write(&css_path, css_code)
-                .map_err(|e| format!("Failed to write CSS: {}", e))?;
-        }
+    if let Some(css_content) = css_code {
+        let css_hash = hash_string(&css_content);
+        let css_file = format!("{}-{}.css", entry_name, css_hash);
+        css_name = Some(css_file.clone());
+        let css_path = outdir_path.join(&css_file);
+        std::fs::write(&css_path, css_content)
+            .map_err(|e| format!("Failed to write CSS: {}", e))?;
     }
 
     // Write HTML wrapper
