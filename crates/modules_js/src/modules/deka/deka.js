@@ -8045,13 +8045,13 @@ class Server extends EventEmitter {
                     "yes",
                     "on"
                 ].includes(String(urlObj.searchParams.get("archive") || "").toLowerCase());
-                const payload = await op_introspect_requests2(limit, archive ? 1 : 0);
-                json(200, {
-                    ...payload,
-                    runtime_errors: globalThis.__dekaIntrospectErrors || {
-                        count: 0,
-                        last: null
-                    }
+                json(200, await op_introspect_requests2(limit, archive ? 1 : 0));
+                return true;
+            }
+            if (routePath === "/debug/runtime_errors") {
+                json(200, globalThis.__dekaIntrospectErrors || {
+                    count: 0,
+                    last: null
                 });
                 return true;
             }
