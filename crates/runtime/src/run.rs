@@ -108,6 +108,8 @@ throw err;\
 
     let runtime_cfg = runtime_config::RuntimeConfig::load();
     let mut pool_config = PoolConfig::from_env();
+    // Run mode should allow long-lived servers without timing out.
+    pool_config.request_timeout_ms = 0;
     if let Some(enabled) = runtime_cfg.code_cache_enabled() {
         pool_config.enable_code_cache = enabled;
     }
