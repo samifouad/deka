@@ -27,6 +27,16 @@ async fn build_async(context: &Context) -> Result<(), String> {
 
     // Initialize module cache
     let mut cache = bundler::ModuleCache::new(None);
+
+    // Handle --clear-cache flag
+    if context.args.flags.contains_key("--clear-cache") {
+        eprintln!(" [cache] clearing cache...");
+        cache.clear()
+            .map_err(|e| format!("Failed to clear cache: {}", e))?;
+        eprintln!(" [cache] cache cleared successfully");
+        return Ok(());
+    }
+
     if cache.is_enabled() {
         let stats = cache.stats();
         eprintln!(" [cache] enabled ({} in memory, {} on disk)", stats.memory_count, stats.disk_count);

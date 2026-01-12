@@ -35,8 +35,10 @@ pub struct ModuleCache {
 impl ModuleCache {
     /// Create a new module cache
     pub fn new(cache_dir: Option<PathBuf>) -> Self {
-        let enabled = std::env::var("DEKA_BUNDLER_NO_CACHE")
-            .map(|v| v != "1" && v != "true")
+        // Cache is enabled by default
+        // Set DEKA_BUNDLER_CACHE=0 or DEKA_BUNDLER_CACHE=false to disable
+        let enabled = std::env::var("DEKA_BUNDLER_CACHE")
+            .map(|v| v != "0" && v != "false")
             .unwrap_or(true);
 
         let cache_dir = cache_dir.unwrap_or_else(|| {
