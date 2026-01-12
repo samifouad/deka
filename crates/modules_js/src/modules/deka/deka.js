@@ -7967,6 +7967,90 @@ class Server extends EventEmitter {
         this.emit("close");
         if (callback) callback();
     }
+    async handleIntrospect(req, res) {
+        if (!globalThis.process?.env?.DEKA_INTROSPECT) {
+            return false;
+        }
+        const urlObj = new URL(req.url || "/", "http://localhost");
+        const path = urlObj.pathname || "/";
+        if (!path.startsWith("/_introspect")) {
+            return false;
+        }
+        const json = (status, body)=>{
+            res.writeHead(status, {
+                "content-type": "application/json; charset=utf-8"
+            });
+            res.end(JSON.stringify(body));
+        };
+        try {
+            if (path === "/_introspect/health") {
+                json(200, {
+                    status: "ok",
+                    runtime: "deka-runtime",
+                    version: "0.1.0"
+                });
+                return true;
+            }
+            if (path === "/_introspect/stats") {
+                json(200, await op_introspect_stats2());
+                return true;
+            }
+            if (path === "/_introspect/evict" && req.method === "POST") {
+                json(200, await op_introspect_evict2());
+                return true;
+            }
+            if (path === "/_introspect/debug/top") {
+                const sort = urlObj.searchParams.get("sort") || "cpu";
+                const limit = Number(urlObj.searchParams.get("limit") || "10");
+                json(200, await op_introspect_top2(sort, limit));
+                return true;
+            }
+            if (path === "/_introspect/debug/workers") {
+                json(200, await op_introspect_workers2());
+                return true;
+            }
+            if (path.startsWith("/_introspect/debug/isolate/")) {
+                const handler = decodeURIComponent(path.replace("/_introspect/debug/isolate/", ""));
+                if (req.method === "DELETE") {
+                    json(200, await op_introspect_kill_isolate2(handler));
+                    return true;
+                }
+                const metrics = await op_introspect_isolate2(handler);
+                if (!metrics) {
+                    json(404, {
+                        status: "not_found"
+                    });
+                    return true;
+                }
+                json(200, {
+                    status: "ok",
+                    metrics
+                });
+                return true;
+            }
+            if (path === "/_introspect/debug/requests") {
+                const limit = Number(urlObj.searchParams.get("limit") || "200");
+                const archive = [
+                    "1",
+                    "true",
+                    "yes",
+                    "on"
+                ].includes(String(urlObj.searchParams.get("archive") || "").toLowerCase());
+                json(200, await op_introspect_requests2(limit, archive ? 1 : 0));
+                return true;
+            }
+            json(404, {
+                status: "not_found"
+            });
+            return true;
+        } catch (error) {
+            json(500, {
+                status: "error",
+                error: error?.message || String(error)
+            });
+            return true;
+        }
+    }
     async handleLocalRequest(request) {
         return new Promise((resolve)=>{
             const reqHeaders = {};
@@ -7981,23 +8065,26 @@ class Server extends EventEmitter {
             });
             req.method = request.method || "GET";
             const res = new ServerResponse(resolve);
-            this.emit("request", req, res);
-            if (this.handler) {
-                const result = this.handler(req, res);
-                if (result && typeof result.then === "function") {
-                    result.catch((error)=>{
-                        res.writeHead(500, {
-                            "content-type": "text/plain"
+            this.handleIntrospect(req, res).then((handled)=>{
+                if (handled) return;
+                this.emit("request", req, res);
+                if (this.handler) {
+                    const result = this.handler(req, res);
+                    if (result && typeof result.then === "function") {
+                        result.catch((error)=>{
+                            res.writeHead(500, {
+                                "content-type": "text/plain"
+                            });
+                            res.end(String(error));
                         });
-                        res.end(String(error));
-                    });
+                    }
                 }
-            }
-            if (request.body && request.body.length > 0) {
-                req.emitBody(request.body);
-            } else {
-                req.emit("end");
-            }
+                if (request.body && request.body.length > 0) {
+                    req.emitBody(request.body);
+                } else {
+                    req.emit("end");
+                }
+            });
         });
     }
     async acceptLoop() {
@@ -8045,6 +8132,9 @@ class Server extends EventEmitter {
         });
         req.method = method;
         const res = new ServerResponse(()=>new Response1(""), streamId);
+        if (await this.handleIntrospect(req, res)) {
+            return;
+        }
         this.emit("request", req, res);
         if (this.handler) {
             const result = this.handler(req, res);
