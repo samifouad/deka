@@ -3171,25 +3171,6 @@ function loadModuleExportsInternal(specifier, referrer, mode, asyncMode) {
         }
         return entry.exports;
     }
-    let moduleKind = detectModuleKind(info.path, info.source);
-    if (info.path.endsWith("bindings_wasm.js")) {
-        const cjsModule = /\bmodule\.exports\b/.test(info.source);
-        const cjsExports = /\bexports\./.test(info.source);
-        const cjsRequire = /\brequire\(/.test(info.source);
-        if (cjsModule || cjsExports || cjsRequire) {
-            moduleKind = "cjs";
-        }
-        debugPrint(`[deka-run] module-kind ${moduleKind} for ${info.path}`);
-        debugPrint(`[deka-run] bindings_wasm cjs flags module=${cjsModule} exports=${cjsExports} require=${cjsRequire}`);
-    }
-    if (info.path.endsWith(".node")) {
-        const isMain = referrer === null;
-        return loadCjsModule(info, mode, isMain);
-    }
-    if (moduleKind === "cjs") {
-        const isMain = referrer === null;
-        return loadCjsModule(info, mode, isMain);
-    }
     if (info.path.endsWith(".jsonc")) {
         return loadJsoncModule(info, mode);
     }
@@ -3217,6 +3198,25 @@ function loadModuleExportsInternal(specifier, referrer, mode, asyncMode) {
             deps: []
         });
         return exports;
+    }
+    let moduleKind = detectModuleKind(info.path, info.source);
+    if (info.path.endsWith("bindings_wasm.js")) {
+        const cjsModule = /\bmodule\.exports\b/.test(info.source);
+        const cjsExports = /\bexports\./.test(info.source);
+        const cjsRequire = /\brequire\(/.test(info.source);
+        if (cjsModule || cjsExports || cjsRequire) {
+            moduleKind = "cjs";
+        }
+        debugPrint(`[deka-run] module-kind ${moduleKind} for ${info.path}`);
+        debugPrint(`[deka-run] bindings_wasm cjs flags module=${cjsModule} exports=${cjsExports} require=${cjsRequire}`);
+    }
+    if (info.path.endsWith(".node")) {
+        const isMain = referrer === null;
+        return loadCjsModule(info, mode, isMain);
+    }
+    if (moduleKind === "cjs") {
+        const isMain = referrer === null;
+        return loadCjsModule(info, mode, isMain);
     }
     if (info.path.endsWith(".html")) {
         return loadHtmlModule(info, mode);
@@ -16508,25 +16508,6 @@ function loadModuleExportsInternal1(specifier, referrer, mode, asyncMode) {
         }
         return entry.exports;
     }
-    let moduleKind = detectModuleKind1(info.path, info.source);
-    if (info.path.endsWith("bindings_wasm.js")) {
-        const cjsModule = /\bmodule\.exports\b/.test(info.source);
-        const cjsExports = /\bexports\./.test(info.source);
-        const cjsRequire = /\brequire\(/.test(info.source);
-        if (cjsModule || cjsExports || cjsRequire) {
-            moduleKind = "cjs";
-        }
-        debugPrint1(`[deka-run] module-kind ${moduleKind} for ${info.path}`);
-        debugPrint1(`[deka-run] bindings_wasm cjs flags module=${cjsModule} exports=${cjsExports} require=${cjsRequire}`);
-    }
-    if (info.path.endsWith(".node")) {
-        const isMain = referrer === null;
-        return loadCjsModule1(info, mode, isMain);
-    }
-    if (moduleKind === "cjs") {
-        const isMain = referrer === null;
-        return loadCjsModule1(info, mode, isMain);
-    }
     if (info.path.endsWith(".jsonc")) {
         return loadJsoncModule1(info, mode);
     }
@@ -16554,6 +16535,25 @@ function loadModuleExportsInternal1(specifier, referrer, mode, asyncMode) {
             deps: []
         });
         return exports;
+    }
+    let moduleKind = detectModuleKind1(info.path, info.source);
+    if (info.path.endsWith("bindings_wasm.js")) {
+        const cjsModule = /\bmodule\.exports\b/.test(info.source);
+        const cjsExports = /\bexports\./.test(info.source);
+        const cjsRequire = /\brequire\(/.test(info.source);
+        if (cjsModule || cjsExports || cjsRequire) {
+            moduleKind = "cjs";
+        }
+        debugPrint1(`[deka-run] module-kind ${moduleKind} for ${info.path}`);
+        debugPrint1(`[deka-run] bindings_wasm cjs flags module=${cjsModule} exports=${cjsExports} require=${cjsRequire}`);
+    }
+    if (info.path.endsWith(".node")) {
+        const isMain = referrer === null;
+        return loadCjsModule1(info, mode, isMain);
+    }
+    if (moduleKind === "cjs") {
+        const isMain = referrer === null;
+        return loadCjsModule1(info, mode, isMain);
     }
     if (info.path.endsWith(".html")) {
         return loadHtmlModule1(info, mode);
