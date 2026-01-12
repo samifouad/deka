@@ -3123,6 +3123,10 @@ function loadJsoncModule(info, mode) {
 function loadModuleExportsInternal(specifier, referrer, mode, asyncMode) {
     referrer = fromFileUrl(referrer);
     specifier = fromFileUrl(specifier) || specifier;
+    if (globalThis.process?.env?.DEKA_RESOLVE_DEBUG) {
+        const kind = isBareSpecifier(specifier) ? "bare" : specifier.startsWith(".") ? "relative" : specifier.startsWith("/") ? "absolute" : specifier.startsWith("http://") || specifier.startsWith("https://") ? "url" : "other";
+        console.log(`[deka-resolve] ${mode} ${specifier} from ${referrer || "<root>"} (${kind})`);
+    }
     if (specifier === "#module-sync-enabled") {
         return mode === "require" ? false : {
             default: false
@@ -4816,6 +4820,19 @@ function deprecate(fn, msg, code) {
 function debuglog(_section) {
     return (..._args)=>{};
 }
+function inherits(ctor, superCtor) {
+    if (typeof ctor !== "function" || typeof superCtor !== "function") {
+        throw new TypeError("util.inherits expects two constructors");
+    }
+    ctor.super_ = superCtor;
+    ctor.prototype = Object.create(superCtor.prototype, {
+        constructor: {
+            value: ctor,
+            writable: true,
+            configurable: true
+        }
+    });
+}
 const types = {
     isPromise (value) {
         return !!value && typeof value.then === "function";
@@ -4826,6 +4843,7 @@ globalThis.__dekaNodeUtil = {
     format,
     formatWithOptions,
     deprecate,
+    inherits,
     promisify,
     debuglog,
     types,
@@ -16475,6 +16493,10 @@ function loadJsoncModule1(info, mode) {
 function loadModuleExportsInternal1(specifier, referrer, mode, asyncMode) {
     referrer = fromFileUrl1(referrer);
     specifier = fromFileUrl1(specifier) || specifier;
+    if (globalThis.process?.env?.DEKA_RESOLVE_DEBUG) {
+        const kind = isBareSpecifier1(specifier) ? "bare" : specifier.startsWith(".") ? "relative" : specifier.startsWith("/") ? "absolute" : specifier.startsWith("http://") || specifier.startsWith("https://") ? "url" : "other";
+        console.log(`[deka-resolve] ${mode} ${specifier} from ${referrer || "<root>"} (${kind})`);
+    }
     if (specifier === "#module-sync-enabled") {
         return mode === "require" ? false : {
             default: false
