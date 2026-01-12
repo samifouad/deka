@@ -7683,6 +7683,15 @@ class IncomingMessage extends EventEmitter {
     setEncoding(encoding) {
         this.encoding = encoding;
     }
+    /**
+     * Minimal stream API for compatibility with send/finalhandler.
+     */
+    unpipe() {
+        return this;
+    }
+    pipe(dest) {
+        return dest;
+    }
     emitBody(body) {
         if (this.encoding) {
             const decoder = new TextDecoder(this.encoding);
