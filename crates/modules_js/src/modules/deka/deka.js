@@ -94,6 +94,9 @@ function wrapOps(ops) {
 }
 const ops = globalThis.process?.env?.DEKA_VERBOSE ? wrapOps(baseOps) : baseOps;
 globalThis.__dekaOps = ops;
+// NOTE: This file is the authoritative runtime shim source for modules_js.
+// Keep changes here (not in a separate TS pipeline) and document compatibility
+// shims with JSDoc to make future updates easier.
 const { op_read_handler_source, op_read_module_source, op_read_env, op_stdout_write, op_stderr_write, op_execute_isolate, op_transform_module, op_bundle_browser, op_bundle_browser_assets, op_bundle_css, op_transform_css, op_tailwind_process, op_read_file, op_fs_exists, op_fs_stat, op_fs_read_dir, op_fs_mkdir, op_fs_remove_file, op_fs_append, op_fs_append_bytes, op_fs_open, op_fs_close, op_fs_read, op_fs_write, op_fs_copy_file, op_zlib_gzip, op_write_file, op_write_file_base64, op_introspect_stats, op_introspect_top, op_introspect_workers, op_introspect_isolate, op_introspect_kill_isolate, op_introspect_requests, op_introspect_evict, op_set_introspect_profiling, op_ws_send, op_ws_send_binary, op_ws_close, op_blob_create, op_blob_get, op_blob_size, op_blob_type, op_blob_slice, op_blob_drop, op_stream_create, op_stream_enqueue, op_stream_close, op_stream_read, op_stream_drop, op_crypto_random, op_crypto_digest, op_crypto_hmac, op_crypto_pbkdf2, op_crypto_aes_gcm_encrypt, op_crypto_aes_gcm_decrypt, op_crypto_key_info, op_crypto_key_from_secret, op_crypto_key_from_pem, op_crypto_key_from_der, op_crypto_key_from_jwk, op_crypto_key_export_pem, op_crypto_key_export_der, op_crypto_key_export_jwk, op_crypto_key_public, op_crypto_key_equals, op_crypto_sign, op_crypto_verify, op_crypto_generate_keypair, op_crypto_get_curves, op_crypto_ecdh_new, op_crypto_ecdh_generate, op_crypto_ecdh_get_public, op_crypto_ecdh_get_private, op_crypto_ecdh_set_private, op_crypto_ecdh_compute_secret, op_crypto_ecdh_convert, op_url_parse, op_napi_open, op_http_fetch, op_process_spawn, op_process_spawn_sync, op_process_read_stdout, op_process_read_stderr, op_process_write_stdin, op_process_close_stdin, op_process_wait, op_process_kill, op_sleep, op_udp_bind, op_udp_send, op_udp_recv, op_udp_close, op_udp_local_addr, op_udp_peer_addr, op_udp_connect, op_udp_disconnect, op_udp_set_broadcast, op_udp_set_ttl, op_udp_set_multicast_ttl, op_udp_set_multicast_loop, op_udp_set_multicast_if, op_udp_join_multicast, op_udp_leave_multicast, op_udp_set_recv_buffer_size, op_udp_set_send_buffer_size, op_udp_get_recv_buffer_size, op_udp_get_send_buffer_size, op_dns_lookup, op_dns_reverse, op_tcp_listen, op_tcp_accept, op_tcp_connect, op_tcp_read, op_tcp_write, op_tcp_close, op_tcp_shutdown, op_tcp_local_addr, op_tcp_peer_addr, op_tcp_listener_addr, op_tcp_listener_close } = ops;
 if (typeof globalThis.process === "undefined") {
     const env = op_read_env();
@@ -4589,10 +4592,16 @@ const nodeAssert = {
 globalThis.__dekaNodeAssert = nodeAssert;
 class EventEmitter {
     listeners = new Map();
+    _ensureListeners() {
+        if (!this.listeners || !(this.listeners instanceof Map)) {
+            this.listeners = new Map();
+        }
+        return this.listeners;
+    }
     on(event, listener) {
-        const list = this.listeners.get(event) || new Set();
+        const list = this._ensureListeners().get(event) || new Set();
         list.add(listener);
-        this.listeners.set(event, list);
+        this._ensureListeners().set(event, list);
         return this;
     }
     addListener(event, listener) {
@@ -4606,13 +4615,13 @@ class EventEmitter {
         return this.on(event, wrapped);
     }
     prependListener(event, listener) {
-        const list = this.listeners.get(event) || new Set();
+        const list = this._ensureListeners().get(event) || new Set();
         const next = new Set();
         next.add(listener);
         for (const existing of list){
             next.add(existing);
         }
-        this.listeners.set(event, next);
+        this._ensureListeners().set(event, next);
         return this;
     }
     prependOnceListener(event, listener) {
@@ -4623,11 +4632,11 @@ class EventEmitter {
         return this.prependListener(event, wrapped);
     }
     off(event, listener) {
-        const list = this.listeners.get(event);
+        const list = this._ensureListeners().get(event);
         if (list) {
             list.delete(listener);
             if (list.size === 0) {
-                this.listeners.delete(event);
+                this._ensureListeners().delete(event);
             }
         }
         return this;
@@ -4636,7 +4645,7 @@ class EventEmitter {
         return this.off(event, listener);
     }
     emit(event, ...args) {
-        const list = this.listeners.get(event);
+        const list = this._ensureListeners().get(event);
         if (!list) return false;
         for (const listener of Array.from(list)){
             listener(...args);
@@ -4644,7 +4653,7 @@ class EventEmitter {
         return true;
     }
     listenersFor(event) {
-        return Array.from(this.listeners.get(event) || []);
+        return Array.from(this._ensureListeners().get(event) || []);
     }
 }
 const events = EventEmitter;
@@ -4796,6 +4805,9 @@ function promisify(fn) {
             });
         });
 }
+/**
+ * Node-compatible util.deprecate shim used by debug and other deps.
+ */
 function deprecate(fn, msg, code) {
     if (typeof fn !== "function") {
         throw new TypeError("util.deprecate expects a function");
@@ -4817,9 +4829,15 @@ function deprecate(fn, msg, code) {
     wrapper.prototype = fn.prototype;
     return wrapper;
 }
+/**
+ * Minimal util.debuglog shim (no-op logger).
+ */
 function debuglog(_section) {
     return (..._args)=>{};
 }
+/**
+ * Node-compatible util.inherits shim for classic constructor patterns.
+ */
 function inherits(ctor, superCtor) {
     if (typeof ctor !== "function" || typeof superCtor !== "function") {
         throw new TypeError("util.inherits expects two constructors");
@@ -8260,6 +8278,9 @@ class PassThrough extends Readable {
 }
 class Transform extends PassThrough {
 }
+/**
+ * Classic Stream constructor for CJS modules that call Stream.call(this).
+ */
 function Stream() {
     EventEmitter.call(this);
 }
