@@ -7974,6 +7974,10 @@ class Server extends EventEmitter {
         if (!globalThis.process?.env?.DEKA_INTROSPECT) {
             return false;
         }
+        if (!globalThis.__dekaIntrospectEnabled) {
+            globalThis.__dekaIntrospectEnabled = true;
+            op_set_introspect_profiling2(1);
+        }
         const urlObj = new URL(req.url || "/", "http://localhost");
         const path = urlObj.pathname || "/";
         const prefix = path.startsWith("/_introspect") ? "/_introspect" : path.startsWith("/_deka") ? "/_deka" : null;
@@ -8041,7 +8045,14 @@ class Server extends EventEmitter {
                     "yes",
                     "on"
                 ].includes(String(urlObj.searchParams.get("archive") || "").toLowerCase());
-                json(200, await op_introspect_requests2(limit, archive ? 1 : 0));
+                const payload = await op_introspect_requests2(limit, archive ? 1 : 0);
+                json(200, {
+                    ...payload,
+                    runtime_errors: globalThis.__dekaIntrospectErrors || {
+                        count: 0,
+                        last: null
+                    }
+                });
                 return true;
             }
             json(404, {
@@ -8077,6 +8088,20 @@ class Server extends EventEmitter {
                     const result = this.handler(req, res);
                     if (result && typeof result.then === "function") {
                         result.catch((error)=>{
+                            if (!globalThis.__dekaIntrospectErrors) {
+                                globalThis.__dekaIntrospectErrors = {
+                                    count: 0,
+                                    last: null
+                                };
+                            }
+                            globalThis.__dekaIntrospectErrors.count += 1;
+                            globalThis.__dekaIntrospectErrors.last = {
+                                message: error?.message || String(error),
+                                stack: error?.stack || null,
+                                time: new Date().toISOString(),
+                                url: req.url || null,
+                                method: req.method || null
+                            };
                             res.writeHead(500, {
                                 "content-type": "text/plain"
                             });
@@ -8145,6 +8170,20 @@ class Server extends EventEmitter {
             const result = this.handler(req, res);
             if (result && typeof result.then === "function") {
                 result.catch((error)=>{
+                    if (!globalThis.__dekaIntrospectErrors) {
+                        globalThis.__dekaIntrospectErrors = {
+                            count: 0,
+                            last: null
+                        };
+                    }
+                    globalThis.__dekaIntrospectErrors.count += 1;
+                    globalThis.__dekaIntrospectErrors.last = {
+                        message: error?.message || String(error),
+                        stack: error?.stack || null,
+                        time: new Date().toISOString(),
+                        url: req.url || null,
+                        method: req.method || null
+                    };
                     res.writeHead(500, {
                         "content-type": "text/plain"
                     });
