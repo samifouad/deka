@@ -8260,12 +8260,22 @@ class PassThrough extends Readable {
 }
 class Transform extends PassThrough {
 }
-globalThis.__dekaNodeStream = {
-    Readable,
-    Writable,
-    PassThrough,
-    Transform
-};
+function Stream() {
+    EventEmitter.call(this);
+}
+Stream.prototype = Object.create(EventEmitter.prototype, {
+    constructor: {
+        value: Stream,
+        writable: true,
+        configurable: true
+    }
+});
+Stream.Readable = Readable;
+Stream.Writable = Writable;
+Stream.PassThrough = PassThrough;
+Stream.Transform = Transform;
+Stream.Stream = Stream;
+globalThis.__dekaNodeStream = Stream;
 const builtinModules = [
     "node:http",
     "node:https",
