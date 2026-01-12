@@ -146,6 +146,7 @@ throw err;\
             RequestData {
             handler_code,
             request_value,
+            request_parts: None,
             mode: execution_mode,
         },
     )

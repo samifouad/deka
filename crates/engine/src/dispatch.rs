@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::RuntimeState;
 use crate::envelope::{RequestEnvelope, ResponseEnvelope};
 use pool::{ExecutionMode, RequestData};
+use pool::RequestParts;
 
 async fn execute_request_data(
     state: Arc<RuntimeState>,
@@ -40,12 +41,41 @@ pub async fn execute_request(
     state: Arc<RuntimeState>,
     request: RequestEnvelope,
 ) -> Result<ResponseEnvelope, String> {
-    let request_value =
-        serde_json::to_value(&request).map_err(|err| format!("serialize request: {}", err))?;
+    let request_parts = pool::RequestParts {
+        url: request.url.clone(),
+        method: request.method.clone(),
+        headers: request.headers.into_iter().collect(),
+        body: request.body.clone(),
+    };
 
     let request_data = RequestData {
         handler_code: state.handler_code.clone(),
-        request_value,
+        request_value: serde_json::Value::Null,
+        request_parts: Some(request_parts),
+        mode: ExecutionMode::Request,
+    };
+
+    execute_request_data(state, request_data).await
+}
+
+pub async fn execute_request_parts(
+    state: Arc<RuntimeState>,
+    url: String,
+    method: String,
+    headers: Vec<(String, String)>,
+    body: Option<String>,
+) -> Result<ResponseEnvelope, String> {
+    let request_parts = RequestParts {
+        url,
+        method,
+        headers,
+        body,
+    };
+
+    let request_data = RequestData {
+        handler_code: state.handler_code.clone(),
+        request_value: serde_json::Value::Null,
+        request_parts: Some(request_parts),
         mode: ExecutionMode::Request,
     };
 
@@ -59,6 +89,7 @@ pub async fn execute_request_value(
     let request_data = RequestData {
         handler_code: state.handler_code.clone(),
         request_value,
+        request_parts: None,
         mode: ExecutionMode::Request,
     };
 

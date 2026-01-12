@@ -265,7 +265,16 @@ impl HandlerKey {
 pub struct RequestData {
     pub handler_code: String,
     pub request_value: serde_json::Value,
+    pub request_parts: Option<RequestParts>,
     pub mode: ExecutionMode,
+}
+
+#[derive(Clone)]
+pub struct RequestParts {
+    pub url: String,
+    pub method: String,
+    pub headers: Vec<(String, String)>,
+    pub body: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -2147,7 +2156,7 @@ impl WorkerThread {
         };
 
         let wrapped_handler_code = format!(
-            "(function() {{\n{}\nif (typeof globalThis.app === 'undefined') {{ if (typeof __dekaDefault !== 'undefined') {{ if (__dekaDefault && typeof __dekaDefault === 'object' && !__dekaDefault.__dekaServer && (typeof __dekaDefault.fetch === 'function' || typeof __dekaDefault.routes === 'object')) {{ globalThis.app = globalThis.__deka.serve(__dekaDefault); }} else {{ globalThis.app = __dekaDefault; }} }} else if (typeof app !== 'undefined') {{ globalThis.app = app; }} }}\n}})();",
+            "(function() {{\n{}\nif (typeof globalThis.app === 'undefined') {{ if (typeof __dekaDefault !== 'undefined') {{ if (typeof __dekaDefault === 'function' && typeof globalThis.__dekaNodeExpressAdapter === 'function' && (typeof __dekaDefault.handle === 'function' || typeof __dekaDefault.listen === 'function')) {{ globalThis.app = globalThis.__dekaNodeExpressAdapter(__dekaDefault); }} else if (__dekaDefault && typeof __dekaDefault === 'object' && !__dekaDefault.__dekaServer && (typeof __dekaDefault.fetch === 'function' || typeof __dekaDefault.routes === 'object')) {{ globalThis.app = globalThis.__deka.serve(__dekaDefault); }} else {{ globalThis.app = __dekaDefault; }} }} else if (typeof app !== 'undefined') {{ if (typeof app === 'function' && typeof globalThis.__dekaNodeExpressAdapter === 'function' && (typeof app.handle === 'function' || typeof app.listen === 'function')) {{ globalThis.app = globalThis.__dekaNodeExpressAdapter(app); }} else {{ globalThis.app = app; }} }} }}\n}})();",
             handler_code
         );
 
@@ -2167,6 +2176,7 @@ impl WorkerThread {
         if let Err(err) = set_request_globals(
             &mut isolate.runtime,
             &request.request_data.request_value,
+            request.request_data.request_parts.as_ref(),
             &self.deka_args,
         ) {
             isolate.active_requests = 0;
@@ -2644,20 +2654,66 @@ impl WorkerThread {
     }
 }
 
+fn set_request_data_from_parts(
+    scope: &mut v8::HandleScope,
+    global: v8::Local<v8::Object>,
+    parts: &RequestParts,
+) -> Result<(), String> {
+    let obj = v8::Object::new(scope);
+
+    let url_key = v8::String::new(scope, "url").ok_or_else(|| "url key".to_string())?;
+    let url_val = v8::String::new(scope, &parts.url).ok_or_else(|| "url val".to_string())?;
+    obj.set(scope, url_key.into(), url_val.into());
+
+    let method_key = v8::String::new(scope, "method").ok_or_else(|| "method key".to_string())?;
+    let method_val =
+        v8::String::new(scope, &parts.method).ok_or_else(|| "method val".to_string())?;
+    obj.set(scope, method_key.into(), method_val.into());
+
+    let headers_key =
+        v8::String::new(scope, "headers").ok_or_else(|| "headers key".to_string())?;
+    let headers_obj = v8::Object::new(scope);
+    for (key, value) in &parts.headers {
+        let k = v8::String::new(scope, key).ok_or_else(|| "header key".to_string())?;
+        let v = v8::String::new(scope, value).ok_or_else(|| "header val".to_string())?;
+        headers_obj.set(scope, k.into(), v.into());
+    }
+    obj.set(scope, headers_key.into(), headers_obj.into());
+
+    let body_key = v8::String::new(scope, "body").ok_or_else(|| "body key".to_string())?;
+    let body_val = match &parts.body {
+        Some(body) => v8::String::new(scope, body)
+            .ok_or_else(|| "body val".to_string())?
+            .into(),
+        None => v8::null(scope).into(),
+    };
+    obj.set(scope, body_key.into(), body_val);
+
+    let request_key =
+        v8::String::new(scope, "__requestData").ok_or_else(|| "request data key".to_string())?;
+    global.set(scope, request_key.into(), obj.into());
+    Ok(())
+}
+
 fn set_request_globals(
     runtime: &mut JsRuntime,
     request: &serde_json::Value,
+    request_parts: Option<&RequestParts>,
     deka_args: &serde_json::Value,
 ) -> Result<(), String> {
     let scope = &mut runtime.handle_scope();
     let context = scope.get_current_context();
     let global = context.global(scope);
 
-    let request_value =
-        serde_v8::to_v8(scope, request).map_err(|err| format!("request data to v8: {}", err))?;
-    let request_key =
-        v8::String::new(scope, "__requestData").ok_or_else(|| "request data key".to_string())?;
-    global.set(scope, request_key.into(), request_value);
+    if let Some(parts) = request_parts {
+        set_request_data_from_parts(scope, global, parts)?;
+    } else {
+        let request_key = v8::String::new(scope, "__requestData")
+            .ok_or_else(|| "request data key".to_string())?;
+        let request_value = serde_v8::to_v8(scope, request)
+            .map_err(|err| format!("request data to v8: {}", err))?;
+        global.set(scope, request_key.into(), request_value);
+    }
 
     let ctx_value = request
         .get("context")

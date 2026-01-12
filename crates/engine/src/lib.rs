@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use pool::HandlerKey;
 
-pub use dispatch::{execute_request, execute_request_value};
+pub use dispatch::{execute_request, execute_request_parts, execute_request_value};
 pub use engine::{RuntimeEngine, engine, set_engine};
 pub use envelope::{RequestEnvelope, ResponseEnvelope};
 pub use introspect_archive::IntrospectArchive;

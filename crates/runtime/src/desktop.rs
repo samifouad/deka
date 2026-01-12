@@ -223,6 +223,7 @@ fn handle_deka_request(
         let request_data = RequestData {
             handler_code: state.handler_code.clone(),
             request_value,
+            request_parts: None,
             mode: ExecutionMode::Request,
         };
 

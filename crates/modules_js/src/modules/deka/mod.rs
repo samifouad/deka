@@ -688,6 +688,7 @@ async fn op_execute_isolate(
     let request_data = RequestData {
         handler_code,
         request_value: request,
+        request_parts: None,
         mode: ExecutionMode::Request,
     };
 

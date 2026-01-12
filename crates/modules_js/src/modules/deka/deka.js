@@ -7628,7 +7628,7 @@ function concatBytes(left, right) {
 function parseHeaders(text) {
     const lines = text.split("\r\n");
     const [requestLine, ...rest] = lines;
-    const [method = "GET", url = "/"] = requestLine.split(" ");
+    const [method = "GET", url = "/", version = "HTTP/1.1"] = requestLine.split(" ");
     const headers = {};
     for (const line of rest){
         if (!line) continue;
@@ -7641,7 +7641,8 @@ function parseHeaders(text) {
     return {
         method,
         url,
-        headers
+        headers,
+        version
     };
 }
 function statusMessageFor(code) {
@@ -7825,10 +7826,26 @@ class ServerResponse extends EventEmitter {
     resolved = false;
     resolve;
     streamId;
-    constructor(resolve, streamId){
+    shouldClose = true;
+    finished;
+    finishResolve;
+    returnObject = false;
+    textChunks;
+    binaryChunks;
+    hasBinary = false;
+    constructor(resolve, streamId, shouldClose = true, returnObject = false){
         super();
         this.resolve = resolve;
         this.streamId = streamId;
+        this.shouldClose = shouldClose;
+        this.returnObject = returnObject;
+        if (returnObject) {
+            this.textChunks = [];
+            this.binaryChunks = [];
+        }
+        this.finished = new Promise((resolveFinished)=>{
+            this.finishResolve = resolveFinished;
+        });
     }
     setHeader(name, value) {
         this.headers[name.toLowerCase()] = String(value);
@@ -7846,6 +7863,24 @@ class ServerResponse extends EventEmitter {
         delete this.headers[name.toLowerCase()];
     }
     write(chunk) {
+        if (this.returnObject) {
+            if (typeof chunk === "string") {
+                this.textChunks.push(chunk);
+                return true;
+            }
+            if (chunk instanceof ArrayBuffer) {
+                this.hasBinary = true;
+                this.binaryChunks.push(new Uint8Array(chunk));
+                return true;
+            }
+            if (chunk instanceof Uint8Array) {
+                this.hasBinary = true;
+                this.binaryChunks.push(chunk);
+                return true;
+            }
+            this.textChunks.push(String(chunk));
+            return true;
+        }
         this.chunks.push(coerceChunk(chunk));
         return true;
     }
@@ -7874,12 +7909,32 @@ class ServerResponse extends EventEmitter {
         this.resolved = true;
         const body = joinChunks(this.chunks);
         if (this.streamId !== undefined) {
-            this.flushTcp(body || new Uint8Array());
+            this.flushTcp(body || new Uint8Array()).then(()=>this.finishResolve?.());
+        } else if (this.returnObject) {
+            if (this.hasBinary) {
+                const bytes = joinChunks(this.binaryChunks) || new Uint8Array();
+                const base64 = Buffer.from(bytes).toString("base64");
+                this.resolve({
+                    status: this.statusCode,
+                    headers: this.headers,
+                    body: "",
+                    body_base64: base64
+                });
+            } else {
+                const text = this.textChunks.length > 0 ? this.textChunks.join("") : "";
+                this.resolve({
+                    status: this.statusCode,
+                    headers: this.headers,
+                    body: text
+                });
+            }
+            this.finishResolve?.();
         } else {
             this.resolve(new Response1(body || "", {
                 status: this.statusCode,
                 headers: this.headers
             }));
+            this.finishResolve?.();
         }
         this.emit("finish");
     }
@@ -7888,8 +7943,12 @@ class ServerResponse extends EventEmitter {
             ...this.headers
         };
         headers["content-length"] = String(body.length);
-        if (!headers["connection"]) {
+        const headerConnection = headers["connection"]?.toLowerCase();
+        const finalShouldClose = this.shouldClose || headerConnection === "close";
+        if (finalShouldClose) {
             headers["connection"] = "close";
+        } else if (!headers["connection"]) {
+            headers["connection"] = "keep-alive";
         }
         const lines = [
             `HTTP/1.1 ${this.statusCode} ${this.statusMessage || statusMessageFor(this.statusCode)}`
@@ -7901,8 +7960,10 @@ class ServerResponse extends EventEmitter {
         const headerBytes = new TextEncoder().encode(lines.join("\r\n"));
         const payload = concatBytes(headerBytes, body);
         await op_tcp_write2(this.streamId, payload);
-        await op_tcp_shutdown2(this.streamId);
-        await op_tcp_close2(this.streamId);
+        if (finalShouldClose) {
+            await op_tcp_shutdown2(this.streamId);
+            await op_tcp_close2(this.streamId);
+        }
     }
 }
 class Server extends EventEmitter {
@@ -8133,68 +8194,89 @@ class Server extends EventEmitter {
     async handleTcpConnection(streamId) {
         const decoder = new TextDecoder();
         let buffer = new Uint8Array();
-        let headerIndex = -1;
-        while(headerIndex === -1){
-            const chunk = await op_tcp_read2(streamId, 65536);
-            if (chunk.eof) {
-                await op_tcp_close2(streamId);
-                return;
-            }
-            buffer = concatBytes(buffer, new Uint8Array(chunk.data));
-            const text = decoder.decode(buffer);
-            headerIndex = text.indexOf("\r\n\r\n");
-        }
-        const headerText = decoder.decode(buffer.slice(0, headerIndex));
-        const { method, url, headers } = parseHeaders(headerText);
-        const bodyStart = headerIndex + 4;
-        let body = buffer.slice(bodyStart);
-        const contentLength = Number(headers["content-length"] || "0");
-        while(body.length < contentLength){
-            const chunk = await op_tcp_read2(streamId, 65536);
-            if (chunk.eof) break;
-            body = concatBytes(body, new Uint8Array(chunk.data));
-        }
-        const req = new IncomingMessage({
-            statusCode: 200,
-            statusMessage: "OK",
-            headers,
-            url
-        });
-        req.method = method;
-        const res = new ServerResponse(()=>new Response1(""), streamId);
-        if (await this.handleIntrospect(req, res)) {
-            return;
-        }
-        this.emit("request", req, res);
-        if (this.handler) {
-            const result = this.handler(req, res);
-            if (result && typeof result.then === "function") {
-                result.catch((error)=>{
-                    if (!globalThis.__dekaIntrospectErrors) {
-                        globalThis.__dekaIntrospectErrors = {
-                            count: 0,
-                            last: null
-                        };
+        while(true){
+            let headerIndex = -1;
+            while(headerIndex === -1){
+                if (buffer.length === 0) {
+                    const chunk = await op_tcp_read2(streamId, 65536);
+                    if (chunk.eof) {
+                        await op_tcp_close2(streamId);
+                        return;
                     }
-                    globalThis.__dekaIntrospectErrors.count += 1;
-                    globalThis.__dekaIntrospectErrors.last = {
-                        message: error?.message || String(error),
-                        stack: error?.stack || null,
-                        time: new Date().toISOString(),
-                        url: req.url || null,
-                        method: req.method || null
-                    };
-                    res.writeHead(500, {
-                        "content-type": "text/plain"
-                    });
-                    res.end(String(error));
-                });
+                    buffer = concatBytes(buffer, new Uint8Array(chunk.data));
+                }
+                const text = decoder.decode(buffer);
+                headerIndex = text.indexOf("\r\n\r\n");
+                if (headerIndex === -1) {
+                    const chunk = await op_tcp_read2(streamId, 65536);
+                    if (chunk.eof) {
+                        await op_tcp_close2(streamId);
+                        return;
+                    }
+                    buffer = concatBytes(buffer, new Uint8Array(chunk.data));
+                }
             }
-        }
-        if (body.length > 0) {
-            req.emitBody(body);
-        } else {
-            req.emit("end");
+            const headerText = decoder.decode(buffer.slice(0, headerIndex));
+            const { method, url, headers, version } = parseHeaders(headerText);
+            const bodyStart = headerIndex + 4;
+            const contentLength = Number(headers["content-length"] || "0");
+            while(buffer.length < bodyStart + contentLength){
+                const chunk = await op_tcp_read2(streamId, 65536);
+                if (chunk.eof) break;
+                buffer = concatBytes(buffer, new Uint8Array(chunk.data));
+            }
+            const bodyEnd = Math.min(buffer.length, bodyStart + contentLength);
+            const body = buffer.slice(bodyStart, bodyEnd);
+            buffer = buffer.slice(bodyEnd);
+            const connectionHeader = headers["connection"]?.toLowerCase();
+            const isHttp10 = version?.startsWith("HTTP/1.0");
+            const shouldClose = connectionHeader === "close" || isHttp10 && connectionHeader !== "keep-alive";
+            const req = new IncomingMessage({
+                statusCode: 200,
+                statusMessage: "OK",
+                headers,
+                url
+            });
+            req.method = method;
+            const res = new ServerResponse(()=>new Response1(""), streamId, shouldClose);
+            if (await this.handleIntrospect(req, res)) {
+                await res.finished;
+                if (shouldClose) return;
+                continue;
+            }
+            this.emit("request", req, res);
+            if (this.handler) {
+                const result = this.handler(req, res);
+                if (result && typeof result.then === "function") {
+                    result.catch((error)=>{
+                        if (!globalThis.__dekaIntrospectErrors) {
+                            globalThis.__dekaIntrospectErrors = {
+                                count: 0,
+                                last: null
+                            };
+                        }
+                        globalThis.__dekaIntrospectErrors.count += 1;
+                        globalThis.__dekaIntrospectErrors.last = {
+                            message: error?.message || String(error),
+                            stack: error?.stack || null,
+                            time: new Date().toISOString(),
+                            url: req.url || null,
+                            method: req.method || null
+                        };
+                        res.writeHead(500, {
+                            "content-type": "text/plain"
+                        });
+                        res.end(String(error));
+                    });
+                }
+            }
+            if (body.length > 0) {
+                req.emitBody(body);
+            } else {
+                req.emit("end");
+            }
+            await res.finished;
+            if (shouldClose) return;
         }
     }
 }
@@ -8257,6 +8339,72 @@ globalThis.__dekaNodeHttps = {
     ServerResponse,
     METHODS
 };
+function normalizeNodeRequestUrl(value) {
+    if (!value) return "/";
+    return value;
+}
+function coerceNodeHeaders(raw) {
+    const headers = {};
+    if (!raw) return headers;
+    if (typeof raw.forEach === "function") {
+        raw.forEach((value, key)=>{
+            headers[String(key).toLowerCase()] = String(value);
+        });
+        return headers;
+    }
+    for (const key in raw){
+        headers[String(key).toLowerCase()] = String(raw[key]);
+    }
+    return headers;
+}
+const EXPRESS_TEXT_ENCODER = new TextEncoder();
+const EXPRESS_SOCKET = {
+    encrypted: false
+};
+function createExpressAdapter(app) {
+    const adapter = {
+        __dekaServer: true,
+        __dekaExpress: true,
+        fetch (request) {
+            return new Promise((resolve, reject)=>{
+                const headers = coerceNodeHeaders(request?.headers || {});
+                const req = new IncomingMessage({
+                    statusCode: 200,
+                    statusMessage: "OK",
+                    headers,
+                    url: normalizeNodeRequestUrl(request?.url)
+                });
+                req.method = request?.method || "GET";
+                req.connection = req.socket = EXPRESS_SOCKET;
+                const res = new ServerResponse(resolve, undefined, true, true);
+                try {
+                    if (typeof app.handle === "function") {
+                        app.handle(req, res);
+                    } else {
+                        app(req, res);
+                    }
+                } catch (err) {
+                    reject(err);
+                    return;
+                }
+                const body = request?.body ?? request?.__body ?? "";
+                if (body && body.length !== 0) {
+                    if (typeof body === "string") {
+                        req.emitBody(EXPRESS_TEXT_ENCODER.encode(body));
+                    } else if (body instanceof ArrayBuffer) {
+                        req.emitBody(new Uint8Array(body));
+                    } else {
+                        req.emitBody(body);
+                    }
+                } else {
+                    req.emit("end");
+                }
+            });
+        }
+    };
+    return adapter;
+}
+globalThis.__dekaNodeExpressAdapter = createExpressAdapter;
 function createSecureContext(options) {
     return {
         options: options || {}

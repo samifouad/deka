@@ -10,7 +10,7 @@ use axum::{
 use base64::Engine;
 
 use crate::websocket::handle_websocket;
-use engine::{RequestEnvelope, RuntimeState, execute_request};
+use engine::{RuntimeState, execute_request_parts};
 
 use crate::debug::http_debug_enabled;
 
@@ -29,14 +29,14 @@ async fn handle_request(
         tracing::info!("[http] request {} {}", method, uri);
     }
     let (headers, body) = if state.perf_mode {
-        (std::collections::HashMap::new(), None)
+        (Vec::new(), None)
     } else {
-        let mut headers = std::collections::HashMap::with_capacity(request.headers().len());
+        let mut headers = Vec::with_capacity(request.headers().len());
         for (key, value) in request.headers().iter() {
-            headers.insert(
+            headers.push((
                 key.as_str().to_string(),
                 value.to_str().unwrap_or("").to_string(),
-            );
+            ));
         }
 
         let content_len = request
@@ -63,14 +63,14 @@ async fn handle_request(
         (headers, body)
     };
 
-    let request_envelope = RequestEnvelope {
-        url: format!("http://localhost{}", uri),
+    match execute_request_parts(
+        Arc::clone(&state),
+        format!("http://localhost{}", uri),
         method,
         headers,
         body,
-    };
-
-    match execute_request(Arc::clone(&state), request_envelope).await {
+    )
+    .await {
         Ok(response_envelope) => {
             if http_debug_enabled() {
                 tracing::info!("[http] response {} {}", response_envelope.status, uri);

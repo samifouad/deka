@@ -203,6 +203,7 @@ async fn emit_event(
             RequestData {
                 handler_code,
                 request_value: payload,
+                request_parts: None,
                 mode: ExecutionMode::Request,
             },
         )
