@@ -643,7 +643,8 @@ pub fn bundle_browser_assets_cached(entry: &str, cache: &mut crate::cache::Modul
         mtime,
         content_hash,
         transformed_code: bundle.code.clone(),
-        dependencies: vec![],  // TODO: Track dependencies in Phase 2
+        dependencies: vec![],  // TODO: Track dependencies in incremental builds
+        resolved_dependencies: vec![],  // TODO: Track resolved deps in incremental builds
     };
 
     cache.put(&entry_path, cached);

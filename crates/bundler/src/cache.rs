@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -18,8 +18,77 @@ pub struct CachedModule {
     pub content_hash: String,
     /// Serialized transformed module (we'll use JSON for now, could use bincode)
     pub transformed_code: String,
-    /// List of dependencies (import paths)
+    /// List of dependencies (import specifiers)
     pub dependencies: Vec<String>,
+    /// Resolved dependency paths
+    pub resolved_dependencies: Vec<PathBuf>,
+}
+
+/// Dependency graph for incremental builds
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DependencyGraph {
+    /// Forward edges: module -> [modules it imports]
+    dependencies: HashMap<PathBuf, HashSet<PathBuf>>,
+    /// Reverse edges: module -> [modules that import it]
+    reverse_dependencies: HashMap<PathBuf, HashSet<PathBuf>>,
+}
+
+impl DependencyGraph {
+    pub fn new() -> Self {
+        Self {
+            dependencies: HashMap::new(),
+            reverse_dependencies: HashMap::new(),
+        }
+    }
+
+    /// Add a dependency edge (from imports to)
+    pub fn add_edge(&mut self, from: PathBuf, to: PathBuf) {
+        self.dependencies
+            .entry(from.clone())
+            .or_insert_with(HashSet::new)
+            .insert(to.clone());
+
+        self.reverse_dependencies
+            .entry(to)
+            .or_insert_with(HashSet::new)
+            .insert(from);
+    }
+
+    /// Get all modules affected by a change (transitive reverse dependencies)
+    pub fn get_affected(&self, changed: &PathBuf) -> HashSet<PathBuf> {
+        let mut affected = HashSet::new();
+        let mut queue = VecDeque::new();
+
+        queue.push_back(changed.clone());
+        affected.insert(changed.clone());
+
+        while let Some(module) = queue.pop_front() {
+            if let Some(rev_deps) = self.reverse_dependencies.get(&module) {
+                for dep in rev_deps {
+                    if affected.insert(dep.clone()) {
+                        queue.push_back(dep.clone());
+                    }
+                }
+            }
+        }
+
+        affected
+    }
+
+    /// Get direct dependencies of a module
+    pub fn get_dependencies(&self, module: &PathBuf) -> Option<&HashSet<PathBuf>> {
+        self.dependencies.get(module)
+    }
+
+    /// Get direct reverse dependencies of a module
+    pub fn get_reverse_dependencies(&self, module: &PathBuf) -> Option<&HashSet<PathBuf>> {
+        self.reverse_dependencies.get(module)
+    }
+
+    /// Get total number of modules in graph
+    pub fn module_count(&self) -> usize {
+        self.dependencies.len()
+    }
 }
 
 /// Module cache that persists to disk
@@ -28,6 +97,8 @@ pub struct ModuleCache {
     cache_dir: PathBuf,
     /// In-memory cache for fast lookups
     memory: HashMap<PathBuf, CachedModule>,
+    /// Dependency graph for incremental builds
+    graph: DependencyGraph,
     /// Whether cache is enabled
     enabled: bool,
 }
@@ -52,18 +123,40 @@ impl ModuleCache {
                 .join("cache")
         });
 
-        if enabled {
+        // Load dependency graph from disk if it exists
+        let graph = if enabled {
             // Create cache directory if it doesn't exist
             if let Err(e) = fs::create_dir_all(&cache_dir) {
                 eprintln!(" [cache] Warning: Failed to create cache directory: {}", e);
+                DependencyGraph::new()
             } else {
                 eprintln!(" [cache] Initialized at {}", cache_dir.display());
+
+                // Try to load graph
+                let graph_path = cache_dir.join("graph.json");
+                if graph_path.exists() {
+                    match Self::load_graph(&graph_path) {
+                        Ok(g) => {
+                            eprintln!(" [cache] Loaded dependency graph ({} modules)", g.module_count());
+                            g
+                        }
+                        Err(e) => {
+                            eprintln!(" [cache] Failed to load graph: {}, starting fresh", e);
+                            DependencyGraph::new()
+                        }
+                    }
+                } else {
+                    DependencyGraph::new()
+                }
             }
-        }
+        } else {
+            DependencyGraph::new()
+        };
 
         Self {
             cache_dir,
             memory: HashMap::new(),
+            graph,
             enabled,
         }
     }
@@ -221,6 +314,39 @@ impl ModuleCache {
             enabled: self.enabled,
         }
     }
+
+    /// Get reference to the dependency graph
+    pub fn graph(&self) -> &DependencyGraph {
+        &self.graph
+    }
+
+    /// Get mutable reference to the dependency graph
+    pub fn graph_mut(&mut self) -> &mut DependencyGraph {
+        &mut self.graph
+    }
+
+    /// Save the dependency graph to disk
+    pub fn save_graph(&self) -> Result<(), String> {
+        if !self.enabled {
+            return Ok(());
+        }
+
+        let graph_path = self.cache_dir.join("graph.json");
+        let json = serde_json::to_string(&self.graph)
+            .map_err(|e| format!("Failed to serialize graph: {}", e))?;
+
+        fs::write(&graph_path, json)
+            .map_err(|e| format!("Failed to write graph: {}", e))
+    }
+
+    /// Load the dependency graph from disk
+    fn load_graph(graph_path: &Path) -> Result<DependencyGraph, String> {
+        let json = fs::read_to_string(graph_path)
+            .map_err(|e| format!("Failed to read graph file: {}", e))?;
+
+        serde_json::from_str(&json)
+            .map_err(|e| format!("Failed to parse graph file: {}", e))
+    }
 }
 
 /// Cache statistics
@@ -266,6 +392,7 @@ mod tests {
             content_hash: "abc123".to_string(),
             transformed_code: "transformed".to_string(),
             dependencies: vec!["dep1".to_string()],
+            resolved_dependencies: vec![],
         };
 
         cache.put(&test_file, cached.clone());
@@ -302,6 +429,7 @@ mod tests {
             content_hash: "abc123".to_string(),
             transformed_code: "transformed".to_string(),
             dependencies: vec![],
+            resolved_dependencies: vec![],
         };
 
         cache.put(&test_file, cached);
