@@ -4777,6 +4777,27 @@ function promisify(fn) {
             });
         });
 }
+function deprecate(fn, msg, code) {
+    if (typeof fn !== "function") {
+        throw new TypeError("util.deprecate expects a function");
+    }
+    let warned = false;
+    const wrapper = function(...args) {
+        if (!warned) {
+            warned = true;
+            if (globalThis.process?.emitWarning) {
+                globalThis.process.emitWarning(msg, {
+                    code
+                });
+            } else if (msg) {
+                console.warn(msg);
+            }
+        }
+        return fn.apply(this, args);
+    };
+    wrapper.prototype = fn.prototype;
+    return wrapper;
+}
 function debuglog(_section) {
     return (..._args)=>{};
 }
@@ -4789,6 +4810,7 @@ globalThis.__dekaNodeUtil = {
     inspect,
     format,
     formatWithOptions,
+    deprecate,
     promisify,
     debuglog,
     types,
