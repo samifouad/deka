@@ -2516,7 +2516,7 @@ function splitNodePath(value) {
     return value.split(delimiter).map((entry)=>entry.trim()).filter(Boolean);
 }
 function isBareSpecifier(specifier) {
-    return !!specifier && !specifier.startsWith(".") && !specifier.startsWith("/") && !specifier.startsWith("http") && !specifier.startsWith("#");
+    return !!specifier && !specifier.startsWith(".") && !specifier.startsWith("/") && !specifier.startsWith("http://") && !specifier.startsWith("https://") && !specifier.startsWith("#");
 }
 function isImportsSpecifier(specifier) {
     return !!specifier && specifier.startsWith("#");
@@ -15689,7 +15689,7 @@ function splitNodePath1(value) {
     return value.split(delimiter).map((entry)=>entry.trim()).filter(Boolean);
 }
 function isBareSpecifier1(specifier) {
-    return !!specifier && !specifier.startsWith(".") && !specifier.startsWith("/") && !specifier.startsWith("http") && !specifier.startsWith("#");
+    return !!specifier && !specifier.startsWith(".") && !specifier.startsWith("/") && !specifier.startsWith("http://") && !specifier.startsWith("https://") && !specifier.startsWith("#");
 }
 function isImportsSpecifier1(specifier) {
     return !!specifier && specifier.startsWith("#");
