@@ -1,8 +1,9 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, Mutex};
 use tokio::task::JoinSet;
+use tokio::sync::mpsc;
 
 use swc_common::{FileName, Globals, Mark, SourceMap, sync::Lrc, GLOBALS};
 use swc_ecma_ast::{EsVersion, Module, Program, Pass};
@@ -20,6 +21,18 @@ pub struct ParsedModule {
     pub source: String,
     pub module: Module,
     pub dependencies: Vec<String>,
+    pub resolved_dependencies: Vec<PathBuf>, // NEW: Pre-resolved dependency paths
+}
+
+/// Message sent to workers containing a path to process
+struct WorkMessage {
+    path: PathBuf,
+}
+
+/// Message sent by workers containing parse results
+struct ResultMessage {
+    path: PathBuf,
+    result: Result<ParsedModule, String>,
 }
 
 /// Parallel bundler that processes modules concurrently
@@ -59,146 +72,142 @@ impl ParallelBundler {
         Ok(output)
     }
 
-    /// Discover all modules starting from entry, using parallel workers
+    /// Discover all modules starting from entry, using parallel workers with channels
     async fn discover_modules(&self, entry: &str) -> Result<HashMap<PathBuf, ParsedModule>, String> {
         eprintln!(" [parallel] resolving entry path...");
         let entry_path = self.resolve_path(&self.root, entry)?;
         eprintln!(" [parallel] entry resolved to: {}", entry_path.display());
 
-        // Concurrent data structures
-        let modules: Arc<RwLock<HashMap<PathBuf, ParsedModule>>> = Arc::new(RwLock::new(HashMap::new()));
-        let pending: Arc<RwLock<VecDeque<PathBuf>>> = Arc::new(RwLock::new(VecDeque::new()));
-        let processing: Arc<RwLock<HashSet<PathBuf>>> = Arc::new(RwLock::new(HashSet::new()));
+        // Create channels for work distribution
+        let (work_tx, work_rx) = mpsc::unbounded_channel::<WorkMessage>();
+        let (result_tx, mut result_rx) = mpsc::unbounded_channel::<ResultMessage>();
 
-        // Add entry to pending
-        pending.write().push_back(entry_path.clone());
+        // Shared work receiver (workers pull from it) - use tokio::Mutex for async
+        let work_rx = Arc::new(tokio::sync::Mutex::new(work_rx));
+
+        // Shared state (only for deduplication)
+        let seen: Arc<RwLock<HashSet<PathBuf>>> = Arc::new(RwLock::new(HashSet::new()));
+
+        // Mark entry as seen and send it
+        seen.write().insert(entry_path.clone());
+        work_tx.send(WorkMessage { path: entry_path.clone() })
+            .map_err(|e| format!("Failed to send entry work: {}", e))?;
+
         eprintln!(" [parallel] spawning {} workers...", self.workers);
 
         // Spawn worker tasks
         let mut tasks = JoinSet::new();
 
         for worker_id in 0..self.workers {
-            let modules = Arc::clone(&modules);
-            let pending = Arc::clone(&pending);
-            let processing = Arc::clone(&processing);
-            let root = self.root.clone();
+            let work_rx = Arc::clone(&work_rx);
+            let result_tx = result_tx.clone();
 
             tasks.spawn(async move {
                 let mut processed_count = 0;
+
+                eprintln!(" [worker-{}] started", worker_id);
+
                 loop {
-                    // Get next module to process
-                    let path = {
-                        let mut pending_lock = pending.write();
-                        pending_lock.pop_front()
+                    // Pull work from shared queue
+                    let msg = {
+                        let mut rx = work_rx.lock().await;
+                        rx.recv().await
                     };
 
-                    if processed_count == 0 {
-                        eprintln!(" [worker-{}] started", worker_id);
-                    }
-
-                    let path = match path {
-                        Some(p) => {
-                            processed_count += 1;
-                            if processed_count % 100 == 0 {
-                                eprintln!(" [worker-{}] processed {} modules", worker_id, processed_count);
-                            }
-                            p
-                        }
-                        None => {
-                            // Check if any other workers are still processing
-                            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-                            let pending_lock = pending.read();
-                            let processing_lock = processing.read();
-
-                            if pending_lock.is_empty() && processing_lock.is_empty() {
-                                eprintln!(" [worker-{}] completed ({} modules processed)", worker_id, processed_count);
-                                break; // All done
-                            }
-                            continue;
-                        }
+                    let msg = match msg {
+                        Some(m) => m,
+                        None => break, // Channel closed, shutdown
                     };
 
-                    // Mark as processing
-                    {
-                        let mut processing_lock = processing.write();
-                        if processing_lock.contains(&path) {
-                            continue; // Already being processed
-                        }
-                        if modules.read().contains_key(&path) {
-                            continue; // Already processed
-                        }
-                        processing_lock.insert(path.clone());
+                    processed_count += 1;
+                    if processed_count % 100 == 0 {
+                        eprintln!(" [worker-{}] processed {} modules", worker_id, processed_count);
                     }
 
-                    // Parse module (this is the CPU-intensive part)
-                    match Self::parse_module(&path).await {
-                        Ok(parsed) => {
-                            // Add dependencies to pending queue
-                            for dep in &parsed.dependencies {
-                                if let Ok(dep_path) = Self::resolve_dependency(&root, &path, dep) {
-                                    // CRITICAL: Acquire locks in consistent order to prevent deadlock
-                                    // Check if already processed/processing first
-                                    let skip = {
-                                        let modules_lock = modules.read();
-                                        let processing_lock = processing.read();
-                                        modules_lock.contains_key(&dep_path) || processing_lock.contains(&dep_path)
-                                    };
+                    // Parse module (CPU-intensive)
+                    let result = Self::parse_module(&msg.path).await;
 
-                                    if !skip {
-                                        // Now acquire pending lock and double-check
-                                        let mut pending_lock = pending.write();
-                                        if !pending_lock.contains(&dep_path) {
-                                            pending_lock.push_back(dep_path);
-                                        }
-                                    }
-                                }
-                                // Silently ignore unresolvable dependencies (react, etc.)
-                            }
-
-                            // Store parsed module
-                            modules.write().insert(path.clone(), parsed);
-
-                            // Mark as done processing
-                            processing.write().remove(&path);
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to parse {}: {}", path.display(), e);
-                            // CRITICAL: Remove from processing even on error!
-                            processing.write().remove(&path);
-                        }
-                    }
+                    // Send result back
+                    let _ = result_tx.send(ResultMessage {
+                        path: msg.path.clone(),
+                        result,
+                    });
                 }
 
+                eprintln!(" [worker-{}] completed ({} modules processed)", worker_id, processed_count);
                 Ok::<(), String>(())
             });
         }
 
-        eprintln!(" [parallel] workers spawned, waiting for completion...");
+        // Drop our copy of result_tx so channel closes when workers finish
+        drop(result_tx);
 
-        // Wait for all workers
-        while let Some(result) = tasks.join_next().await {
-            result.map_err(|e| format!("Worker task failed: {}", e))??;
+        // Coordinator: collect results and enqueue new work
+        let mut modules: HashMap<PathBuf, ParsedModule> = HashMap::new();
+        let mut pending_count = 1; // Started with 1 (entry)
+
+        while let Some(msg) = result_rx.recv().await {
+            pending_count -= 1;
+
+            match msg.result {
+                Ok(mut parsed) => {
+                    // Resolve dependencies and batch them
+                    let mut resolved_deps = Vec::new();
+                    let mut new_work = Vec::new();
+
+                    for dep in &parsed.dependencies {
+                        if let Ok(dep_path) = Self::resolve_dependency(&self.root, &msg.path, dep) {
+                            resolved_deps.push(dep_path.clone());
+
+                            // Check if we've seen this dependency
+                            let mut seen_lock = seen.write();
+                            if !seen_lock.contains(&dep_path) {
+                                seen_lock.insert(dep_path.clone());
+                                new_work.push(dep_path);
+                            }
+                        }
+                        // Silently ignore unresolvable dependencies (react, etc.)
+                    }
+
+                    // Store resolved dependencies in the module
+                    parsed.resolved_dependencies = resolved_deps;
+
+                    // Batch send new work (reduces contention)
+                    for work_path in new_work {
+                        work_tx.send(WorkMessage { path: work_path })
+                            .map_err(|e| format!("Failed to send work: {}", e))?;
+                        pending_count += 1;
+                    }
+
+                    // Store parsed module
+                    modules.insert(msg.path, parsed);
+                }
+                Err(e) => {
+                    eprintln!("Failed to parse {}: {}", msg.path.display(), e);
+                }
+            }
+
+            // Done when no more pending work
+            if pending_count == 0 {
+                break;
+            }
         }
 
         eprintln!(" [parallel] all workers completed");
-
-        // Extract modules from Arc<RwLock<>>
-        let modules = Arc::try_unwrap(modules)
-            .map_err(|_| "Failed to unwrap modules")?
-            .into_inner();
-
         eprintln!(" [parallel] extracted {} total modules", modules.len());
 
-        // Debug: Check for duplicate paths and print samples
-        let unique_count = modules.keys().collect::<std::collections::HashSet<_>>().len();
-        if unique_count != modules.len() {
-            eprintln!(" [parallel] WARNING: {} duplicates detected!", modules.len() - unique_count);
-        }
-
-        // Sample first 5 paths to see what they look like
+        // Sample first 10 paths
         eprintln!(" [parallel] Sample paths:");
         for (i, path) in modules.keys().enumerate().take(10) {
             eprintln!("    {}: {}", i, path.display());
+        }
+
+        // Shutdown workers by dropping work_tx (closes channel)
+        drop(work_tx);
+
+        // Wait for all workers to finish
+        while let Some(result) = tasks.join_next().await {
+            result.map_err(|e| format!("Worker task failed: {}", e))??;
         }
 
         Ok(modules)
@@ -240,6 +249,7 @@ impl ParallelBundler {
                 source,
                 module,
                 dependencies,
+                resolved_dependencies: Vec::new(), // Resolved later in coordinator
             })
         })
         .await
@@ -370,39 +380,56 @@ impl ParallelBundler {
         Err(format!("Could not resolve: {}", specifier))
     }
 
-    /// Sort modules in dependency order (topological sort)
+    /// Sort modules in dependency order using Kahn's algorithm (O(N+E))
     fn sort_modules(&self, modules: &HashMap<PathBuf, ParsedModule>) -> Result<Vec<PathBuf>, String> {
-        // Simple DFS-based topological sort
-        let mut visited = HashSet::new();
-        let mut sorted = Vec::new();
+        use std::collections::VecDeque;
 
-        fn visit(
-            path: &PathBuf,
-            modules: &HashMap<PathBuf, ParsedModule>,
-            visited: &mut HashSet<PathBuf>,
-            sorted: &mut Vec<PathBuf>,
-        ) {
-            if visited.contains(path) {
-                return;
+        // Calculate in-degree for each module
+        let mut in_degree: HashMap<PathBuf, usize> = HashMap::new();
+
+        // Initialize all modules with in-degree 0
+        for path in modules.keys() {
+            in_degree.insert(path.clone(), 0);
+        }
+
+        // Count incoming edges (dependencies pointing to this module)
+        for module in modules.values() {
+            for dep_path in &module.resolved_dependencies {
+                if modules.contains_key(dep_path) {
+                    *in_degree.entry(dep_path.clone()).or_insert(0) += 1;
+                }
             }
+        }
 
-            visited.insert(path.clone());
+        // Start with modules that have no dependencies
+        let mut queue = VecDeque::new();
+        for (path, &degree) in &in_degree {
+            if degree == 0 {
+                queue.push_back(path.clone());
+            }
+        }
 
-            if let Some(module) = modules.get(path) {
-                for dep in &module.dependencies {
-                    if let Ok(dep_path) = ParallelBundler::resolve_dependency(&PathBuf::from("."), path, dep) {
-                        if modules.contains_key(&dep_path) {
-                            visit(&dep_path, modules, visited, sorted);
+        // Process queue
+        let mut sorted = Vec::new();
+        while let Some(path) = queue.pop_front() {
+            sorted.push(path.clone());
+
+            if let Some(module) = modules.get(&path) {
+                for dep_path in &module.resolved_dependencies {
+                    if let Some(degree) = in_degree.get_mut(dep_path) {
+                        *degree -= 1;
+                        if *degree == 0 {
+                            queue.push_back(dep_path.clone());
                         }
                     }
                 }
             }
-
-            sorted.push(path.clone());
         }
 
-        for path in modules.keys() {
-            visit(path, modules, &mut visited, &mut sorted);
+        // Check for cycles
+        if sorted.len() != modules.len() {
+            return Err(format!("Circular dependency detected: sorted {} of {} modules",
+                sorted.len(), modules.len()));
         }
 
         Ok(sorted)
