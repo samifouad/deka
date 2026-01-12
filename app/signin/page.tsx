@@ -7,6 +7,7 @@
 import { redirect } from 'next/navigation'
 import { Server } from 'lucide-react'
 import { BlueskyForm } from './BlueskyForm'
+import styles from './signin.module.css'
 
 // Server Action for Bluesky auth
 async function startBlueskyAuth(formData: FormData) {
@@ -51,29 +52,23 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const error = params.error
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-lg">
+    <div className={styles.page}>
+      <div className={styles.shell}>
         {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-            <Server className="w-6 h-6 text-primary-foreground" />
+        <div className={styles.logoRow}>
+          <div className={styles.logoMark}>
+            <Server className="w-5 h-5" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Deka</h1>
+          <h1 className={styles.logoTitle}>Deka</h1>
         </div>
 
         {/* Sign in card */}
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="p-8">
-            <h2 className="text-xl font-semibold text-foreground mb-6 text-center">
-              Sign In with Bluesky
-            </h2>
-            <BlueskyForm action={startBlueskyAuth} error={error} />
-          </div>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Sign In with Bluesky</h2>
+          <BlueskyForm action={startBlueskyAuth} error={error} />
         </div>
 
-        <p className="text-center text-muted-foreground text-xs mt-6">
-          Sign in to access billing, support, and account management
-        </p>
+        <p className={styles.footerText}>Sign in to access billing, support, and account management</p>
       </div>
     </div>
   )

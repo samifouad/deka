@@ -16,15 +16,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light')
   const [mounted, setMounted] = useState(false)
 
-  // Load theme from localStorage on mount
-  useEffect(() => {
-    setMounted(true)
-    const savedTheme = localStorage.getItem('theme') as Theme | null
-    if (savedTheme) {
-      setTheme(savedTheme)
-    }
-  }, [])
-
   // Update document and localStorage when theme changes
   useEffect(() => {
     if (!mounted) return
@@ -34,6 +25,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.classList.add(theme)
     localStorage.setItem('theme', theme)
   }, [theme, mounted])
+
+  // Load theme from localStorage on mount
+  useEffect(() => {
+    setMounted(true)
+    const savedTheme = localStorage.getItem('theme') as Theme | null
+    if (savedTheme) {
+      setTheme(savedTheme)
+    }
+  }, [])
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))

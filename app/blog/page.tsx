@@ -1,182 +1,127 @@
 import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { BlueprintGrid } from '@/components/landing/BlueprintGrid'
 import { Navbar } from '@/components/landing/Navbar'
 import { getBlogPosts } from '@/lib/blog-posts'
 import { Calendar, Clock, User, ArrowRight } from 'lucide-react'
+import styles from './blog.module.css'
 
 // Generate metadata for SEO
 export const metadata = {
-  title: 'Blog | tana',
-  description: 'Updates, insights, and stories from the tana team. Learn about the future of money, identity, and decentralized commerce.',
+  title: 'Blog | deka',
+  description: 'Updates, insights, and stories from the deka team. Learn about the runtime, platform, and developer experience.',
 }
 
 export default function BlogPage() {
   const posts = getBlogPosts()
+  const featuredImage =
+    'https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&dpr=2'
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-hidden">
-      <BlueprintGrid />
+    <div className={styles.page}>
       <Navbar />
-
-      {/* Hero Section */}
-      <section className="relative px-4 py-24 lg:px-8">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background/20 to-primary/5 backdrop-blur-sm"></div>
-
-        <div className="relative mx-auto max-w-7xl text-center">
-          <h1 className="text-5xl lg:text-6xl font-bold text-foreground mb-6">
-            tana Blog
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Updates, insights, and stories from the tana team. Learn about the future of money, identity, and decentralized commerce.
+      <main className={styles.main}>
+        <section className={styles.hero}>
+          <h1 className={styles.heroTitle}>Deka Blog</h1>
+          <p className={styles.heroSubtitle}>
+            Updates, insights, and stories from the Deka team. Learn about the runtime, platform, and developer experience.
           </p>
-        </div>
-      </section>
+        </section>
 
       {/* Featured Post */}
-      {posts[0] && (
-        <section className="relative px-4 pb-8 lg:px-8">
-          <div className="mx-auto max-w-7xl">
-            <Card className="bg-card border-border backdrop-blur-sm overflow-hidden">
-              <div className="grid lg:grid-cols-2">
-                {/* Image placeholder */}
-                <div className="bg-gradient-to-br from-primary/20 to-primary/5 p-12 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-4xl">📢</span>
-                    </div>
-                    <p className="text-muted-foreground">Featured Article</p>
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-8 lg:p-12">
-                  <div className="inline-block bg-primary/10 rounded-full px-3 py-1 mb-4">
-                    <span className="text-primary font-semibold text-xs uppercase">Featured</span>
-                  </div>
-
-                  <h2 className="text-3xl font-bold text-foreground mb-4">
-                    {posts[0].title}
-                  </h2>
-
-                  <p className="text-muted-foreground mb-6">
-                    {posts[0].excerpt}
-                  </p>
-
-                  <div className="flex items-center gap-6 text-sm text-muted-foreground mb-6">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      <span>{posts[0].author.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>{new Date(posts[0].date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      <span>{posts[0].readTime} read</span>
-                    </div>
-                  </div>
-
-                  <Link href={`/blog/${posts[0].slug}`}>
-                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                      Read Article
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </Link>
-                </div>
+        {posts[0] && (
+          <section>
+            <div className={styles.featuredCard}>
+              <div
+                className={styles.featuredMedia}
+                style={{ backgroundImage: `url(${featuredImage})` }}
+              >
+                <div className={styles.featuredOverlay} />
               </div>
-            </Card>
-          </div>
-        </section>
-      )}
+              <div className={styles.featuredContent}>
+                <span className={styles.featuredBadge}>Featured</span>
+                <h2 className={styles.featuredTitle}>{posts[0].title}</h2>
+                <p className={styles.featuredExcerpt}>{posts[0].excerpt}</p>
+                <div className={styles.metaRow}>
+                  <span className={styles.metaItem}>
+                    <User className="h-4 w-4" />
+                    {posts[0].author.name}
+                  </span>
+                  <span className={styles.metaItem}>
+                    <Calendar className="h-4 w-4" />
+                    {new Date(posts[0].date).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </span>
+                  <span className={styles.metaItem}>
+                    <Clock className="h-4 w-4" />
+                    {posts[0].readTime} read
+                  </span>
+                </div>
+                <Link href={`/blog/${posts[0].slug}`} className={styles.primaryButton}>
+                  Read Article
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
 
-      {/* All Posts */}
-      <section className="relative px-4 py-16 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <h2 className="text-3xl font-bold text-foreground mb-8">Latest Articles</h2>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section>
+          <h2 className={styles.sectionTitle}>Latest Articles</h2>
+          <div className={styles.grid}>
             {posts.map((post) => (
-              <Card key={post.slug} className="bg-card border-border backdrop-blur-sm hover:border-primary/50 transition-all">
-                <CardHeader>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {post.tags.map((tag) => (
-                      <span key={tag} className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">
-                        {tag}
-                      </span>
-                    ))}
+              <article key={post.slug} className={styles.postCard}>
+                <div className={styles.tagList}>
+                  {post.tags.map((tag) => (
+                    <span key={tag} className={styles.tag}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <Link href={`/blog/${post.slug}`}>
+                  <h3 className={styles.postTitle}>{post.title}</h3>
+                </Link>
+                <p className={styles.postExcerpt}>{post.excerpt}</p>
+                <div className={styles.postMeta}>
+                  <span className={styles.metaItem}>
+                    <Calendar className="h-4 w-4" />
+                    {new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                  <span className={styles.metaItem}>
+                    <Clock className="h-4 w-4" />
+                    {post.readTime}
+                  </span>
+                </div>
+                <div className={styles.postAuthor}>
+                  <span className={styles.authorBadge}>
+                    <User className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <div className={styles.postTitle}>{post.author.name}</div>
+                    <div className={styles.postExcerpt}>{post.author.role}</div>
                   </div>
-
-                  <CardTitle className="text-foreground hover:text-primary transition-colors">
-                    <Link href={`/blog/${post.slug}`}>
-                      {post.title}
-                    </Link>
-                  </CardTitle>
-
-                  <CardDescription className="text-muted-foreground">
-                    {post.excerpt}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>{new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      <span>{post.readTime}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="text-sm">
-                      <p className="font-semibold text-foreground">{post.author.name}</p>
-                      <p className="text-muted-foreground text-xs">{post.author.role}</p>
-                    </div>
-                  </div>
-
-                  <Link href={`/blog/${post.slug}`}>
-                    <Button variant="outline" className="w-full border-border hover:bg-accent">
-                      Read More
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
+                </div>
+                <Link href={`/blog/${post.slug}`} className={styles.secondaryButton}>
+                  Read More
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </article>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Newsletter CTA */}
-      <section className="relative px-4 py-16 lg:px-8 bg-secondary/30">
-        <div className="mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-4">
-            Stay in the loop
-          </h2>
-          <p className="text-lg text-muted-foreground mb-8">
+        <section className={styles.newsletter}>
+          <h2 className={styles.newsletterTitle}>Stay in the loop</h2>
+          <p className={styles.newsletterText}>
             Get the latest updates, articles, and announcements delivered to your inbox.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary text-foreground"
-            />
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              Subscribe
-            </Button>
+          <div className={styles.newsletterForm}>
+            <input type="email" placeholder="Enter your email" className={styles.newsletterInput} />
+            <button className={styles.primaryButton}>Subscribe</button>
           </div>
-        </div>
-      </section>
-
+        </section>
+      </main>
     </div>
   )
 }

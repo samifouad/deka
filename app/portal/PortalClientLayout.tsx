@@ -19,6 +19,7 @@ import {
   X,
   Server
 } from 'lucide-react'
+import styles from './portal.module.css'
 
 const navigation = [
   { name: 'Billing', href: '/portal/billing', icon: CreditCard },
@@ -48,56 +49,48 @@ export function PortalClientLayout({ user, children }: PortalClientLayoutProps) 
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={styles.page}>
       {/* Mobile sidebar toggle */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border px-4 py-3">
+      <div className={`${styles.mobileHeader} lg:hidden`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Server className="w-5 h-5 text-primary-foreground" />
+          <div className={styles.brandRow}>
+            <div className={styles.brandMark}>
+              <Server className="h-4 w-4" />
             </div>
-            <span className="text-lg font-bold text-foreground">Deka Portal</span>
+            <span className={styles.brandTitle}>Deka Portal</span>
           </div>
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 text-muted-foreground hover:text-foreground"
+            className={styles.toggleButton}
           >
             {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
 
-      <div className="lg:flex">
+      <div className={styles.layout}>
         {/* Sidebar */}
         <aside
           className={`
             ${isSidebarOpen ? 'block' : 'hidden'}
             lg:block
-            fixed lg:sticky
-            top-16 lg:top-0
-            left-0
-            w-64
-            h-[calc(100vh-4rem)] lg:h-screen
-            bg-card
-            border-r border-border
-            overflow-y-auto
-            z-40
+            ${styles.sidebar}
           `}
         >
           <div className="flex flex-col h-full">
             {/* Logo - Desktop only */}
-            <div className="hidden lg:flex items-center gap-3 p-6 border-b border-border">
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-                <Server className="w-6 h-6 text-primary-foreground" />
+            <div className={`hidden lg:flex ${styles.sidebarHeader}`}>
+              <div className={styles.brandMark}>
+                <Server className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-foreground">Deka</h1>
-                <p className="text-xs text-muted-foreground">User Portal</p>
+                <h1 className={styles.sidebarTitle}>Deka</h1>
+                <p className={styles.sidebarSubtitle}>User Portal</p>
               </div>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-1">
+            <nav className={styles.nav}>
               {navigation.map((item) => {
                 const isActive = pathname === item.href
                 const Icon = item.icon
@@ -106,44 +99,42 @@ export function PortalClientLayout({ user, children }: PortalClientLayoutProps) 
                     key={item.name}
                     href={item.href}
                     onClick={() => setIsSidebarOpen(false)}
-                    className={`
-                      flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
-                      ${
-                        isActive
-                          ? 'bg-primary/20 text-foreground font-semibold'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                      }
-                    `}
+                    className={`${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span className="font-medium">{item.name}</span>
+                    <Icon className="h-5 w-5" />
+                    <span>{item.name}</span>
                   </Link>
                 )
               })}
             </nav>
 
             {/* User info & Sign Out */}
-            <div className="p-4 border-t border-border">
-              <div className="mb-3 px-4 py-2">
-                <p className="text-xs text-muted-foreground">Signed in as</p>
-                <p className="text-sm text-foreground font-medium truncate">
-                  {user.username || user.address}
+            <div className={styles.userBox}>
+              <div className={styles.userMeta}>
+                <p className={styles.userLabel}>Signed in as</p>
+                <p className={styles.userName}>
+                  <span className={styles.userIcon} aria-hidden="true">
+                    <svg viewBox="0 0 360 320" fill="currentColor">
+                      <path d="M180 141.964C163.699 110.262 119.308 51.1817 78.0347 22.044C38.4971 -5.86834 23.414 -1.03207 13.526 3.43594C2.08093 8.60755 0 26.1785 0 36.5164C0 46.8542 5.66748 121.272 9.36416 133.694C21.5786 174.738 65.0603 188.607 105.104 184.156C107.151 183.852 109.227 183.572 111.329 183.312C109.267 183.539 107.19 183.777 105.104 184.03C46.4204 192.038 -5.69621 214.388 62.6582 290.146C130.654 365.519 176.934 259.327 180 250.191C183.066 259.327 229.346 365.519 297.342 290.146C365.696 214.388 313.58 192.038 254.896 184.03C252.81 183.777 250.733 183.539 248.671 183.312C250.773 183.572 252.849 183.852 254.896 184.156C294.94 188.607 338.421 174.738 350.636 133.694C354.333 121.272 360 46.8542 360 36.5164C360 26.1785 357.919 8.60755 346.474 3.43594C336.586 -1.03207 321.503 -5.86834 281.965 22.044C240.692 51.1817 196.301 110.262 180 141.964Z" />
+                    </svg>
+                  </span>
+                  @{user.username || user.address}
                 </p>
               </div>
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full"
+                className={styles.signOut}
               >
-                <LogOut className="w-5 h-5" />
-                <span className="font-medium">Sign Out</span>
+                <LogOut className="h-5 w-5" />
+                <span>Sign Out</span>
               </button>
             </div>
           </div>
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 mt-16 lg:mt-0">
-          <div className="max-w-7xl mx-auto p-6 lg:p-8">
+        <main className={styles.main}>
+          <div className={styles.mainInner}>
             {children}
           </div>
         </main>
@@ -152,7 +143,7 @@ export function PortalClientLayout({ user, children }: PortalClientLayoutProps) 
       {/* Mobile sidebar backdrop */}
       {isSidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30 top-16"
+          className={`${styles.backdrop} lg:hidden`}
           onClick={() => setIsSidebarOpen(false)}
         />
       )}

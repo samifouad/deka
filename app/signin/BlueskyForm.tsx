@@ -9,6 +9,7 @@
 
 import { useFormStatus } from 'react-dom'
 import { AlertCircle, Loader2 } from 'lucide-react'
+import styles from './signin.module.css'
 
 interface BlueskyFormProps {
   action: (formData: FormData) => Promise<void>
@@ -17,36 +18,36 @@ interface BlueskyFormProps {
 
 export function BlueskyForm({ action, error }: BlueskyFormProps) {
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className={styles.form}>
       {/* Handle input */}
       <div>
-        <label htmlFor="handle" className="block text-sm font-medium text-foreground mb-2">
+        <label htmlFor="handle" className={styles.label}>
           Bluesky Handle
         </label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+        <div className={styles.inputWrap}>
+          <span className={styles.inputPrefix}>@</span>
           <input
             id="handle"
             name="handle"
             type="text"
             placeholder="username.bsky.social"
-            className="w-full pl-8 pr-4 py-3 bg-input border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            className={styles.input}
             autoComplete="username"
             autoCapitalize="off"
             autoCorrect="off"
             required
           />
         </div>
-        <p className="mt-1.5 text-xs text-muted-foreground">
+        <p className={styles.hint}>
           Enter your handle, e.g., alice.bsky.social
         </p>
       </div>
 
       {/* Error message */}
       {error && (
-        <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-          <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-400">{error}</p>
+        <div className={styles.errorBox}>
+          <AlertCircle className="w-4 h-4 mt-0.5" />
+          <p>{error}</p>
         </div>
       )}
 
@@ -54,7 +55,7 @@ export function BlueskyForm({ action, error }: BlueskyFormProps) {
       <SubmitButton />
 
       {/* Info text */}
-      <p className="text-xs text-muted-foreground text-center">
+      <p className={styles.infoText}>
         You&apos;ll be redirected to Bluesky to authorize access
       </p>
     </form>
@@ -68,7 +69,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
+      className={styles.button}
     >
       {pending ? (
         <>

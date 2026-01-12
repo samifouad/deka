@@ -11,41 +11,43 @@ const footerLinks = [
   { name: 'Blog', href: '/blog' },
   { name: 'Status', href: '/status' },
   { name: 'RFD', href: '/rfd' },
+  { name: 'Sign In', href: '/signin' },
 ]
 
 export default function Footer() {
   const { theme, toggleTheme } = useTheme()
 
   return (
-    <footer className="relative px-4 py-12 lg:px-8 border-t border-border">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col md:flex-row justify-between items-center">
-          <Link href="/" className="mb-4 md:mb-0 group">
-            <h3 className="text-xl font-bold text-primary group-hover:text-primary/80 transition-colors">deka</h3>
-          </Link>
-          <div className="flex gap-2 text-sm text-muted-foreground items-center">
-            {footerLinks.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="px-3 py-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors"
-              >
-                {item.name}
-              </Link>
-            ))}
-            <a href="https://github.com/tananetwork" className="px-3 py-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors">GitHub</a>
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-accent transition-colors cursor-pointer"
-              aria-label="Toggle theme"
+    <footer className="static border-t border-black/10 bg-white/70 px-4 py-12 backdrop-blur-md dark:border-white/10 dark:bg-black/60 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 md:flex-row">
+        <Link href="/" className="group">
+          <h3 className="text-xl font-semibold text-black transition-colors group-hover:text-black/70 dark:text-white dark:group-hover:text-white/80">
+            deka
+          </h3>
+        </Link>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-black/70 dark:text-white/70">
+          {footerLinks.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className="rounded-full px-3 py-2 transition-colors hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
             >
-              {theme === 'dark' ? (
-                <Sun className="w-4 h-4" />
-              ) : (
-                <Moon className="w-4 h-4" />
-              )}
-            </button>
-          </div>
+              {item.name}
+            </Link>
+          ))}
+          <a
+            href="https://github.com/tananetwork"
+            className="rounded-full px-3 py-2 transition-colors hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+          >
+            GitHub
+          </a>
+          <button
+            onClick={toggleTheme}
+            className="rounded-full p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
         </div>
       </div>
     </footer>

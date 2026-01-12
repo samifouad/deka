@@ -14,6 +14,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="light">
+      <head>
+        <style>{`
+          .search-panel {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(0);
+          }
+
+          .search-active .search-panel {
+            pointer-events: auto;
+          }
+
+          .search-open .search-panel {
+            opacity: 1;
+          }
+        `}</style>
+      </head>
       <body className="antialiased">
         <ClientLayout>
           {children}
