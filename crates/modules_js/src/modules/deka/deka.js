@@ -7692,6 +7692,9 @@ class IncomingMessage extends EventEmitter {
     pipe(dest) {
         return dest;
     }
+    resume() {
+        return this;
+    }
     emitBody(body) {
         if (this.encoding) {
             const decoder = new TextDecoder(this.encoding);
