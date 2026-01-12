@@ -94,7 +94,9 @@ async fn run_async(context: &Context) -> Result<(), String> {
         )
     } else {
         format!(
-            "globalThis.__dekaLoadModuleAsync({}).catch((err) => {{\
+            "globalThis.__dekaLoadModuleAsync({}).then(async () => {{\
+if (globalThis.__dekaRuntimeHold) {{ await globalThis.__dekaRuntimeHold; }}\
+}}).catch((err) => {{\
 const msg = err && (err.stack || err.message) ? (err.stack || err.message) : String(err);\
 if (String(msg).includes('DekaExit:')) {{ return; }}\
 console.error(err);\

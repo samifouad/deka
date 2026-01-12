@@ -7920,6 +7920,13 @@ class Server extends EventEmitter {
         this.internal = {
             url: `http://localhost:${portValue}`
         };
+        if (!globalThis.__dekaRuntimeHold) {
+            let resolve;
+            globalThis.__dekaRuntimeHold = new Promise((res)=>{
+                resolve = res;
+            });
+            globalThis.__dekaRuntimeHoldResolve = resolve;
+        }
         LOCAL_SERVERS.set(portValue, this);
         (async ()=>{
             if (globalThis.process?.env?.DEKA_HTTP_DEBUG) {
@@ -7942,6 +7949,11 @@ class Server extends EventEmitter {
         this.closing = true;
         if (this.listenerId !== undefined) {
             op_tcp_listener_close2(this.listenerId);
+        }
+        if (globalThis.__dekaRuntimeHoldResolve) {
+            globalThis.__dekaRuntimeHoldResolve();
+            globalThis.__dekaRuntimeHoldResolve = null;
+            globalThis.__dekaRuntimeHold = null;
         }
         this.emit("close");
         if (callback) callback();
