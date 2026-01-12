@@ -341,6 +341,21 @@ impl FsResolver {
         let root = std::env::current_dir().map_err(|err| err.to_string())?;
         Ok(Self { root })
     }
+
+    fn resolve_from_node_modules(&self, start_dir: &Path, specifier: &str) -> Option<PathBuf> {
+        // Walk up the directory tree looking for node_modules
+        let mut current = start_dir;
+        loop {
+            let node_modules = current.join("node_modules");
+            if node_modules.is_dir() {
+                // Return the path - let the candidate resolution handle extensions
+                return Some(node_modules.join(specifier));
+            }
+
+            // Move up to parent directory
+            current = current.parent()?;
+        }
+    }
 }
 
 impl Resolve for FsResolver {
@@ -363,16 +378,37 @@ impl Resolve for FsResolver {
                 slug: None,
             });
         }
+        if specifier == "deka/jsx-runtime" {
+            return Ok(Resolution {
+                filename: FileName::Custom("deka:react-jsx-runtime".to_string()),
+                slug: None,
+            });
+        }
 
         let base_path = match base {
             FileName::Real(path) => path.clone(),
             _ => PathBuf::from("."),
         };
         let base_dir = base_path.parent().unwrap_or_else(|| Path::new("."));
+
+        // Check if this is a node_modules import (bare specifier or scoped package)
+        let is_node_module = !specifier.starts_with("./")
+            && !specifier.starts_with("../")
+            && !specifier.starts_with("/")
+            && !specifier.starts_with("@/");
+
         let mut target = if specifier.starts_with("@/") {
             self.root.join(specifier.trim_start_matches("@/"))
         } else if specifier.starts_with('/') {
             PathBuf::from(specifier)
+        } else if is_node_module {
+            // Try to resolve from node_modules
+            if let Some(resolved) = self.resolve_from_node_modules(base_dir, specifier) {
+                resolved
+            } else {
+                // Fallback to treating as relative path
+                base_dir.join(specifier)
+            }
         } else {
             base_dir.join(specifier)
         };

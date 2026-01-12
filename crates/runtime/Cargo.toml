@@ -13,6 +13,7 @@ modules_common = { path = "../modules_common" }
 modules_js = { path = "../modules_js" }
 modules_php = { path = "../modules_php" }
 compile = { path = "../compile" }
+bundler = { path = "../bundler" }
 deno_core = { workspace = true }
 deno_napi = { workspace = true }
 deno_permissions = { workspace = true }

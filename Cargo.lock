@@ -667,6 +667,8 @@ dependencies = [
  "base64 0.22.1",
  "lightningcss",
  "mime_guess 2.0.5",
+ "num_cpus",
+ "parking_lot",
  "serde_json",
  "sha1",
  "swc_bundler",
@@ -678,6 +680,8 @@ dependencies = [
  "swc_ecma_transforms_base",
  "swc_ecma_transforms_react",
  "swc_ecma_transforms_typescript",
+ "swc_ecma_visit",
+ "tokio",
 ]
 
 [[package]]
@@ -6646,6 +6650,7 @@ dependencies = [
 name = "runtime"
 version = "0.1.0"
 dependencies = [
+ "bundler",
  "compile",
  "core",
  "deno_core",
