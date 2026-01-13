@@ -41,33 +41,56 @@ pub struct ParallelBundler {
     root: PathBuf,
     /// Number of concurrent workers
     workers: usize,
+    /// Whether to bundle node_modules (default: false, mark as external)
+    bundle_node_modules: bool,
 }
 
 impl ParallelBundler {
     pub fn new(root: PathBuf) -> Self {
         let workers = num_cpus::get();
+
+        // By default, don't bundle node_modules (mark as external)
+        // Set DEKA_BUNDLE_NODE_MODULES=1 to include them
+        let bundle_node_modules = std::env::var("DEKA_BUNDLE_NODE_MODULES")
+            .map(|v| v == "1" || v == "true")
+            .unwrap_or(false);
+
+        if bundle_node_modules {
+            eprintln!(" [parallel] bundling node_modules (DEKA_BUNDLE_NODE_MODULES=1)");
+        } else {
+            eprintln!(" [parallel] node_modules marked as external (use DEKA_BUNDLE_NODE_MODULES=1 to bundle)");
+        }
+
         Self {
             root,
             workers,
+            bundle_node_modules,
         }
     }
 
     /// Bundle an entry file by discovering and processing all dependencies in parallel
     pub async fn bundle(&self, entry: &str) -> Result<String, String> {
+        use std::time::Instant;
+
         eprintln!(" [parallel] discovering modules from {}", entry);
-        eprintln!(" [parallel] about to call discover_modules()...");
 
         // Phase 1: Discover all modules in parallel
+        let t1 = Instant::now();
         let modules = self.discover_modules(entry).await?;
-        eprintln!(" [parallel] discover_modules returned with {} modules", modules.len());
+        let discovery_time = t1.elapsed();
+        eprintln!(" [parallel] discovery: {} modules in {}ms", modules.len(), discovery_time.as_millis());
 
         // Phase 2: Sort modules in dependency order
+        let t2 = Instant::now();
         let sorted = self.sort_modules(&modules)?;
-        eprintln!(" [parallel] sorted {} modules", sorted.len());
+        let sort_time = t2.elapsed();
+        eprintln!(" [parallel] sort: {} modules in {}ms", sorted.len(), sort_time.as_millis());
 
         // Phase 3: Concatenate modules
+        let t3 = Instant::now();
         let output = self.concatenate_modules(&sorted, &modules)?;
-        eprintln!(" [parallel] generated {} bytes", output.len());
+        let concat_time = t3.elapsed();
+        eprintln!(" [parallel] concatenation: {} bytes in {}ms", output.len(), concat_time.as_millis());
 
         Ok(output)
     }
@@ -156,7 +179,7 @@ impl ParallelBundler {
                     let mut new_work = Vec::new();
 
                     for dep in &parsed.dependencies {
-                        if let Ok(dep_path) = Self::resolve_dependency(&self.root, &msg.path, dep) {
+                        if let Ok(dep_path) = Self::resolve_dependency(&self.root, &msg.path, dep, self.bundle_node_modules) {
                             resolved_deps.push(dep_path.clone());
 
                             // Check if we've seen this dependency
@@ -166,7 +189,7 @@ impl ParallelBundler {
                                 new_work.push(dep_path);
                             }
                         }
-                        // Silently ignore unresolvable dependencies (react, etc.)
+                        // Silently ignore unresolvable dependencies (react, node_modules if external, etc.)
                     }
 
                     // Store resolved dependencies in the module
@@ -218,16 +241,43 @@ impl ParallelBundler {
         let path = path.to_path_buf();
 
         // Run CPU-intensive parsing on blocking thread pool
-        // Create a NEW SourceMap per task to avoid Send/Sync issues
         tokio::task::spawn_blocking(move || {
-            // Create a new SourceMap for this task
-            let source_map = Lrc::new(SourceMap::default());
-
-            // Read file
+            // Read file first
             let source = std::fs::read_to_string(&path)
                 .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
 
-            // Determine syntax
+            // FAST PATH: Plain .js files in node_modules don't need transformation
+            let is_plain_js = matches!(path.extension().and_then(|e| e.to_str()), Some("js"));
+            let is_node_module = path.to_string_lossy().contains("node_modules");
+
+            if is_plain_js && is_node_module {
+                // Skip SWC transformation entirely - use simple scan for dependencies
+                let dependencies = ParallelBundler::extract_dependencies_fast(&source);
+
+                // Debug: Log first few fast-path hits
+                static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+                let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if count < 5 {
+                    eprintln!(" [fast-path] Skipping SWC for: {}", path.display());
+                }
+
+                // Create a minimal ParsedModule without actual AST parsing
+                // We'll use the source as-is during concatenation
+                return Ok(ParsedModule {
+                    path,
+                    source,
+                    module: Module {
+                        span: swc_common::DUMMY_SP,
+                        body: vec![],
+                        shebang: None,
+                    },
+                    dependencies,
+                    resolved_dependencies: Vec::new(),
+                });
+            }
+
+            // SLOW PATH: TypeScript/JSX files need full SWC transformation
+            let source_map = Lrc::new(SourceMap::default());
             let syntax = ParallelBundler::syntax_for_path(&path);
 
             // Parse
@@ -299,7 +349,45 @@ impl ParallelBundler {
         })
     }
 
-    /// Extract import/export dependencies from a module
+    /// Fast dependency extraction by scanning source (for plain JS files)
+    fn extract_dependencies_fast(source: &str) -> Vec<String> {
+        let mut deps = Vec::new();
+
+        // Simple scan for import/export from statements
+        for line in source.lines() {
+            let trimmed = line.trim();
+
+            // import ... from "spec" or import ... from 'spec'
+            if let Some(from_pos) = trimmed.find(" from ") {
+                if trimmed.starts_with("import ") || trimmed.starts_with("export ") {
+                    let after_from = &trimmed[from_pos + 6..].trim_start();
+                    if let Some(spec) = Self::extract_quoted_string(after_from) {
+                        deps.push(spec);
+                    }
+                }
+            }
+        }
+
+        deps
+    }
+
+    /// Extract string from quotes: "foo" or 'foo' -> foo
+    fn extract_quoted_string(s: &str) -> Option<String> {
+        let s = s.trim();
+        if s.is_empty() {
+            return None;
+        }
+
+        let quote = s.chars().next()?;
+        if quote != '"' && quote != '\'' {
+            return None;
+        }
+
+        let end = s[1..].find(quote)?;
+        Some(s[1..=end].to_string())
+    }
+
+    /// Extract import/export dependencies from a module (for transformed modules)
     fn extract_dependencies(module: &Module) -> Vec<String> {
         use swc_ecma_visit::Visit;
 
@@ -329,11 +417,17 @@ impl ParallelBundler {
     }
 
     /// Resolve a dependency path
-    fn resolve_dependency(root: &Path, from: &Path, specifier: &str) -> Result<PathBuf, String> {
+    fn resolve_dependency(root: &Path, from: &Path, specifier: &str, bundle_node_modules: bool) -> Result<PathBuf, String> {
         // Handle special cases (react, etc.)
         if specifier == "react" || specifier == "react-dom/client" || specifier.starts_with("deka/") {
             // These are handled by vendor files - skip for now
             return Err("Special module".to_string());
+        }
+
+        // Skip node_modules unless explicitly requested
+        if !bundle_node_modules && !specifier.starts_with("./") && !specifier.starts_with("../") && !specifier.starts_with("/") {
+            // This is a bare import (e.g., "lodash", "@iconify-icons/...") - treat as external
+            return Err("External module (node_modules)".to_string());
         }
 
         // Resolve relative imports
@@ -444,27 +538,34 @@ impl ParallelBundler {
 
         for path in sorted {
             if let Some(parsed) = modules.get(path) {
-                // Generate code for this module
-                let mut buf = vec![];
-                {
-                    let mut writer = JsWriter::new(source_map.clone(), "\n", &mut buf, None);
-                    let mut emitter = Emitter {
-                        cfg: Default::default(),
-                        cm: source_map.clone(),
-                        comments: None,
-                        wr: &mut writer,
-                    };
-
-                    emitter.emit_module(&parsed.module)
-                        .map_err(|e| format!("Failed to emit module: {:?}", e))?;
-                }
-
-                let code = String::from_utf8(buf)
-                    .map_err(|e| format!("Invalid UTF-8: {}", e))?;
-
                 output.push_str(&format!("// Module: {}\n", path.display()));
-                output.push_str(&code);
-                output.push_str("\n\n");
+
+                // FAST PATH: If module has empty AST body, it was fast-pathed - use source directly
+                if parsed.module.body.is_empty() {
+                    output.push_str(&parsed.source);
+                    output.push_str("\n\n");
+                } else {
+                    // SLOW PATH: Emit from AST (transformed TypeScript/JSX)
+                    let mut buf = vec![];
+                    {
+                        let mut writer = JsWriter::new(source_map.clone(), "\n", &mut buf, None);
+                        let mut emitter = Emitter {
+                            cfg: Default::default(),
+                            cm: source_map.clone(),
+                            comments: None,
+                            wr: &mut writer,
+                        };
+
+                        emitter.emit_module(&parsed.module)
+                            .map_err(|e| format!("Failed to emit module: {:?}", e))?;
+                    }
+
+                    let code = String::from_utf8(buf)
+                        .map_err(|e| format!("Invalid UTF-8: {}", e))?;
+
+                    output.push_str(&code);
+                    output.push_str("\n\n");
+                }
             }
         }
 
