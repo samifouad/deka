@@ -90,19 +90,33 @@ async fn build_async(context: &Context) -> Result<(), String> {
         }
     }
 
+    // Set sourcemap flag
+    if context.args.flags.contains_key("--sourcemap") {
+        unsafe {
+            std::env::set_var("DEKA_SOURCEMAP", "1");
+        }
+    }
+
+    // Set minify flag
+    if context.args.flags.contains_key("--minify") {
+        unsafe {
+            std::env::set_var("DEKA_MINIFY", "1");
+        }
+    }
+
     // Bundle the code (parallel by default)
-    let (bundle_code, css_code) = if use_parallel {
+    let (bundle_code, source_map, css_code) = if use_parallel {
         eprintln!(" [parallel] bundling with {} workers", num_cpus::get());
         let root = PathBuf::from(".").canonicalize()
             .map_err(|e| format!("Failed to get current directory: {}", e))?;
         let bundler = bundler::ParallelBundler::new(root);
-        let code = bundler.bundle(&entry_path).await?;
-        (code, None)  // Parallel bundler doesn't support CSS yet
+        let output = bundler.bundle(&entry_path).await?;
+        (output.code, output.map, None)  // Parallel bundler doesn't support CSS yet
     } else {
         // Use standard cached bundler
         let bundle = bundler::bundle_browser_assets_cached(&entry_path, &mut cache)
             .map_err(|e| format!("Bundle failed: {}", e))?;
-        (bundle.code, bundle.css)
+        (bundle.code, None, bundle.css)
     };
 
     // Generate filenames
@@ -116,8 +130,25 @@ async fn build_async(context: &Context) -> Result<(), String> {
     // Write JavaScript bundle
     let js_name = format!("{}-{}.js", entry_name, hash);
     let js_path = outdir_path.join(&js_name);
-    std::fs::write(&js_path, &bundle_code)
+
+    // Add source map URL comment if source map exists
+    let mut final_code = bundle_code;
+    if source_map.is_some() {
+        let map_name = format!("{}-{}.js.map", entry_name, hash);
+        final_code.push_str(&format!("\n//# sourceMappingURL={}\n", map_name));
+    }
+
+    std::fs::write(&js_path, &final_code)
         .map_err(|e| format!("Failed to write JS bundle: {}", e))?;
+
+    // Write source map if present
+    if let Some(map_content) = source_map {
+        let map_name = format!("{}-{}.js.map", entry_name, hash);
+        let map_path = outdir_path.join(&map_name);
+        std::fs::write(&map_path, map_content)
+            .map_err(|e| format!("Failed to write source map: {}", e))?;
+        eprintln!(" [sourcemap] written to {}", map_name);
+    }
 
     // Write CSS if present
     let mut css_name = None;

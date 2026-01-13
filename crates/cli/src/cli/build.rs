@@ -16,6 +16,16 @@ pub fn register(registry: &mut Registry) {
         aliases: &[],
         description: "clear the bundler cache",
     });
+    registry.add_flag(FlagSpec {
+        name: "--sourcemap",
+        aliases: &[],
+        description: "generate source maps (.js.map files)",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--minify",
+        aliases: &[],
+        description: "minify the output using SWC minifier",
+    });
     registry.add_param(ParamSpec {
         name: "--target",
         description: "build target: 'browser' (default, bundles node_modules) or 'server' (externals)",

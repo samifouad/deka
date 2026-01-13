@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use parking_lot::{RwLock, Mutex};
+use parking_lot::RwLock;
 use tokio::task::JoinSet;
 use tokio::sync::mpsc;
 
@@ -13,6 +13,14 @@ use swc_ecma_transforms_base::resolver;
 use swc_ecma_transforms_react::{Options as JsxOptions, Runtime as JsxRuntime, react};
 use swc_ecma_transforms_typescript::strip;
 use swc_ecma_visit::VisitWith;
+use swc_ecma_minifier::optimize;
+use swc_ecma_minifier::option::{MinifyOptions, MangleOptions, CompressOptions};
+
+/// Bundle output containing code and optional source map
+pub struct BundleOutput {
+    pub code: String,
+    pub map: Option<String>,
+}
 
 /// A module that has been parsed and transformed
 #[derive(Clone)]
@@ -43,6 +51,10 @@ pub struct ParallelBundler {
     workers: usize,
     /// Whether to bundle node_modules (default: false, mark as external)
     bundle_node_modules: bool,
+    /// Whether to generate source maps
+    sourcemap: bool,
+    /// Whether to minify output
+    minify: bool,
 }
 
 impl ParallelBundler {
@@ -55,19 +67,39 @@ impl ParallelBundler {
             .map(|v| v != "1" && v != "true")
             .unwrap_or(true);
 
+        // Check for source map generation
+        let sourcemap = std::env::var("DEKA_SOURCEMAP")
+            .map(|v| v == "1" || v == "true")
+            .unwrap_or(false);
+
+        // Check for minification
+        let minify = std::env::var("DEKA_MINIFY")
+            .map(|v| v == "1" || v == "true")
+            .unwrap_or(false);
+
         if !bundle_node_modules {
             eprintln!(" [parallel] node_modules marked as external (DEKA_EXTERNAL_NODE_MODULES=1)");
+        }
+
+        if sourcemap {
+            eprintln!(" [parallel] source maps enabled");
+        }
+
+        if minify {
+            eprintln!(" [parallel] minification enabled");
         }
 
         Self {
             root,
             workers,
             bundle_node_modules,
+            sourcemap,
+            minify,
         }
     }
 
     /// Bundle an entry file by discovering and processing all dependencies in parallel
-    pub async fn bundle(&self, entry: &str) -> Result<String, String> {
+    pub async fn bundle(&self, entry: &str) -> Result<BundleOutput, String> {
         use std::time::Instant;
 
         eprintln!(" [parallel] discovering modules from {}", entry);
@@ -88,7 +120,7 @@ impl ParallelBundler {
         let t3 = Instant::now();
         let output = self.concatenate_modules(&sorted, &modules)?;
         let concat_time = t3.elapsed();
-        eprintln!(" [parallel] concatenation: {} bytes in {}ms", output.len(), concat_time.as_millis());
+        eprintln!(" [parallel] concatenation: {} bytes in {}ms", output.code.len(), concat_time.as_millis());
 
         Ok(output)
     }
@@ -528,7 +560,7 @@ impl ParallelBundler {
     }
 
     /// Concatenate modules into final output
-    fn concatenate_modules(&self, sorted: &[PathBuf], modules: &HashMap<PathBuf, ParsedModule>) -> Result<String, String> {
+    fn concatenate_modules(&self, sorted: &[PathBuf], modules: &HashMap<PathBuf, ParsedModule>) -> Result<BundleOutput, String> {
         let mut output = String::new();
         output.push_str("// Parallel bundled output\n\n");
 
@@ -544,6 +576,40 @@ impl ParallelBundler {
                     output.push_str("\n\n");
                 } else {
                     // SLOW PATH: Emit from AST (transformed TypeScript/JSX)
+                    let mut module = parsed.module.clone();
+
+                    // Apply minification if enabled
+                    if self.minify {
+                        let globals = Globals::new();
+                        GLOBALS.set(&globals, || {
+                            let unresolved_mark = Mark::new();
+                            let top_level_mark = Mark::new();
+
+                            let minify_options = MinifyOptions {
+                                compress: Some(CompressOptions::default()),
+                                mangle: Some(MangleOptions::default()),
+                                ..Default::default()
+                            };
+
+                            let program = Program::Module(module.clone());
+                            let optimized_program = optimize(
+                                program,
+                                source_map.clone(),
+                                None,
+                                None,
+                                &minify_options,
+                                &swc_ecma_minifier::option::ExtraOptions {
+                                    unresolved_mark,
+                                    top_level_mark,
+                                    mangle_name_cache: Default::default(),
+                                },
+                            );
+                            if let Program::Module(optimized) = optimized_program {
+                                module = optimized;
+                            }
+                        });
+                    }
+
                     let mut buf = vec![];
                     {
                         let mut writer = JsWriter::new(source_map.clone(), "\n", &mut buf, None);
@@ -554,7 +620,7 @@ impl ParallelBundler {
                             wr: &mut writer,
                         };
 
-                        emitter.emit_module(&parsed.module)
+                        emitter.emit_module(&module)
                             .map_err(|e| format!("Failed to emit module: {:?}", e))?;
                     }
 
@@ -567,7 +633,18 @@ impl ParallelBundler {
             }
         }
 
-        Ok(output)
+        // Generate source map if enabled
+        let map = if self.sourcemap {
+            // Note: Source map generation requires proper file tracking during emit
+            // For now, we'll generate a basic source map structure
+            // TODO: Implement proper source map generation with file positions
+            eprintln!(" [sourcemap] Warning: Source map generation not fully implemented yet");
+            None
+        } else {
+            None
+        };
+
+        Ok(BundleOutput { code: output, map })
     }
 
     fn resolve_path(&self, base: &Path, specifier: &str) -> Result<PathBuf, String> {
