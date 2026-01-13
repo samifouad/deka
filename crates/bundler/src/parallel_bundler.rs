@@ -49,16 +49,14 @@ impl ParallelBundler {
     pub fn new(root: PathBuf) -> Self {
         let workers = num_cpus::get();
 
-        // By default, don't bundle node_modules (mark as external)
-        // Set DEKA_BUNDLE_NODE_MODULES=1 to include them
-        let bundle_node_modules = std::env::var("DEKA_BUNDLE_NODE_MODULES")
-            .map(|v| v == "1" || v == "true")
-            .unwrap_or(false);
+        // By default, bundle node_modules (needed for browser apps)
+        // Set DEKA_EXTERNAL_NODE_MODULES=1 to skip bundling (for server-side/edge)
+        let bundle_node_modules = std::env::var("DEKA_EXTERNAL_NODE_MODULES")
+            .map(|v| v != "1" && v != "true")
+            .unwrap_or(true);
 
-        if bundle_node_modules {
-            eprintln!(" [parallel] bundling node_modules (DEKA_BUNDLE_NODE_MODULES=1)");
-        } else {
-            eprintln!(" [parallel] node_modules marked as external (use DEKA_BUNDLE_NODE_MODULES=1 to bundle)");
+        if !bundle_node_modules {
+            eprintln!(" [parallel] node_modules marked as external (DEKA_EXTERNAL_NODE_MODULES=1)");
         }
 
         Self {

@@ -73,6 +73,23 @@ async fn build_async(context: &Context) -> Result<(), String> {
         .map(|v| v != "0" && v != "false")
         .unwrap_or(true);
 
+    // Get target from --target param or env var
+    // Default: "browser" (bundles node_modules)
+    // Option: "server" (marks node_modules as external)
+    let target = context
+        .args
+        .params
+        .get("--target")
+        .map(|s| s.as_str())
+        .unwrap_or("browser");
+
+    // Set env var for bundler to read
+    if target == "server" || target == "node" {
+        unsafe {
+            std::env::set_var("DEKA_EXTERNAL_NODE_MODULES", "1");
+        }
+    }
+
     // Bundle the code (parallel by default)
     let (bundle_code, css_code) = if use_parallel {
         eprintln!(" [parallel] bundling with {} workers", num_cpus::get());

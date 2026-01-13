@@ -1,4 +1,4 @@
-use core::{CommandSpec, Context, FlagSpec, Registry};
+use core::{CommandSpec, Context, FlagSpec, ParamSpec, Registry};
 
 const COMMAND: CommandSpec = CommandSpec {
     name: "build",
@@ -15,6 +15,10 @@ pub fn register(registry: &mut Registry) {
         name: "--clear-cache",
         aliases: &[],
         description: "clear the bundler cache",
+    });
+    registry.add_param(ParamSpec {
+        name: "--target",
+        description: "build target: 'browser' (default, bundles node_modules) or 'server' (externals)",
     });
 }
 
