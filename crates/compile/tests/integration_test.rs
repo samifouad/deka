@@ -1,5 +1,5 @@
 use compile::binary::{BinaryEmbedder, extract_vfs};
-use compile::vfs::VFS;
+use compile::vfs::{RuntimeMode, VFS};
 use std::fs;
 use tempfile::tempdir;
 
@@ -9,7 +9,7 @@ fn test_full_compile_cycle() {
     let temp_dir = tempdir().unwrap();
 
     // Create a simple VFS
-    let mut vfs = VFS::new("test.js".to_string());
+    let mut vfs = VFS::new("test.js".to_string(), RuntimeMode::Server);
     vfs.add_file(
         "test.js".to_string(),
         b"console.log('hello world')".to_vec(),
@@ -64,7 +64,7 @@ fn test_binary_permissions() {
         use std::os::unix::fs::PermissionsExt;
 
         let temp_dir = tempdir().unwrap();
-        let mut vfs = VFS::new("app.js".to_string());
+        let mut vfs = VFS::new("app.js".to_string(), RuntimeMode::Server);
         vfs.add_file("app.js".to_string(), b"test".to_vec(), "js".to_string(), false);
         let vfs_bytes = vfs.to_bytes().unwrap();
 

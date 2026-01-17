@@ -161,6 +161,7 @@ fn compress_content(data: &[u8]) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::vfs::RuntimeMode;
     use std::fs;
     use tempfile::tempdir;
 
@@ -171,7 +172,7 @@ mod tests {
         fs::write(&file_path, b"export default {}").unwrap();
 
         let embedder = Embedder::new(dir.path().to_path_buf());
-        let vfs = embedder.build("handler.js").unwrap();
+        let vfs = embedder.build("handler.js", RuntimeMode::Server).unwrap();
 
         assert_eq!(vfs.file_count(), 1);
         assert!(vfs.get_file("handler.js").is_some());
