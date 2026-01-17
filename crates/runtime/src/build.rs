@@ -25,21 +25,32 @@ async fn build_async(context: &Context) -> Result<(), String> {
     init_env();
     let start = Instant::now();
 
+    // Check for debug flag and set LOG_LEVEL for stdio
+    let debug = context.args.flags.contains_key("--debug")
+        || context.args.flags.contains_key("-v")
+        || context.args.flags.contains_key("--verbose");
+
+    if debug {
+        unsafe {
+            std::env::set_var("LOG_LEVEL", "debug");
+        }
+    }
+
     // Initialize module cache
     let mut cache = bundler::ModuleCache::new(None);
 
     // Handle --clear-cache flag
     if context.args.flags.contains_key("--clear-cache") {
-        eprintln!(" [cache] clearing cache...");
+        stdio_log::debug("cache", "clearing cache...");
         cache.clear()
             .map_err(|e| format!("Failed to clear cache: {}", e))?;
-        eprintln!(" [cache] cache cleared successfully");
+        stdio_log::log("cache", "cleared successfully");
         return Ok(());
     }
 
     if cache.is_enabled() {
         let stats = cache.stats();
-        eprintln!(" [cache] enabled ({} in memory, {} on disk)", stats.memory_count, stats.disk_count);
+        stdio_log::debug("cache", &format!("enabled ({} in memory, {} on disk)", stats.memory_count, stats.disk_count));
     }
 
     let entry = context
@@ -106,7 +117,7 @@ async fn build_async(context: &Context) -> Result<(), String> {
 
     // Bundle the code (parallel by default)
     let (bundle_code, source_map, css_code) = if use_parallel {
-        eprintln!(" [parallel] bundling with {} workers", num_cpus::get());
+        stdio_log::debug("parallel", &format!("bundling with {} workers", num_cpus::get()));
         let root = PathBuf::from(".").canonicalize()
             .map_err(|e| format!("Failed to get current directory: {}", e))?;
         let bundler = bundler::ParallelBundler::new(root);
@@ -147,7 +158,7 @@ async fn build_async(context: &Context) -> Result<(), String> {
         let map_path = outdir_path.join(&map_name);
         std::fs::write(&map_path, map_content)
             .map_err(|e| format!("Failed to write source map: {}", e))?;
-        eprintln!(" [sourcemap] written to {}", map_name);
+        stdio_log::debug("sourcemap", &format!("written to {}", map_name));
     }
 
     // Write CSS if present
@@ -169,7 +180,7 @@ async fn build_async(context: &Context) -> Result<(), String> {
         .map_err(|e| format!("Failed to write HTML: {}", e))?;
 
     let duration = start.elapsed().as_millis();
-    eprintln!(" build complete [{}ms]", duration);
+    stdio_log::log("build", &format!("complete in {}ms", duration));
     Ok(())
 }
 

@@ -623,7 +623,7 @@ pub fn bundle_browser_assets_cached(entry: &str, cache: &mut crate::cache::Modul
         if cached.content_hash == content_hash {
             // Cache hit! Parse the transformed code back into JsBundle
             // For now, we'll store just the JS code. CSS caching comes later.
-            eprintln!(" [cache] HIT - using cached bundle");
+            stdio::debug("cache", "HIT - using cached bundle");
             return Ok(JsBundle {
                 code: cached.transformed_code,
                 css: None,  // TODO: Cache CSS too
@@ -633,7 +633,7 @@ pub fn bundle_browser_assets_cached(entry: &str, cache: &mut crate::cache::Modul
     }
 
     // Cache miss - run the bundler
-    eprintln!(" [cache] MISS - bundling from scratch");
+    stdio::debug("cache", "MISS - bundling from scratch");
     let bundle = bundle_browser_assets(entry)?;
 
     // Store in cache

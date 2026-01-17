@@ -26,6 +26,11 @@ pub fn register(registry: &mut Registry) {
         aliases: &[],
         description: "minify the output using SWC minifier",
     });
+    registry.add_flag(FlagSpec {
+        name: "--debug",
+        aliases: &["-v", "--verbose"],
+        description: "show detailed build progress and logs",
+    });
     registry.add_param(ParamSpec {
         name: "--target",
         description: "build target: 'browser' (default, bundles node_modules) or 'server' (externals)",

@@ -127,21 +127,21 @@ impl ModuleCache {
         let graph = if enabled {
             // Create cache directory if it doesn't exist
             if let Err(e) = fs::create_dir_all(&cache_dir) {
-                eprintln!(" [cache] Warning: Failed to create cache directory: {}", e);
+                stdio::debug("cache", &format!("failed to create cache directory: {}", e));
                 DependencyGraph::new()
             } else {
-                eprintln!(" [cache] Initialized at {}", cache_dir.display());
+                stdio::debug("cache", &format!("initialized at {}", cache_dir.display()));
 
                 // Try to load graph
                 let graph_path = cache_dir.join("graph.json");
                 if graph_path.exists() {
                     match Self::load_graph(&graph_path) {
                         Ok(g) => {
-                            eprintln!(" [cache] Loaded dependency graph ({} modules)", g.module_count());
+                            stdio::debug("cache", &format!("loaded dependency graph ({} modules)", g.module_count()));
                             g
                         }
                         Err(e) => {
-                            eprintln!(" [cache] Failed to load graph: {}, starting fresh", e);
+                            stdio::debug("cache", &format!("failed to load graph: {}, starting fresh", e));
                             DependencyGraph::new()
                         }
                     }
@@ -197,7 +197,7 @@ impl ModuleCache {
                     }
                 }
                 Err(e) => {
-                    eprintln!(" [cache] Failed to load {}: {}", cache_file.display(), e);
+                    stdio::debug("cache", &format!("failed to load {}: {}", cache_file.display(), e));
                     let _ = fs::remove_file(&cache_file);
                 }
             }
@@ -226,7 +226,7 @@ impl ModuleCache {
                 // Success - no logging to keep it quiet
             }
             Err(e) => {
-                eprintln!(" [cache] Failed to save {}: {}", cache_file.display(), e);
+                stdio::debug("cache", &format!("failed to save {}: {}", cache_file.display(), e));
             }
         }
     }

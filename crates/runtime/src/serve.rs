@@ -7,10 +7,8 @@ use crate::extensions::extensions_for_mode;
 use core::Context;
 use engine::{RuntimeEngine, RuntimeState, config as runtime_config, set_engine};
 use notify::Watcher;
-use pool::validation::{
-    PoolWorkers, extract_pool_options, extract_serve_options, validate_handler,
-};
-use pool::{HandlerKey, PoolConfig};
+use pool::validation::{PoolWorkers, extract_pool_options};
+use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
 use stdio as stdio_log;
 use transport::{
     DnsOptions, HttpOptions, RedisOptions, TcpOptions, UdpOptions, UnixOptions, WsOptions,
@@ -48,16 +46,14 @@ async fn serve_async(context: &Context) -> Result<(), String> {
 
     stdio_log::log("handler", &format!("loaded {}", handler_path));
 
-    let serve_options = if is_html_entry
-        || is_static_dir
-        || matches!(resolved.mode, runtime_config::ServeMode::Php)
-    {
-        pool::validation::ServeOptions::default()
-    } else {
-        validate_handler(&handler_source, &handler_path)
-            .map_err(|err| format!("Handler validation failed: {}", err))?;
-        extract_serve_options(&handler_source, &handler_path)
-    };
+    // For JS/TS files, use run-mode (Bun/Node compatible) instead of handler mode
+    let is_js_mode = matches!(resolved.mode, runtime_config::ServeMode::Js);
+    if is_js_mode && !is_html_entry && !is_static_dir {
+        // Delegate to run mode for JS/TS files - scripts start their own servers
+        return run_js_module(&handler_path, context).await;
+    }
+
+    let serve_options = pool::validation::ServeOptions::default();
 
     let (server_pool_config, user_pool_config) = configure_pools(
         &handler_source,
@@ -378,6 +374,78 @@ fn spawn_archive_task(state: &Arc<RuntimeState>, archive: Option<engine::Introsp
             .await;
         }
     });
+}
+
+/// Run a JS/TS module in Bun/Node compatible mode
+/// The script starts its own server using standard APIs (http.createServer, Bun.serve, etc.)
+async fn run_js_module(handler_path: &str, _context: &Context) -> Result<(), String> {
+    let runtime_cfg = runtime_config::RuntimeConfig::load();
+    let mut pool_config = PoolConfig::from_env();
+    // Allow long-lived servers without timing out
+    pool_config.request_timeout_ms = 0;
+    if let Some(enabled) = runtime_cfg.code_cache_enabled() {
+        pool_config.enable_code_cache = enabled;
+    }
+
+    let serve_mode = runtime_config::ServeMode::Js;
+    let extensions_provider = Arc::new(move || extensions_for_mode(&serve_mode));
+
+    let engine = Arc::new(RuntimeEngine::new(
+        pool_config.clone(),
+        pool_config,
+        &runtime_cfg,
+        extensions_provider,
+    ));
+    let _ = set_engine(Arc::clone(&engine));
+
+    let handler_key = HandlerKey::new(
+        FsPath::new(handler_path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(handler_path),
+    );
+
+    // Load module and wait for any server to keep running
+    let handler_code = format!(
+        "globalThis.__dekaLoadModuleAsync({}).then(async () => {{\
+if (globalThis.__dekaRuntimeHold) {{ await globalThis.__dekaRuntimeHold; }}\
+}}).catch((err) => {{\
+const msg = err && (err.stack || err.message) ? (err.stack || err.message) : String(err);\
+if (String(msg).includes('DekaExit:')) {{ return; }}\
+console.error(err);\
+throw err;\
+}});",
+        serde_json::to_string(handler_path).unwrap_or_else(|_| "\"\"".to_string())
+    );
+
+    let request_value = serde_json::json!({
+        "url": "http://localhost/",
+        "method": "GET",
+        "headers": {},
+        "body": "",
+    });
+
+    let response = engine
+        .execute(
+            handler_key,
+            RequestData {
+                handler_code,
+                request_value,
+                request_parts: None,
+                mode: ExecutionMode::Module,
+            },
+        )
+        .await
+        .map_err(|err| format!("Failed: {}", err))?;
+
+    if !response.success {
+        if let Some(error) = response.error {
+            return Err(format!("Failed: {}", error));
+        }
+        return Err("Failed: unknown error".to_string());
+    }
+
+    Ok(())
 }
 
 fn now_millis() -> u64 {

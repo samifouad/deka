@@ -683,6 +683,7 @@ dependencies = [
  "serde_json",
  "sha1",
  "sha2",
+ "stdio",
  "swc_bundler",
  "swc_common",
  "swc_ecma_ast",

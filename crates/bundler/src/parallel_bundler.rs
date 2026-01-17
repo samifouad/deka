@@ -78,15 +78,13 @@ impl ParallelBundler {
             .unwrap_or(false);
 
         if !bundle_node_modules {
-            eprintln!(" [parallel] node_modules marked as external (DEKA_EXTERNAL_NODE_MODULES=1)");
+            stdio::debug("parallel", "node_modules marked as external");
         }
-
         if sourcemap {
-            eprintln!(" [parallel] source maps enabled");
+            stdio::debug("parallel", "source maps enabled");
         }
-
         if minify {
-            eprintln!(" [parallel] minification enabled");
+            stdio::debug("parallel", "minification enabled");
         }
 
         Self {
@@ -102,34 +100,34 @@ impl ParallelBundler {
     pub async fn bundle(&self, entry: &str) -> Result<BundleOutput, String> {
         use std::time::Instant;
 
-        eprintln!(" [parallel] discovering modules from {}", entry);
+        stdio::debug("parallel", &format!("discovering modules from {}", entry));
 
         // Phase 1: Discover all modules in parallel
         let t1 = Instant::now();
         let modules = self.discover_modules(entry).await?;
         let discovery_time = t1.elapsed();
-        eprintln!(" [parallel] discovery: {} modules in {}ms", modules.len(), discovery_time.as_millis());
+        stdio::debug("parallel", &format!("discovery: {} modules in {}ms", modules.len(), discovery_time.as_millis()));
 
         // Phase 2: Sort modules in dependency order
         let t2 = Instant::now();
         let sorted = self.sort_modules(&modules)?;
         let sort_time = t2.elapsed();
-        eprintln!(" [parallel] sort: {} modules in {}ms", sorted.len(), sort_time.as_millis());
+        stdio::debug("parallel", &format!("sort: {} modules in {}ms", sorted.len(), sort_time.as_millis()));
 
         // Phase 3: Concatenate modules
         let t3 = Instant::now();
         let output = self.concatenate_modules(&sorted, &modules)?;
         let concat_time = t3.elapsed();
-        eprintln!(" [parallel] concatenation: {} bytes in {}ms", output.code.len(), concat_time.as_millis());
+        stdio::debug("parallel", &format!("concatenation: {} bytes in {}ms", output.code.len(), concat_time.as_millis()));
 
         Ok(output)
     }
 
     /// Discover all modules starting from entry, using parallel workers with channels
     async fn discover_modules(&self, entry: &str) -> Result<HashMap<PathBuf, ParsedModule>, String> {
-        eprintln!(" [parallel] resolving entry path...");
+        stdio::debug("parallel", "resolving entry path...");
         let entry_path = self.resolve_path(&self.root, entry)?;
-        eprintln!(" [parallel] entry resolved to: {}", entry_path.display());
+        stdio::debug("parallel", &format!("entry resolved to: {}", entry_path.display()));
 
         // Create channels for work distribution
         let (work_tx, work_rx) = mpsc::unbounded_channel::<WorkMessage>();
@@ -146,7 +144,7 @@ impl ParallelBundler {
         work_tx.send(WorkMessage { path: entry_path.clone() })
             .map_err(|e| format!("Failed to send entry work: {}", e))?;
 
-        eprintln!(" [parallel] spawning {} workers...", self.workers);
+        stdio::debug("parallel", &format!("spawning {} workers...", self.workers));
 
         // Spawn worker tasks
         let mut tasks = JoinSet::new();
@@ -158,7 +156,7 @@ impl ParallelBundler {
             tasks.spawn(async move {
                 let mut processed_count = 0;
 
-                eprintln!(" [worker-{}] started", worker_id);
+                stdio::debug("worker", &format!("{} started", worker_id));
 
                 loop {
                     // Pull work from shared queue
@@ -173,8 +171,8 @@ impl ParallelBundler {
                     };
 
                     processed_count += 1;
-                    if processed_count % 100 == 0 {
-                        eprintln!(" [worker-{}] processed {} modules", worker_id, processed_count);
+                    if stdio::is_debug() && processed_count % 100 == 0 {
+                        stdio::debug("worker", &format!("{} processed {} modules", worker_id, processed_count));
                     }
 
                     // Parse module (CPU-intensive)
@@ -187,7 +185,7 @@ impl ParallelBundler {
                     });
                 }
 
-                eprintln!(" [worker-{}] completed ({} modules processed)", worker_id, processed_count);
+                stdio::debug("worker", &format!("{} completed ({} modules processed)", worker_id, processed_count));
                 Ok::<(), String>(())
             });
         }
@@ -236,7 +234,7 @@ impl ParallelBundler {
                     modules.insert(msg.path, parsed);
                 }
                 Err(e) => {
-                    eprintln!("Failed to parse {}: {}", msg.path.display(), e);
+                    stdio::debug("parse", &format!("failed {}: {}", msg.path.display(), e));
                 }
             }
 
@@ -246,13 +244,14 @@ impl ParallelBundler {
             }
         }
 
-        eprintln!(" [parallel] all workers completed");
-        eprintln!(" [parallel] extracted {} total modules", modules.len());
+        stdio::debug("parallel", "all workers completed");
+        stdio::debug("parallel", &format!("extracted {} total modules", modules.len()));
 
-        // Sample first 10 paths
-        eprintln!(" [parallel] Sample paths:");
-        for (i, path) in modules.keys().enumerate().take(10) {
-            eprintln!("    {}: {}", i, path.display());
+        if stdio::is_debug() {
+            // Sample first 10 paths
+            for (i, path) in modules.keys().enumerate().take(10) {
+                stdio::debug("parallel", &format!("  {}: {}", i, path.display()));
+            }
         }
 
         // Shutdown workers by dropping work_tx (closes channel)
@@ -285,10 +284,12 @@ impl ParallelBundler {
                 let dependencies = ParallelBundler::extract_dependencies_fast(&source);
 
                 // Debug: Log first few fast-path hits
-                static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-                let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                if count < 5 {
-                    eprintln!(" [fast-path] Skipping SWC for: {}", path.display());
+                if stdio::is_debug() {
+                    static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+                    let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if count < 5 {
+                        stdio::debug("fast-path", &format!("skipping SWC for: {}", path.display()));
+                    }
                 }
 
                 // Create a minimal ParsedModule without actual AST parsing
@@ -370,6 +371,32 @@ impl ParallelBundler {
                     unresolved_mark,
                 );
                 pass.process(&mut program);
+            }
+
+            // Apply minification if enabled (must be done within same GLOBALS context)
+            let should_minify = std::env::var("DEKA_MINIFY")
+                .map(|v| v == "1" || v == "true")
+                .unwrap_or(false);
+
+            if should_minify {
+                let minify_options = MinifyOptions {
+                    compress: Some(CompressOptions::default()),
+                    mangle: Some(MangleOptions::default()),
+                    ..Default::default()
+                };
+
+                program = optimize(
+                    program,
+                    source_map.clone(),
+                    None,
+                    None,
+                    &minify_options,
+                    &swc_ecma_minifier::option::ExtraOptions {
+                        unresolved_mark,
+                        top_level_mark,
+                        mangle_name_cache: Default::default(),
+                    },
+                );
             }
 
             match program {
@@ -575,41 +602,7 @@ impl ParallelBundler {
                     output.push_str(&parsed.source);
                     output.push_str("\n\n");
                 } else {
-                    // SLOW PATH: Emit from AST (transformed TypeScript/JSX)
-                    let mut module = parsed.module.clone();
-
-                    // Apply minification if enabled
-                    if self.minify {
-                        let globals = Globals::new();
-                        GLOBALS.set(&globals, || {
-                            let unresolved_mark = Mark::new();
-                            let top_level_mark = Mark::new();
-
-                            let minify_options = MinifyOptions {
-                                compress: Some(CompressOptions::default()),
-                                mangle: Some(MangleOptions::default()),
-                                ..Default::default()
-                            };
-
-                            let program = Program::Module(module.clone());
-                            let optimized_program = optimize(
-                                program,
-                                source_map.clone(),
-                                None,
-                                None,
-                                &minify_options,
-                                &swc_ecma_minifier::option::ExtraOptions {
-                                    unresolved_mark,
-                                    top_level_mark,
-                                    mangle_name_cache: Default::default(),
-                                },
-                            );
-                            if let Program::Module(optimized) = optimized_program {
-                                module = optimized;
-                            }
-                        });
-                    }
-
+                    // SLOW PATH: Emit from AST (transformed TypeScript/JSX, already minified if enabled)
                     let mut buf = vec![];
                     {
                         let mut writer = JsWriter::new(source_map.clone(), "\n", &mut buf, None);
@@ -620,7 +613,7 @@ impl ParallelBundler {
                             wr: &mut writer,
                         };
 
-                        emitter.emit_module(&module)
+                        emitter.emit_module(&parsed.module)
                             .map_err(|e| format!("Failed to emit module: {:?}", e))?;
                     }
 
@@ -638,7 +631,7 @@ impl ParallelBundler {
             // Note: Source map generation requires proper file tracking during emit
             // For now, we'll generate a basic source map structure
             // TODO: Implement proper source map generation with file positions
-            eprintln!(" [sourcemap] Warning: Source map generation not fully implemented yet");
+            stdio::debug("sourcemap", "source map generation not fully implemented yet");
             None
         } else {
             None
