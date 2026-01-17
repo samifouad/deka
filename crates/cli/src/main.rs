@@ -15,6 +15,7 @@ fn main() {
     cli::self_cmd::register(&mut registry);
     cli::test::register(&mut registry);
     cli::user::register(&mut registry);
+    introspect::register(&mut registry);
 
     cli::execute(&registry);
 }

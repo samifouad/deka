@@ -8,6 +8,7 @@ runtime = { path = "../runtime" }
 compile = { path = "../compile" }
 core = { path ="../core" }
 stdio = { path = "../stdio" }
+introspect = { path = "../introspect" }
 pm = { workspace = true }
 anyhow = "1.0"
 serde_json = "1.0"

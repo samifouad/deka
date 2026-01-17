@@ -1,0 +1,10 @@
+{
+  "name": "@deka/introspect",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "ink": "^5.0.1",
+    "react": "^19.0.0",
+    "@tananetwork/stdio": "*"
+  }
+}

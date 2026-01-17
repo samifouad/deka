@@ -1055,6 +1055,7 @@ dependencies = [
  "anyhow",
  "compile",
  "core",
+ "introspect",
  "pm",
  "runtime",
  "serde_json",
@@ -3606,6 +3607,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "introspect"
+version = "0.1.0"
+dependencies = [
+ "core",
+ "runtime",
+ "serde_json",
+ "stdio",
 ]
 
 [[package]]
