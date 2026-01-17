@@ -1,0 +1,15 @@
+
+▗ ▗   ▖ ▖  Claude Code v2.1.9
+           Opus 4.5 · Claude Pro
+  ▘▘ ▝▝    ~/Projects/deka/deka
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+  ⎿  Read crates/compile/src/embed.rs (181 lines)
+  ⎿  Read crates/compile/tests/integration_test.rs (86 lines)
+  ⎿  Read ../../../../../tmp/test-port.js (10 lines)
+  ⎿  Read ../../../../../tmp/test-direct.js (10 lines)
+  ⎿  Read ../../../../../tmp/test-http-internals.js (19 lines)
+  ⎿  You're out of extra usage · resets 1am (America/Edmonton)
+     /upgrade to increase your usage limit.
+
+
+
