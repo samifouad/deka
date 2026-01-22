@@ -57,6 +57,30 @@ async fn run_async(context: &Context) -> Result<(), String> {
         ));
     }
 
+    // Check for --deka and --watch flags
+    let force_deka = context.args.flags.contains_key("--deka");
+    let watch_mode = context.args.flags.contains_key("--watch")
+        || context.args.flags.contains_key("-W")
+        || std::env::var("DEKA_WATCH").ok().as_deref() == Some("1");
+
+    // Check if this is Next.js - delegate to node even with --deka because Next.js requires IPC
+    let is_nextjs = normalized.contains("next/dist/bin/next")
+        || normalized.contains("next/dist/cli/");
+
+    if is_nextjs {
+        eprintln!("[deka] Detected Next.js - delegating to Node.js (Next.js requires IPC)");
+        return run_with_shebang("node", &normalized, &extra_args);
+    }
+
+    // If --deka is not set, check shebang and potentially delegate to node/bun
+    if !force_deka {
+        if let Some(shebang_cmd) = parse_shebang(&normalized) {
+            if shebang_cmd == "node" || shebang_cmd == "bun" {
+                return run_with_shebang(&shebang_cmd, &normalized, &extra_args);
+            }
+        }
+    }
+
     let is_php = normalized.to_ascii_lowercase().ends_with(".php");
     let serve_mode = if is_php {
         runtime_config::ServeMode::Php
@@ -169,6 +193,9 @@ throw err;\
         }
     }
 
+    // The JavaScript code already handles keep-alive by awaiting __dekaRuntimeHold
+    // If a server is running, the promise won't resolve and execution won't complete
+    // This matches Node.js/Bun/Deno behavior automatically
     Ok(())
 }
 
@@ -184,7 +211,64 @@ fn handler_input(context: &Context) -> (String, Vec<String>) {
     } else {
         Vec::new()
     };
+
+    // Check if handler is a bare name (no path separators) and might be a package.json script
+    if !handler.contains('/') && !handler.contains('\\') && !handler.starts_with('.') {
+        if let Some((script_cmd, script_args)) = resolve_package_script(&handler) {
+            // Combine script args with extra args
+            let mut combined_args = script_args;
+            combined_args.extend(extra_args);
+            return (script_cmd, combined_args);
+        }
+    }
+
     (handler, extra_args)
+}
+
+fn resolve_package_script(script_name: &str) -> Option<(String, Vec<String>)> {
+    use std::fs;
+
+    let cwd = std::env::current_dir().ok()?;
+    let package_json_path = cwd.join("package.json");
+
+    if !package_json_path.exists() {
+        return None;
+    }
+
+    let content = fs::read_to_string(&package_json_path).ok()?;
+    let package: serde_json::Value = serde_json::from_str(&content).ok()?;
+
+    let scripts = package.get("scripts")?.as_object()?;
+    let script = scripts.get(script_name)?.as_str()?;
+
+    // Parse the script command to extract the actual entry point and args
+    // Split on whitespace
+    let parts: Vec<&str> = script.split_whitespace().collect();
+    if parts.is_empty() {
+        return None;
+    }
+
+    let entry = parts[0];
+    let script_args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+
+    // Try to resolve the entry to an actual file
+    // First check if it's in node_modules/.bin
+    let bin_path = cwd.join("node_modules").join(".bin").join(entry);
+    if bin_path.exists() {
+        // Follow symlink if it exists
+        let resolved = fs::canonicalize(&bin_path).unwrap_or(bin_path);
+        return Some((resolved.to_string_lossy().to_string(), script_args));
+    }
+
+    // Check if it's a relative/absolute path
+    let path = std::path::Path::new(entry);
+    if path.exists() {
+        let resolved = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        return Some((resolved.to_string_lossy().to_string(), script_args));
+    }
+
+    // If not found, return None so caller can handle the error
+    None
 }
 
 fn set_runtime_args(extra_args: &[String]) {
@@ -216,4 +300,62 @@ fn normalize_handler_path(path: &str) -> String {
         Ok(canon) => canon.to_string_lossy().to_string(),
         Err(_) => joined.to_string_lossy().to_string(),
     }
+}
+
+fn parse_shebang(file_path: &str) -> Option<String> {
+    use std::fs;
+    use std::io::{BufRead, BufReader};
+
+    let file = fs::File::open(file_path).ok()?;
+    let mut reader = BufReader::new(file);
+    let mut first_line = String::new();
+    reader.read_line(&mut first_line).ok()?;
+
+    if !first_line.starts_with("#!") {
+        return None;
+    }
+
+    // Parse shebang: #!/usr/bin/env node OR #!/usr/bin/node
+    let shebang = first_line.trim_start_matches("#!").trim();
+    let parts: Vec<&str> = shebang.split_whitespace().collect();
+
+    if parts.is_empty() {
+        return None;
+    }
+
+    // Handle "#!/usr/bin/env node" format
+    if parts[0].ends_with("/env") && parts.len() > 1 {
+        return Some(parts[1].to_string());
+    }
+
+    // Handle "#!/usr/bin/node" format
+    if let Some(cmd) = parts[0].split('/').last() {
+        return Some(cmd.to_string());
+    }
+
+    None
+}
+
+fn run_with_shebang(cmd: &str, file_path: &str, args: &[String]) -> Result<(), String> {
+    use std::process::Command;
+
+    let mut command = Command::new(cmd);
+    command.arg(file_path);
+    command.args(args);
+
+    // Inherit stdio so output goes to terminal
+    command.stdin(std::process::Stdio::inherit());
+    command.stdout(std::process::Stdio::inherit());
+    command.stderr(std::process::Stdio::inherit());
+
+    let status = command
+        .status()
+        .map_err(|err| format!("Failed to execute {}: {}", cmd, err))?;
+
+    if !status.success() {
+        let code = status.code().unwrap_or(1);
+        std::process::exit(code);
+    }
+
+    Ok(())
 }

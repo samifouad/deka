@@ -24,6 +24,7 @@ mod crypto;
 mod fs;
 mod network;
 mod process;
+mod stdin;
 mod web;
 use flate2::Compression;
 use flate2::write::GzEncoder;
@@ -58,9 +59,10 @@ use network::{
 };
 use process::{
     op_process_close_stdin, op_process_exit, op_process_kill, op_process_read_stderr,
-    op_process_read_stdout, op_process_spawn, op_process_spawn_sync, op_process_wait,
+    op_process_read_stdout, op_process_spawn, op_process_spawn_immediate, op_process_spawn_sync, op_process_wait,
     op_process_write_stdin, op_sleep,
 };
+use stdin::{op_stdin_read, op_stdin_set_raw_mode};
 use web::{
     op_blob_create, op_blob_drop, op_blob_get, op_blob_size, op_blob_slice, op_blob_type,
     op_http_fetch, op_stream_close, op_stream_create, op_stream_drop, op_stream_enqueue,
@@ -151,6 +153,7 @@ deno_core::extension!(
         op_http_fetch,
         op_process_exit,
         op_process_spawn,
+        op_process_spawn_immediate,
         op_process_spawn_sync,
         op_process_read_stdout,
         op_process_read_stderr,
@@ -159,6 +162,8 @@ deno_core::extension!(
         op_process_wait,
         op_process_kill,
         op_sleep,
+        op_stdin_read,
+        op_stdin_set_raw_mode,
         op_redis_connect,
         op_redis_close,
         op_redis_call,
@@ -893,8 +898,13 @@ fn transform_module(path: &str, source: &str) -> Result<TransformedModule, Strin
         .map_err(|err| format_parse_error(path, source, &cm, err))?;
 
     let mut deps = collect_deps(&module);
-    if is_jsx && !deps.iter().any(|dep| dep == "deka/jsx-runtime") {
-        deps.push("deka/jsx-runtime".to_string());
+    let jsx_import_source = std::env::var("DEKA_JSX_IMPORT_SOURCE")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "deka".to_string());
+    let jsx_runtime = format!("{}/jsx-runtime", jsx_import_source);
+    if is_jsx && !deps.iter().any(|dep| dep == &jsx_runtime) {
+        deps.push(jsx_runtime);
     }
     let top_level_await = has_top_level_await(&module);
 
@@ -913,7 +923,7 @@ fn transform_module(path: &str, source: &str) -> Result<TransformedModule, Strin
         if is_jsx {
             let mut options = JsxOptions::default();
             options.runtime = Some(JsxRuntime::Automatic);
-            options.import_source = Some("deka".into());
+            options.import_source = Some(jsx_import_source.into());
             let mut pass = react(
                 cm.clone(),
                 None::<swc_common::comments::SingleThreadedComments>,

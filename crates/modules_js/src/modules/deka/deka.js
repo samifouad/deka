@@ -97,7 +97,7 @@ globalThis.__dekaOps = ops;
 // NOTE: This file is the authoritative runtime shim source for modules_js.
 // Keep changes here (not in a separate TS pipeline) and document compatibility
 // shims with JSDoc to make future updates easier.
-const { op_read_handler_source, op_read_module_source, op_read_env, op_stdout_write, op_stderr_write, op_execute_isolate, op_transform_module, op_bundle_browser, op_bundle_browser_assets, op_bundle_css, op_transform_css, op_tailwind_process, op_read_file, op_fs_exists, op_fs_stat, op_fs_read_dir, op_fs_mkdir, op_fs_remove_file, op_fs_append, op_fs_append_bytes, op_fs_open, op_fs_close, op_fs_read, op_fs_write, op_fs_copy_file, op_zlib_gzip, op_write_file, op_write_file_base64, op_introspect_stats, op_introspect_top, op_introspect_workers, op_introspect_isolate, op_introspect_kill_isolate, op_introspect_requests, op_introspect_evict, op_set_introspect_profiling, op_ws_send, op_ws_send_binary, op_ws_close, op_blob_create, op_blob_get, op_blob_size, op_blob_type, op_blob_slice, op_blob_drop, op_stream_create, op_stream_enqueue, op_stream_close, op_stream_read, op_stream_drop, op_crypto_random, op_crypto_digest, op_crypto_hmac, op_crypto_pbkdf2, op_crypto_aes_gcm_encrypt, op_crypto_aes_gcm_decrypt, op_crypto_key_info, op_crypto_key_from_secret, op_crypto_key_from_pem, op_crypto_key_from_der, op_crypto_key_from_jwk, op_crypto_key_export_pem, op_crypto_key_export_der, op_crypto_key_export_jwk, op_crypto_key_public, op_crypto_key_equals, op_crypto_sign, op_crypto_verify, op_crypto_generate_keypair, op_crypto_get_curves, op_crypto_ecdh_new, op_crypto_ecdh_generate, op_crypto_ecdh_get_public, op_crypto_ecdh_get_private, op_crypto_ecdh_set_private, op_crypto_ecdh_compute_secret, op_crypto_ecdh_convert, op_url_parse, op_napi_open, op_http_fetch, op_process_spawn, op_process_spawn_sync, op_process_read_stdout, op_process_read_stderr, op_process_write_stdin, op_process_close_stdin, op_process_wait, op_process_kill, op_sleep, op_udp_bind, op_udp_send, op_udp_recv, op_udp_close, op_udp_local_addr, op_udp_peer_addr, op_udp_connect, op_udp_disconnect, op_udp_set_broadcast, op_udp_set_ttl, op_udp_set_multicast_ttl, op_udp_set_multicast_loop, op_udp_set_multicast_if, op_udp_join_multicast, op_udp_leave_multicast, op_udp_set_recv_buffer_size, op_udp_set_send_buffer_size, op_udp_get_recv_buffer_size, op_udp_get_send_buffer_size, op_dns_lookup, op_dns_reverse, op_tcp_listen, op_tcp_accept, op_tcp_connect, op_tcp_read, op_tcp_write, op_tcp_close, op_tcp_shutdown, op_tcp_local_addr, op_tcp_peer_addr, op_tcp_listener_addr, op_tcp_listener_close } = ops;
+const { op_read_handler_source, op_read_module_source, op_read_env, op_stdout_write, op_stderr_write, op_execute_isolate, op_transform_module, op_bundle_browser, op_bundle_browser_assets, op_bundle_css, op_transform_css, op_tailwind_process, op_read_file, op_fs_exists, op_fs_stat, op_fs_read_dir, op_fs_mkdir, op_fs_remove_file, op_fs_append, op_fs_append_bytes, op_fs_open, op_fs_close, op_fs_read, op_fs_write, op_fs_copy_file, op_zlib_gzip, op_write_file, op_write_file_base64, op_introspect_stats, op_introspect_top, op_introspect_workers, op_introspect_isolate, op_introspect_kill_isolate, op_introspect_requests, op_introspect_evict, op_set_introspect_profiling, op_ws_send, op_ws_send_binary, op_ws_close, op_blob_create, op_blob_get, op_blob_size, op_blob_type, op_blob_slice, op_blob_drop, op_stream_create, op_stream_enqueue, op_stream_close, op_stream_read, op_stream_drop, op_crypto_random, op_crypto_digest, op_crypto_hmac, op_crypto_pbkdf2, op_crypto_aes_gcm_encrypt, op_crypto_aes_gcm_decrypt, op_crypto_key_info, op_crypto_key_from_secret, op_crypto_key_from_pem, op_crypto_key_from_der, op_crypto_key_from_jwk, op_crypto_key_export_pem, op_crypto_key_export_der, op_crypto_key_export_jwk, op_crypto_key_public, op_crypto_key_equals, op_crypto_sign, op_crypto_verify, op_crypto_generate_keypair, op_crypto_get_curves, op_crypto_ecdh_new, op_crypto_ecdh_generate, op_crypto_ecdh_get_public, op_crypto_ecdh_get_private, op_crypto_ecdh_set_private, op_crypto_ecdh_compute_secret, op_crypto_ecdh_convert, op_url_parse, op_napi_open, op_http_fetch, op_process_spawn, op_process_spawn_sync, op_process_read_stdout, op_process_read_stderr, op_process_write_stdin, op_process_close_stdin, op_process_wait, op_process_kill, op_sleep, op_stdin_read, op_stdin_set_raw_mode, op_udp_bind, op_udp_send, op_udp_recv, op_udp_close, op_udp_local_addr, op_udp_peer_addr, op_udp_connect, op_udp_disconnect, op_udp_set_broadcast, op_udp_set_ttl, op_udp_set_multicast_ttl, op_udp_set_multicast_loop, op_udp_set_multicast_if, op_udp_join_multicast, op_udp_leave_multicast, op_udp_set_recv_buffer_size, op_udp_set_send_buffer_size, op_udp_get_recv_buffer_size, op_udp_get_send_buffer_size, op_dns_lookup, op_dns_reverse, op_tcp_listen, op_tcp_accept, op_tcp_connect, op_tcp_read, op_tcp_write, op_tcp_close, op_tcp_shutdown, op_tcp_local_addr, op_tcp_peer_addr, op_tcp_listener_addr, op_tcp_listener_close } = ops;
 if (typeof globalThis.process === "undefined") {
     const env = op_read_env();
     let args = [];
@@ -111,6 +111,11 @@ if (typeof globalThis.process === "undefined") {
         } catch  {
             args = [];
         }
+    }
+    if (globalThis.Deno && !Array.isArray(globalThis.Deno.args)) {
+        globalThis.Deno.args = [
+            ...args
+        ];
     }
     const handlerPath = env.HANDLER_PATH || "";
     const argv0 = env.DEKA_BIN || "deka-runtime";
@@ -253,19 +258,141 @@ if (typeof globalThis.process === "undefined") {
             ],
         ...createEmitter()
     };
+    let stdinEncoding;
+    const stdinQueue = [];
+    let stdinPumpStarted = false;
+    let stdinFlowing = false;
+    let stdinRawMode = false;
+    let stdinResumed = false;
+    let stdinDataListeners = 0;
+    let stdinReadableListeners = 0;
+    const updateStdinFlowing = ()=>{
+        stdinFlowing = stdinResumed || stdinDataListeners > 0;
+    };
+    const decodeStdinChunk = (chunk)=>{
+        if (!stdinEncoding) return chunk;
+        if (globalThis.Buffer) {
+            return globalThis.Buffer.from(chunk).toString(stdinEncoding);
+        }
+        return new TextDecoder().decode(chunk);
+    };
+    function ensureStdinPump() {
+        if (stdinPumpStarted || typeof op_stdin_read !== "function") return;
+        stdinPumpStarted = true;
+        (async ()=>{
+            while(true){
+                const result = await op_stdin_read();
+                if (!result) {
+                    stdinPumpStarted = false;
+                    break;
+                }
+                if (result.eof) {
+                    stdin.emit("end");
+                    stdin.emit("close");
+                    break;
+                }
+                const chunk = result.data || [];
+                if (chunk.length === 0) {
+                    if (!stdinRawMode && !stdinFlowing && stdinDataListeners === 0 && stdinReadableListeners === 0) {
+                        stdinPumpStarted = false;
+                        break;
+                    }
+                    continue;
+                }
+                const data = decodeStdinChunk(chunk);
+                stdinQueue.push(data);
+                stdin.emit("readable");
+                if (stdinFlowing) {
+                    stdin.emit("data", data);
+                }
+            }
+        })().catch(()=>{});
+    }
+    const stdinEmitter = createEmitter();
+    const baseOn = stdinEmitter.on;
+    const baseOff = stdinEmitter.off;
     const stdin = {
         isTTY,
         readable: true,
-        ...createEmitter(),
+        ...stdinEmitter,
+        on (event, listener) {
+            if (event === "data") {
+                stdinDataListeners += 1;
+                updateStdinFlowing();
+                ensureStdinPump();
+            } else if (event === "readable") {
+                stdinReadableListeners += 1;
+                ensureStdinPump();
+            }
+            return baseOn(event, listener);
+        },
+        once (event, listener) {
+            const wrapped = (...args)=>{
+                baseOff(event, wrapped);
+                if (event === "data") {
+                    stdinDataListeners = Math.max(0, stdinDataListeners - 1);
+                    updateStdinFlowing();
+                } else if (event === "readable") {
+                    stdinReadableListeners = Math.max(0, stdinReadableListeners - 1);
+                }
+                listener(...args);
+            };
+            if (event === "data") {
+                stdinDataListeners += 1;
+                updateStdinFlowing();
+                ensureStdinPump();
+            } else if (event === "readable") {
+                stdinReadableListeners += 1;
+                ensureStdinPump();
+            }
+            return baseOn(event, wrapped);
+        },
+        off (event, listener) {
+            if (event === "data") {
+                stdinDataListeners = Math.max(0, stdinDataListeners - 1);
+                updateStdinFlowing();
+            } else if (event === "readable") {
+                stdinReadableListeners = Math.max(0, stdinReadableListeners - 1);
+            }
+            return baseOff(event, listener);
+        },
+        addListener (event, listener) {
+            return stdin.on(event, listener);
+        },
+        removeListener (event, listener) {
+            return stdin.off(event, listener);
+        },
         resume () {
+            stdinResumed = true;
+            updateStdinFlowing();
+            ensureStdinPump();
             return stdin;
         },
         pause () {
+            stdinResumed = false;
+            updateStdinFlowing();
             return stdin;
         },
-        setEncoding () {
+        setEncoding (encoding) {
+            stdinEncoding = encoding;
             return stdin;
         },
+        setRawMode (mode) {
+            stdinRawMode = Boolean(mode);
+            if (typeof op_stdin_set_raw_mode === "function") {
+                try {
+                    op_stdin_set_raw_mode(stdinRawMode ? 1 : 0);
+                } catch  {}
+            }
+            if (stdinRawMode) ensureStdinPump();
+            return stdin;
+        },
+        read () {
+            if (stdinQueue.length === 0) return null;
+            return stdinQueue.shift();
+        },
+        ref () {},
+        unref () {},
         pipe () {
             return stdin;
         }
@@ -327,6 +454,15 @@ if (typeof globalThis.process === "undefined") {
         argv,
         argv0,
         cwd: ()=>env.PWD || "/",
+        chdir: (dir)=>{
+            const op = globalThis.__dekaOps?.op_chdir;
+            if (typeof op === "function") {
+                op(String(dir));
+                env.PWD = String(dir);
+            } else {
+                env.PWD = String(dir);
+            }
+        },
         versions: {
             deka: "0.1.0",
             node: "20.19.4"
@@ -583,6 +719,9 @@ baseConsole.error = (...args)=>{
     }
 };
 globalThis.console = baseConsole;
+if (!globalThis.console.Console) {
+    globalThis.console.Console = Console;
+}
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 function atobPolyfill(value) {
     const input = String(value || "");
@@ -1372,7 +1511,7 @@ function wrapOps1(ops) {
 }
 const ops1 = globalThis.process?.env?.DEKA_VERBOSE ? wrapOps1(baseOps1) : baseOps1;
 globalThis.__dekaOps = ops1;
-const { op_read_handler_source: op_read_handler_source1, op_read_module_source: op_read_module_source1, op_read_env: op_read_env1, op_stdout_write: op_stdout_write1, op_stderr_write: op_stderr_write1, op_execute_isolate: op_execute_isolate1, op_transform_module: op_transform_module1, op_bundle_browser: op_bundle_browser1, op_bundle_browser_assets: op_bundle_browser_assets1, op_bundle_css: op_bundle_css1, op_transform_css: op_transform_css1, op_tailwind_process: op_tailwind_process1, op_read_file: op_read_file1, op_fs_exists: op_fs_exists1, op_fs_stat: op_fs_stat1, op_fs_read_dir: op_fs_read_dir1, op_fs_mkdir: op_fs_mkdir1, op_fs_remove_file: op_fs_remove_file1, op_fs_append: op_fs_append1, op_fs_append_bytes: op_fs_append_bytes1, op_fs_open: op_fs_open1, op_fs_close: op_fs_close1, op_fs_read: op_fs_read1, op_fs_write: op_fs_write1, op_fs_copy_file: op_fs_copy_file1, op_zlib_gzip: op_zlib_gzip1, op_write_file: op_write_file1, op_write_file_base64: op_write_file_base641, op_introspect_stats: op_introspect_stats1, op_introspect_top: op_introspect_top1, op_introspect_workers: op_introspect_workers1, op_introspect_isolate: op_introspect_isolate1, op_introspect_kill_isolate: op_introspect_kill_isolate1, op_introspect_requests: op_introspect_requests1, op_introspect_evict: op_introspect_evict1, op_set_introspect_profiling: op_set_introspect_profiling1, op_ws_send: op_ws_send1, op_ws_send_binary: op_ws_send_binary1, op_ws_close: op_ws_close1, op_blob_create: op_blob_create1, op_blob_get: op_blob_get1, op_blob_size: op_blob_size1, op_blob_type: op_blob_type1, op_blob_slice: op_blob_slice1, op_blob_drop: op_blob_drop1, op_stream_create: op_stream_create1, op_stream_enqueue: op_stream_enqueue1, op_stream_close: op_stream_close1, op_stream_read: op_stream_read1, op_stream_drop: op_stream_drop1, op_crypto_random: op_crypto_random1, op_crypto_digest: op_crypto_digest1, op_crypto_hmac: op_crypto_hmac1, op_crypto_pbkdf2: op_crypto_pbkdf21, op_crypto_aes_gcm_encrypt: op_crypto_aes_gcm_encrypt1, op_crypto_aes_gcm_decrypt: op_crypto_aes_gcm_decrypt1, op_crypto_key_info: op_crypto_key_info1, op_crypto_key_from_secret: op_crypto_key_from_secret1, op_crypto_key_from_pem: op_crypto_key_from_pem1, op_crypto_key_from_der: op_crypto_key_from_der1, op_crypto_key_from_jwk: op_crypto_key_from_jwk1, op_crypto_key_export_pem: op_crypto_key_export_pem1, op_crypto_key_export_der: op_crypto_key_export_der1, op_crypto_key_export_jwk: op_crypto_key_export_jwk1, op_crypto_key_public: op_crypto_key_public1, op_crypto_key_equals: op_crypto_key_equals1, op_crypto_sign: op_crypto_sign1, op_crypto_verify: op_crypto_verify1, op_crypto_generate_keypair: op_crypto_generate_keypair1, op_crypto_get_curves: op_crypto_get_curves1, op_crypto_ecdh_new: op_crypto_ecdh_new1, op_crypto_ecdh_generate: op_crypto_ecdh_generate1, op_crypto_ecdh_get_public: op_crypto_ecdh_get_public1, op_crypto_ecdh_get_private: op_crypto_ecdh_get_private1, op_crypto_ecdh_set_private: op_crypto_ecdh_set_private1, op_crypto_ecdh_compute_secret: op_crypto_ecdh_compute_secret1, op_crypto_ecdh_convert: op_crypto_ecdh_convert1, op_url_parse: op_url_parse1, op_napi_open: op_napi_open1, op_http_fetch: op_http_fetch1, op_process_spawn: op_process_spawn1, op_process_spawn_sync: op_process_spawn_sync1, op_process_read_stdout: op_process_read_stdout1, op_process_read_stderr: op_process_read_stderr1, op_process_write_stdin: op_process_write_stdin1, op_process_close_stdin: op_process_close_stdin1, op_process_wait: op_process_wait1, op_process_kill: op_process_kill1, op_sleep: op_sleep1, op_udp_bind: op_udp_bind1, op_udp_send: op_udp_send1, op_udp_recv: op_udp_recv1, op_udp_close: op_udp_close1, op_udp_local_addr: op_udp_local_addr1, op_udp_peer_addr: op_udp_peer_addr1, op_udp_connect: op_udp_connect1, op_udp_disconnect: op_udp_disconnect1, op_udp_set_broadcast: op_udp_set_broadcast1, op_udp_set_ttl: op_udp_set_ttl1, op_udp_set_multicast_ttl: op_udp_set_multicast_ttl1, op_udp_set_multicast_loop: op_udp_set_multicast_loop1, op_udp_set_multicast_if: op_udp_set_multicast_if1, op_udp_join_multicast: op_udp_join_multicast1, op_udp_leave_multicast: op_udp_leave_multicast1, op_udp_set_recv_buffer_size: op_udp_set_recv_buffer_size1, op_udp_set_send_buffer_size: op_udp_set_send_buffer_size1, op_udp_get_recv_buffer_size: op_udp_get_recv_buffer_size1, op_udp_get_send_buffer_size: op_udp_get_send_buffer_size1, op_dns_lookup: op_dns_lookup1, op_dns_reverse: op_dns_reverse1, op_tcp_listen: op_tcp_listen1, op_tcp_accept: op_tcp_accept1, op_tcp_connect: op_tcp_connect1, op_tcp_read: op_tcp_read1, op_tcp_write: op_tcp_write1, op_tcp_close: op_tcp_close1, op_tcp_shutdown: op_tcp_shutdown1, op_tcp_local_addr: op_tcp_local_addr1, op_tcp_peer_addr: op_tcp_peer_addr1, op_tcp_listener_addr: op_tcp_listener_addr1, op_tcp_listener_close: op_tcp_listener_close1 } = ops1;
+const { op_read_handler_source: op_read_handler_source1, op_read_module_source: op_read_module_source1, op_read_env: op_read_env1, op_stdout_write: op_stdout_write1, op_stderr_write: op_stderr_write1, op_execute_isolate: op_execute_isolate1, op_transform_module: op_transform_module1, op_bundle_browser: op_bundle_browser1, op_bundle_browser_assets: op_bundle_browser_assets1, op_bundle_css: op_bundle_css1, op_transform_css: op_transform_css1, op_tailwind_process: op_tailwind_process1, op_read_file: op_read_file1, op_fs_exists: op_fs_exists1, op_fs_stat: op_fs_stat1, op_fs_read_dir: op_fs_read_dir1, op_fs_mkdir: op_fs_mkdir1, op_fs_remove_file: op_fs_remove_file1, op_fs_append: op_fs_append1, op_fs_append_bytes: op_fs_append_bytes1, op_fs_open: op_fs_open1, op_fs_close: op_fs_close1, op_fs_read: op_fs_read1, op_fs_write: op_fs_write1, op_fs_copy_file: op_fs_copy_file1, op_zlib_gzip: op_zlib_gzip1, op_write_file: op_write_file1, op_write_file_base64: op_write_file_base641, op_introspect_stats: op_introspect_stats1, op_introspect_top: op_introspect_top1, op_introspect_workers: op_introspect_workers1, op_introspect_isolate: op_introspect_isolate1, op_introspect_kill_isolate: op_introspect_kill_isolate1, op_introspect_requests: op_introspect_requests1, op_introspect_evict: op_introspect_evict1, op_set_introspect_profiling: op_set_introspect_profiling1, op_ws_send: op_ws_send1, op_ws_send_binary: op_ws_send_binary1, op_ws_close: op_ws_close1, op_blob_create: op_blob_create1, op_blob_get: op_blob_get1, op_blob_size: op_blob_size1, op_blob_type: op_blob_type1, op_blob_slice: op_blob_slice1, op_blob_drop: op_blob_drop1, op_stream_create: op_stream_create1, op_stream_enqueue: op_stream_enqueue1, op_stream_close: op_stream_close1, op_stream_read: op_stream_read1, op_stream_drop: op_stream_drop1, op_crypto_random: op_crypto_random1, op_crypto_digest: op_crypto_digest1, op_crypto_hmac: op_crypto_hmac1, op_crypto_pbkdf2: op_crypto_pbkdf21, op_crypto_aes_gcm_encrypt: op_crypto_aes_gcm_encrypt1, op_crypto_aes_gcm_decrypt: op_crypto_aes_gcm_decrypt1, op_crypto_key_info: op_crypto_key_info1, op_crypto_key_from_secret: op_crypto_key_from_secret1, op_crypto_key_from_pem: op_crypto_key_from_pem1, op_crypto_key_from_der: op_crypto_key_from_der1, op_crypto_key_from_jwk: op_crypto_key_from_jwk1, op_crypto_key_export_pem: op_crypto_key_export_pem1, op_crypto_key_export_der: op_crypto_key_export_der1, op_crypto_key_export_jwk: op_crypto_key_export_jwk1, op_crypto_key_public: op_crypto_key_public1, op_crypto_key_equals: op_crypto_key_equals1, op_crypto_sign: op_crypto_sign1, op_crypto_verify: op_crypto_verify1, op_crypto_generate_keypair: op_crypto_generate_keypair1, op_crypto_get_curves: op_crypto_get_curves1, op_crypto_ecdh_new: op_crypto_ecdh_new1, op_crypto_ecdh_generate: op_crypto_ecdh_generate1, op_crypto_ecdh_get_public: op_crypto_ecdh_get_public1, op_crypto_ecdh_get_private: op_crypto_ecdh_get_private1, op_crypto_ecdh_set_private: op_crypto_ecdh_set_private1, op_crypto_ecdh_compute_secret: op_crypto_ecdh_compute_secret1, op_crypto_ecdh_convert: op_crypto_ecdh_convert1, op_url_parse: op_url_parse1, op_napi_open: op_napi_open1, op_http_fetch: op_http_fetch1, op_process_spawn: op_process_spawn1, op_process_spawn_sync: op_process_spawn_sync1, op_process_read_stdout: op_process_read_stdout1, op_process_read_stderr: op_process_read_stderr1, op_process_write_stdin: op_process_write_stdin1, op_process_close_stdin: op_process_close_stdin1, op_process_wait: op_process_wait1, op_process_kill: op_process_kill1, op_sleep: op_sleep1, op_stdin_read: op_stdin_read1, op_stdin_set_raw_mode: op_stdin_set_raw_mode1, op_udp_bind: op_udp_bind1, op_udp_send: op_udp_send1, op_udp_recv: op_udp_recv1, op_udp_close: op_udp_close1, op_udp_local_addr: op_udp_local_addr1, op_udp_peer_addr: op_udp_peer_addr1, op_udp_connect: op_udp_connect1, op_udp_disconnect: op_udp_disconnect1, op_udp_set_broadcast: op_udp_set_broadcast1, op_udp_set_ttl: op_udp_set_ttl1, op_udp_set_multicast_ttl: op_udp_set_multicast_ttl1, op_udp_set_multicast_loop: op_udp_set_multicast_loop1, op_udp_set_multicast_if: op_udp_set_multicast_if1, op_udp_join_multicast: op_udp_join_multicast1, op_udp_leave_multicast: op_udp_leave_multicast1, op_udp_set_recv_buffer_size: op_udp_set_recv_buffer_size1, op_udp_set_send_buffer_size: op_udp_set_send_buffer_size1, op_udp_get_recv_buffer_size: op_udp_get_recv_buffer_size1, op_udp_get_send_buffer_size: op_udp_get_send_buffer_size1, op_dns_lookup: op_dns_lookup1, op_dns_reverse: op_dns_reverse1, op_tcp_listen: op_tcp_listen1, op_tcp_accept: op_tcp_accept1, op_tcp_connect: op_tcp_connect1, op_tcp_read: op_tcp_read1, op_tcp_write: op_tcp_write1, op_tcp_close: op_tcp_close1, op_tcp_shutdown: op_tcp_shutdown1, op_tcp_local_addr: op_tcp_local_addr1, op_tcp_peer_addr: op_tcp_peer_addr1, op_tcp_listener_addr: op_tcp_listener_addr1, op_tcp_listener_close: op_tcp_listener_close1 } = ops1;
 class ReadableStreamController {
     streamId;
     queue;
@@ -2440,6 +2579,37 @@ if (typeof globalThis.Request === "undefined") {
     globalThis.Request = RequestImpl;
 }
 const fetchImpl = globalThis.fetch;
+const parseDataUrl = (url)=>{
+    if (!url.startsWith("data:")) return null;
+    const match = url.match(/^data:([^,]*),(.*)$/);
+    if (!match) return null;
+    const meta = match[1] || "";
+    const payload = match[2] || "";
+    const metaParts = meta.split(";").filter(Boolean);
+    const isBase64 = metaParts.includes("base64");
+    const mime = metaParts.find((part)=>part !== "base64") || "text/plain;charset=US-ASCII";
+    if (isBase64) {
+        try {
+            const buf = globalThis.Buffer ? globalThis.Buffer.from(payload, "base64") : Uint8Array.from(atob(payload), (ch)=>ch.charCodeAt(0));
+            return {
+                bytes: buf,
+                mime
+            };
+        } catch  {
+            return null;
+        }
+    }
+    try {
+        const decoded = decodeURIComponent(payload);
+        const buf = globalThis.Buffer ? globalThis.Buffer.from(decoded) : new TextEncoder().encode(decoded);
+        return {
+            bytes: buf,
+            mime
+        };
+    } catch  {
+        return null;
+    }
+};
 async function toBodyBytes(body) {
     if (body === undefined || body === null) return new Uint8Array(0);
     if (typeof body === "string") return new TextEncoder().encode(body);
@@ -2453,6 +2623,15 @@ async function toBodyBytes(body) {
 if (typeof fetchImpl !== "function") {
     globalThis.fetch = async (input, init)=>{
         const request = input instanceof RequestImpl ? input : new RequestImpl(input, init);
+        const dataUrl = parseDataUrl(request.url);
+        if (dataUrl) {
+            return new Response(dataUrl.bytes, {
+                status: 200,
+                headers: {
+                    "content-type": dataUrl.mime
+                }
+            });
+        }
         const headers = request.headers instanceof Headers ? headersToObject(request.headers) : headersToObject(new Headers(request.headers));
         const bodyBytes = await toBodyBytes(request.body);
         const response = await op_http_fetch(request.url, request.method, headers, bodyBytes);
@@ -2567,6 +2746,7 @@ function resolveExportsTarget(target, mode) {
         const keys = [
             "bun",
             mode === "require" ? "require" : "import",
+            "node",
             "default"
         ];
         for (const key of keys){
@@ -2605,6 +2785,23 @@ function resolveExportsForSubpath(exportsField, subpath, mode) {
         const capture = applyExportPattern(key, subpath);
         if (capture === null) continue;
         const target = resolveExportsTarget(exportsField[key], mode);
+        if (typeof target === "string") {
+            return target.replace("*", capture);
+        }
+    }
+    return null;
+}
+function resolveImportsForSubpath(importsField, specifier, mode) {
+    if (!importsField || typeof importsField !== "object") return null;
+    const direct = importsField[specifier];
+    if (direct !== undefined) {
+        return resolveExportsTarget(direct, mode);
+    }
+    for (const key of Object.keys(importsField)){
+        if (!key.includes("*")) continue;
+        const capture = applyExportPattern(key, specifier);
+        if (capture === null) continue;
+        const target = resolveExportsTarget(importsField[key], mode);
         if (typeof target === "string") {
             return target.replace("*", capture);
         }
@@ -2671,7 +2868,7 @@ function resolveImportsSpecifier(specifier, referrer, mode) {
             pkgJson = readPackageJson(current);
         } catch (error) {}
         if (pkgJson?.imports) {
-            const target = resolveExportsForSubpath(pkgJson.imports, specifier, mode);
+            const target = resolveImportsForSubpath(pkgJson.imports, specifier, mode);
             if (target) {
                 return resolvePathFrom(current, target.replace(/^\.\//, ""));
             }
@@ -2924,6 +3121,12 @@ function wrapCjsExports(exportsValue) {
     return {
         default: exportsValue
     };
+}
+function applyDefaultExportShims(path, exportsValue) {
+    if (!exportsValue || exportsValue.default !== undefined) return;
+    if ((path.includes("/signal-exit/") || path.includes("\\signal-exit\\")) && typeof exportsValue.onExit === "function") {
+        exportsValue.default = exportsValue.onExit;
+    }
 }
 function debugPrint(message) {
     const env = globalThis.process?.env;
@@ -3300,8 +3503,12 @@ function loadModuleExportsInternal(specifier, referrer, mode, asyncMode) {
     const importMeta = {
         url: toFileUrl(info.path)
     };
-    const hasTopLevelAwait = transformed.top_level_await;
-    const rewrittenCode = transformed.code.replace(/\bimport\s*\(/g, "__dekaImportAsync(");
+    const shouldForceAsync = mode === "import" && asyncMode;
+    const hasTopLevelAwait = transformed.top_level_await || shouldForceAsync;
+    let rewrittenCode = transformed.code.replace(/\bimport\s*\(/g, "__dekaImportAsync(");
+    if (shouldForceAsync) {
+        rewrittenCode = rewrittenCode.replace(/\b__dekaImport\s*\(/g, "await __dekaImportAsync(");
+    }
     const wrappedCode = hasTopLevelAwait ? `return (async () => {\n${rewrittenCode}\n})()` : rewrittenCode;
     const wrapper = new Function("exports", "module", "__dekaImport", "__dekaImportAsync", "require", "__dekaImportMeta", wrappedCode);
     moduleCache.set(cacheKey, {
@@ -3318,6 +3525,7 @@ function loadModuleExportsInternal(specifier, referrer, mode, asyncMode) {
                     if (module1.exports.default === undefined && globalThis.app !== undefined) {
                         module1.exports.default = globalThis.app;
                     }
+                    applyDefaultExportShims(info.path, module1.exports);
                     return module1.exports;
                 });
             }
@@ -3334,6 +3542,7 @@ function loadModuleExportsInternal(specifier, referrer, mode, asyncMode) {
     if (module1.exports.default === undefined && globalThis.app !== undefined) {
         module1.exports.default = globalThis.app;
     }
+    applyDefaultExportShims(info.path, module1.exports);
     return module1.exports;
 }
 function loadModuleExports(specifier, referrer, mode = "import") {
@@ -3631,7 +3840,7 @@ function wrapOps2(ops) {
 }
 const ops2 = globalThis.process?.env?.DEKA_VERBOSE ? wrapOps2(baseOps2) : baseOps2;
 globalThis.__dekaOps = ops2;
-const { op_read_handler_source: op_read_handler_source2, op_read_module_source: op_read_module_source2, op_read_env: op_read_env2, op_stdout_write: op_stdout_write2, op_stderr_write: op_stderr_write2, op_execute_isolate: op_execute_isolate2, op_transform_module: op_transform_module2, op_bundle_browser: op_bundle_browser2, op_bundle_browser_assets: op_bundle_browser_assets2, op_bundle_css: op_bundle_css2, op_transform_css: op_transform_css2, op_tailwind_process: op_tailwind_process2, op_read_file: op_read_file2, op_fs_exists: op_fs_exists2, op_fs_stat: op_fs_stat2, op_fs_read_dir: op_fs_read_dir2, op_fs_mkdir: op_fs_mkdir2, op_fs_remove_file: op_fs_remove_file2, op_fs_append: op_fs_append2, op_fs_append_bytes: op_fs_append_bytes2, op_fs_open: op_fs_open2, op_fs_close: op_fs_close2, op_fs_read: op_fs_read2, op_fs_write: op_fs_write2, op_fs_copy_file: op_fs_copy_file2, op_zlib_gzip: op_zlib_gzip2, op_write_file: op_write_file2, op_write_file_base64: op_write_file_base642, op_introspect_stats: op_introspect_stats2, op_introspect_top: op_introspect_top2, op_introspect_workers: op_introspect_workers2, op_introspect_isolate: op_introspect_isolate2, op_introspect_kill_isolate: op_introspect_kill_isolate2, op_introspect_requests: op_introspect_requests2, op_introspect_evict: op_introspect_evict2, op_set_introspect_profiling: op_set_introspect_profiling2, op_ws_send: op_ws_send2, op_ws_send_binary: op_ws_send_binary2, op_ws_close: op_ws_close2, op_blob_create: op_blob_create2, op_blob_get: op_blob_get2, op_blob_size: op_blob_size2, op_blob_type: op_blob_type2, op_blob_slice: op_blob_slice2, op_blob_drop: op_blob_drop2, op_stream_create: op_stream_create2, op_stream_enqueue: op_stream_enqueue2, op_stream_close: op_stream_close2, op_stream_read: op_stream_read2, op_stream_drop: op_stream_drop2, op_crypto_random: op_crypto_random2, op_crypto_digest: op_crypto_digest2, op_crypto_hmac: op_crypto_hmac2, op_crypto_pbkdf2: op_crypto_pbkdf22, op_crypto_aes_gcm_encrypt: op_crypto_aes_gcm_encrypt2, op_crypto_aes_gcm_decrypt: op_crypto_aes_gcm_decrypt2, op_crypto_key_info: op_crypto_key_info2, op_crypto_key_from_secret: op_crypto_key_from_secret2, op_crypto_key_from_pem: op_crypto_key_from_pem2, op_crypto_key_from_der: op_crypto_key_from_der2, op_crypto_key_from_jwk: op_crypto_key_from_jwk2, op_crypto_key_export_pem: op_crypto_key_export_pem2, op_crypto_key_export_der: op_crypto_key_export_der2, op_crypto_key_export_jwk: op_crypto_key_export_jwk2, op_crypto_key_public: op_crypto_key_public2, op_crypto_key_equals: op_crypto_key_equals2, op_crypto_sign: op_crypto_sign2, op_crypto_verify: op_crypto_verify2, op_crypto_generate_keypair: op_crypto_generate_keypair2, op_crypto_get_curves: op_crypto_get_curves2, op_crypto_ecdh_new: op_crypto_ecdh_new2, op_crypto_ecdh_generate: op_crypto_ecdh_generate2, op_crypto_ecdh_get_public: op_crypto_ecdh_get_public2, op_crypto_ecdh_get_private: op_crypto_ecdh_get_private2, op_crypto_ecdh_set_private: op_crypto_ecdh_set_private2, op_crypto_ecdh_compute_secret: op_crypto_ecdh_compute_secret2, op_crypto_ecdh_convert: op_crypto_ecdh_convert2, op_url_parse: op_url_parse2, op_napi_open: op_napi_open2, op_http_fetch: op_http_fetch2, op_process_spawn: op_process_spawn2, op_process_spawn_sync: op_process_spawn_sync2, op_process_read_stdout: op_process_read_stdout2, op_process_read_stderr: op_process_read_stderr2, op_process_write_stdin: op_process_write_stdin2, op_process_close_stdin: op_process_close_stdin2, op_process_wait: op_process_wait2, op_process_kill: op_process_kill2, op_sleep: op_sleep2, op_udp_bind: op_udp_bind2, op_udp_send: op_udp_send2, op_udp_recv: op_udp_recv2, op_udp_close: op_udp_close2, op_udp_local_addr: op_udp_local_addr2, op_udp_peer_addr: op_udp_peer_addr2, op_udp_connect: op_udp_connect2, op_udp_disconnect: op_udp_disconnect2, op_udp_set_broadcast: op_udp_set_broadcast2, op_udp_set_ttl: op_udp_set_ttl2, op_udp_set_multicast_ttl: op_udp_set_multicast_ttl2, op_udp_set_multicast_loop: op_udp_set_multicast_loop2, op_udp_set_multicast_if: op_udp_set_multicast_if2, op_udp_join_multicast: op_udp_join_multicast2, op_udp_leave_multicast: op_udp_leave_multicast2, op_udp_set_recv_buffer_size: op_udp_set_recv_buffer_size2, op_udp_set_send_buffer_size: op_udp_set_send_buffer_size2, op_udp_get_recv_buffer_size: op_udp_get_recv_buffer_size2, op_udp_get_send_buffer_size: op_udp_get_send_buffer_size2, op_dns_lookup: op_dns_lookup2, op_dns_reverse: op_dns_reverse2, op_tcp_listen: op_tcp_listen2, op_tcp_accept: op_tcp_accept2, op_tcp_connect: op_tcp_connect2, op_tcp_read: op_tcp_read2, op_tcp_write: op_tcp_write2, op_tcp_close: op_tcp_close2, op_tcp_shutdown: op_tcp_shutdown2, op_tcp_local_addr: op_tcp_local_addr2, op_tcp_peer_addr: op_tcp_peer_addr2, op_tcp_listener_addr: op_tcp_listener_addr2, op_tcp_listener_close: op_tcp_listener_close2 } = ops2;
+const { op_read_handler_source: op_read_handler_source2, op_read_module_source: op_read_module_source2, op_read_env: op_read_env2, op_stdout_write: op_stdout_write2, op_stderr_write: op_stderr_write2, op_execute_isolate: op_execute_isolate2, op_transform_module: op_transform_module2, op_bundle_browser: op_bundle_browser2, op_bundle_browser_assets: op_bundle_browser_assets2, op_bundle_css: op_bundle_css2, op_transform_css: op_transform_css2, op_tailwind_process: op_tailwind_process2, op_read_file: op_read_file2, op_fs_exists: op_fs_exists2, op_fs_stat: op_fs_stat2, op_fs_read_dir: op_fs_read_dir2, op_fs_mkdir: op_fs_mkdir2, op_fs_remove_file: op_fs_remove_file2, op_fs_append: op_fs_append2, op_fs_append_bytes: op_fs_append_bytes2, op_fs_open: op_fs_open2, op_fs_close: op_fs_close2, op_fs_read: op_fs_read2, op_fs_write: op_fs_write2, op_fs_copy_file: op_fs_copy_file2, op_zlib_gzip: op_zlib_gzip2, op_write_file: op_write_file2, op_write_file_base64: op_write_file_base642, op_introspect_stats: op_introspect_stats2, op_introspect_top: op_introspect_top2, op_introspect_workers: op_introspect_workers2, op_introspect_isolate: op_introspect_isolate2, op_introspect_kill_isolate: op_introspect_kill_isolate2, op_introspect_requests: op_introspect_requests2, op_introspect_evict: op_introspect_evict2, op_set_introspect_profiling: op_set_introspect_profiling2, op_ws_send: op_ws_send2, op_ws_send_binary: op_ws_send_binary2, op_ws_close: op_ws_close2, op_blob_create: op_blob_create2, op_blob_get: op_blob_get2, op_blob_size: op_blob_size2, op_blob_type: op_blob_type2, op_blob_slice: op_blob_slice2, op_blob_drop: op_blob_drop2, op_stream_create: op_stream_create2, op_stream_enqueue: op_stream_enqueue2, op_stream_close: op_stream_close2, op_stream_read: op_stream_read2, op_stream_drop: op_stream_drop2, op_crypto_random: op_crypto_random2, op_crypto_digest: op_crypto_digest2, op_crypto_hmac: op_crypto_hmac2, op_crypto_pbkdf2: op_crypto_pbkdf22, op_crypto_aes_gcm_encrypt: op_crypto_aes_gcm_encrypt2, op_crypto_aes_gcm_decrypt: op_crypto_aes_gcm_decrypt2, op_crypto_key_info: op_crypto_key_info2, op_crypto_key_from_secret: op_crypto_key_from_secret2, op_crypto_key_from_pem: op_crypto_key_from_pem2, op_crypto_key_from_der: op_crypto_key_from_der2, op_crypto_key_from_jwk: op_crypto_key_from_jwk2, op_crypto_key_export_pem: op_crypto_key_export_pem2, op_crypto_key_export_der: op_crypto_key_export_der2, op_crypto_key_export_jwk: op_crypto_key_export_jwk2, op_crypto_key_public: op_crypto_key_public2, op_crypto_key_equals: op_crypto_key_equals2, op_crypto_sign: op_crypto_sign2, op_crypto_verify: op_crypto_verify2, op_crypto_generate_keypair: op_crypto_generate_keypair2, op_crypto_get_curves: op_crypto_get_curves2, op_crypto_ecdh_new: op_crypto_ecdh_new2, op_crypto_ecdh_generate: op_crypto_ecdh_generate2, op_crypto_ecdh_get_public: op_crypto_ecdh_get_public2, op_crypto_ecdh_get_private: op_crypto_ecdh_get_private2, op_crypto_ecdh_set_private: op_crypto_ecdh_set_private2, op_crypto_ecdh_compute_secret: op_crypto_ecdh_compute_secret2, op_crypto_ecdh_convert: op_crypto_ecdh_convert2, op_url_parse: op_url_parse2, op_napi_open: op_napi_open2, op_http_fetch: op_http_fetch2, op_process_spawn: op_process_spawn2, op_process_spawn_immediate: op_process_spawn_immediate2, op_process_spawn_sync: op_process_spawn_sync2, op_process_read_stdout: op_process_read_stdout2, op_process_read_stderr: op_process_read_stderr2, op_process_write_stdin: op_process_write_stdin2, op_process_close_stdin: op_process_close_stdin2, op_process_wait: op_process_wait2, op_process_kill: op_process_kill2, op_sleep: op_sleep2, op_stdin_read: op_stdin_read2, op_stdin_set_raw_mode: op_stdin_set_raw_mode2, op_udp_bind: op_udp_bind2, op_udp_send: op_udp_send2, op_udp_recv: op_udp_recv2, op_udp_close: op_udp_close2, op_udp_local_addr: op_udp_local_addr2, op_udp_peer_addr: op_udp_peer_addr2, op_udp_connect: op_udp_connect2, op_udp_disconnect: op_udp_disconnect2, op_udp_set_broadcast: op_udp_set_broadcast2, op_udp_set_ttl: op_udp_set_ttl2, op_udp_set_multicast_ttl: op_udp_set_multicast_ttl2, op_udp_set_multicast_loop: op_udp_set_multicast_loop2, op_udp_set_multicast_if: op_udp_set_multicast_if2, op_udp_join_multicast: op_udp_join_multicast2, op_udp_leave_multicast: op_udp_leave_multicast2, op_udp_set_recv_buffer_size: op_udp_set_recv_buffer_size2, op_udp_set_send_buffer_size: op_udp_set_send_buffer_size2, op_udp_get_recv_buffer_size: op_udp_get_recv_buffer_size2, op_udp_get_send_buffer_size: op_udp_get_send_buffer_size2, op_dns_lookup: op_dns_lookup2, op_dns_reverse: op_dns_reverse2, op_tcp_listen: op_tcp_listen2, op_tcp_accept: op_tcp_accept2, op_tcp_connect: op_tcp_connect2, op_tcp_read: op_tcp_read2, op_tcp_write: op_tcp_write2, op_tcp_close: op_tcp_close2, op_tcp_shutdown: op_tcp_shutdown2, op_tcp_local_addr: op_tcp_local_addr2, op_tcp_peer_addr: op_tcp_peer_addr2, op_tcp_listener_addr: op_tcp_listener_addr2, op_tcp_listener_close: op_tcp_listener_close2 } = ops2;
 class ReadableStreamController1 {
     streamId;
     queue;
@@ -4510,6 +4719,9 @@ function createConsole1(stdout, stderr) {
 }
 if (!globalThis.console) {
     globalThis.console = createConsole1();
+}
+if (!globalThis.console.Console) {
+    globalThis.console.Console = Console1;
 }
 globalThis.__dekaNodeConsole = {
     Console: Console1,
@@ -6633,6 +6845,20 @@ class AsyncLocalStorage {
         setAsyncContext(prev);
         return result;
     }
+    exit(callback, ...args) {
+        const ctx = captureContext();
+        ctx.delete(this);
+        const prev = getContextMap();
+        setAsyncContext(ctx);
+        const result = callback(...args);
+        if (result && typeof result.finally === "function") {
+            return result.finally(()=>{
+                setAsyncContext(prev);
+            });
+        }
+        setAsyncContext(prev);
+        return result;
+    }
     getStore() {
         return getContextMap().get(this);
     }
@@ -6640,6 +6866,10 @@ class AsyncLocalStorage {
         const ctx = captureContext();
         ctx.set(this, store);
         setAsyncContext(ctx);
+    }
+    disable() {
+        const ctx = getContextMap();
+        ctx.delete(this);
     }
 }
 class AsyncResource {
@@ -6824,7 +7054,7 @@ function wrapOps3(ops) {
 }
 const ops3 = globalThis.process?.env?.DEKA_VERBOSE ? wrapOps3(baseOps3) : baseOps3;
 globalThis.__dekaOps = ops3;
-const { op_read_handler_source: op_read_handler_source3, op_read_module_source: op_read_module_source3, op_read_env: op_read_env3, op_stdout_write: op_stdout_write3, op_stderr_write: op_stderr_write3, op_execute_isolate: op_execute_isolate3, op_transform_module: op_transform_module3, op_bundle_browser: op_bundle_browser3, op_bundle_browser_assets: op_bundle_browser_assets3, op_bundle_css: op_bundle_css3, op_transform_css: op_transform_css3, op_tailwind_process: op_tailwind_process3, op_read_file: op_read_file3, op_fs_exists: op_fs_exists3, op_fs_stat: op_fs_stat3, op_fs_read_dir: op_fs_read_dir3, op_fs_mkdir: op_fs_mkdir3, op_fs_remove_file: op_fs_remove_file3, op_fs_append: op_fs_append3, op_fs_append_bytes: op_fs_append_bytes3, op_fs_open: op_fs_open3, op_fs_close: op_fs_close3, op_fs_read: op_fs_read3, op_fs_write: op_fs_write3, op_fs_copy_file: op_fs_copy_file3, op_zlib_gzip: op_zlib_gzip3, op_write_file: op_write_file3, op_write_file_base64: op_write_file_base643, op_introspect_stats: op_introspect_stats3, op_introspect_top: op_introspect_top3, op_introspect_workers: op_introspect_workers3, op_introspect_isolate: op_introspect_isolate3, op_introspect_kill_isolate: op_introspect_kill_isolate3, op_introspect_requests: op_introspect_requests3, op_introspect_evict: op_introspect_evict3, op_set_introspect_profiling: op_set_introspect_profiling3, op_ws_send: op_ws_send3, op_ws_send_binary: op_ws_send_binary3, op_ws_close: op_ws_close3, op_blob_create: op_blob_create3, op_blob_get: op_blob_get3, op_blob_size: op_blob_size3, op_blob_type: op_blob_type3, op_blob_slice: op_blob_slice3, op_blob_drop: op_blob_drop3, op_stream_create: op_stream_create3, op_stream_enqueue: op_stream_enqueue3, op_stream_close: op_stream_close3, op_stream_read: op_stream_read3, op_stream_drop: op_stream_drop3, op_crypto_random: op_crypto_random3, op_crypto_digest: op_crypto_digest3, op_crypto_hmac: op_crypto_hmac3, op_crypto_pbkdf2: op_crypto_pbkdf23, op_crypto_aes_gcm_encrypt: op_crypto_aes_gcm_encrypt3, op_crypto_aes_gcm_decrypt: op_crypto_aes_gcm_decrypt3, op_crypto_key_info: op_crypto_key_info3, op_crypto_key_from_secret: op_crypto_key_from_secret3, op_crypto_key_from_pem: op_crypto_key_from_pem3, op_crypto_key_from_der: op_crypto_key_from_der3, op_crypto_key_from_jwk: op_crypto_key_from_jwk3, op_crypto_key_export_pem: op_crypto_key_export_pem3, op_crypto_key_export_der: op_crypto_key_export_der3, op_crypto_key_export_jwk: op_crypto_key_export_jwk3, op_crypto_key_public: op_crypto_key_public3, op_crypto_key_equals: op_crypto_key_equals3, op_crypto_sign: op_crypto_sign3, op_crypto_verify: op_crypto_verify3, op_crypto_generate_keypair: op_crypto_generate_keypair3, op_crypto_get_curves: op_crypto_get_curves3, op_crypto_ecdh_new: op_crypto_ecdh_new3, op_crypto_ecdh_generate: op_crypto_ecdh_generate3, op_crypto_ecdh_get_public: op_crypto_ecdh_get_public3, op_crypto_ecdh_get_private: op_crypto_ecdh_get_private3, op_crypto_ecdh_set_private: op_crypto_ecdh_set_private3, op_crypto_ecdh_compute_secret: op_crypto_ecdh_compute_secret3, op_crypto_ecdh_convert: op_crypto_ecdh_convert3, op_url_parse: op_url_parse3, op_napi_open: op_napi_open3, op_http_fetch: op_http_fetch3, op_process_spawn: op_process_spawn3, op_process_spawn_sync: op_process_spawn_sync3, op_process_read_stdout: op_process_read_stdout3, op_process_read_stderr: op_process_read_stderr3, op_process_write_stdin: op_process_write_stdin3, op_process_close_stdin: op_process_close_stdin3, op_process_wait: op_process_wait3, op_process_kill: op_process_kill3, op_sleep: op_sleep3, op_udp_bind: op_udp_bind3, op_udp_send: op_udp_send3, op_udp_recv: op_udp_recv3, op_udp_close: op_udp_close3, op_udp_local_addr: op_udp_local_addr3, op_udp_peer_addr: op_udp_peer_addr3, op_udp_connect: op_udp_connect3, op_udp_disconnect: op_udp_disconnect3, op_udp_set_broadcast: op_udp_set_broadcast3, op_udp_set_ttl: op_udp_set_ttl3, op_udp_set_multicast_ttl: op_udp_set_multicast_ttl3, op_udp_set_multicast_loop: op_udp_set_multicast_loop3, op_udp_set_multicast_if: op_udp_set_multicast_if3, op_udp_join_multicast: op_udp_join_multicast3, op_udp_leave_multicast: op_udp_leave_multicast3, op_udp_set_recv_buffer_size: op_udp_set_recv_buffer_size3, op_udp_set_send_buffer_size: op_udp_set_send_buffer_size3, op_udp_get_recv_buffer_size: op_udp_get_recv_buffer_size3, op_udp_get_send_buffer_size: op_udp_get_send_buffer_size3, op_dns_lookup: op_dns_lookup3, op_dns_reverse: op_dns_reverse3, op_tcp_listen: op_tcp_listen3, op_tcp_accept: op_tcp_accept3, op_tcp_connect: op_tcp_connect3, op_tcp_read: op_tcp_read3, op_tcp_write: op_tcp_write3, op_tcp_close: op_tcp_close3, op_tcp_shutdown: op_tcp_shutdown3, op_tcp_local_addr: op_tcp_local_addr3, op_tcp_peer_addr: op_tcp_peer_addr3, op_tcp_listener_addr: op_tcp_listener_addr3, op_tcp_listener_close: op_tcp_listener_close3 } = ops3;
+const { op_read_handler_source: op_read_handler_source3, op_read_module_source: op_read_module_source3, op_read_env: op_read_env3, op_stdout_write: op_stdout_write3, op_stderr_write: op_stderr_write3, op_execute_isolate: op_execute_isolate3, op_transform_module: op_transform_module3, op_bundle_browser: op_bundle_browser3, op_bundle_browser_assets: op_bundle_browser_assets3, op_bundle_css: op_bundle_css3, op_transform_css: op_transform_css3, op_tailwind_process: op_tailwind_process3, op_read_file: op_read_file3, op_fs_exists: op_fs_exists3, op_fs_stat: op_fs_stat3, op_fs_read_dir: op_fs_read_dir3, op_fs_mkdir: op_fs_mkdir3, op_fs_remove_file: op_fs_remove_file3, op_fs_append: op_fs_append3, op_fs_append_bytes: op_fs_append_bytes3, op_fs_open: op_fs_open3, op_fs_close: op_fs_close3, op_fs_read: op_fs_read3, op_fs_write: op_fs_write3, op_fs_copy_file: op_fs_copy_file3, op_zlib_gzip: op_zlib_gzip3, op_write_file: op_write_file3, op_write_file_base64: op_write_file_base643, op_introspect_stats: op_introspect_stats3, op_introspect_top: op_introspect_top3, op_introspect_workers: op_introspect_workers3, op_introspect_isolate: op_introspect_isolate3, op_introspect_kill_isolate: op_introspect_kill_isolate3, op_introspect_requests: op_introspect_requests3, op_introspect_evict: op_introspect_evict3, op_set_introspect_profiling: op_set_introspect_profiling3, op_ws_send: op_ws_send3, op_ws_send_binary: op_ws_send_binary3, op_ws_close: op_ws_close3, op_blob_create: op_blob_create3, op_blob_get: op_blob_get3, op_blob_size: op_blob_size3, op_blob_type: op_blob_type3, op_blob_slice: op_blob_slice3, op_blob_drop: op_blob_drop3, op_stream_create: op_stream_create3, op_stream_enqueue: op_stream_enqueue3, op_stream_close: op_stream_close3, op_stream_read: op_stream_read3, op_stream_drop: op_stream_drop3, op_crypto_random: op_crypto_random3, op_crypto_digest: op_crypto_digest3, op_crypto_hmac: op_crypto_hmac3, op_crypto_pbkdf2: op_crypto_pbkdf23, op_crypto_aes_gcm_encrypt: op_crypto_aes_gcm_encrypt3, op_crypto_aes_gcm_decrypt: op_crypto_aes_gcm_decrypt3, op_crypto_key_info: op_crypto_key_info3, op_crypto_key_from_secret: op_crypto_key_from_secret3, op_crypto_key_from_pem: op_crypto_key_from_pem3, op_crypto_key_from_der: op_crypto_key_from_der3, op_crypto_key_from_jwk: op_crypto_key_from_jwk3, op_crypto_key_export_pem: op_crypto_key_export_pem3, op_crypto_key_export_der: op_crypto_key_export_der3, op_crypto_key_export_jwk: op_crypto_key_export_jwk3, op_crypto_key_public: op_crypto_key_public3, op_crypto_key_equals: op_crypto_key_equals3, op_crypto_sign: op_crypto_sign3, op_crypto_verify: op_crypto_verify3, op_crypto_generate_keypair: op_crypto_generate_keypair3, op_crypto_get_curves: op_crypto_get_curves3, op_crypto_ecdh_new: op_crypto_ecdh_new3, op_crypto_ecdh_generate: op_crypto_ecdh_generate3, op_crypto_ecdh_get_public: op_crypto_ecdh_get_public3, op_crypto_ecdh_get_private: op_crypto_ecdh_get_private3, op_crypto_ecdh_set_private: op_crypto_ecdh_set_private3, op_crypto_ecdh_compute_secret: op_crypto_ecdh_compute_secret3, op_crypto_ecdh_convert: op_crypto_ecdh_convert3, op_url_parse: op_url_parse3, op_napi_open: op_napi_open3, op_http_fetch: op_http_fetch3, op_process_spawn: op_process_spawn3, op_process_spawn_sync: op_process_spawn_sync3, op_process_read_stdout: op_process_read_stdout3, op_process_read_stderr: op_process_read_stderr3, op_process_write_stdin: op_process_write_stdin3, op_process_close_stdin: op_process_close_stdin3, op_process_wait: op_process_wait3, op_process_kill: op_process_kill3, op_sleep: op_sleep3, op_stdin_read: op_stdin_read3, op_stdin_set_raw_mode: op_stdin_set_raw_mode3, op_udp_bind: op_udp_bind3, op_udp_send: op_udp_send3, op_udp_recv: op_udp_recv3, op_udp_close: op_udp_close3, op_udp_local_addr: op_udp_local_addr3, op_udp_peer_addr: op_udp_peer_addr3, op_udp_connect: op_udp_connect3, op_udp_disconnect: op_udp_disconnect3, op_udp_set_broadcast: op_udp_set_broadcast3, op_udp_set_ttl: op_udp_set_ttl3, op_udp_set_multicast_ttl: op_udp_set_multicast_ttl3, op_udp_set_multicast_loop: op_udp_set_multicast_loop3, op_udp_set_multicast_if: op_udp_set_multicast_if3, op_udp_join_multicast: op_udp_join_multicast3, op_udp_leave_multicast: op_udp_leave_multicast3, op_udp_set_recv_buffer_size: op_udp_set_recv_buffer_size3, op_udp_set_send_buffer_size: op_udp_set_send_buffer_size3, op_udp_get_recv_buffer_size: op_udp_get_recv_buffer_size3, op_udp_get_send_buffer_size: op_udp_get_send_buffer_size3, op_dns_lookup: op_dns_lookup3, op_dns_reverse: op_dns_reverse3, op_tcp_listen: op_tcp_listen3, op_tcp_accept: op_tcp_accept3, op_tcp_connect: op_tcp_connect3, op_tcp_read: op_tcp_read3, op_tcp_write: op_tcp_write3, op_tcp_close: op_tcp_close3, op_tcp_shutdown: op_tcp_shutdown3, op_tcp_local_addr: op_tcp_local_addr3, op_tcp_peer_addr: op_tcp_peer_addr3, op_tcp_listener_addr: op_tcp_listener_addr3, op_tcp_listener_close: op_tcp_listener_close3 } = ops3;
 class ReadableStreamController2 {
     streamId;
     queue;
@@ -14397,18 +14627,26 @@ class ChildProcess extends EventEmitter {
     stderr;
     stdin;
     ready;
+    stdio;
     pendingWrites = [];
     pendingKill = false;
     pendingClose = false;
-    constructor(pidPromise){
+    constructor(pidPromise, options){
         super();
         this.pid = null;
-        this.stdout = new Readable();
-        this.stderr = new Readable();
-        this.stdout.unref = ()=>{};
-        this.stdout.ref = ()=>{};
-        this.stderr.unref = ()=>{};
-        this.stderr.ref = ()=>{};
+        this.stdio = options?.stdio || 'pipe';
+        // Only create stdout/stderr if not inherited
+        if (this.stdio === 'inherit') {
+            this.stdout = null;
+            this.stderr = null;
+        } else {
+            this.stdout = new Readable();
+            this.stderr = new Readable();
+            this.stdout.unref = ()=>{};
+            this.stdout.ref = ()=>{};
+            this.stderr.unref = ()=>{};
+            this.stderr.ref = ()=>{};
+        }
         const stdinEmitter = new EventEmitter();
         stdinEmitter.write = (data, cb)=>{
             const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
@@ -14448,20 +14686,22 @@ class ChildProcess extends EventEmitter {
     }
     attachPid(pidPromise) {
         this.ready = pidPromise.then((pid)=>{
-            if (pid <= 0) return pid;
-            this.pid = pid;
+            // Ensure PID is a Number for Node.js compatibility
+            const numPid = typeof pid === 'bigint' ? Number(pid) : pid;
+            if (numPid <= 0) return numPid;
+            this.pid = numPid;
             this.attachReaders();
             for (const queued of this.pendingWrites){
-                op_process_write_stdin2(pid, queued);
+                op_process_write_stdin2(numPid, queued);
             }
             this.pendingWrites = [];
             if (this.pendingClose) {
-                op_process_close_stdin2(pid);
+                op_process_close_stdin2(numPid);
             }
             if (this.pendingKill) {
-                op_process_kill2(pid);
+                op_process_kill2(numPid);
             }
-            return pid;
+            return numPid;
         });
     }
     kill() {
@@ -14471,8 +14711,19 @@ class ChildProcess extends EventEmitter {
         }
         op_process_kill2(this.pid);
     }
+    send(message, callback) {
+        // TODO: Implement IPC support for child processes
+        // For now, this is a stub to prevent Next.js from hanging
+        console.log('[IPC-STUB] send() called with message:', typeof message);
+        if (callback) {
+            queueMicrotask(() => callback(null));
+        }
+        return true;
+    }
     attachReaders() {
         if (this.pid === null) return;
+        // Don't attach readers if stdio is inherited
+        if (this.stdio === 'inherit') return;
         const debugReads = !!(globalThis.process?.env?.DEKA_CHILD_DEBUG || globalThis.process?.env?.DEKA_VERBOSE);
         const readLoop = async (op, emitter, event)=>{
             const pushable = typeof emitter.push === "function";
@@ -14527,8 +14778,10 @@ class ChildProcess extends EventEmitter {
         readLoop(op_process_read_stderr2, this.stderr, "data");
         (async ()=>{
             const code = await op_process_wait2(this.pid);
-            this.emit("exit", code);
-            this.emit("close", code);
+            // Convert BigInt to Number for Node.js compatibility
+            const exitCode = typeof code === 'bigint' ? Number(code) : code;
+            this.emit("exit", exitCode);
+            this.emit("close", exitCode);
         })();
     }
     ref() {}
@@ -14540,12 +14793,60 @@ function spawn(command, args = [], options) {
     if (globalThis.process?.env?.DEKA_CHILD_DEBUG) {
         console.log(`[child_process] spawn ${cmd} ${cmdArgs.join(" ")}`);
     }
-    const child = new ChildProcess();
-    const pidPromise = op_process_spawn2(cmd, cmdArgs, options?.cwd, envPairs).then((pid)=>Number(pid)).catch((error)=>{
+    const child = new ChildProcess(undefined, { stdio: options?.stdio });
+
+    // Use synchronous spawn to get PID immediately (Node.js compatibility)
+    try {
+        console.log('[SPAWN-DEBUG] Calling op_process_spawn_immediate2');
+        console.log('[SPAWN-DEBUG] op exists:', typeof op_process_spawn_immediate2);
+        console.log('[SPAWN-DEBUG] cmd:', cmd, 'type:', typeof cmd);
+        console.log('[SPAWN-DEBUG] cmdArgs:', cmdArgs, 'type:', typeof cmdArgs);
+        // Check for undefined in cmdArgs
+        if (cmdArgs) {
+            for (let i = 0; i < cmdArgs.length; i++) {
+                if (cmdArgs[i] === undefined) {
+                    console.log('[SPAWN-DEBUG] Found undefined in cmdArgs at index', i);
+                }
+            }
+        }
+        console.log('[SPAWN-DEBUG] options:', options);
+        console.log('[SPAWN-DEBUG] envPairs:', envPairs);
+        // Convert undefined to null for Rust compatibility
+        const cwd = options?.cwd ?? null;
+        const env = envPairs ?? null;
+        console.log('[SPAWN-DEBUG] cwd:', cwd, 'type:', typeof cwd);
+        console.log('[SPAWN-DEBUG] env type:', typeof env, 'length:', env?.length);
+        // Check for undefined in env pairs and filter them out
+        let filteredEnv = env;
+        if (env) {
+            filteredEnv = [];
+            for (let i = 0; i < env.length; i++) {
+                const pair = env[i];
+                if (!pair || pair[0] === undefined || pair[1] === undefined) {
+                    console.log('[SPAWN-DEBUG] Filtering out invalid env pair at index', i, 'key:', pair?.[0], 'value:', pair?.[1]);
+                    continue;
+                }
+                filteredEnv.push(pair);
+            }
+            console.log('[SPAWN-DEBUG] Filtered env from', env.length, 'to', filteredEnv.length, 'pairs');
+        }
+        const stdio = options?.stdio ?? 'pipe';
+        console.log('[SPAWN-DEBUG] stdio:', stdio);
+        const pid = op_process_spawn_immediate2(cmd, cmdArgs, cwd, filteredEnv, stdio);
+        const numPid = typeof pid === 'bigint' ? Number(pid) : Number(pid);
+        console.log('[SPAWN-DEBUG] Got PID (converted to number):', numPid);
+        // Set PID immediately for Node.js compatibility
+        child.pid = numPid;
+        child.attachPid(Promise.resolve(numPid));
+    } catch (error) {
+        console.log('[SPAWN-DEBUG] Error in spawn');
+        console.log('[SPAWN-DEBUG] Error message:', error?.message);
+        console.log('[SPAWN-DEBUG] Error stack:', error?.stack);
+        child.pid = -1;
         queueMicrotask(()=>child.emit("error", error));
-        return -1;
-    });
-    child.attachPid(pidPromise);
+        child.attachPid(Promise.resolve(-1));
+    }
+
     return child;
 }
 function applyShebangOverride(command, args, cwd) {
@@ -14811,13 +15112,42 @@ function fork(modulePath, args = [], options) {
     const execArgs = options?.execArgv ? [
         ...options.execArgv
     ] : [];
-    return spawn(execPath, [
-        ...execArgs,
-        modulePath,
-        ...args
-    ], {
+
+    // If execPath is the deka CLI, fork should use Node.js directly
+    // to run the module in a proper Node.js environment (e.g., Next.js workers)
+    const isDekaCli = execPath && (execPath.endsWith('/cli') || execPath.includes('/deka/') || execPath.includes('deka-'));
+
+    let forkPath = execPath;
+    let spawnArgs = [];
+
+    if (isDekaCli) {
+        // Try to use Node.js from NVM_BIN or PATH for fork operations
+        // This allows Next.js workers and other forked processes to run in proper Node.js
+        const nvmBin = globalThis.process?.env?.NVM_BIN;
+        if (nvmBin) {
+            forkPath = nvmBin + '/node';
+        } else {
+            // Fall back to 'node' in PATH
+            forkPath = 'node';
+        }
+        spawnArgs = [
+            ...execArgs,
+            modulePath,
+            ...args
+        ];
+        console.log('[FORK-DEBUG] Forking with Node.js:', forkPath, 'instead of deka CLI');
+    } else {
+        spawnArgs = [
+            ...execArgs,
+            modulePath,
+            ...args
+        ];
+    }
+
+    return spawn(forkPath, spawnArgs, {
         cwd: options?.cwd,
-        env: options?.env
+        env: options?.env,
+        stdio: options?.stdio
     });
 }
 globalThis.__dekaNodeChildProcess = {
@@ -16268,6 +16598,7 @@ function resolveExportsTarget1(target, mode) {
         const keys = [
             "bun",
             mode === "require" ? "require" : "import",
+            "node",
             "default"
         ];
         for (const key of keys){
@@ -16306,6 +16637,23 @@ function resolveExportsForSubpath1(exportsField, subpath, mode) {
         const capture = applyExportPattern1(key, subpath);
         if (capture === null) continue;
         const target = resolveExportsTarget1(exportsField[key], mode);
+        if (typeof target === "string") {
+            return target.replace("*", capture);
+        }
+    }
+    return null;
+}
+function resolveImportsForSubpath1(importsField, specifier, mode) {
+    if (!importsField || typeof importsField !== "object") return null;
+    const direct = importsField[specifier];
+    if (direct !== undefined) {
+        return resolveExportsTarget1(direct, mode);
+    }
+    for (const key of Object.keys(importsField)){
+        if (!key.includes("*")) continue;
+        const capture = applyExportPattern1(key, specifier);
+        if (capture === null) continue;
+        const target = resolveExportsTarget1(importsField[key], mode);
         if (typeof target === "string") {
             return target.replace("*", capture);
         }
@@ -16372,7 +16720,7 @@ function resolveImportsSpecifier1(specifier, referrer, mode) {
             pkgJson = readPackageJson1(current);
         } catch (error) {}
         if (pkgJson?.imports) {
-            const target = resolveExportsForSubpath1(pkgJson.imports, specifier, mode);
+            const target = resolveImportsForSubpath1(pkgJson.imports, specifier, mode);
             if (target) {
                 return resolvePathFrom1(current, target.replace(/^\.\//, ""));
             }
@@ -16453,6 +16801,32 @@ function resolveWithExtensions1(path, context = {}) {
         } catch (error) {
             attempts.push(`${base}${ext}`);
         }
+    }
+    // Try to read package.json for "main" field (for directory imports)
+    try {
+        const pkgPath = `${base}/package.json`;
+        const pkgInfo = readModuleSource1(pkgPath);
+        const pkg = JSON.parse(pkgInfo.source);
+        if (pkg.main) {
+            const mainPath = pkg.main.startsWith('./') || pkg.main.startsWith('../')
+                ? `${base}/${pkg.main}`
+                : `${base}/${pkg.main}`;
+            try {
+                return readModuleSource1(mainPath);
+            } catch (error) {
+                attempts.push(mainPath);
+                // Try with extensions
+                for (const ext of candidates){
+                    try {
+                        return readModuleSource1(`${mainPath}${ext}`);
+                    } catch (error) {
+                        attempts.push(`${mainPath}${ext}`);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        // No package.json or failed to parse, continue
     }
     for (const ext of candidates){
         try {
@@ -16625,6 +16999,12 @@ function wrapCjsExports1(exportsValue) {
     return {
         default: exportsValue
     };
+}
+function applyDefaultExportShims1(path, exportsValue) {
+    if (!exportsValue || exportsValue.default !== undefined) return;
+    if ((path.includes("/signal-exit/") || path.includes("\\signal-exit\\")) && typeof exportsValue.onExit === "function") {
+        exportsValue.default = exportsValue.onExit;
+    }
 }
 function debugPrint1(message) {
     const env = globalThis.process?.env;
@@ -17001,8 +17381,12 @@ function loadModuleExportsInternal1(specifier, referrer, mode, asyncMode) {
     const importMeta = {
         url: toFileUrl1(info.path)
     };
-    const hasTopLevelAwait = transformed.top_level_await;
-    const rewrittenCode = transformed.code.replace(/\bimport\s*\(/g, "__dekaImportAsync(");
+    const shouldForceAsync = mode === "import" && asyncMode;
+    const hasTopLevelAwait = transformed.top_level_await || shouldForceAsync;
+    let rewrittenCode = transformed.code.replace(/\bimport\s*\(/g, "__dekaImportAsync(");
+    if (shouldForceAsync) {
+        rewrittenCode = rewrittenCode.replace(/\b__dekaImport\s*\(/g, "await __dekaImportAsync(");
+    }
     const wrappedCode = hasTopLevelAwait ? `return (async () => {\n${rewrittenCode}\n})()` : rewrittenCode;
     const wrapper = new Function("exports", "module", "__dekaImport", "__dekaImportAsync", "require", "__dekaImportMeta", wrappedCode);
     moduleCache1.set(cacheKey, {
@@ -17019,6 +17403,7 @@ function loadModuleExportsInternal1(specifier, referrer, mode, asyncMode) {
                     if (module1.exports.default === undefined && globalThis.app !== undefined) {
                         module1.exports.default = globalThis.app;
                     }
+                    applyDefaultExportShims1(info.path, module1.exports);
                     return module1.exports;
                 });
             }
@@ -17035,6 +17420,7 @@ function loadModuleExportsInternal1(specifier, referrer, mode, asyncMode) {
     if (module1.exports.default === undefined && globalThis.app !== undefined) {
         module1.exports.default = globalThis.app;
     }
+    applyDefaultExportShims1(info.path, module1.exports);
     return module1.exports;
 }
 function loadModuleExports1(specifier, referrer, mode = "import") {
