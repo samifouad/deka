@@ -399,8 +399,14 @@ if (typeof globalThis.process === "undefined") {
     };
     const listeners = new Map();
     const on = (event, listener)=>{
-        const bucket = listeners.get(event) || new Set();
-        bucket.add(listener);
+        const bucket = listeners.get(event) || [];
+        bucket.push(listener);
+        listeners.set(event, bucket);
+        return globalThis.process;
+    };
+    const prependListener = (event, listener)=>{
+        const bucket = listeners.get(event) || [];
+        bucket.unshift(listener);
         listeners.set(event, bucket);
         return globalThis.process;
     };
@@ -411,23 +417,52 @@ if (typeof globalThis.process === "undefined") {
         };
         return on(event, wrapped);
     };
+    const prependOnceListener = (event, listener)=>{
+        const wrapped = (...args)=>{
+            off(event, wrapped);
+            listener(...args);
+        };
+        return prependListener(event, wrapped);
+    };
     const off = (event, listener)=>{
         const bucket = listeners.get(event);
         if (bucket) {
-            bucket.delete(listener);
-            if (bucket.size === 0) listeners.delete(event);
+            const index = bucket.indexOf(listener);
+            if (index !== -1) {
+                bucket.splice(index, 1);
+            }
+            if (bucket.length === 0) listeners.delete(event);
         }
         return globalThis.process;
     };
     const emit = (event, ...args)=>{
         const bucket = listeners.get(event);
         if (!bucket) return false;
-        for (const listener of Array.from(bucket)){
+        for (const listener of bucket.slice()){
             try {
                 listener(...args);
             } catch  {}
         }
-        return bucket.size > 0;
+        return bucket.length > 0;
+    };
+    const getListeners = (event)=>{
+        const bucket = listeners.get(event);
+        return bucket ? bucket.slice() : [];
+    };
+    const removeAllListeners = (event)=>{
+        if (event === undefined) {
+            listeners.clear();
+        } else {
+            listeners.delete(event);
+        }
+        return globalThis.process;
+    };
+    const listenerCount = (event)=>{
+        const bucket = listeners.get(event);
+        return bucket ? bucket.length : 0;
+    };
+    const eventNames = ()=>{
+        return Array.from(listeners.keys());
     };
     const perf = globalThis.performance;
     const nowNs = ()=>{
@@ -501,9 +536,15 @@ if (typeof globalThis.process === "undefined") {
         on,
         once,
         off,
+        prependListener,
+        prependOnceListener,
         addListener: on,
         removeListener: off,
+        removeAllListeners,
         emit,
+        listeners: getListeners,
+        listenerCount,
+        eventNames,
         nextTick: (callback, ...args)=>{
             queueMicrotask(()=>callback(...args));
         },
@@ -1532,6 +1573,14 @@ function notifyPerformanceObservers(entries) {
 }
 if (typeof globalThis.performance === "undefined") {
     globalThis.performance = performance;
+}
+// Add missing Performance API methods that Next.js needs
+if (globalThis.performance && typeof globalThis.performance.getEntriesByName !== 'function') {
+    globalThis.performance.getEntriesByName = function(name, type) {
+        // Stub implementation - returns empty array
+        // In a full implementation, this would return PerformanceEntry objects
+        return [];
+    };
 }
 if (typeof globalThis.PerformanceEntry === "undefined") {
     globalThis.PerformanceEntry = PerformanceEntry;
@@ -15432,36 +15481,15 @@ function fork(modulePath, args = [], options) {
         ...options.execArgv
     ] : [];
 
-    // If execPath is the deka CLI, fork should use Node.js directly
-    // to run the module in a proper Node.js environment (e.g., Next.js workers)
-    const isDekaCli = execPath && (execPath.endsWith('/cli') || execPath.includes('/deka/') || execPath.includes('deka-'));
+    // Fork uses the current runtime (deka) with IPC enabled
+    // This allows Next.js workers and other forked processes to communicate via IPC
+    const forkPath = execPath;
 
-    let forkPath = execPath;
-    let spawnArgs = [];
-
-    if (isDekaCli) {
-        // Try to use Node.js from NVM_BIN or PATH for fork operations
-        // This allows Next.js workers and other forked processes to run in proper Node.js
-        const nvmBin = globalThis.process?.env?.NVM_BIN;
-        if (nvmBin) {
-            forkPath = nvmBin + '/node';
-        } else {
-            // Fall back to 'node' in PATH
-            forkPath = 'node';
-        }
-        spawnArgs = [
-            ...execArgs,
-            modulePath,
-            ...args
-        ];
-        console.log('[FORK-DEBUG] Forking with Node.js:', forkPath, 'instead of deka CLI');
-    } else {
-        spawnArgs = [
-            ...execArgs,
-            modulePath,
-            ...args
-        ];
-    }
+    // When using deka CLI, we need to add "run" command before the module path
+    const isDekaCli = execPath && (execPath.endsWith('/cli') || execPath.includes('/deka/'));
+    const spawnArgs = isDekaCli
+        ? ['run', ...execArgs, modulePath, ...args]
+        : [...execArgs, modulePath, ...args];
 
     // Enable IPC by default for fork (unless explicitly disabled)
     const ipcOptions = {

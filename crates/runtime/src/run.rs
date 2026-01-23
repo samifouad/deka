@@ -63,15 +63,6 @@ async fn run_async(context: &Context) -> Result<(), String> {
         || context.args.flags.contains_key("-W")
         || std::env::var("DEKA_WATCH").ok().as_deref() == Some("1");
 
-    // Check if this is Next.js - delegate to node even with --deka because Next.js requires IPC
-    let is_nextjs = normalized.contains("next/dist/bin/next")
-        || normalized.contains("next/dist/cli/");
-
-    if is_nextjs {
-        eprintln!("[deka] Detected Next.js - delegating to Node.js (Next.js requires IPC)");
-        return run_with_shebang("node", &normalized, &extra_args);
-    }
-
     // If --deka is not set, check shebang and potentially delegate to node/bun
     if !force_deka {
         if let Some(shebang_cmd) = parse_shebang(&normalized) {
