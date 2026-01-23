@@ -610,6 +610,13 @@ if (typeof globalThis.process === "undefined") {
                 unref: () => {}
             };
 
+            // Debug: Log IPC initialization
+            const debugIpc = globalThis.process.env?.DEKA_IPC_DEBUG === "1";
+            if (debugIpc) {
+                console.error('[IPC-CHILD-INIT] IPC enabled, FD:', ipcFd);
+                console.error('[IPC-CHILD-INIT] process.connected:', globalThis.process.connected);
+            }
+
             // Implement process.send() for child -> parent messaging
             globalThis.process.send = function(message, sendHandle, options, callback) {
                 // Handle argument variations (same as ChildProcess.send)
@@ -671,9 +678,19 @@ if (typeof globalThis.process === "undefined") {
 
                 const op = globalThis.__dekaOps?.op_child_ipc_send;
                 if (typeof op === 'function') {
+                    const debugIpc = globalThis.process.env?.DEKA_IPC_DEBUG === "1";
+                    if (debugIpc) {
+                        console.error('[IPC-CHILD-SEND] About to send, FD:', ipcFd, 'message:', message);
+                    }
                     try {
                         op(parseInt(ipcFd), serialized);
+                        if (debugIpc) {
+                            console.error('[IPC-CHILD-SEND] Successfully sent');
+                        }
                     } catch (err) {
+                        if (debugIpc) {
+                            console.error('[IPC-CHILD-SEND] Error sending:', err);
+                        }
                         if (callback) {
                             queueMicrotask(() => callback(err));
                         }

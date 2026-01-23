@@ -85,13 +85,35 @@ pub(super) fn op_process_spawn_immediate(
         }
     }
 
-    // Pass IPC file descriptor to child via environment variable
+    // Pass IPC file descriptor to child - dup2 it to fd 3 in the child using pre_exec
     #[cfg(unix)]
     if let Some((_, ref child_socket)) = ipc_socket_pair {
         use std::os::unix::io::AsRawFd;
-        let fd = child_socket.as_raw_fd();
+        let source_fd = child_socket.as_raw_fd();
+
+        // Use pre_exec to dup2 in the child process (after fork, before exec)
+        unsafe {
+            cmd.pre_exec(move || {
+                let target_fd = 3;
+                // Dup source to target (fd 3)
+                if libc::dup2(source_fd, target_fd) < 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                // Close the original source_fd if it's not fd 3
+                if source_fd != target_fd {
+                    libc::close(source_fd);
+                }
+                // Clear close-on-exec flag on fd 3
+                let flags = libc::fcntl(target_fd, libc::F_GETFD);
+                if flags >= 0 {
+                    libc::fcntl(target_fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC);
+                }
+                Ok(())
+            });
+        }
+
         cmd.env("DEKA_IPC_ENABLED", "1");
-        cmd.env("DEKA_IPC_FD", fd.to_string());
+        cmd.env("DEKA_IPC_FD", "3"); // Always fd 3 after dup2 in child
     }
 
     // Handle stdio option
@@ -180,13 +202,35 @@ pub(super) async fn op_process_spawn(
         }
     }
 
-    // Pass IPC file descriptor to child via environment variable
+    // Pass IPC file descriptor to child - dup2 it to fd 3 in the child using pre_exec
     #[cfg(unix)]
     if let Some((_, ref child_socket)) = ipc_socket_pair {
         use std::os::unix::io::AsRawFd;
-        let fd = child_socket.as_raw_fd();
+        let source_fd = child_socket.as_raw_fd();
+
+        // Use pre_exec to dup2 in the child process (after fork, before exec)
+        unsafe {
+            cmd.pre_exec(move || {
+                let target_fd = 3;
+                // Dup source to target (fd 3)
+                if libc::dup2(source_fd, target_fd) < 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                // Close the original source_fd if it's not fd 3
+                if source_fd != target_fd {
+                    libc::close(source_fd);
+                }
+                // Clear close-on-exec flag on fd 3
+                let flags = libc::fcntl(target_fd, libc::F_GETFD);
+                if flags >= 0 {
+                    libc::fcntl(target_fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC);
+                }
+                Ok(())
+            });
+        }
+
         cmd.env("DEKA_IPC_ENABLED", "1");
-        cmd.env("DEKA_IPC_FD", fd.to_string());
+        cmd.env("DEKA_IPC_FD", "3"); // Always fd 3 after dup2 in child
     }
 
     // Handle stdio option
