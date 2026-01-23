@@ -58,9 +58,10 @@ use network::{
     op_udp_set_ttl,
 };
 use process::{
-    op_process_close_stdin, op_process_exit, op_process_kill, op_process_read_stderr,
-    op_process_read_stdout, op_process_spawn, op_process_spawn_immediate, op_process_spawn_sync, op_process_wait,
-    op_process_write_stdin, op_sleep,
+    op_child_ipc_read, op_child_ipc_send, op_process_close_stdin, op_process_exit,
+    op_process_kill, op_process_read_message, op_process_read_stderr, op_process_read_stdout,
+    op_process_send_message, op_process_spawn, op_process_spawn_immediate, op_process_spawn_sync,
+    op_process_wait, op_process_write_stdin, op_sleep,
 };
 use stdin::{op_stdin_read, op_stdin_set_raw_mode};
 use web::{
@@ -161,6 +162,10 @@ deno_core::extension!(
         op_process_close_stdin,
         op_process_wait,
         op_process_kill,
+        op_process_send_message,
+        op_process_read_message,
+        op_child_ipc_send,
+        op_child_ipc_read,
         op_sleep,
         op_stdin_read,
         op_stdin_set_raw_mode,

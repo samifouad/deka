@@ -12,11 +12,17 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 use tokio::sync::Mutex as AsyncMutex;
 
+/// IPC channel for bidirectional message passing between parent and child
+struct IpcChannel {
+    socket: tokio::net::UnixStream,  // Bidirectional Unix socket for IPC
+}
+
 struct ChildProcessEntry {
     child: Option<Child>,
     stdout: Option<ChildStdout>,
     stderr: Option<ChildStderr>,
     stdin: Option<ChildStdin>,
+    ipc: Option<IpcChannel>,  // NEW: IPC channel
 }
 
 static CHILD_PROCESSES: OnceLock<Mutex<HashMap<u64, Arc<AsyncMutex<ChildProcessEntry>>>>> =
@@ -49,16 +55,43 @@ pub(super) fn op_process_spawn_immediate(
     #[string] cwd: Option<String>,
     #[serde] env: Option<Vec<(String, String)>>,
     #[string] stdio: Option<String>,
+    enable_ipc: bool,  // NEW: Enable IPC channel
 ) -> Result<u64, CoreError> {
     let mut cmd = Command::new(command);
     cmd.args(args);
     if let Some(cwd) = cwd {
         cmd.current_dir(cwd);
     }
+
+    // Create IPC socket pair if needed (Unix only)
+    #[cfg(unix)]
+    let ipc_socket_pair = if enable_ipc {
+        Some(tokio::net::UnixStream::pair().map_err(|err| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to create IPC socket pair: {}", err),
+            ))
+        })?)
+    } else {
+        None
+    };
+
+    #[cfg(not(unix))]
+    let ipc_socket_pair: Option<(tokio::net::UnixStream, tokio::net::UnixStream)> = None;
+
     if let Some(env_vars) = env {
         for (key, value) in env_vars {
             cmd.env(key, value);
         }
+    }
+
+    // Pass IPC file descriptor to child via environment variable
+    #[cfg(unix)]
+    if let Some((_, ref child_socket)) = ipc_socket_pair {
+        use std::os::unix::io::AsRawFd;
+        let fd = child_socket.as_raw_fd();
+        cmd.env("DEKA_IPC_ENABLED", "1");
+        cmd.env("DEKA_IPC_FD", fd.to_string());
     }
 
     // Handle stdio option
@@ -84,11 +117,17 @@ pub(super) fn op_process_spawn_immediate(
         ))
     })?;
 
+    // Take parent socket from pair (child socket is passed via env)
+    let ipc_channel = ipc_socket_pair.map(|(parent_socket, _)| IpcChannel {
+        socket: parent_socket,
+    });
+
     let entry = ChildProcessEntry {
         stdout: child.stdout.take(),
         stderr: child.stderr.take(),
         stdin: child.stdin.take(),
         child: Some(child),
+        ipc: ipc_channel,
     };
 
     let store = CHILD_PROCESSES.get_or_init(|| Mutex::new(HashMap::new()));
@@ -111,16 +150,43 @@ pub(super) async fn op_process_spawn(
     #[string] cwd: Option<String>,
     #[serde] env: Option<Vec<(String, String)>>,
     #[string] stdio: Option<String>,
+    enable_ipc: bool,  // NEW: Enable IPC channel
 ) -> Result<u64, CoreError> {
     let mut cmd = Command::new(command);
     cmd.args(args);
     if let Some(cwd) = cwd {
         cmd.current_dir(cwd);
     }
+
+    // Create IPC socket pair if needed (Unix only)
+    #[cfg(unix)]
+    let ipc_socket_pair = if enable_ipc {
+        Some(tokio::net::UnixStream::pair().map_err(|err| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to create IPC socket pair: {}", err),
+            ))
+        })?)
+    } else {
+        None
+    };
+
+    #[cfg(not(unix))]
+    let ipc_socket_pair: Option<(tokio::net::UnixStream, tokio::net::UnixStream)> = None;
+
     if let Some(env_vars) = env {
         for (key, value) in env_vars {
             cmd.env(key, value);
         }
+    }
+
+    // Pass IPC file descriptor to child via environment variable
+    #[cfg(unix)]
+    if let Some((_, ref child_socket)) = ipc_socket_pair {
+        use std::os::unix::io::AsRawFd;
+        let fd = child_socket.as_raw_fd();
+        cmd.env("DEKA_IPC_ENABLED", "1");
+        cmd.env("DEKA_IPC_FD", fd.to_string());
     }
 
     // Handle stdio option
@@ -146,11 +212,17 @@ pub(super) async fn op_process_spawn(
         ))
     })?;
 
+    // Take parent socket from pair (child socket is passed via env)
+    let ipc_channel = ipc_socket_pair.map(|(parent_socket, _)| IpcChannel {
+        socket: parent_socket,
+    });
+
     let entry = ChildProcessEntry {
         stdout: child.stdout.take(),
         stderr: child.stderr.take(),
         stdin: child.stdin.take(),
         child: Some(child),
+        ipc: ipc_channel,
     };
 
     let store = CHILD_PROCESSES.get_or_init(|| Mutex::new(HashMap::new()));
@@ -463,4 +535,274 @@ pub(super) async fn op_process_kill(#[bigint] id: u64) -> Result<(), CoreError> 
 pub(super) async fn op_sleep(#[bigint] ms: u64) -> Result<(), CoreError> {
     tokio::time::sleep(Duration::from_millis(ms)).await;
     Ok(())
+}
+
+#[op2(async)]
+pub(super) async fn op_process_send_message(
+    #[bigint] id: u64,
+    #[string] message: String,
+) -> Result<(), CoreError> {
+    let store = CHILD_PROCESSES.get_or_init(|| Mutex::new(HashMap::new()));
+    let entry = {
+        let guard = store.lock().map_err(|_| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Child store locked",
+            ))
+        })?;
+        guard.get(&id).cloned()
+    }
+    .ok_or_else(|| {
+        CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Process not found",
+        ))
+    })?;
+
+    let mut entry_guard = entry.lock().await;
+    let ipc = entry_guard.ipc.as_mut().ok_or_else(|| {
+        CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "IPC channel not available",
+        ))
+    })?;
+
+    // Write message with newline delimiter (JSON Lines format)
+    ipc.socket.write_all(message.as_bytes()).await.map_err(|err| {
+        CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to write to IPC channel: {}", err),
+        ))
+    })?;
+    ipc.socket.write_all(b"\n").await.map_err(|err| {
+        CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to write newline to IPC channel: {}", err),
+        ))
+    })?;
+    ipc.socket.flush().await.map_err(|err| {
+        CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to flush IPC channel: {}", err),
+        ))
+    })?;
+
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct IpcReadResult {
+    message: Option<String>,
+}
+
+#[op2(async)]
+#[serde]
+pub(super) async fn op_process_read_message(
+    #[bigint] id: u64,
+) -> Result<IpcReadResult, CoreError> {
+    let store = CHILD_PROCESSES.get_or_init(|| Mutex::new(HashMap::new()));
+    let entry = {
+        let guard = store.lock().map_err(|_| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Child store locked",
+            ))
+        })?;
+        guard.get(&id).cloned()
+    }
+    .ok_or_else(|| {
+        CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Process not found",
+        ))
+    })?;
+
+    let mut entry_guard = entry.lock().await;
+    let ipc = entry_guard.ipc.as_mut().ok_or_else(|| {
+        CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "IPC channel not available",
+        ))
+    })?;
+
+    // Read byte-by-byte until newline (JSON Lines format)
+    let mut buffer = Vec::new();
+    let mut byte = [0u8; 1];
+
+    loop {
+        match ipc.socket.read_exact(&mut byte).await {
+            Ok(_) => {
+                if byte[0] == b'\n' {
+                    // Found newline, decode and return message
+                    let message = String::from_utf8(buffer).map_err(|err| {
+                        CoreError::from(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("Invalid UTF-8 in IPC message: {}", err),
+                        ))
+                    })?;
+                    return Ok(IpcReadResult {
+                        message: Some(message),
+                    });
+                } else {
+                    buffer.push(byte[0]);
+                }
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                // EOF - channel closed
+                return Ok(IpcReadResult { message: None });
+            }
+            Err(err) => {
+                return Err(CoreError::from(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to read from IPC channel: {}", err),
+                )));
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Child-side IPC ops (for use within the child process)
+// ============================================================================
+
+/// Child-side op to send a message to the parent process via IPC
+#[op2(async)]
+pub(super) async fn op_child_ipc_send(
+    #[smi] fd: i32,
+    #[string] message: String,
+) -> Result<(), CoreError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::io::FromRawFd;
+
+        // Duplicate the file descriptor so we can safely wrap it
+        let dup_fd = unsafe { libc::dup(fd) };
+        if dup_fd < 0 {
+            return Err(CoreError::from(std::io::Error::last_os_error()));
+        }
+
+        // SAFETY: We just created dup_fd and we own it
+        let std_stream = unsafe { std::os::unix::net::UnixStream::from_raw_fd(dup_fd) };
+        std_stream.set_nonblocking(true).map_err(|err| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to set non-blocking: {}", err),
+            ))
+        })?;
+
+        let mut socket = tokio::net::UnixStream::from_std(std_stream).map_err(|err| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to create tokio UnixStream: {}", err),
+            ))
+        })?;
+
+        // Write message with newline delimiter (JSON Lines format)
+        socket.write_all(message.as_bytes()).await.map_err(|err| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to write to IPC channel: {}", err),
+            ))
+        })?;
+        socket.write_all(b"\n").await.map_err(|err| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to write newline to IPC channel: {}", err),
+            ))
+        })?;
+        socket.flush().await.map_err(|err| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to flush IPC channel: {}", err),
+            ))
+        })?;
+
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    {
+        Err(CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "IPC is only supported on Unix platforms",
+        )))
+    }
+}
+
+/// Child-side op to read a message from the parent process via IPC
+#[op2(async)]
+#[serde]
+pub(super) async fn op_child_ipc_read(
+    #[smi] fd: i32,
+) -> Result<IpcReadResult, CoreError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::io::FromRawFd;
+
+        // Duplicate the file descriptor so we can safely wrap it
+        let dup_fd = unsafe { libc::dup(fd) };
+        if dup_fd < 0 {
+            return Err(CoreError::from(std::io::Error::last_os_error()));
+        }
+
+        // SAFETY: We just created dup_fd and we own it
+        let std_stream = unsafe { std::os::unix::net::UnixStream::from_raw_fd(dup_fd) };
+        std_stream.set_nonblocking(true).map_err(|err| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to set non-blocking: {}", err),
+            ))
+        })?;
+
+        let mut socket = tokio::net::UnixStream::from_std(std_stream).map_err(|err| {
+            CoreError::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to create tokio UnixStream: {}", err),
+            ))
+        })?;
+
+        // Read byte-by-byte until newline (JSON Lines format)
+        let mut buffer = Vec::new();
+        let mut byte = [0u8; 1];
+
+        loop {
+            match socket.read_exact(&mut byte).await {
+                Ok(_) => {
+                    if byte[0] == b'\n' {
+                        // Found newline, decode and return message
+                        let message = String::from_utf8(buffer).map_err(|err| {
+                            CoreError::from(std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                format!("Invalid UTF-8 in IPC message: {}", err),
+                            ))
+                        })?;
+
+                        return Ok(IpcReadResult {
+                            message: Some(message),
+                        });
+                    } else {
+                        buffer.push(byte[0]);
+                    }
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    // EOF - channel closed
+                    return Ok(IpcReadResult { message: None });
+                }
+                Err(err) => {
+                    return Err(CoreError::from(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Failed to read from IPC channel: {}", err),
+                    )));
+                }
+            }
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        Err(CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "IPC is only supported on Unix platforms",
+        )))
+    }
 }

@@ -554,6 +554,138 @@ if (typeof globalThis.process === "undefined") {
             throw err;
         }
     };
+
+    // Child process IPC setup
+    // Check if IPC is enabled via environment variable (set by parent during spawn)
+    if (globalThis.process && typeof globalThis.process === 'object') {
+        const ipcEnabled = globalThis.process.env?.DEKA_IPC_ENABLED === "1";
+        const ipcFd = globalThis.process.env?.DEKA_IPC_FD;
+
+        if (ipcEnabled && ipcFd) {
+            // IPC is available
+            globalThis.process.connected = true;
+            globalThis.process.channel = {
+                ref: () => {},
+                unref: () => {}
+            };
+
+            // Implement process.send() for child -> parent messaging
+            globalThis.process.send = function(message, sendHandle, options, callback) {
+                // Handle argument variations (same as ChildProcess.send)
+                if (typeof sendHandle === 'function') {
+                    callback = sendHandle;
+                    sendHandle = undefined;
+                    options = undefined;
+                } else if (typeof options === 'function') {
+                    callback = options;
+                    options = undefined;
+                }
+
+                // Check connection state
+                if (!globalThis.process.connected) {
+                    const err = new Error('channel closed');
+                    if (callback) {
+                        queueMicrotask(() => callback(err));
+                    }
+                    return false;
+                }
+
+                // Handle transfer (not implemented yet)
+                if (sendHandle !== undefined) {
+                    const err = new Error('Handle transfer not yet implemented');
+                    if (callback) {
+                        queueMicrotask(() => callback(err));
+                    }
+                    return false;
+                }
+
+                // Serialize message with NODE_HANDLE envelope
+                const envelope = {
+                    cmd: 'NODE_HANDLE',
+                    msg: message
+                };
+
+                const serialized = JSON.stringify(envelope);
+
+                // TODO: Need to implement child-side op for writing to IPC
+                // For now, log for debugging
+                if (globalThis.process.env?.DEKA_IPC_DEBUG) {
+                    console.log('[IPC-CHILD] send():', message);
+                }
+
+                // IMPORTANT: This needs a Rust op to write to the IPC socket from child side
+                // The child needs access to its IPC file descriptor
+                // For Phase 1, we need to add: op_child_ipc_send(fd, message)
+                //
+                // Implementation approach:
+                // 1. Child receives IPC_FD as environment variable (already done)
+                // 2. Child calls: globalThis.__dekaOps?.op_child_ipc_send(ipcFd, serialized)
+                // 3. Rust op writes to Unix socket file descriptor
+                //
+                // The child has a different FD than the parent:
+                // - Parent has one end of socketpair (for reading child messages)
+                // - Child has other end of socketpair (for writing to parent)
+                // - Child writes to its FD to send to parent
+                // - Child reads from its FD to receive from parent
+
+                const op = globalThis.__dekaOps?.op_child_ipc_send;
+                if (typeof op === 'function') {
+                    try {
+                        op(parseInt(ipcFd), serialized);
+                    } catch (err) {
+                        if (callback) {
+                            queueMicrotask(() => callback(err));
+                        }
+                        return false;
+                    }
+                }
+
+                if (callback) {
+                    queueMicrotask(() => callback(null));
+                }
+                return true;
+            };
+
+            // Implement process.disconnect()
+            globalThis.process.disconnect = function() {
+                if (!globalThis.process.connected) return;
+                globalThis.process.connected = false;
+                globalThis.process.emit('disconnect');
+            };
+
+            // Set up message listener for child process
+            // Child receives messages via reading from IPC fd
+            // TODO: Implement message reception in child process
+            // This requires: op_child_ipc_read(fd) -> Option<String>
+            //
+            // Implementation approach:
+            // 1. Poll IPC socket for incoming messages
+            // 2. When message arrives, deserialize and emit 'message' event
+            // 3. Handle parent disconnect (socket closed)
+            //
+            // Example polling loop (needs to be triggered from Rust side):
+            // setInterval(() => {
+            //     const op = globalThis.__dekaOps?.op_child_ipc_read;
+            //     if (typeof op === 'function' && globalThis.process.connected) {
+            //         try {
+            //             const msg = op(parseInt(ipcFd));
+            //             if (msg) {
+            //                 const envelope = JSON.parse(msg);
+            //                 if (envelope.cmd === 'NODE_HANDLE') {
+            //                     globalThis.process.emit('message', envelope.msg);
+            //                 }
+            //             }
+            //         } catch (err) {
+            //             // Socket closed or parse error
+            //             if (globalThis.process.connected) {
+            //                 globalThis.process.disconnect();
+            //             }
+            //         }
+            //     }
+            // }, 10);
+        }
+    }
+
     if (typeof globalThis.addEventListener === "function") {
         globalThis.addEventListener("unhandledrejection", (event)=>{
             const reason = event?.reason;
@@ -3840,7 +3972,7 @@ function wrapOps2(ops) {
 }
 const ops2 = globalThis.process?.env?.DEKA_VERBOSE ? wrapOps2(baseOps2) : baseOps2;
 globalThis.__dekaOps = ops2;
-const { op_read_handler_source: op_read_handler_source2, op_read_module_source: op_read_module_source2, op_read_env: op_read_env2, op_stdout_write: op_stdout_write2, op_stderr_write: op_stderr_write2, op_execute_isolate: op_execute_isolate2, op_transform_module: op_transform_module2, op_bundle_browser: op_bundle_browser2, op_bundle_browser_assets: op_bundle_browser_assets2, op_bundle_css: op_bundle_css2, op_transform_css: op_transform_css2, op_tailwind_process: op_tailwind_process2, op_read_file: op_read_file2, op_fs_exists: op_fs_exists2, op_fs_stat: op_fs_stat2, op_fs_read_dir: op_fs_read_dir2, op_fs_mkdir: op_fs_mkdir2, op_fs_remove_file: op_fs_remove_file2, op_fs_append: op_fs_append2, op_fs_append_bytes: op_fs_append_bytes2, op_fs_open: op_fs_open2, op_fs_close: op_fs_close2, op_fs_read: op_fs_read2, op_fs_write: op_fs_write2, op_fs_copy_file: op_fs_copy_file2, op_zlib_gzip: op_zlib_gzip2, op_write_file: op_write_file2, op_write_file_base64: op_write_file_base642, op_introspect_stats: op_introspect_stats2, op_introspect_top: op_introspect_top2, op_introspect_workers: op_introspect_workers2, op_introspect_isolate: op_introspect_isolate2, op_introspect_kill_isolate: op_introspect_kill_isolate2, op_introspect_requests: op_introspect_requests2, op_introspect_evict: op_introspect_evict2, op_set_introspect_profiling: op_set_introspect_profiling2, op_ws_send: op_ws_send2, op_ws_send_binary: op_ws_send_binary2, op_ws_close: op_ws_close2, op_blob_create: op_blob_create2, op_blob_get: op_blob_get2, op_blob_size: op_blob_size2, op_blob_type: op_blob_type2, op_blob_slice: op_blob_slice2, op_blob_drop: op_blob_drop2, op_stream_create: op_stream_create2, op_stream_enqueue: op_stream_enqueue2, op_stream_close: op_stream_close2, op_stream_read: op_stream_read2, op_stream_drop: op_stream_drop2, op_crypto_random: op_crypto_random2, op_crypto_digest: op_crypto_digest2, op_crypto_hmac: op_crypto_hmac2, op_crypto_pbkdf2: op_crypto_pbkdf22, op_crypto_aes_gcm_encrypt: op_crypto_aes_gcm_encrypt2, op_crypto_aes_gcm_decrypt: op_crypto_aes_gcm_decrypt2, op_crypto_key_info: op_crypto_key_info2, op_crypto_key_from_secret: op_crypto_key_from_secret2, op_crypto_key_from_pem: op_crypto_key_from_pem2, op_crypto_key_from_der: op_crypto_key_from_der2, op_crypto_key_from_jwk: op_crypto_key_from_jwk2, op_crypto_key_export_pem: op_crypto_key_export_pem2, op_crypto_key_export_der: op_crypto_key_export_der2, op_crypto_key_export_jwk: op_crypto_key_export_jwk2, op_crypto_key_public: op_crypto_key_public2, op_crypto_key_equals: op_crypto_key_equals2, op_crypto_sign: op_crypto_sign2, op_crypto_verify: op_crypto_verify2, op_crypto_generate_keypair: op_crypto_generate_keypair2, op_crypto_get_curves: op_crypto_get_curves2, op_crypto_ecdh_new: op_crypto_ecdh_new2, op_crypto_ecdh_generate: op_crypto_ecdh_generate2, op_crypto_ecdh_get_public: op_crypto_ecdh_get_public2, op_crypto_ecdh_get_private: op_crypto_ecdh_get_private2, op_crypto_ecdh_set_private: op_crypto_ecdh_set_private2, op_crypto_ecdh_compute_secret: op_crypto_ecdh_compute_secret2, op_crypto_ecdh_convert: op_crypto_ecdh_convert2, op_url_parse: op_url_parse2, op_napi_open: op_napi_open2, op_http_fetch: op_http_fetch2, op_process_spawn: op_process_spawn2, op_process_spawn_immediate: op_process_spawn_immediate2, op_process_spawn_sync: op_process_spawn_sync2, op_process_read_stdout: op_process_read_stdout2, op_process_read_stderr: op_process_read_stderr2, op_process_write_stdin: op_process_write_stdin2, op_process_close_stdin: op_process_close_stdin2, op_process_wait: op_process_wait2, op_process_kill: op_process_kill2, op_sleep: op_sleep2, op_stdin_read: op_stdin_read2, op_stdin_set_raw_mode: op_stdin_set_raw_mode2, op_udp_bind: op_udp_bind2, op_udp_send: op_udp_send2, op_udp_recv: op_udp_recv2, op_udp_close: op_udp_close2, op_udp_local_addr: op_udp_local_addr2, op_udp_peer_addr: op_udp_peer_addr2, op_udp_connect: op_udp_connect2, op_udp_disconnect: op_udp_disconnect2, op_udp_set_broadcast: op_udp_set_broadcast2, op_udp_set_ttl: op_udp_set_ttl2, op_udp_set_multicast_ttl: op_udp_set_multicast_ttl2, op_udp_set_multicast_loop: op_udp_set_multicast_loop2, op_udp_set_multicast_if: op_udp_set_multicast_if2, op_udp_join_multicast: op_udp_join_multicast2, op_udp_leave_multicast: op_udp_leave_multicast2, op_udp_set_recv_buffer_size: op_udp_set_recv_buffer_size2, op_udp_set_send_buffer_size: op_udp_set_send_buffer_size2, op_udp_get_recv_buffer_size: op_udp_get_recv_buffer_size2, op_udp_get_send_buffer_size: op_udp_get_send_buffer_size2, op_dns_lookup: op_dns_lookup2, op_dns_reverse: op_dns_reverse2, op_tcp_listen: op_tcp_listen2, op_tcp_accept: op_tcp_accept2, op_tcp_connect: op_tcp_connect2, op_tcp_read: op_tcp_read2, op_tcp_write: op_tcp_write2, op_tcp_close: op_tcp_close2, op_tcp_shutdown: op_tcp_shutdown2, op_tcp_local_addr: op_tcp_local_addr2, op_tcp_peer_addr: op_tcp_peer_addr2, op_tcp_listener_addr: op_tcp_listener_addr2, op_tcp_listener_close: op_tcp_listener_close2 } = ops2;
+const { op_read_handler_source: op_read_handler_source2, op_read_module_source: op_read_module_source2, op_read_env: op_read_env2, op_stdout_write: op_stdout_write2, op_stderr_write: op_stderr_write2, op_execute_isolate: op_execute_isolate2, op_transform_module: op_transform_module2, op_bundle_browser: op_bundle_browser2, op_bundle_browser_assets: op_bundle_browser_assets2, op_bundle_css: op_bundle_css2, op_transform_css: op_transform_css2, op_tailwind_process: op_tailwind_process2, op_read_file: op_read_file2, op_fs_exists: op_fs_exists2, op_fs_stat: op_fs_stat2, op_fs_read_dir: op_fs_read_dir2, op_fs_mkdir: op_fs_mkdir2, op_fs_remove_file: op_fs_remove_file2, op_fs_append: op_fs_append2, op_fs_append_bytes: op_fs_append_bytes2, op_fs_open: op_fs_open2, op_fs_close: op_fs_close2, op_fs_read: op_fs_read2, op_fs_write: op_fs_write2, op_fs_copy_file: op_fs_copy_file2, op_zlib_gzip: op_zlib_gzip2, op_write_file: op_write_file2, op_write_file_base64: op_write_file_base642, op_introspect_stats: op_introspect_stats2, op_introspect_top: op_introspect_top2, op_introspect_workers: op_introspect_workers2, op_introspect_isolate: op_introspect_isolate2, op_introspect_kill_isolate: op_introspect_kill_isolate2, op_introspect_requests: op_introspect_requests2, op_introspect_evict: op_introspect_evict2, op_set_introspect_profiling: op_set_introspect_profiling2, op_ws_send: op_ws_send2, op_ws_send_binary: op_ws_send_binary2, op_ws_close: op_ws_close2, op_blob_create: op_blob_create2, op_blob_get: op_blob_get2, op_blob_size: op_blob_size2, op_blob_type: op_blob_type2, op_blob_slice: op_blob_slice2, op_blob_drop: op_blob_drop2, op_stream_create: op_stream_create2, op_stream_enqueue: op_stream_enqueue2, op_stream_close: op_stream_close2, op_stream_read: op_stream_read2, op_stream_drop: op_stream_drop2, op_crypto_random: op_crypto_random2, op_crypto_digest: op_crypto_digest2, op_crypto_hmac: op_crypto_hmac2, op_crypto_pbkdf2: op_crypto_pbkdf22, op_crypto_aes_gcm_encrypt: op_crypto_aes_gcm_encrypt2, op_crypto_aes_gcm_decrypt: op_crypto_aes_gcm_decrypt2, op_crypto_key_info: op_crypto_key_info2, op_crypto_key_from_secret: op_crypto_key_from_secret2, op_crypto_key_from_pem: op_crypto_key_from_pem2, op_crypto_key_from_der: op_crypto_key_from_der2, op_crypto_key_from_jwk: op_crypto_key_from_jwk2, op_crypto_key_export_pem: op_crypto_key_export_pem2, op_crypto_key_export_der: op_crypto_key_export_der2, op_crypto_key_export_jwk: op_crypto_key_export_jwk2, op_crypto_key_public: op_crypto_key_public2, op_crypto_key_equals: op_crypto_key_equals2, op_crypto_sign: op_crypto_sign2, op_crypto_verify: op_crypto_verify2, op_crypto_generate_keypair: op_crypto_generate_keypair2, op_crypto_get_curves: op_crypto_get_curves2, op_crypto_ecdh_new: op_crypto_ecdh_new2, op_crypto_ecdh_generate: op_crypto_ecdh_generate2, op_crypto_ecdh_get_public: op_crypto_ecdh_get_public2, op_crypto_ecdh_get_private: op_crypto_ecdh_get_private2, op_crypto_ecdh_set_private: op_crypto_ecdh_set_private2, op_crypto_ecdh_compute_secret: op_crypto_ecdh_compute_secret2, op_crypto_ecdh_convert: op_crypto_ecdh_convert2, op_url_parse: op_url_parse2, op_napi_open: op_napi_open2, op_http_fetch: op_http_fetch2, op_process_spawn: op_process_spawn2, op_process_spawn_immediate: op_process_spawn_immediate2, op_process_spawn_sync: op_process_spawn_sync2, op_process_read_stdout: op_process_read_stdout2, op_process_read_stderr: op_process_read_stderr2, op_process_write_stdin: op_process_write_stdin2, op_process_close_stdin: op_process_close_stdin2, op_process_wait: op_process_wait2, op_process_kill: op_process_kill2, op_process_send_message: op_process_send_message2, op_process_read_message: op_process_read_message2, op_child_ipc_send: op_child_ipc_send2, op_child_ipc_read: op_child_ipc_read2, op_sleep: op_sleep2, op_stdin_read: op_stdin_read2, op_stdin_set_raw_mode: op_stdin_set_raw_mode2, op_udp_bind: op_udp_bind2, op_udp_send: op_udp_send2, op_udp_recv: op_udp_recv2, op_udp_close: op_udp_close2, op_udp_local_addr: op_udp_local_addr2, op_udp_peer_addr: op_udp_peer_addr2, op_udp_connect: op_udp_connect2, op_udp_disconnect: op_udp_disconnect2, op_udp_set_broadcast: op_udp_set_broadcast2, op_udp_set_ttl: op_udp_set_ttl2, op_udp_set_multicast_ttl: op_udp_set_multicast_ttl2, op_udp_set_multicast_loop: op_udp_set_multicast_loop2, op_udp_set_multicast_if: op_udp_set_multicast_if2, op_udp_join_multicast: op_udp_join_multicast2, op_udp_leave_multicast: op_udp_leave_multicast2, op_udp_set_recv_buffer_size: op_udp_set_recv_buffer_size2, op_udp_set_send_buffer_size: op_udp_set_send_buffer_size2, op_udp_get_recv_buffer_size: op_udp_get_recv_buffer_size2, op_udp_get_send_buffer_size: op_udp_get_send_buffer_size2, op_dns_lookup: op_dns_lookup2, op_dns_reverse: op_dns_reverse2, op_tcp_listen: op_tcp_listen2, op_tcp_accept: op_tcp_accept2, op_tcp_connect: op_tcp_connect2, op_tcp_read: op_tcp_read2, op_tcp_write: op_tcp_write2, op_tcp_close: op_tcp_close2, op_tcp_shutdown: op_tcp_shutdown2, op_tcp_local_addr: op_tcp_local_addr2, op_tcp_peer_addr: op_tcp_peer_addr2, op_tcp_listener_addr: op_tcp_listener_addr2, op_tcp_listener_close: op_tcp_listener_close2 } = ops2;
 class ReadableStreamController1 {
     streamId;
     queue;
@@ -14631,10 +14763,16 @@ class ChildProcess extends EventEmitter {
     pendingWrites = [];
     pendingKill = false;
     pendingClose = false;
+    connected = false;        // IPC connection state
+    channel = null;           // IPC channel reference
+    _ipcReader = null;        // IPC read loop promise
+    _ipcEnabled = false;      // Track if IPC was enabled
     constructor(pidPromise, options){
         super();
         this.pid = null;
         this.stdio = options?.stdio || 'pipe';
+        this._ipcEnabled = options?.ipc || false;
+        this.connected = this._ipcEnabled;
         // Only create stdout/stderr if not inherited
         if (this.stdio === 'inherit') {
             this.stdout = null;
@@ -14691,6 +14829,7 @@ class ChildProcess extends EventEmitter {
             if (numPid <= 0) return numPid;
             this.pid = numPid;
             this.attachReaders();
+            this.attachIpcReader();
             for (const queued of this.pendingWrites){
                 op_process_write_stdin2(numPid, queued);
             }
@@ -14711,14 +14850,107 @@ class ChildProcess extends EventEmitter {
         }
         op_process_kill2(this.pid);
     }
-    send(message, callback) {
-        // TODO: Implement IPC support for child processes
-        // For now, this is a stub to prevent Next.js from hanging
-        console.log('[IPC-STUB] send() called with message:', typeof message);
-        if (callback) {
-            queueMicrotask(() => callback(null));
+    send(message, sendHandle, options, callback) {
+        // Handle Node.js argument overloading
+        // send(message)
+        // send(message, callback)
+        // send(message, sendHandle)
+        // send(message, sendHandle, callback)
+        // send(message, sendHandle, options, callback)
+
+        let actualCallback = null;
+        let actualSendHandle = null;
+        let actualOptions = null;
+
+        if (typeof sendHandle === 'function') {
+            // send(message, callback)
+            actualCallback = sendHandle;
+        } else if (typeof options === 'function') {
+            // send(message, sendHandle, callback)
+            actualCallback = options;
+            actualSendHandle = sendHandle;
+        } else {
+            // send(message, sendHandle, options, callback)
+            actualCallback = callback;
+            actualSendHandle = sendHandle;
+            actualOptions = options;
         }
-        return true;
+
+        // Validate connection state
+        if (!this.connected) {
+            const err = new Error('Channel closed');
+            err.code = 'ERR_IPC_CHANNEL_CLOSED';
+            if (actualCallback) {
+                queueMicrotask(() => actualCallback(err));
+            } else {
+                this.emit('error', err);
+            }
+            return false;
+        }
+
+        if (this.pid === null) {
+            const err = new Error('Process not started');
+            if (actualCallback) {
+                queueMicrotask(() => actualCallback(err));
+            } else {
+                this.emit('error', err);
+            }
+            return false;
+        }
+
+        // Handle sendHandle (not yet implemented)
+        if (actualSendHandle !== null && actualSendHandle !== undefined) {
+            const err = new Error('Sending handles is not yet implemented');
+            err.code = 'ERR_NOT_IMPLEMENTED';
+            if (actualCallback) {
+                queueMicrotask(() => actualCallback(err));
+            } else {
+                this.emit('error', err);
+            }
+            return false;
+        }
+
+        // Wrap message in NODE_HANDLE envelope
+        const envelope = {
+            cmd: 'NODE_HANDLE',
+            msg: message
+        };
+
+        // Serialize to JSON
+        let json;
+        try {
+            json = JSON.stringify(envelope);
+        } catch (err) {
+            if (actualCallback) {
+                queueMicrotask(() => actualCallback(err));
+            } else {
+                this.emit('error', err);
+            }
+            return false;
+        }
+
+        // Call Rust op to send message
+        try {
+            op_process_send_message2(this.pid, json);
+            if (actualCallback) {
+                queueMicrotask(() => actualCallback(null));
+            }
+            return true;
+        } catch (err) {
+            if (actualCallback) {
+                queueMicrotask(() => actualCallback(err));
+            } else {
+                this.emit('error', err);
+            }
+            return false;
+        }
+    }
+    disconnect() {
+        if (!this.connected) return;
+        this.connected = false;
+        this.channel = null;
+        this._ipcReader = null;
+        this.emit('disconnect');
     }
     attachReaders() {
         if (this.pid === null) return;
@@ -14784,6 +15016,91 @@ class ChildProcess extends EventEmitter {
             this.emit("close", exitCode);
         })();
     }
+    attachIpcReader() {
+        // Only attach IPC reader if IPC is enabled and we have a PID
+        if (!this._ipcEnabled || this.pid === null) {
+            return;
+        }
+
+        const debug = !!(globalThis.process?.env?.DEKA_IPC_DEBUG || globalThis.process?.env?.DEKA_VERBOSE);
+
+        if (debug) {
+            console.log(`[IPC] attachIpcReader: pid=${this.pid} connected=${this.connected}`);
+        }
+
+        // Start async read loop
+        this._ipcReader = (async () => {
+            try {
+                while (this.connected) {
+                    if (debug) {
+                        console.log(`[IPC] Calling op_process_read_message for pid=${this.pid}`);
+                    }
+
+                    // Read next message from IPC channel
+                    const result = await op_process_read_message2(this.pid);
+
+                    if (debug) {
+                        console.log(`[IPC] op_process_read_message result:`, result);
+                    }
+
+                    // Check for EOF
+                    if (result.eof || !result.data || result.data.length === 0) {
+                        if (debug) {
+                            console.log(`[IPC] EOF detected for pid=${this.pid}`);
+                        }
+                        this.disconnect();
+                        break;
+                    }
+
+                    // Parse JSON message
+                    let json;
+                    try {
+                        const text = new TextDecoder().decode(result.data);
+                        if (debug) {
+                            console.log(`[IPC] Received JSON text:`, text);
+                        }
+                        json = JSON.parse(text);
+                    } catch (err) {
+                        if (debug) {
+                            console.error(`[IPC] Failed to parse JSON:`, err);
+                        }
+                        this.emit('error', new Error(`IPC message parse error: ${err.message}`));
+                        continue;
+                    }
+
+                    // Unwrap NODE_HANDLE envelope
+                    let message;
+                    if (json && typeof json === 'object' && json.cmd === 'NODE_HANDLE' && 'msg' in json) {
+                        message = json.msg;
+                        if (debug) {
+                            console.log(`[IPC] Unwrapped message:`, message);
+                        }
+                    } else {
+                        // Message not in expected envelope format, pass through as-is
+                        message = json;
+                        if (debug) {
+                            console.log(`[IPC] Message not in envelope format, passing through:`, message);
+                        }
+                    }
+
+                    // Emit message event
+                    if (debug) {
+                        console.log(`[IPC] Emitting 'message' event for pid=${this.pid}`);
+                    }
+                    this.emit('message', message);
+                }
+            } catch (err) {
+                if (debug) {
+                    console.error(`[IPC] Reader error for pid=${this.pid}:`, err);
+                }
+                // Only emit error if we're still connected
+                if (this.connected) {
+                    this.emit('error', err);
+                    this.disconnect();
+                }
+            }
+        })();
+    }
     ref() {}
     unref() {}
 }
@@ -14793,7 +15110,7 @@ function spawn(command, args = [], options) {
     if (globalThis.process?.env?.DEKA_CHILD_DEBUG) {
         console.log(`[child_process] spawn ${cmd} ${cmdArgs.join(" ")}`);
     }
-    const child = new ChildProcess(undefined, { stdio: options?.stdio });
+    const child = new ChildProcess(undefined, { stdio: options?.stdio, ipc: options?.ipc });
 
     // Use synchronous spawn to get PID immediately (Node.js compatibility)
     try {
@@ -14832,7 +15149,9 @@ function spawn(command, args = [], options) {
         }
         const stdio = options?.stdio ?? 'pipe';
         console.log('[SPAWN-DEBUG] stdio:', stdio);
-        const pid = op_process_spawn_immediate2(cmd, cmdArgs, cwd, filteredEnv, stdio);
+        const enableIpc = options?.ipc || false;
+        console.log('[SPAWN-DEBUG] enableIpc:', enableIpc);
+        const pid = op_process_spawn_immediate2(cmd, cmdArgs, cwd, filteredEnv, stdio, enableIpc);
         const numPid = typeof pid === 'bigint' ? Number(pid) : Number(pid);
         console.log('[SPAWN-DEBUG] Got PID (converted to number):', numPid);
         // Set PID immediately for Node.js compatibility
@@ -15144,11 +15463,15 @@ function fork(modulePath, args = [], options) {
         ];
     }
 
-    return spawn(forkPath, spawnArgs, {
+    // Enable IPC by default for fork (unless explicitly disabled)
+    const ipcOptions = {
         cwd: options?.cwd,
         env: options?.env,
-        stdio: options?.stdio
-    });
+        stdio: options?.stdio || 'pipe',
+        ipc: options?.ipc !== false  // IPC enabled unless explicitly disabled
+    };
+
+    return spawn(forkPath, spawnArgs, ipcOptions);
 }
 globalThis.__dekaNodeChildProcess = {
     spawn,
