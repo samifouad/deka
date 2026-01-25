@@ -1,0 +1,35 @@
+/// docid: php/array/array_splice()
+/// <Function name="array_splice">
+///   <Description>
+///     Removes a portion of the array and replaces it with something else.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The input array.
+///   </Parameter>
+///   <Parameter name="$offset" type="int" required="true" typeLink="/docs/php/types/int">
+///     Offset where to start removing.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="false" typeLink="/docs/php/types/int">
+///     Number of elements to remove.
+///   </Parameter>
+///   <Parameter name="$replacement" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Replacement value.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function array_splice(&$array, $offset, $length = null, $replacement = null) {
+    $argc = func_num_args();
+    if ($argc < 2 || $argc > 4) {
+        return null;
+    }
+
+    if ($argc === 2) {
+        return __deka_array_splice($array, $offset);
+    }
+
+    if ($argc === 3) {
+        return __deka_array_splice($array, $offset, $length);
+    }
+
+    return __deka_array_splice($array, $offset, $length, $replacement);
+}

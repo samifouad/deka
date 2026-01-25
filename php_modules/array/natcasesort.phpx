@@ -1,0 +1,17 @@
+/// docid: php/array/natcasesort()
+/// <Function name="natcasesort">
+///   <Description>
+///     Sorts an array using case-insensitive natural order.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+export function natcasesort(&$array) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    return __deka_natcasesort($array);
+}

@@ -1,0 +1,25 @@
+/// docid: php/string/strip_tags()
+/// <Function name="strip_tags">
+///   <Description>
+///     Strips HTML and PHP tags from a string.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$allowed_tags" type="string|array" required="false" typeLink="/docs/php/types/mixed">
+///     Tags that should not be removed.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function strip_tags($string, $allowed_tags = null) {
+    $argc = func_num_args();
+    if ($argc < 1 || $argc > 2) {
+        return null;
+    }
+
+    if ($argc === 1) {
+        return __deka_strip_tags('' . $string);
+    }
+
+    return __deka_strip_tags('' . $string, $allowed_tags);
+}

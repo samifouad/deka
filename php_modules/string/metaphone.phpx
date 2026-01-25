@@ -1,0 +1,26 @@
+/// docid: php/string/metaphone()
+/// <Function name="metaphone">
+///   <Description>
+///     Calculates the metaphone key of a string.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$max_phonemes" type="int" required="false" typeLink="/docs/php/types/int">
+///     Maximum phonemes to return.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function metaphone($string, $max_phonemes = 0) {
+    $argc = func_num_args();
+    if ($argc < 1 || $argc > 2) {
+        return null;
+    }
+
+    if (is_array($string) || is_object($string)) {
+        return null;
+    }
+
+    $max = $argc === 2 ? (int)$max_phonemes : 0;
+    return __deka_metaphone('' . $string, $max);
+}

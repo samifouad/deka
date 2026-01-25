@@ -1,0 +1,13 @@
+export function __deka_array_reindex_numeric($array) {
+    $out = [];
+    $next = 0;
+    foreach ($array as $key => $value) {
+        if (is_int($key)) {
+            $out[$next] = $value;
+            $next += 1;
+        } else {
+            $out[$key] = $value;
+        }
+    }
+    return $out;
+}

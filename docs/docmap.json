@@ -1,0 +1,43 @@
+{
+  "defaults": {
+    "php": {
+      "category": "general",
+      "categoryLabel": "General",
+      "categoryOrder": 90
+    },
+    "js": {
+      "category": "overview",
+      "categoryLabel": "Overview",
+      "categoryOrder": 0
+    }
+  },
+  "prefixes": {
+    "php/types": {
+      "categoryLabel": "Types",
+      "categoryOrder": 5
+    },
+    "php/string": {
+      "categoryLabel": "String",
+      "categoryOrder": 10
+    },
+    "php/array": {
+      "categoryLabel": "Array",
+      "categoryOrder": 12
+    },
+    "php/internals": {
+      "categoryLabel": "Internals",
+      "categoryOrder": 85
+    },
+    "php/json": {
+      "categoryLabel": "JSON",
+      "categoryOrder": 11
+    }
+  },
+  "aliases": {
+    "php/get_str_func()": "php/string/get_str_func()"
+  },
+  "categoryOrder": {
+    "php": ["overview", "types", "string", "array", "json", "runtime", "internals", "extensions"],
+    "js": ["overview", "runtime", "built-ins"]
+  }
+}

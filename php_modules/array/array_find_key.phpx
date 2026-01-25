@@ -1,0 +1,20 @@
+/// docid: php/array/array_find_key()
+/// <Function name="array_find_key">
+///   <Description>
+///     Returns the key of the first element that satisfies the callback.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The input array.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     The callback function.
+///   </Parameter>
+///   <ReturnType type="int|string|null" typeLink="/docs/php/types/mixed" />
+/// </Function>
+export function array_find_key($array, $callback) {
+    if (func_num_args() !== 2) {
+        return null;
+    }
+
+    return __deka_array_find_key($array, $callback);
+}

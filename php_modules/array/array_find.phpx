@@ -1,0 +1,20 @@
+/// docid: php/array/array_find()
+/// <Function name="array_find">
+///   <Description>
+///     Returns the first element for which the callback returns true.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The input array.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     The callback function.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+export function array_find($array, $callback) {
+    if (func_num_args() !== 2) {
+        return null;
+    }
+
+    return __deka_array_find($array, $callback);
+}

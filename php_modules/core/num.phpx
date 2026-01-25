@@ -1,0 +1,13 @@
+export function num_parse_int($value) {
+    if ($value === null || $value === '') {
+        return null;
+    }
+    return (int) $value;
+}
+
+export function num_parse_float($value) {
+    if ($value === null || $value === '') {
+        return null;
+    }
+    return (float) $value;
+}

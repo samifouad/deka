@@ -1,0 +1,31 @@
+/// docid: php/string/str_ireplace()
+/// <Function name="str_ireplace">
+///   <Description>
+///     Case-insensitive version of str_replace().
+///   </Description>
+///   <Parameter name="$search" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     The value being searched for.
+///   </Parameter>
+///   <Parameter name="$replace" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     The replacement value.
+///   </Parameter>
+///   <Parameter name="$subject" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     The subject string or array.
+///   </Parameter>
+///   <Parameter name="$count" type="int" required="false" typeLink="/docs/php/types/int">
+///     Number of replacements performed.
+///   </Parameter>
+///   <ReturnType type="string|array" typeLink="/docs/php/types/mixed" />
+/// </Function>
+export function str_ireplace($search, $replace, $subject, &$count = null) {
+    $argc = func_num_args();
+    if ($argc < 3 || $argc > 4) {
+        return null;
+    }
+
+    if ($argc === 4) {
+        return __deka_str_ireplace($search, $replace, $subject, $count);
+    }
+
+    return __deka_str_ireplace($search, $replace, $subject);
+}

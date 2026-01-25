@@ -1,0 +1,17 @@
+/// docid: php/string/utf8_encode()
+/// <Function name="utf8_encode">
+///   <Description>
+///     Encodes an ISO-8859-1 string to UTF-8.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function utf8_encode($string) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    return __deka_utf8_encode('' . $string);
+}

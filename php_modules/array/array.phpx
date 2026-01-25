@@ -1,0 +1,19 @@
+/// docid: php/array/array()
+/// <Function name="array">
+///   <Description>
+///     Creates an array from the given arguments.
+///   </Description>
+///   <Parameter name="$values" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Values to include in the array.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function array() {
+    $argc = func_num_args();
+    if ($argc === 0) {
+        return __deka_array();
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_array', $args);
+}

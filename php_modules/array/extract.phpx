@@ -1,0 +1,25 @@
+/// docid: php/array/extract()
+/// <Function name="extract">
+///   <Description>
+///     Imports variables from an array into the current symbol table.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to extract.
+///   </Parameter>
+///   <Parameter name="$flags" type="int" required="false" typeLink="/docs/php/types/int">
+///     Extract flags.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+export function extract($array, $flags = 0) {
+    $argc = func_num_args();
+    if ($argc < 1 || $argc > 2) {
+        return null;
+    }
+
+    if ($argc === 1) {
+        return __deka_extract($array);
+    }
+
+    return __deka_extract($array, $flags);
+}

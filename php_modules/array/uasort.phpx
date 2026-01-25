@@ -1,0 +1,20 @@
+/// docid: php/array/uasort()
+/// <Function name="uasort">
+///   <Description>
+///     Sorts an array with a user-defined comparison function and keeps keys.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Comparison callback.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+export function uasort(&$array, $callback) {
+    if (func_num_args() < 2) {
+        return null;
+    }
+
+    return __deka_uasort($array, $callback);
+}

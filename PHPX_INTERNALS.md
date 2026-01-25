@@ -1,0 +1,133 @@
+# PHPX Internal Bridge Audit
+
+Goal: minimize __deka_* usage. Keep only truly low-level hooks and migrate
+everything else into phpx.
+
+## Keep (Rust-only, for now)
+- chr, ord (byte primitives)
+- crc32, md5, md5_file, sha1, sha1_file, crypt (hash/crypto)
+
+## Keep until phpx can access VM state directly
+- parse_str (symbol table injection)
+- extract, compact (symbol table access)
+- current, next, prev, reset, end, key, pos (array internal pointer state)
+
+## Candidates to reimplement in phpx (remove __deka_* usage)
+### String
+- [ ] convert_cyr_string
+- [ ] convert_uuencode
+- [ ] convert_uudecode
+- [ ] metaphone
+- [ ] number_format
+- [ ] strcmp
+- [ ] strcasecmp
+- [ ] strncmp
+- [ ] strncasecmp
+- [ ] strnatcmp
+- [ ] strnatcasecmp
+- [ ] levenshtein
+- [ ] similar_text
+- [ ] soundex
+- [ ] substr_compare
+- [ ] strstr
+- [ ] stristr
+- [ ] hebrev
+- [ ] wordwrap
+- [ ] quotemeta
+- [ ] nl2br
+- [ ] strip_tags
+- [ ] strtok
+- [ ] count_chars
+- [ ] str_word_count
+- [ ] str_increment
+- [ ] str_decrement
+- [ ] htmlspecialchars
+- [ ] htmlspecialchars_decode
+- [ ] htmlentities
+- [ ] html_entity_decode
+- [ ] str_replace
+- [ ] str_ireplace
+- [ ] utf8_encode
+- [ ] utf8_decode
+- [ ] version_compare
+- [ ] setlocale
+- [ ] localeconv
+- [ ] nl_langinfo
+- [ ] strcoll
+- [ ] money_format
+- [ ] sprintf
+- [ ] sscanf
+- [ ] printf
+- [ ] vsprintf
+- [ ] vprintf
+- [ ] fprintf
+- [ ] vfprintf
+
+### Array
+- [ ] array
+- [ ] array_all
+- [ ] array_any
+- [ ] array_change_key_case
+- [ ] array_chunk
+- [ ] array_column
+- [ ] array_combine
+- [ ] array_count_values
+- [ ] array_diff
+- [ ] array_diff_assoc
+- [ ] array_diff_key
+- [ ] array_diff_uassoc
+- [ ] array_diff_ukey
+- [ ] array_fill
+- [ ] array_fill_keys
+- [ ] array_filter
+- [ ] array_find
+- [ ] array_find_key
+- [ ] array_first
+- [ ] array_flip
+- [ ] array_intersect
+- [ ] array_intersect_assoc
+- [ ] array_intersect_key
+- [ ] array_intersect_uassoc
+- [ ] array_intersect_ukey
+- [ ] array_is_list
+- [ ] array_key_first
+- [ ] array_key_last
+- [ ] array_last
+- [ ] array_map
+- [ ] array_merge
+- [ ] array_merge_recursive
+- [ ] array_multisort
+- [ ] array_pad
+- [ ] array_product
+- [ ] array_reduce
+- [ ] array_replace
+- [ ] array_replace_recursive
+- [ ] array_reverse
+- [ ] array_search
+- [ ] array_shift
+- [ ] array_slice
+- [ ] array_splice
+- [ ] array_sum
+- [ ] array_rand
+- [ ] array_udiff
+- [ ] array_udiff_assoc
+- [ ] array_udiff_uassoc
+- [ ] array_uintersect
+- [ ] array_uintersect_assoc
+- [ ] array_uintersect_uassoc
+- [ ] array_walk
+- [ ] array_walk_recursive
+- [ ] arsort
+- [ ] asort
+- [ ] key_exists
+- [ ] krsort
+- [ ] natcasesort
+- [ ] natsort
+- [ ] range
+- [ ] rsort
+- [ ] shuffle
+- [ ] sort
+- [ ] uasort
+- [ ] uksort
+- [ ] usort
+- [ ] ksort

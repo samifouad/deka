@@ -6,6 +6,13 @@ use std::collections::HashMap;
 /// Embedded PHP WASM binary produced by the `php-rs` crate.
 static PHP_WASM_BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/php_rs.wasm"));
 
+#[derive(serde::Serialize)]
+struct PhpDirEntry {
+    name: String,
+    is_dir: bool,
+    is_file: bool,
+}
+
 #[op2]
 #[buffer]
 fn op_php_get_wasm() -> Vec<u8> {
@@ -57,6 +64,39 @@ fn op_php_path_resolve(#[string] base: String, #[string] path: String) -> String
     resolved.to_string_lossy().to_string()
 }
 
+#[op2]
+#[serde]
+fn op_php_read_dir(#[string] path: String) -> Result<Vec<PhpDirEntry>, deno_core::error::CoreError> {
+    let entries = std::fs::read_dir(&path).map_err(|e| {
+        deno_core::error::CoreError::from(std::io::Error::new(
+            e.kind(),
+            format!("Failed to read dir '{}': {}", path, e),
+        ))
+    })?;
+
+    let mut out = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|e| {
+            deno_core::error::CoreError::from(std::io::Error::new(
+                e.kind(),
+                format!("Failed to read dir entry in '{}': {}", path, e),
+            ))
+        })?;
+        let file_type = entry.file_type().map_err(|e| {
+            deno_core::error::CoreError::from(std::io::Error::new(
+                e.kind(),
+                format!("Failed to read dir entry type in '{}': {}", path, e),
+            ))
+        })?;
+        out.push(PhpDirEntry {
+            name: entry.file_name().to_string_lossy().to_string(),
+            is_dir: file_type.is_dir(),
+            is_file: file_type.is_file(),
+        });
+    }
+    Ok(out)
+}
+
 deno_core::extension!(
     php_core,
     ops = [
@@ -66,6 +106,7 @@ deno_core::extension!(
         op_php_cwd,
         op_php_file_exists,
         op_php_path_resolve,
+        op_php_read_dir,
     ],
     esm_entry_point = "ext:php_core/php.js",
     esm = [dir "src/modules/php", "php.js"],

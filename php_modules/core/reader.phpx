@@ -1,0 +1,55 @@
+export function reader_new($input) {
+    return [
+        'input' => $input,
+        'pos' => 0,
+        'len' => strlen($input),
+    ];
+}
+
+export function reader_pos($reader) {
+    return $reader['pos'];
+}
+
+export function reader_eof($reader) {
+    return $reader['pos'] >= $reader['len'];
+}
+
+export function reader_peek_byte($reader) {
+    if (reader_eof($reader)) {
+        return null;
+    }
+    return ord($reader['input'][$reader['pos']]);
+}
+
+export function reader_next_byte(&$reader) {
+    $byte = reader_peek_byte($reader);
+    if ($byte !== null) {
+        $reader['pos'] += 1;
+    }
+    return $byte;
+}
+
+export function reader_peek_char($reader) {
+    if (reader_eof($reader)) {
+        return null;
+    }
+    return $reader['input'][$reader['pos']];
+}
+
+export function reader_next_char(&$reader) {
+    $ch = reader_peek_char($reader);
+    if ($ch !== null) {
+        $reader['pos'] += 1;
+    }
+    return $ch;
+}
+
+export function reader_skip_ws(&$reader) {
+    while (!reader_eof($reader)) {
+        $byte = reader_peek_byte($reader);
+        if ($byte === null || !byte_is_whitespace($byte)) {
+            return;
+        }
+        $reader['pos'] += 1;
+    }
+}

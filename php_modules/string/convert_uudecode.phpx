@@ -1,0 +1,21 @@
+/// docid: php/string/convert_uudecode()
+/// <Function name="convert_uudecode">
+///   <Description>
+///     Decodes a uuencoded string.
+///   </Description>
+///   <Parameter name="$data" type="string" required="true" typeLink="/docs/php/types/string">
+///     The uuencoded data.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+export function convert_uudecode($data) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    if (is_array($data) || is_object($data)) {
+        return null;
+    }
+
+    return __deka_convert_uudecode('' . $data);
+}

@@ -1,0 +1,37 @@
+export function bytes_from_string($str) {
+    return $str;
+}
+
+export function bytes_to_string($bytes) {
+    return $bytes;
+}
+
+export function bytes_len($bytes) {
+    return strlen($bytes);
+}
+
+export function bytes_get($bytes, $index) {
+    if ($index < 0 || $index >= strlen($bytes)) {
+        return null;
+    }
+    return ord($bytes[$index]);
+}
+
+export function bytes_set($bytes, $index, $byte) {
+    if ($index < 0 || $index >= strlen($bytes)) {
+        return $bytes;
+    }
+    $bytes[$index] = chr($byte);
+    return $bytes;
+}
+
+export function bytes_slice($bytes, $start, $length = null) {
+    if ($length === null) {
+        return substr($bytes, $start);
+    }
+    return substr($bytes, $start, $length);
+}
+
+export function bytes_concat($a, $b) {
+    return $a . $b;
+}

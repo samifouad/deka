@@ -1,0 +1,21 @@
+/// docid: php/string/soundex()
+/// <Function name="soundex">
+///   <Description>
+///     Calculates the soundex key of a string.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function soundex($string) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    if (is_array($string) || is_object($string)) {
+        return null;
+    }
+
+    return __deka_soundex('' . $string);
+}

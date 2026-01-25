@@ -1,0 +1,17 @@
+/// docid: php/array/shuffle()
+/// <Function name="shuffle">
+///   <Description>
+///     Shuffles an array.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to shuffle.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+export function shuffle(&$array) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    return __deka_shuffle($array);
+}

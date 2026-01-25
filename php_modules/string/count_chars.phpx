@@ -1,0 +1,22 @@
+/// docid: php/string/count_chars()
+/// <Function name="count_chars">
+///   <Description>
+///     Returns information about the characters used in a string.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$mode" type="int" required="false" typeLink="/docs/php/types/int">
+///     The output mode.
+///   </Parameter>
+///   <ReturnType type="array|string" typeLink="/docs/php/types/mixed" />
+/// </Function>
+export function count_chars($string, $mode = 0) {
+    $argc = func_num_args();
+    if ($argc < 1 || $argc > 2) {
+        return null;
+    }
+
+    $modeValue = $argc === 2 ? (int)$mode : 0;
+    return __deka_count_chars('' . $string, $modeValue);
+}

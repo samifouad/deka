@@ -1,0 +1,17 @@
+/// docid: php/array/natsort()
+/// <Function name="natsort">
+///   <Description>
+///     Sorts an array using natural order.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+export function natsort(&$array) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    return __deka_natsort($array);
+}

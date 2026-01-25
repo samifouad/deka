@@ -1,0 +1,14 @@
+/// docid: php/string/localeconv()
+/// <Function name="localeconv">
+///   <Description>
+///     Returns locale numeric and monetary formatting information.
+///   </Description>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function localeconv() {
+    if (func_num_args() !== 0) {
+        return null;
+    }
+
+    return __deka_localeconv();
+}

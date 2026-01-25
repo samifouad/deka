@@ -1,0 +1,28 @@
+/// docid: php/array/array_column()
+/// <Function name="array_column">
+///   <Description>
+///     Returns the values from a single column in the input array.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The input array.
+///   </Parameter>
+///   <Parameter name="$column_key" type="string|int|null" required="true" typeLink="/docs/php/types/mixed">
+///     The column key.
+///   </Parameter>
+///   <Parameter name="$index_key" type="string|int|null" required="false" typeLink="/docs/php/types/mixed">
+///     Optional index key.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function array_column($array, $column_key, $index_key = null) {
+    $argc = func_num_args();
+    if ($argc < 2 || $argc > 3) {
+        return null;
+    }
+
+    if ($argc === 2) {
+        return __deka_array_column($array, $column_key);
+    }
+
+    return __deka_array_column($array, $column_key, $index_key);
+}

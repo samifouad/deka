@@ -1,0 +1,30 @@
+/// docid: php/string/substr_compare()
+/// <Function name="substr_compare">
+///   <Description>
+///     Compares two strings from a specified start position.
+///   </Description>
+///   <Parameter name="$main_str" type="string" required="true" typeLink="/docs/php/types/string">
+///     The main string.
+///   </Parameter>
+///   <Parameter name="$str" type="string" required="true" typeLink="/docs/php/types/string">
+///     The comparison string.
+///   </Parameter>
+///   <Parameter name="$offset" type="int" required="true" typeLink="/docs/php/types/int">
+///     The start position.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="false" typeLink="/docs/php/types/int">
+///     Length of comparison.
+///   </Parameter>
+///   <Parameter name="$case_insensitive" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Whether to perform case-insensitive comparison.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+export function substr_compare($main_str, $str, $offset, $length = null, $case_insensitive = null) {
+    if (func_num_args() < 3) {
+        return null;
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_substr_compare', $args);
+}

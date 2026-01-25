@@ -1,0 +1,27 @@
+/// docid: php/string/wordwrap()
+/// <Function name="wordwrap">
+///   <Description>
+///     Wraps a string to a given number of characters.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$width" type="int" required="false" typeLink="/docs/php/types/int">
+///     The line width.
+///   </Parameter>
+///   <Parameter name="$break" type="string" required="false" typeLink="/docs/php/types/string">
+///     The line break string.
+///   </Parameter>
+///   <Parameter name="$cut" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Whether to cut long words.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function wordwrap($string, $width = 75, $break = "\n", $cut = false) {
+    if (func_num_args() < 1) {
+        return null;
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_wordwrap', $args);
+}

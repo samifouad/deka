@@ -1,0 +1,20 @@
+/// docid: php/array/uksort()
+/// <Function name="uksort">
+///   <Description>
+///     Sorts an array by keys using a user-defined comparison function.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Key comparison callback.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+export function uksort(&$array, $callback) {
+    if (func_num_args() < 2) {
+        return null;
+    }
+
+    return __deka_uksort($array, $callback);
+}

@@ -1,0 +1,27 @@
+/// docid: php/string/strcmp()
+/// <Function name="strcmp">
+///   <Description>
+///     Binary safe string comparison.
+///   </Description>
+///   <Parameter name="$string1" type="string" required="true" typeLink="/docs/php/types/string">
+///     The first string.
+///   </Parameter>
+///   <Parameter name="$string2" type="string" required="true" typeLink="/docs/php/types/string">
+///     The second string.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+export function strcmp($string1, $string2) {
+    if (func_num_args() !== 2) {
+        return null;
+    }
+
+    if (is_array($string1) || is_object($string1)) {
+        return null;
+    }
+    if (is_array($string2) || is_object($string2)) {
+        return null;
+    }
+
+    return __deka_strcmp('' . $string1, '' . $string2);
+}

@@ -1,0 +1,28 @@
+/// docid: php/array/array_walk()
+/// <Function name="array_walk">
+///   <Description>
+///     Applies a callback to each element of an array.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to walk.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Callback to apply.
+///   </Parameter>
+///   <Parameter name="$userdata" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Optional user data.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+export function array_walk(&$array, $callback, $userdata = null) {
+    $argc = func_num_args();
+    if ($argc < 2 || $argc > 3) {
+        return null;
+    }
+
+    if ($argc === 2) {
+        return __deka_array_walk($array, $callback);
+    }
+
+    return __deka_array_walk($array, $callback, $userdata);
+}

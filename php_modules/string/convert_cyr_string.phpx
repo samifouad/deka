@@ -1,0 +1,33 @@
+/// docid: php/string/convert_cyr_string()
+/// <Function name="convert_cyr_string">
+///   <Description>
+///     Converts a string from one Cyrillic encoding to another.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$from" type="string" required="true" typeLink="/docs/php/types/string">
+///     The source encoding letter.
+///   </Parameter>
+///   <Parameter name="$to" type="string" required="true" typeLink="/docs/php/types/string">
+///     The target encoding letter.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function convert_cyr_string($string, $from, $to) {
+    if (func_num_args() !== 3) {
+        return null;
+    }
+
+    if (is_array($string) || is_object($string)) {
+        return null;
+    }
+    if (is_array($from) || is_object($from)) {
+        return null;
+    }
+    if (is_array($to) || is_object($to)) {
+        return null;
+    }
+
+    return __deka_convert_cyr_string('' . $string, '' . $from, '' . $to);
+}

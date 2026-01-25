@@ -1,0 +1,28 @@
+/// docid: php/array/array_chunk()
+/// <Function name="array_chunk">
+///   <Description>
+///     Splits an array into chunks.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The input array.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="true" typeLink="/docs/php/types/int">
+///     The chunk size.
+///   </Parameter>
+///   <Parameter name="$preserve_keys" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Whether to preserve keys.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function array_chunk($array, $length, $preserve_keys = false) {
+    $argc = func_num_args();
+    if ($argc < 2 || $argc > 3) {
+        return null;
+    }
+
+    if ($argc === 2) {
+        return __deka_array_chunk($array, $length);
+    }
+
+    return __deka_array_chunk($array, $length, $preserve_keys);
+}

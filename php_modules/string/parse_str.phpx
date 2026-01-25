@@ -1,0 +1,25 @@
+/// docid: php/string/parse_str()
+/// <Function name="parse_str">
+///   <Description>
+///     Parses the string into variables.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$result" type="array" required="false" typeLink="/docs/php/types/array">
+///     If provided, variables are stored in this array.
+///   </Parameter>
+///   <ReturnType type="void" typeLink="/docs/php/types/null" />
+/// </Function>
+export function parse_str($string, &$result = null) {
+    $argc = func_num_args();
+    if ($argc < 1 || $argc > 2) {
+        return null;
+    }
+
+    if ($argc === 2) {
+        return __deka_parse_str('' . $string, $result);
+    }
+
+    return __deka_parse_str('' . $string);
+}

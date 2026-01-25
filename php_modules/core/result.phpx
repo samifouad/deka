@@ -1,0 +1,36 @@
+export function result_ok($value) {
+    return [
+        'ok' => true,
+        'value' => $value,
+    ];
+}
+
+export function result_err($error) {
+    return [
+        'ok' => false,
+        'error' => $error,
+    ];
+}
+
+export function result_is_ok($result) {
+    return is_array($result) && ($result['ok'] ?? false) === true;
+}
+
+export function result_is_err($result) {
+    return is_array($result) && ($result['ok'] ?? true) === false;
+}
+
+export function result_unwrap($result) {
+    if (result_is_ok($result)) {
+        return $result['value'];
+    }
+    $error = is_array($result) ? ($result['error'] ?? null) : null;
+    throw new Exception('Result is error: ' . json_encode($error));
+}
+
+export function result_unwrap_or($result, $fallback) {
+    if (result_is_ok($result)) {
+        return $result['value'];
+    }
+    return $fallback;
+}

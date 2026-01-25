@@ -1,0 +1,28 @@
+/// docid: php/string/version_compare()
+/// <Function name="version_compare">
+///   <Description>
+///     Compares two version strings.
+///   </Description>
+///   <Parameter name="$version1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First version.
+///   </Parameter>
+///   <Parameter name="$version2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second version.
+///   </Parameter>
+///   <Parameter name="$operator" type="string" required="false" typeLink="/docs/php/types/string">
+///     Optional comparison operator.
+///   </Parameter>
+///   <ReturnType type="int|bool" typeLink="/docs/php/types/mixed" />
+/// </Function>
+export function version_compare($version1, $version2, $operator = null) {
+    $argc = func_num_args();
+    if ($argc < 2 || $argc > 3) {
+        return null;
+    }
+
+    if ($argc === 2) {
+        return __deka_version_compare('' . $version1, '' . $version2);
+    }
+
+    return __deka_version_compare('' . $version1, '' . $version2, '' . $operator);
+}

@@ -1,0 +1,17 @@
+/// docid: php/array/arsort()
+/// <Function name="arsort">
+///   <Description>
+///     Sorts an array in descending order while maintaining key associations.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+export function arsort(&$array) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    return __deka_arsort($array);
+}

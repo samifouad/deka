@@ -1,0 +1,43 @@
+export function byte_from_char($ch) {
+    if ($ch === null || $ch === '') {
+        return null;
+    }
+    return __deka_ord($ch);
+}
+
+export function byte_to_char($byte) {
+    if ($byte === null) {
+        return null;
+    }
+    return __deka_chr($byte);
+}
+
+export function byte_is_whitespace($byte) {
+    if ($byte === null) {
+        return false;
+    }
+    return $byte === 32 || $byte === 10 || $byte === 13 || $byte === 9;
+}
+
+export function byte_is_digit($byte) {
+    if ($byte === null) {
+        return false;
+    }
+    return $byte >= 48 && $byte <= 57;
+}
+
+export function byte_is_hex($byte) {
+    if ($byte === null) {
+        return false;
+    }
+    if ($byte >= 48 && $byte <= 57) {
+        return true;
+    }
+    if ($byte >= 65 && $byte <= 70) {
+        return true;
+    }
+    if ($byte >= 97 && $byte <= 102) {
+        return true;
+    }
+    return false;
+}

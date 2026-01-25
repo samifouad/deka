@@ -1,0 +1,24 @@
+/// docid: php/string/html_entity_decode()
+/// <Function name="html_entity_decode">
+///   <Description>
+///     Converts HTML entities to their corresponding characters.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$flags" type="int" required="false" typeLink="/docs/php/types/int">
+///     Optional flags.
+///   </Parameter>
+///   <Parameter name="$encoding" type="string" required="false" typeLink="/docs/php/types/string">
+///     The character set.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function html_entity_decode($string, $flags = null, $encoding = null) {
+    if (func_num_args() < 1) {
+        return null;
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_html_entity_decode', $args);
+}

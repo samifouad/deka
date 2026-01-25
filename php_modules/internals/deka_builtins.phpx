@@ -1,0 +1,1914 @@
+/// docid: php/internals/__deka_chr()
+/// <Function name="__deka_chr">
+///   <Description>
+///     Internal helper that returns a one-byte string for the provided integer.
+///   </Description>
+///   <Parameter name="$codepoint" type="int" required="true" typeLink="/docs/php/types/int">
+///     The byte value (0-255).
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_ord()
+/// <Function name="__deka_ord">
+///   <Description>
+///     Internal helper that returns the byte value of the first character.
+///   </Description>
+///   <Parameter name="$character" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_crc32()
+/// <Function name="__deka_crc32">
+///   <Description>
+///     Internal CRC32 helper used by php builtins.
+///   </Description>
+///   <Parameter name="$data" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input data.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_md5()
+/// <Function name="__deka_md5">
+///   <Description>
+///     Internal MD5 helper used by php builtins.
+///   </Description>
+///   <Parameter name="$data" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input data.
+///   </Parameter>
+///   <Parameter name="$binary" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     When true, returns raw binary output.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_md5_file()
+/// <Function name="__deka_md5_file">
+///   <Description>
+///     Internal MD5 helper for hashing file contents.
+///   </Description>
+///   <Parameter name="$filename" type="string" required="true" typeLink="/docs/php/types/string">
+///     Path to the file.
+///   </Parameter>
+///   <Parameter name="$binary" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     When true, returns raw binary output.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_sha1()
+/// <Function name="__deka_sha1">
+///   <Description>
+///     Internal SHA1 helper used by php builtins.
+///   </Description>
+///   <Parameter name="$data" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input data.
+///   </Parameter>
+///   <Parameter name="$binary" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     When true, returns raw binary output.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_sha1_file()
+/// <Function name="__deka_sha1_file">
+///   <Description>
+///     Internal SHA1 helper for hashing file contents.
+///   </Description>
+///   <Parameter name="$filename" type="string" required="true" typeLink="/docs/php/types/string">
+///     Path to the file.
+///   </Parameter>
+///   <Parameter name="$binary" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     When true, returns raw binary output.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_crypt()
+/// <Function name="__deka_crypt">
+///   <Description>
+///     Internal wrapper for the system crypt implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$salt" type="string" required="false" typeLink="/docs/php/types/string">
+///     Optional salt.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_convert_cyr_string()
+/// <Function name="__deka_convert_cyr_string">
+///   <Description>
+///     Internal helper for Cyrillic encoding conversion.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$from" type="string" required="true" typeLink="/docs/php/types/string">
+///     Source encoding letter.
+///   </Parameter>
+///   <Parameter name="$to" type="string" required="true" typeLink="/docs/php/types/string">
+///     Target encoding letter.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_convert_uuencode()
+/// <Function name="__deka_convert_uuencode">
+///   <Description>
+///     Internal helper for uuencode.
+///   </Description>
+///   <Parameter name="$data" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input data.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_convert_uudecode()
+/// <Function name="__deka_convert_uudecode">
+///   <Description>
+///     Internal helper for uudecode.
+///   </Description>
+///   <Parameter name="$data" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input data.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_metaphone()
+/// <Function name="__deka_metaphone">
+///   <Description>
+///     Internal metaphone implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$max_phonemes" type="int" required="false" typeLink="/docs/php/types/int">
+///     Maximum phonemes to return.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_setlocale()
+/// <Function name="__deka_setlocale">
+///   <Description>
+///     Internal wrapper for setlocale().
+///   </Description>
+///   <Parameter name="$category" type="int" required="true" typeLink="/docs/php/types/int">
+///     Locale category.
+///   </Parameter>
+///   <Parameter name="$locale" type="string" required="false" typeLink="/docs/php/types/string">
+///     One or more locale names.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_localeconv()
+/// <Function name="__deka_localeconv">
+///   <Description>
+///     Internal wrapper for localeconv().
+///   </Description>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_nl_langinfo()
+/// <Function name="__deka_nl_langinfo">
+///   <Description>
+///     Internal wrapper for nl_langinfo().
+///   </Description>
+///   <Parameter name="$item" type="int" required="true" typeLink="/docs/php/types/int">
+///     Item identifier.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_strcoll()
+/// <Function name="__deka_strcoll">
+///   <Description>
+///     Internal locale-aware string comparison.
+///   </Description>
+///   <Parameter name="$string1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First string.
+///   </Parameter>
+///   <Parameter name="$string2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second string.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_number_format()
+/// <Function name="__deka_number_format">
+///   <Description>
+///     Internal number_format implementation.
+///   </Description>
+///   <Parameter name="$number" type="float" required="true" typeLink="/docs/php/types/float">
+///     The number to format.
+///   </Parameter>
+///   <Parameter name="$decimals" type="int" required="false" typeLink="/docs/php/types/int">
+///     Number of decimal digits.
+///   </Parameter>
+///   <Parameter name="$decimal_separator" type="string" required="false" typeLink="/docs/php/types/string">
+///     Decimal point separator.
+///   </Parameter>
+///   <Parameter name="$thousands_separator" type="string" required="false" typeLink="/docs/php/types/string">
+///     Thousands separator.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_money_format()
+/// <Function name="__deka_money_format">
+///   <Description>
+///     Internal money_format implementation.
+///   </Description>
+///   <Parameter name="$format" type="string" required="true" typeLink="/docs/php/types/string">
+///     The format string.
+///   </Parameter>
+///   <Parameter name="$number" type="float" required="true" typeLink="/docs/php/types/float">
+///     The number to format.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_strcmp()
+/// <Function name="__deka_strcmp">
+///   <Description>
+///     Internal strcmp implementation.
+///   </Description>
+///   <Parameter name="$string1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First string.
+///   </Parameter>
+///   <Parameter name="$string2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second string.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_strcasecmp()
+/// <Function name="__deka_strcasecmp">
+///   <Description>
+///     Internal strcasecmp implementation.
+///   </Description>
+///   <Parameter name="$string1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First string.
+///   </Parameter>
+///   <Parameter name="$string2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second string.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_strncmp()
+/// <Function name="__deka_strncmp">
+///   <Description>
+///     Internal strncmp implementation.
+///   </Description>
+///   <Parameter name="$string1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First string.
+///   </Parameter>
+///   <Parameter name="$string2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second string.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="true" typeLink="/docs/php/types/int">
+///     Length to compare.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_strncasecmp()
+/// <Function name="__deka_strncasecmp">
+///   <Description>
+///     Internal strncasecmp implementation.
+///   </Description>
+///   <Parameter name="$string1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First string.
+///   </Parameter>
+///   <Parameter name="$string2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second string.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="true" typeLink="/docs/php/types/int">
+///     Length to compare.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_strnatcmp()
+/// <Function name="__deka_strnatcmp">
+///   <Description>
+///     Internal strnatcmp implementation.
+///   </Description>
+///   <Parameter name="$string1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First string.
+///   </Parameter>
+///   <Parameter name="$string2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second string.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_strnatcasecmp()
+/// <Function name="__deka_strnatcasecmp">
+///   <Description>
+///     Internal strnatcasecmp implementation.
+///   </Description>
+///   <Parameter name="$string1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First string.
+///   </Parameter>
+///   <Parameter name="$string2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second string.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_levenshtein()
+/// <Function name="__deka_levenshtein">
+///   <Description>
+///     Internal levenshtein implementation.
+///   </Description>
+///   <Parameter name="$string1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First string.
+///   </Parameter>
+///   <Parameter name="$string2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second string.
+///   </Parameter>
+///   <Parameter name="$cost_ins" type="int" required="false" typeLink="/docs/php/types/int">
+///     Cost of insertion.
+///   </Parameter>
+///   <Parameter name="$cost_rep" type="int" required="false" typeLink="/docs/php/types/int">
+///     Cost of replacement.
+///   </Parameter>
+///   <Parameter name="$cost_del" type="int" required="false" typeLink="/docs/php/types/int">
+///     Cost of deletion.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_similar_text()
+/// <Function name="__deka_similar_text">
+///   <Description>
+///     Internal similar_text implementation.
+///   </Description>
+///   <Parameter name="$first" type="string" required="true" typeLink="/docs/php/types/string">
+///     First string.
+///   </Parameter>
+///   <Parameter name="$second" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second string.
+///   </Parameter>
+///   <Parameter name="$percent" type="float" required="false" typeLink="/docs/php/types/float">
+///     Similarity percent.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_soundex()
+/// <Function name="__deka_soundex">
+///   <Description>
+///     Internal soundex implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_substr_compare()
+/// <Function name="__deka_substr_compare">
+///   <Description>
+///     Internal substr_compare implementation.
+///   </Description>
+///   <Parameter name="$main_str" type="string" required="true" typeLink="/docs/php/types/string">
+///     Main string.
+///   </Parameter>
+///   <Parameter name="$str" type="string" required="true" typeLink="/docs/php/types/string">
+///     Comparison string.
+///   </Parameter>
+///   <Parameter name="$offset" type="int" required="true" typeLink="/docs/php/types/int">
+///     Start offset.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="false" typeLink="/docs/php/types/int">
+///     Length to compare.
+///   </Parameter>
+///   <Parameter name="$case_insensitive" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Case-insensitive comparison.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_strstr()
+/// <Function name="__deka_strstr">
+///   <Description>
+///     Internal strstr implementation.
+///   </Description>
+///   <Parameter name="$haystack" type="string" required="true" typeLink="/docs/php/types/string">
+///     The string to search.
+///   </Parameter>
+///   <Parameter name="$needle" type="string" required="true" typeLink="/docs/php/types/string">
+///     The substring to find.
+///   </Parameter>
+///   <Parameter name="$before_needle" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Return part of string before needle.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_stristr()
+/// <Function name="__deka_stristr">
+///   <Description>
+///     Internal stristr implementation.
+///   </Description>
+///   <Parameter name="$haystack" type="string" required="true" typeLink="/docs/php/types/string">
+///     The string to search.
+///   </Parameter>
+///   <Parameter name="$needle" type="string" required="true" typeLink="/docs/php/types/string">
+///     The substring to find.
+///   </Parameter>
+///   <Parameter name="$before_needle" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Return part of string before needle.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_hebrev()
+/// <Function name="__deka_hebrev">
+///   <Description>
+///     Internal hebrev implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$max_chars_per_line" type="int" required="false" typeLink="/docs/php/types/int">
+///     Maximum characters per line.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_wordwrap()
+/// <Function name="__deka_wordwrap">
+///   <Description>
+///     Internal wordwrap implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$width" type="int" required="false" typeLink="/docs/php/types/int">
+///     Line width.
+///   </Parameter>
+///   <Parameter name="$break" type="string" required="false" typeLink="/docs/php/types/string">
+///     Line break string.
+///   </Parameter>
+///   <Parameter name="$cut" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Whether to cut long words.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_quotemeta()
+/// <Function name="__deka_quotemeta">
+///   <Description>
+///     Internal quotemeta implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_nl2br()
+/// <Function name="__deka_nl2br">
+///   <Description>
+///     Internal nl2br implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$use_xhtml" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Whether to use XHTML breaks.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_strip_tags()
+/// <Function name="__deka_strip_tags">
+///   <Description>
+///     Internal strip_tags implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$allowed_tags" type="string|array" required="false" typeLink="/docs/php/types/mixed">
+///     Allowed tags.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_strtok()
+/// <Function name="__deka_strtok">
+///   <Description>
+///     Internal strtok implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="false" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$token" type="string" required="false" typeLink="/docs/php/types/string">
+///     Token delimiter.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_count_chars()
+/// <Function name="__deka_count_chars">
+///   <Description>
+///     Internal count_chars implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$mode" type="int" required="false" typeLink="/docs/php/types/int">
+///     Output mode.
+///   </Parameter>
+///   <ReturnType type="array|string" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_str_word_count()
+/// <Function name="__deka_str_word_count">
+///   <Description>
+///     Internal str_word_count implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$format" type="int" required="false" typeLink="/docs/php/types/int">
+///     Output format.
+///   </Parameter>
+///   <Parameter name="$charlist" type="string" required="false" typeLink="/docs/php/types/string">
+///     Additional word characters.
+///   </Parameter>
+///   <ReturnType type="array|int" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_str_increment()
+/// <Function name="__deka_str_increment">
+///   <Description>
+///     Internal str_increment implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_str_decrement()
+/// <Function name="__deka_str_decrement">
+///   <Description>
+///     Internal str_decrement implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_htmlspecialchars()
+/// <Function name="__deka_htmlspecialchars">
+///   <Description>
+///     Internal htmlspecialchars implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$flags" type="int" required="false" typeLink="/docs/php/types/int">
+///     Optional flags.
+///   </Parameter>
+///   <Parameter name="$encoding" type="string" required="false" typeLink="/docs/php/types/string">
+///     Character set.
+///   </Parameter>
+///   <Parameter name="$double_encode" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Whether to encode existing entities.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_htmlspecialchars_decode()
+/// <Function name="__deka_htmlspecialchars_decode">
+///   <Description>
+///     Internal htmlspecialchars_decode implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$flags" type="int" required="false" typeLink="/docs/php/types/int">
+///     Optional flags.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_htmlentities()
+/// <Function name="__deka_htmlentities">
+///   <Description>
+///     Internal htmlentities implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$flags" type="int" required="false" typeLink="/docs/php/types/int">
+///     Optional flags.
+///   </Parameter>
+///   <Parameter name="$encoding" type="string" required="false" typeLink="/docs/php/types/string">
+///     Character set.
+///   </Parameter>
+///   <Parameter name="$double_encode" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Whether to encode existing entities.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_html_entity_decode()
+/// <Function name="__deka_html_entity_decode">
+///   <Description>
+///     Internal html_entity_decode implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$flags" type="int" required="false" typeLink="/docs/php/types/int">
+///     Optional flags.
+///   </Parameter>
+///   <Parameter name="$encoding" type="string" required="false" typeLink="/docs/php/types/string">
+///     Character set.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_str_replace()
+/// <Function name="__deka_str_replace">
+///   <Description>
+///     Internal str_replace implementation.
+///   </Description>
+///   <Parameter name="$search" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     Search value.
+///   </Parameter>
+///   <Parameter name="$replace" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     Replacement value.
+///   </Parameter>
+///   <Parameter name="$subject" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     Subject value.
+///   </Parameter>
+///   <Parameter name="$count" type="int" required="false" typeLink="/docs/php/types/int">
+///     Replacement count.
+///   </Parameter>
+///   <ReturnType type="string|array" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_str_ireplace()
+/// <Function name="__deka_str_ireplace">
+///   <Description>
+///     Internal str_ireplace implementation.
+///   </Description>
+///   <Parameter name="$search" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     Search value.
+///   </Parameter>
+///   <Parameter name="$replace" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     Replacement value.
+///   </Parameter>
+///   <Parameter name="$subject" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     Subject value.
+///   </Parameter>
+///   <Parameter name="$count" type="int" required="false" typeLink="/docs/php/types/int">
+///     Replacement count.
+///   </Parameter>
+///   <ReturnType type="string|array" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_parse_str()
+/// <Function name="__deka_parse_str">
+///   <Description>
+///     Internal parse_str implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$result" type="array" required="false" typeLink="/docs/php/types/array">
+///     Output array.
+///   </Parameter>
+///   <ReturnType type="void" typeLink="/docs/php/types/null" />
+/// </Function>
+
+/// docid: php/internals/__deka_utf8_encode()
+/// <Function name="__deka_utf8_encode">
+///   <Description>
+///     Internal utf8_encode implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_utf8_decode()
+/// <Function name="__deka_utf8_decode">
+///   <Description>
+///     Internal utf8_decode implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_version_compare()
+/// <Function name="__deka_version_compare">
+///   <Description>
+///     Internal version_compare implementation.
+///   </Description>
+///   <Parameter name="$version1" type="string" required="true" typeLink="/docs/php/types/string">
+///     First version.
+///   </Parameter>
+///   <Parameter name="$version2" type="string" required="true" typeLink="/docs/php/types/string">
+///     Second version.
+///   </Parameter>
+///   <Parameter name="$operator" type="string" required="false" typeLink="/docs/php/types/string">
+///     Optional operator.
+///   </Parameter>
+///   <ReturnType type="int|bool" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_sprintf()
+/// <Function name="__deka_sprintf">
+///   <Description>
+///     Internal sprintf implementation.
+///   </Description>
+///   <Parameter name="$format" type="string" required="true" typeLink="/docs/php/types/string">
+///     Format string.
+///   </Parameter>
+///   <Parameter name="$values" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Values to format.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_sscanf()
+/// <Function name="__deka_sscanf">
+///   <Description>
+///     Internal sscanf implementation.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     Input string.
+///   </Parameter>
+///   <Parameter name="$format" type="string" required="true" typeLink="/docs/php/types/string">
+///     Format string.
+///   </Parameter>
+///   <Parameter name="$vars" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Output vars.
+///   </Parameter>
+///   <ReturnType type="array|int" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_printf()
+/// <Function name="__deka_printf">
+///   <Description>
+///     Internal printf implementation.
+///   </Description>
+///   <Parameter name="$format" type="string" required="true" typeLink="/docs/php/types/string">
+///     Format string.
+///   </Parameter>
+///   <Parameter name="$values" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Values to format.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_vsprintf()
+/// <Function name="__deka_vsprintf">
+///   <Description>
+///     Internal vsprintf implementation.
+///   </Description>
+///   <Parameter name="$format" type="string" required="true" typeLink="/docs/php/types/string">
+///     Format string.
+///   </Parameter>
+///   <Parameter name="$values" type="array" required="true" typeLink="/docs/php/types/array">
+///     Values to format.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+
+/// docid: php/internals/__deka_vprintf()
+/// <Function name="__deka_vprintf">
+///   <Description>
+///     Internal vprintf implementation.
+///   </Description>
+///   <Parameter name="$format" type="string" required="true" typeLink="/docs/php/types/string">
+///     Format string.
+///   </Parameter>
+///   <Parameter name="$values" type="array" required="true" typeLink="/docs/php/types/array">
+///     Values to format.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_fprintf()
+/// <Function name="__deka_fprintf">
+///   <Description>
+///     Internal fprintf implementation.
+///   </Description>
+///   <Parameter name="$stream" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     Output stream.
+///   </Parameter>
+///   <Parameter name="$format" type="string" required="true" typeLink="/docs/php/types/string">
+///     Format string.
+///   </Parameter>
+///   <Parameter name="$values" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Values to format.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_vfprintf()
+/// <Function name="__deka_vfprintf">
+///   <Description>
+///     Internal vfprintf implementation.
+///   </Description>
+///   <Parameter name="$stream" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     Output stream.
+///   </Parameter>
+///   <Parameter name="$format" type="string" required="true" typeLink="/docs/php/types/string">
+///     Format string.
+///   </Parameter>
+///   <Parameter name="$values" type="array" required="true" typeLink="/docs/php/types/array">
+///     Values to format.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_array()
+/// <Function name="__deka_array">
+///   <Description>
+///     Internal helper to create an array from values.
+///   </Description>
+///   <Parameter name="$values" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Values to include.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_all()
+/// <Function name="__deka_array_all">
+///   <Description>
+///     Internal array_all implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Callback.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_any()
+/// <Function name="__deka_array_any">
+///   <Description>
+///     Internal array_any implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Callback.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_change_key_case()
+/// <Function name="__deka_array_change_key_case">
+///   <Description>
+///     Internal array_change_key_case implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$case" type="int" required="false" typeLink="/docs/php/types/int">
+///     Case mode.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_chunk()
+/// <Function name="__deka_array_chunk">
+///   <Description>
+///     Internal array_chunk implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="true" typeLink="/docs/php/types/int">
+///     Chunk size.
+///   </Parameter>
+///   <Parameter name="$preserve_keys" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Preserve keys.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_column()
+/// <Function name="__deka_array_column">
+///   <Description>
+///     Internal array_column implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$column_key" type="string|int|null" required="true" typeLink="/docs/php/types/mixed">
+///     Column key.
+///   </Parameter>
+///   <Parameter name="$index_key" type="string|int|null" required="false" typeLink="/docs/php/types/mixed">
+///     Index key.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_combine()
+/// <Function name="__deka_array_combine">
+///   <Description>
+///     Internal array_combine implementation.
+///   </Description>
+///   <Parameter name="$keys" type="array" required="true" typeLink="/docs/php/types/array">
+///     Keys array.
+///   </Parameter>
+///   <Parameter name="$values" type="array" required="true" typeLink="/docs/php/types/array">
+///     Values array.
+///   </Parameter>
+///   <ReturnType type="array|false" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_count_values()
+/// <Function name="__deka_array_count_values">
+///   <Description>
+///     Internal array_count_values implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_diff()
+/// <Function name="__deka_array_diff">
+///   <Description>
+///     Internal array_diff implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_diff_assoc()
+/// <Function name="__deka_array_diff_assoc">
+///   <Description>
+///     Internal array_diff_assoc implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_diff_key()
+/// <Function name="__deka_array_diff_key">
+///   <Description>
+///     Internal array_diff_key implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_diff_uassoc()
+/// <Function name="__deka_array_diff_uassoc">
+///   <Description>
+///     Internal array_diff_uassoc implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$key_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Key comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_diff_ukey()
+/// <Function name="__deka_array_diff_ukey">
+///   <Description>
+///     Internal array_diff_ukey implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$key_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Key comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_fill()
+/// <Function name="__deka_array_fill">
+///   <Description>
+///     Internal array_fill implementation.
+///   </Description>
+///   <Parameter name="$start_index" type="int" required="true" typeLink="/docs/php/types/int">
+///     Start index.
+///   </Parameter>
+///   <Parameter name="$count" type="int" required="true" typeLink="/docs/php/types/int">
+///     Number of elements.
+///   </Parameter>
+///   <Parameter name="$value" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     Value.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_fill_keys()
+/// <Function name="__deka_array_fill_keys">
+///   <Description>
+///     Internal array_fill_keys implementation.
+///   </Description>
+///   <Parameter name="$keys" type="array" required="true" typeLink="/docs/php/types/array">
+///     Keys.
+///   </Parameter>
+///   <Parameter name="$value" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     Value.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_filter()
+/// <Function name="__deka_array_filter">
+///   <Description>
+///     Internal array_filter implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="false" typeLink="/docs/php/types/callable">
+///     Callback.
+///   </Parameter>
+///   <Parameter name="$mode" type="int" required="false" typeLink="/docs/php/types/int">
+///     Mode.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_find()
+/// <Function name="__deka_array_find">
+///   <Description>
+///     Internal array_find implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Callback.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_find_key()
+/// <Function name="__deka_array_find_key">
+///   <Description>
+///     Internal array_find_key implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Callback.
+///   </Parameter>
+///   <ReturnType type="int|string|null" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_first()
+/// <Function name="__deka_array_first">
+///   <Description>
+///     Internal array_first implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_flip()
+/// <Function name="__deka_array_flip">
+///   <Description>
+///     Internal array_flip implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_intersect()
+/// <Function name="__deka_array_intersect">
+///   <Description>
+///     Internal array_intersect implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_intersect_assoc()
+/// <Function name="__deka_array_intersect_assoc">
+///   <Description>
+///     Internal array_intersect_assoc implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_intersect_key()
+/// <Function name="__deka_array_intersect_key">
+///   <Description>
+///     Internal array_intersect_key implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_intersect_uassoc()
+/// <Function name="__deka_array_intersect_uassoc">
+///   <Description>
+///     Internal array_intersect_uassoc implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$key_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Key comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_intersect_ukey()
+/// <Function name="__deka_array_intersect_ukey">
+///   <Description>
+///     Internal array_intersect_ukey implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$key_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Key comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_is_list()
+/// <Function name="__deka_array_is_list">
+///   <Description>
+///     Internal array_is_list implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_key_first()
+/// <Function name="__deka_array_key_first">
+///   <Description>
+///     Internal array_key_first implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="int|string|null" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_key_last()
+/// <Function name="__deka_array_key_last">
+///   <Description>
+///     Internal array_key_last implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="int|string|null" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_last()
+/// <Function name="__deka_array_last">
+///   <Description>
+///     Internal array_last implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_map()
+/// <Function name="__deka_array_map">
+///   <Description>
+///     Internal array_map implementation.
+///   </Description>
+///   <Parameter name="$callback" type="callable|null" required="true" typeLink="/docs/php/types/callable">
+///     Callback or null.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to map.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_merge()
+/// <Function name="__deka_array_merge">
+///   <Description>
+///     Internal array_merge implementation.
+///   </Description>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to merge.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_merge_recursive()
+/// <Function name="__deka_array_merge_recursive">
+///   <Description>
+///     Internal array_merge_recursive implementation.
+///   </Description>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to merge.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_multisort()
+/// <Function name="__deka_array_multisort">
+///   <Description>
+///     Internal array_multisort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The first array.
+///   </Parameter>
+///   <Parameter name="$args" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Additional arrays and sort flags.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_pad()
+/// <Function name="__deka_array_pad">
+///   <Description>
+///     Internal array_pad implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="true" typeLink="/docs/php/types/int">
+///     Target length.
+///   </Parameter>
+///   <Parameter name="$value" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     Value to pad with.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_product()
+/// <Function name="__deka_array_product">
+///   <Description>
+///     Internal array_product implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="int|float" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_reduce()
+/// <Function name="__deka_array_reduce">
+///   <Description>
+///     Internal array_reduce implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Callback.
+///   </Parameter>
+///   <Parameter name="$initial" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Initial value.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_replace()
+/// <Function name="__deka_array_replace">
+///   <Description>
+///     Internal array_replace implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Base array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to replace from.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_replace_recursive()
+/// <Function name="__deka_array_replace_recursive">
+///   <Description>
+///     Internal array_replace_recursive implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Base array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to replace from.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_reverse()
+/// <Function name="__deka_array_reverse">
+///   <Description>
+///     Internal array_reverse implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$preserve_keys" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Preserve keys.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_search()
+/// <Function name="__deka_array_search">
+///   <Description>
+///     Internal array_search implementation.
+///   </Description>
+///   <Parameter name="$needle" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     Search value.
+///   </Parameter>
+///   <Parameter name="$haystack" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$strict" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Strict comparison.
+///   </Parameter>
+///   <ReturnType type="int|string|false" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_shift()
+/// <Function name="__deka_array_shift">
+///   <Description>
+///     Internal array_shift implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_slice()
+/// <Function name="__deka_array_slice">
+///   <Description>
+///     Internal array_slice implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$offset" type="int" required="true" typeLink="/docs/php/types/int">
+///     Offset.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="false" typeLink="/docs/php/types/int">
+///     Length.
+///   </Parameter>
+///   <Parameter name="$preserve_keys" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Preserve keys.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_splice()
+/// <Function name="__deka_array_splice">
+///   <Description>
+///     Internal array_splice implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$offset" type="int" required="true" typeLink="/docs/php/types/int">
+///     Offset.
+///   </Parameter>
+///   <Parameter name="$length" type="int" required="false" typeLink="/docs/php/types/int">
+///     Length.
+///   </Parameter>
+///   <Parameter name="$replacement" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Replacement.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_sum()
+/// <Function name="__deka_array_sum">
+///   <Description>
+///     Internal array_sum implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="int|float" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_rand()
+/// <Function name="__deka_array_rand">
+///   <Description>
+///     Internal array_rand implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$num" type="int" required="false" typeLink="/docs/php/types/int">
+///     Number of keys.
+///   </Parameter>
+///   <ReturnType type="int|string|array" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_udiff()
+/// <Function name="__deka_array_udiff">
+///   <Description>
+///     Internal array_udiff implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$value_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Value comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_udiff_assoc()
+/// <Function name="__deka_array_udiff_assoc">
+///   <Description>
+///     Internal array_udiff_assoc implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$value_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Value comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_udiff_uassoc()
+/// <Function name="__deka_array_udiff_uassoc">
+///   <Description>
+///     Internal array_udiff_uassoc implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$value_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Value comparison callback.
+///   </Parameter>
+///   <Parameter name="$key_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Key comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_uintersect()
+/// <Function name="__deka_array_uintersect">
+///   <Description>
+///     Internal array_uintersect implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$value_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Value comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_uintersect_assoc()
+/// <Function name="__deka_array_uintersect_assoc">
+///   <Description>
+///     Internal array_uintersect_assoc implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$value_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Value comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_uintersect_uassoc()
+/// <Function name="__deka_array_uintersect_uassoc">
+///   <Description>
+///     Internal array_uintersect_uassoc implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare.
+///   </Parameter>
+///   <Parameter name="$value_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Value comparison callback.
+///   </Parameter>
+///   <Parameter name="$key_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Key comparison callback.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_unique()
+/// <Function name="__deka_array_unique">
+///   <Description>
+///     Internal array_unique implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <Parameter name="$flags" type="int" required="false" typeLink="/docs/php/types/int">
+///     Sort flags.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_walk()
+/// <Function name="__deka_array_walk">
+///   <Description>
+///     Internal array_walk implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to walk.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Callback to apply.
+///   </Parameter>
+///   <Parameter name="$userdata" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Optional user data.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_array_walk_recursive()
+/// <Function name="__deka_array_walk_recursive">
+///   <Description>
+///     Internal array_walk_recursive implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to walk.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Callback to apply.
+///   </Parameter>
+///   <Parameter name="$userdata" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Optional user data.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_arsort()
+/// <Function name="__deka_arsort">
+///   <Description>
+///     Internal arsort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_asort()
+/// <Function name="__deka_asort">
+///   <Description>
+///     Internal asort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_compact()
+/// <Function name="__deka_compact">
+///   <Description>
+///     Internal compact implementation.
+///   </Description>
+///   <Parameter name="$var_name" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     Variable name or list of names.
+///   </Parameter>
+///   <Parameter name="$var_names" type="string|array" required="false" typeLink="/docs/php/types/mixed">
+///     Additional names or lists.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_extract()
+/// <Function name="__deka_extract">
+///   <Description>
+///     Internal extract implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to extract.
+///   </Parameter>
+///   <Parameter name="$flags" type="int" required="false" typeLink="/docs/php/types/int">
+///     Extract flags.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+
+/// docid: php/internals/__deka_key()
+/// <Function name="__deka_key">
+///   <Description>
+///     Internal key implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="int|string|null" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_key_exists()
+/// <Function name="__deka_key_exists">
+///   <Description>
+///     Internal key_exists implementation.
+///   </Description>
+///   <Parameter name="$key" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     Key to check.
+///   </Parameter>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to check.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_krsort()
+/// <Function name="__deka_krsort">
+///   <Description>
+///     Internal krsort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_natcasesort()
+/// <Function name="__deka_natcasesort">
+///   <Description>
+///     Internal natcasesort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_natsort()
+/// <Function name="__deka_natsort">
+///   <Description>
+///     Internal natsort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_pos()
+/// <Function name="__deka_pos">
+///   <Description>
+///     Internal pos implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_prev()
+/// <Function name="__deka_prev">
+///   <Description>
+///     Internal prev implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_range()
+/// <Function name="__deka_range">
+///   <Description>
+///     Internal range implementation.
+///   </Description>
+///   <Parameter name="$start" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     Range start.
+///   </Parameter>
+///   <Parameter name="$end" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     Range end.
+///   </Parameter>
+///   <Parameter name="$step" type="int|float" required="false" typeLink="/docs/php/types/mixed">
+///     Step size.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+
+/// docid: php/internals/__deka_rsort()
+/// <Function name="__deka_rsort">
+///   <Description>
+///     Internal rsort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_shuffle()
+/// <Function name="__deka_shuffle">
+///   <Description>
+///     Internal shuffle implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to shuffle.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_sort()
+/// <Function name="__deka_sort">
+///   <Description>
+///     Internal sort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_uasort()
+/// <Function name="__deka_uasort">
+///   <Description>
+///     Internal uasort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Comparison callback.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_uksort()
+/// <Function name="__deka_uksort">
+///   <Description>
+///     Internal uksort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Key comparison callback.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_usort()
+/// <Function name="__deka_usort">
+///   <Description>
+///     Internal usort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <Parameter name="$callback" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Value comparison callback.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_ksort()
+/// <Function name="__deka_ksort">
+///   <Description>
+///     Internal ksort implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+
+/// docid: php/internals/__deka_current()
+/// <Function name="__deka_current">
+///   <Description>
+///     Internal current implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_next()
+/// <Function name="__deka_next">
+///   <Description>
+///     Internal next implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_reset()
+/// <Function name="__deka_reset">
+///   <Description>
+///     Internal reset implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+
+/// docid: php/internals/__deka_end()
+/// <Function name="__deka_end">
+///   <Description>
+///     Internal end implementation.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>

@@ -1,0 +1,17 @@
+/// docid: php/array/sort()
+/// <Function name="sort">
+///   <Description>
+///     Sorts an array in ascending order.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     Array to sort.
+///   </Parameter>
+///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
+/// </Function>
+export function sort(&$array) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    return __deka_sort($array);
+}

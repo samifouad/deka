@@ -1,0 +1,32 @@
+/// docid: php/string/str_word_count()
+/// <Function name="str_word_count">
+///   <Description>
+///     Returns information about words used in a string.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$format" type="int" required="false" typeLink="/docs/php/types/int">
+///     Output format.
+///   </Parameter>
+///   <Parameter name="$charlist" type="string" required="false" typeLink="/docs/php/types/string">
+///     Additional characters to allow inside words.
+///   </Parameter>
+///   <ReturnType type="array|int" typeLink="/docs/php/types/mixed" />
+/// </Function>
+export function str_word_count($string, $format = 0, $charlist = null) {
+    $argc = func_num_args();
+    if ($argc < 1 || $argc > 3) {
+        return null;
+    }
+
+    if ($argc === 1) {
+        return __deka_str_word_count('' . $string);
+    }
+
+    if ($argc === 2) {
+        return __deka_str_word_count('' . $string, (int)$format);
+    }
+
+    return __deka_str_word_count('' . $string, (int)$format, '' . $charlist);
+}

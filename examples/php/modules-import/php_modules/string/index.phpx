@@ -1,0 +1,3 @@
+export function format_value($value) {
+    return "value: " . $value;
+}

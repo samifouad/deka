@@ -1,0 +1,21 @@
+/// docid: php/array/array_diff_assoc()
+/// <Function name="array_diff_assoc">
+///   <Description>
+///     Computes the difference of arrays with additional index check.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The array to compare.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare against.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function array_diff_assoc($array) {
+    if (func_num_args() < 2) {
+        return null;
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_array_diff_assoc', $args);
+}

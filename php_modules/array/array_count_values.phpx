@@ -1,0 +1,17 @@
+/// docid: php/array/array_count_values()
+/// <Function name="array_count_values">
+///   <Description>
+///     Counts the frequency of all values in an array.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The input array.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function array_count_values($array) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    return __deka_array_count_values($array);
+}

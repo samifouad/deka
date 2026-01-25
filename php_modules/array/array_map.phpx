@@ -1,0 +1,21 @@
+/// docid: php/array/array_map()
+/// <Function name="array_map">
+///   <Description>
+///     Applies a callback to the elements of the given arrays.
+///   </Description>
+///   <Parameter name="$callback" type="callable|null" required="true" typeLink="/docs/php/types/callable">
+///     The callback to apply, or null to zip arrays.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     One or more arrays.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function array_map($callback) {
+    if (func_num_args() < 2) {
+        return null;
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_array_map', $args);
+}

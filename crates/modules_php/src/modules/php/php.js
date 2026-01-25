@@ -93,24 +93,34 @@ if (!globalThis.TextDecoder) {
 }
 
 // Minimal fs implementation for PHP wasm loading
-globalThis.fs = {
-  readFileSync: (path, encoding) => {
+if (!globalThis.fs) {
+  globalThis.fs = {};
+}
+if (!globalThis.fs.readFileSync) {
+  globalThis.fs.readFileSync = (path, encoding) => {
     const bytes = op_php_read_file_sync(path);
     if (encoding === 'utf8' || encoding === 'utf-8') {
       return new TextDecoder().decode(bytes);
     }
     return bytes;
-  },
-  existsSync: (path) => {
+  };
+}
+if (!globalThis.fs.existsSync) {
+  globalThis.fs.existsSync = (path) => {
     return op_php_file_exists(path);
-  }
-};
+  };
+}
 
 // Minimal process implementation for env access
-globalThis.process = {
-  env: op_php_read_env(),
-  cwd: () => op_php_cwd(),
-};
+if (!globalThis.process) {
+  globalThis.process = {};
+}
+if (!globalThis.process.env) {
+  globalThis.process.env = op_php_read_env();
+}
+if (!globalThis.process.cwd) {
+  globalThis.process.cwd = () => op_php_cwd();
+}
 
 // Basic URLSearchParams implementation
 globalThis.URLSearchParams = class URLSearchParams {
@@ -156,27 +166,35 @@ globalThis.URLSearchParams = class URLSearchParams {
 };
 
 // Minimal path utilities for PHP serve mode
-globalThis.path = {
-  sep: '/',
-  delimiter: ':',
-
-  extname: (p) => {
+if (!globalThis.path) {
+  globalThis.path = {};
+}
+if (!globalThis.path.sep) {
+  globalThis.path.sep = '/';
+}
+if (!globalThis.path.delimiter) {
+  globalThis.path.delimiter = ':';
+}
+if (!globalThis.path.extname) {
+  globalThis.path.extname = (p) => {
     const str = String(p);
     const lastSlash = str.lastIndexOf('/');
     const lastDot = str.lastIndexOf('.');
     if (lastDot === -1 || lastDot < lastSlash) return '';
     return str.slice(lastDot);
-  },
-
-  dirname: (p) => {
+  };
+}
+if (!globalThis.path.dirname) {
+  globalThis.path.dirname = (p) => {
     const str = String(p);
     const lastSlash = str.lastIndexOf('/');
     if (lastSlash === -1) return '.';
     if (lastSlash === 0) return '/';
     return str.slice(0, lastSlash);
-  },
-
-  basename: (p, ext) => {
+  };
+}
+if (!globalThis.path.basename) {
+  globalThis.path.basename = (p, ext) => {
     const str = String(p);
     const lastSlash = str.lastIndexOf('/');
     let base = lastSlash === -1 ? str : str.slice(lastSlash + 1);
@@ -184,9 +202,10 @@ globalThis.path = {
       base = base.slice(0, -ext.length);
     }
     return base;
-  },
-
-  normalize: (p) => {
+  };
+}
+if (!globalThis.path.normalize) {
+  globalThis.path.normalize = (p) => {
     const str = String(p);
     const parts = str.split('/');
     const result = [];
@@ -203,26 +222,24 @@ globalThis.path = {
     }
     const normalized = result.join('/');
     return str.startsWith('/') ? '/' + normalized : normalized || '.';
-  },
-
-  resolve: (...args) => {
+  };
+}
+if (!globalThis.path.resolve) {
+  globalThis.path.resolve = (...args) => {
     let resolved = '';
     for (let i = args.length - 1; i >= 0; i--) {
       const p = String(args[i]);
       if (!p) continue;
-
       if (resolved === '') {
         resolved = p;
       } else if (p.startsWith('/')) {
-        // Absolute path found - use it as base and prepend to resolved
         resolved = p + '/' + resolved;
         break;
       } else {
         resolved = p + '/' + resolved;
       }
-
       if (resolved.startsWith('/')) {
-        break; // We have an absolute path, stop
+        break;
       }
     }
     if (!resolved.startsWith('/')) {
@@ -230,15 +247,36 @@ globalThis.path = {
       resolved = cwd + '/' + resolved;
     }
     return globalThis.path.normalize(resolved);
-  },
-
-  join: (...args) => {
+  };
+}
+if (!globalThis.path.relative) {
+  globalThis.path.relative = (from, to) => {
+    const fromAbs = globalThis.path.resolve(from);
+    const toAbs = globalThis.path.resolve(to);
+    const fromParts = fromAbs.split('/').filter(Boolean);
+    const toParts = toAbs.split('/').filter(Boolean);
+    let shared = 0;
+    while (
+      shared < fromParts.length &&
+      shared < toParts.length &&
+      fromParts[shared] === toParts[shared]
+    ) {
+      shared++;
+    }
+    const up = fromParts.slice(shared).map(() => '..');
+    const down = toParts.slice(shared);
+    const combined = up.concat(down);
+    return combined.length ? combined.join('/') : '.';
+  };
+}
+if (!globalThis.path.join) {
+  globalThis.path.join = (...args) => {
     const parts = args.filter(p => p && String(p) !== '');
     if (parts.length === 0) return '.';
     const joined = parts.join('/');
     return globalThis.path.normalize(joined);
-  }
-};
+  };
+}
 
 // Export nothing - this is just for side effects
 export {};

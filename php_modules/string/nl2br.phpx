@@ -1,0 +1,22 @@
+/// docid: php/string/nl2br()
+/// <Function name="nl2br">
+///   <Description>
+///     Inserts HTML line breaks before all newlines.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$use_xhtml" type="bool" required="false" typeLink="/docs/php/types/bool">
+///     Whether to use XHTML-compatible breaks.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function nl2br($string, $use_xhtml = true) {
+    $argc = func_num_args();
+    if ($argc < 1 || $argc > 2) {
+        return null;
+    }
+
+    $use = $argc === 2 ? (bool)$use_xhtml : true;
+    return __deka_nl2br('' . $string, $use);
+}

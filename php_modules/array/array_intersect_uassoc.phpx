@@ -1,0 +1,24 @@
+/// docid: php/array/array_intersect_uassoc()
+/// <Function name="array_intersect_uassoc">
+///   <Description>
+///     Computes the intersection of arrays with additional index check using callback.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The array to compare.
+///   </Parameter>
+///   <Parameter name="$arrays" type="array" required="true" typeLink="/docs/php/types/array">
+///     Arrays to compare against.
+///   </Parameter>
+///   <Parameter name="$key_compare_func" type="callable" required="true" typeLink="/docs/php/types/callable">
+///     Callback for comparing keys.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function array_intersect_uassoc($array) {
+    if (func_num_args() < 3) {
+        return null;
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_array_intersect_uassoc', $args);
+}

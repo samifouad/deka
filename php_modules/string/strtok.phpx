@@ -1,0 +1,25 @@
+/// docid: php/string/strtok()
+/// <Function name="strtok">
+///   <Description>
+///     Tokenizes a string.
+///   </Description>
+///   <Parameter name="$string" type="string" required="false" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <Parameter name="$token" type="string" required="true" typeLink="/docs/php/types/string">
+///     The token delimiter.
+///   </Parameter>
+///   <ReturnType type="string|false" typeLink="/docs/php/types/string" />
+/// </Function>
+export function strtok($string, $token = null) {
+    $argc = func_num_args();
+    if ($argc < 1 || $argc > 2) {
+        return null;
+    }
+
+    if ($argc === 1) {
+        return __deka_strtok('' . $string);
+    }
+
+    return __deka_strtok('' . $string, '' . $token);
+}

@@ -1,0 +1,21 @@
+/// docid: php/array/compact()
+/// <Function name="compact">
+///   <Description>
+///     Creates an array from variables and their values.
+///   </Description>
+///   <Parameter name="$var_name" type="string|array" required="true" typeLink="/docs/php/types/mixed">
+///     Variable name or list of names.
+///   </Parameter>
+///   <Parameter name="$var_names" type="string|array" required="false" typeLink="/docs/php/types/mixed">
+///     Additional names or lists.
+///   </Parameter>
+///   <ReturnType type="array" typeLink="/docs/php/types/array" />
+/// </Function>
+export function compact($var_name) {
+    if (func_num_args() < 1) {
+        return null;
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_compact', $args);
+}

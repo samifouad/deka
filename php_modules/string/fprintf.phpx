@@ -1,0 +1,24 @@
+/// docid: php/string/fprintf()
+/// <Function name="fprintf">
+///   <Description>
+///     Writes a formatted string to a stream.
+///   </Description>
+///   <Parameter name="$stream" type="mixed" required="true" typeLink="/docs/php/types/mixed">
+///     The output stream.
+///   </Parameter>
+///   <Parameter name="$format" type="string" required="true" typeLink="/docs/php/types/string">
+///     The format string.
+///   </Parameter>
+///   <Parameter name="$values" type="mixed" required="false" typeLink="/docs/php/types/mixed">
+///     Values to format.
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>
+export function fprintf($stream, $format) {
+    if (func_num_args() < 2) {
+        return null;
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_fprintf', $args);
+}

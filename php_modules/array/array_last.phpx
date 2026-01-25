@@ -1,0 +1,17 @@
+/// docid: php/array/array_last()
+/// <Function name="array_last">
+///   <Description>
+///     Returns the last element of an array.
+///   </Description>
+///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
+///     The input array.
+///   </Parameter>
+///   <ReturnType type="mixed" typeLink="/docs/php/types/mixed" />
+/// </Function>
+export function array_last($array) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    return __deka_array_last($array);
+}

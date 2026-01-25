@@ -1,0 +1,17 @@
+/// docid: php/string/utf8_decode()
+/// <Function name="utf8_decode">
+///   <Description>
+///     Decodes a UTF-8 string to ISO-8859-1.
+///   </Description>
+///   <Parameter name="$string" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input string.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function utf8_decode($string) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    return __deka_utf8_decode('' . $string);
+}

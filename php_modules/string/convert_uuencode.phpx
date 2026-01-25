@@ -1,0 +1,21 @@
+/// docid: php/string/convert_uuencode()
+/// <Function name="convert_uuencode">
+///   <Description>
+///     Encodes a string using uuencode.
+///   </Description>
+///   <Parameter name="$data" type="string" required="true" typeLink="/docs/php/types/string">
+///     The input data.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function convert_uuencode($data) {
+    if (func_num_args() !== 1) {
+        return null;
+    }
+
+    if (is_array($data) || is_object($data)) {
+        return null;
+    }
+
+    return __deka_convert_uuencode('' . $data);
+}

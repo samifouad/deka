@@ -1,0 +1,27 @@
+/// docid: php/string/number_format()
+/// <Function name="number_format">
+///   <Description>
+///     Formats a number with grouped thousands.
+///   </Description>
+///   <Parameter name="$number" type="float" required="true" typeLink="/docs/php/types/float">
+///     The number to format.
+///   </Parameter>
+///   <Parameter name="$decimals" type="int" required="false" typeLink="/docs/php/types/int">
+///     Number of decimal digits.
+///   </Parameter>
+///   <Parameter name="$decimal_separator" type="string" required="false" typeLink="/docs/php/types/string">
+///     Decimal point separator.
+///   </Parameter>
+///   <Parameter name="$thousands_separator" type="string" required="false" typeLink="/docs/php/types/string">
+///     Thousands separator.
+///   </Parameter>
+///   <ReturnType type="string" typeLink="/docs/php/types/string" />
+/// </Function>
+export function number_format($number, $decimals = null, $decimal_separator = null, $thousands_separator = null) {
+    if (func_num_args() < 1) {
+        return null;
+    }
+
+    $args = func_get_args();
+    return call_user_func_array('__deka_number_format', $args);
+}

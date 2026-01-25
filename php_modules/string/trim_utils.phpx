@@ -1,0 +1,70 @@
+import { __deka_slice_bytes, __deka_strlen_bytes } from './bytes_utils.phpx';
+
+export function __deka_trim_bytes($value, $mask, $trimLeft, $trimRight) {
+    $maskSet = __deka_trim_build_mask($mask);
+    $len = __deka_trim_strlen($value);
+    $start = 0;
+    $end = $len;
+
+    if ($trimLeft) {
+        while ($start < $end) {
+            $byte = ord($value[$start]);
+            if (!isset($maskSet[$byte])) {
+                break;
+            }
+            $start += 1;
+        }
+    }
+
+    if ($trimRight) {
+        while ($end > $start) {
+            $byte = ord($value[$end - 1]);
+            if (!isset($maskSet[$byte])) {
+                break;
+            }
+            $end -= 1;
+        }
+    }
+
+    if ($start === 0 && $end === $len) {
+        return $value;
+    }
+
+    return __deka_trim_slice($value, $start, $end);
+}
+
+export function __deka_trim_build_mask($mask) {
+    $set = [];
+    $len = __deka_trim_strlen($mask);
+    $i = 0;
+    while ($i < $len) {
+        $ch = $mask[$i];
+        if ($i + 3 < $len && $mask[$i + 1] === '.' && $mask[$i + 2] === '.') {
+            $endCh = $mask[$i + 3];
+            $startByte = ord($ch);
+            $endByte = ord($endCh);
+            if ($startByte <= $endByte) {
+                for ($b = $startByte; $b <= $endByte; $b += 1) {
+                    $set[$b] = true;
+                }
+            } else {
+                for ($b = $startByte; $b >= $endByte; $b -= 1) {
+                    $set[$b] = true;
+                }
+            }
+            $i += 4;
+            continue;
+        }
+        $set[ord($ch)] = true;
+        $i += 1;
+    }
+    return $set;
+}
+
+export function __deka_trim_slice($value, $start, $end) {
+    return __deka_slice_bytes($value, $start, $end);
+}
+
+export function __deka_trim_strlen($value) {
+    return __deka_strlen_bytes($value);
+}
