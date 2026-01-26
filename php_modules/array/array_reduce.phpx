@@ -20,9 +20,14 @@ export function array_reduce($array, $callback, $initial = null) {
         return null;
     }
 
-    if ($argc === 2) {
-        return __deka_array_reduce($array, $callback);
+    if (!is_array($array)) {
+        return null;
     }
 
-    return __deka_array_reduce($array, $callback, $initial);
+    $carry = $argc === 3 ? $initial : null;
+    foreach ($array as $value) {
+        $carry = call_user_func($callback, $carry, $value);
+    }
+
+    return $carry;
 }

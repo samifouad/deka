@@ -13,5 +13,11 @@ export function rsort(&$array) {
         return null;
     }
 
-    return __deka_rsort($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    sort($array);
+    $array = array_reverse($array);
+    return true;
 }

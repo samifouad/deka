@@ -20,5 +20,5 @@ export function money_format($format, $number) {
         return null;
     }
 
-    return __deka_money_format('' . $format, $number);
+    return false;
 }

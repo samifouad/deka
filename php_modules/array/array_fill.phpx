@@ -19,5 +19,18 @@ export function array_fill($start_index, $count, $value) {
         return null;
     }
 
-    return __deka_array_fill($start_index, $count, $value);
+    $start = (int)$start_index;
+    $len = (int)$count;
+    if ($len < 0) {
+        return null;
+    }
+
+    $out = [];
+    $i = 0;
+    while ($i < $len) {
+        $out[$start + $i] = $value;
+        $i += 1;
+    }
+
+    return $out;
 }

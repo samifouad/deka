@@ -75,7 +75,6 @@ export { htmlentities } from './htmlentities.phpx';
 export { html_entity_decode } from './html_entity_decode.phpx';
 export { str_replace } from './str_replace.phpx';
 export { str_ireplace } from './str_ireplace.phpx';
-export { parse_str } from './parse_str.phpx';
 export { utf8_encode } from './utf8_encode.phpx';
 export { utf8_decode } from './utf8_decode.phpx';
 export { version_compare } from './version_compare.phpx';

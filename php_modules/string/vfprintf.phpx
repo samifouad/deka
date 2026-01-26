@@ -1,3 +1,5 @@
+import { __deka_build_format_args_from_array, __deka_format_sprintf_from_args } from './printf_utils.phpx';
+
 /// docid: php/string/vfprintf()
 /// <Function name="vfprintf">
 ///   <Description>
@@ -19,5 +21,13 @@ export function vfprintf($stream, $format, $values) {
         return null;
     }
 
-    return __deka_vfprintf($stream, '' . $format, $values);
+    $args = __deka_build_format_args_from_array($format, $values, 'vfprintf', 3);
+    if ($args === null) {
+        return null;
+    }
+    $formatted = __deka_format_sprintf_from_args($args);
+    if ($formatted === null) {
+        return null;
+    }
+    return fwrite($stream, $formatted);
 }

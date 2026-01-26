@@ -31,41 +31,38 @@ export function array_slice($array, $offset, $length = null, $preserve_keys = fa
     $start = (int)$offset;
     if ($start < 0) {
         $start = $len + $start;
-    }
-    if ($start < 0) {
-        $start = 0;
-    }
-    if ($start > $len) {
-        $start = $len;
+        if ($start < 0) {
+            $start = 0;
+        }
     }
 
-    $sliceLen = $len - $start;
+    $end = $len;
     if ($argc >= 3 && $length !== null) {
         $sliceLen = (int)$length;
-        if ($sliceLen < 0) {
-            $sliceLen = ($len - $start) + $sliceLen;
+        if ($sliceLen >= 0) {
+            $end = $start + $sliceLen;
+            if ($end > $len) {
+                $end = $len;
+            }
+        } else {
+            $end = $len + $sliceLen;
+            if ($end < $start) {
+                $end = $start;
+            }
         }
-        if ($sliceLen < 0) {
-            $sliceLen = 0;
-        }
-    }
-
-    $end = $start + $sliceLen;
-    if ($end > $len) {
-        $end = $len;
     }
 
     $preserve = $argc === 4 ? (bool)$preserve_keys : false;
     $out = [];
+    $outIndex = 0;
     $index = 0;
     foreach ($array as $key => $value) {
         if ($index >= $start && $index < $end) {
             if ($preserve) {
                 $out[$key] = $value;
-            } else if (is_int($key)) {
-                $out[] = $value;
             } else {
-                $out[$key] = $value;
+                $out[$outIndex] = $value;
+                $outIndex += 1;
             }
         }
         $index += 1;

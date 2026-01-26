@@ -1,3 +1,5 @@
+import { __deka_html_unescape } from './html_utils.phpx';
+
 /// docid: php/string/html_entity_decode()
 /// <Function name="html_entity_decode">
 ///   <Description>
@@ -19,6 +21,9 @@ export function html_entity_decode($string, $flags = null, $encoding = null) {
         return null;
     }
 
-    $args = func_get_args();
-    return call_user_func_array('__deka_html_entity_decode', $args);
+    if (is_array($string) || is_object($string)) {
+        return null;
+    }
+
+    return __deka_html_unescape('' . $string);
 }

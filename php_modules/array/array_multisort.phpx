@@ -11,11 +11,15 @@
 ///   </Parameter>
 ///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
 /// </Function>
-export function array_multisort($array) {
+export function array_multisort(&$array) {
     if (func_num_args() < 1) {
         return null;
     }
 
-    $args = func_get_args();
-    return call_user_func_array('__deka_array_multisort', $args);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    sort($array);
+    return true;
 }

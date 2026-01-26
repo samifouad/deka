@@ -13,5 +13,13 @@ export function array_first($array) {
         return null;
     }
 
-    return __deka_array_first($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    foreach ($array as $value) {
+        return $value;
+    }
+
+    return null;
 }

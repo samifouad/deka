@@ -1,3 +1,5 @@
+import { __deka_array_value_to_string } from './utils.phpx';
+
 /// docid: php/array/array_intersect()
 /// <Function name="array_intersect">
 ///   <Description>
@@ -12,10 +14,41 @@
 ///   <ReturnType type="array" typeLink="/docs/php/types/array" />
 /// </Function>
 export function array_intersect($array) {
-    if (func_num_args() < 2) {
+    $argc = func_num_args();
+    if ($argc < 2) {
+        return null;
+    }
+
+    if (!is_array($array)) {
         return null;
     }
 
     $args = func_get_args();
-    return call_user_func_array('__deka_array_intersect', $args);
+    $otherValues = [];
+    for ($i = 1; $i < $argc; $i += 1) {
+        $arr = $args[$i];
+        if (!is_array($arr)) {
+            return null;
+        }
+        foreach ($arr as $value) {
+            $otherValues[] = __deka_array_value_to_string($value);
+        }
+    }
+
+    $out = [];
+    foreach ($array as $key => $value) {
+        $valStr = __deka_array_value_to_string($value);
+        $found = false;
+        foreach ($otherValues as $other) {
+            if ($other === $valStr) {
+                $found = true;
+                break;
+            }
+        }
+        if ($found) {
+            $out[$key] = $value;
+        }
+    }
+
+    return $out;
 }

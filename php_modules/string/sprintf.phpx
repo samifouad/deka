@@ -1,3 +1,5 @@
+import { __deka_format_sprintf_from_args } from './printf_utils.phpx';
+
 /// docid: php/string/sprintf()
 /// <Function name="sprintf">
 ///   <Description>
@@ -17,5 +19,5 @@ export function sprintf($format) {
     }
 
     $args = func_get_args();
-    return call_user_func_array('__deka_sprintf', $args);
+    return __deka_format_sprintf_from_args($args);
 }

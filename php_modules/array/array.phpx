@@ -11,9 +11,14 @@
 export function array() {
     $argc = func_num_args();
     if ($argc === 0) {
-        return __deka_array();
+        return [];
     }
 
     $args = func_get_args();
-    return call_user_func_array('__deka_array', $args);
+    $out = [];
+    for ($i = 0; $i < $argc; $i += 1) {
+        $out[] = $args[$i];
+    }
+
+    return $out;
 }

@@ -20,9 +20,17 @@ export function array_walk(&$array, $callback, $userdata = null) {
         return null;
     }
 
-    if ($argc === 2) {
-        return __deka_array_walk($array, $callback);
+    if (!is_array($array)) {
+        return null;
     }
 
-    return __deka_array_walk($array, $callback, $userdata);
+    foreach ($array as $key => $_) {
+        if ($argc === 3) {
+            call_user_func_array($callback, [&$array[$key], $key, $userdata]);
+        } else {
+            call_user_func_array($callback, [&$array[$key], $key]);
+        }
+    }
+
+    return true;
 }

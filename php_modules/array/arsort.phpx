@@ -1,3 +1,5 @@
+import { __deka_array_sort_preserve_keys } from './utils.phpx';
+
 /// docid: php/array/arsort()
 /// <Function name="arsort">
 ///   <Description>
@@ -13,5 +15,10 @@ export function arsort(&$array) {
         return null;
     }
 
-    return __deka_arsort($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $array = __deka_array_sort_preserve_keys($array, true);
+    return true;
 }

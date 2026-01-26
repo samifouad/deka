@@ -1,3 +1,5 @@
+import { __deka_html_escape } from './html_utils.phpx';
+
 /// docid: php/string/htmlspecialchars()
 /// <Function name="htmlspecialchars">
 ///   <Description>
@@ -22,6 +24,11 @@ export function htmlspecialchars($string, $flags = null, $encoding = null, $doub
         return null;
     }
 
-    $args = func_get_args();
-    return call_user_func_array('__deka_htmlspecialchars', $args);
+    if (is_array($string) || is_object($string)) {
+        return null;
+    }
+
+    $encodeQuotes = true;
+    $doubleEncode = $double_encode === null ? true : (bool)$double_encode;
+    return __deka_html_escape('' . $string, $encodeQuotes, $doubleEncode);
 }

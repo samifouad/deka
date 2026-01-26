@@ -13,5 +13,22 @@ export function array_count_values($array) {
         return null;
     }
 
-    return __deka_array_count_values($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $counts = [];
+    foreach ($array as $value) {
+        if (!(is_int($value) || is_string($value))) {
+            continue;
+        }
+
+        if (isset($counts[$value])) {
+            $counts[$value] += 1;
+        } else {
+            $counts[$value] = 1;
+        }
+    }
+
+    return $counts;
 }

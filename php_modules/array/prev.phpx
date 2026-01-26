@@ -13,5 +13,5 @@ export function prev(&$array) {
         return null;
     }
 
-    return __deka_prev($array);
+    return __deka_array_cursor($array, 'prev');
 }

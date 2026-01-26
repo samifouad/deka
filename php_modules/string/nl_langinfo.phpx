@@ -17,5 +17,9 @@ export function nl_langinfo($item) {
         return null;
     }
 
-    return __deka_nl_langinfo((int)$item);
+    $value = (int)$item;
+    if ($value === 0) {
+        return 'UTF-8';
+    }
+    return false;
 }

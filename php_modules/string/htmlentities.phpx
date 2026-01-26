@@ -1,3 +1,5 @@
+import { __deka_html_escape } from './html_utils.phpx';
+
 /// docid: php/string/htmlentities()
 /// <Function name="htmlentities">
 ///   <Description>
@@ -22,6 +24,10 @@ export function htmlentities($string, $flags = null, $encoding = null, $double_e
         return null;
     }
 
-    $args = func_get_args();
-    return call_user_func_array('__deka_htmlentities', $args);
+    if (is_array($string) || is_object($string)) {
+        return null;
+    }
+
+    $doubleEncode = $double_encode === null ? true : (bool)$double_encode;
+    return __deka_html_escape('' . $string, true, $doubleEncode);
 }

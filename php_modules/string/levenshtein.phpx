@@ -1,3 +1,5 @@
+import { __deka_strlen_bytes } from './bytes_utils.phpx';
+
 /// docid: php/string/levenshtein()
 /// <Function name="levenshtein">
 ///   <Description>
@@ -25,6 +27,54 @@ export function levenshtein($string1, $string2, $cost_ins = null, $cost_rep = nu
         return null;
     }
 
-    $args = func_get_args();
-    return call_user_func_array('__deka_levenshtein', $args);
+    if (is_array($string1) || is_object($string1)) {
+        return null;
+    }
+    if (is_array($string2) || is_object($string2)) {
+        return null;
+    }
+
+    $ins = $cost_ins === null ? 1 : (int)$cost_ins;
+    $rep = $cost_rep === null ? 1 : (int)$cost_rep;
+    $del = $cost_del === null ? 1 : (int)$cost_del;
+
+    $left = '' . $string1;
+    $right = '' . $string2;
+    $len1 = __deka_strlen_bytes($left);
+    $len2 = __deka_strlen_bytes($right);
+
+    if ($len1 === 0) {
+        return $len2 * $ins;
+    }
+    if ($len2 === 0) {
+        return $len1 * $del;
+    }
+
+    $prev = [];
+    for ($j = 0; $j <= $len2; $j += 1) {
+        $prev[$j] = $j * $ins;
+    }
+
+    for ($i = 1; $i <= $len1; $i += 1) {
+        $current = [];
+        $current[0] = $i * $del;
+        $leftByte = $left[$i - 1];
+        for ($j = 1; $j <= $len2; $j += 1) {
+            $cost = ($leftByte === $right[$j - 1]) ? 0 : $rep;
+            $delCost = $prev[$j] + $del;
+            $insCost = $current[$j - 1] + $ins;
+            $repCost = $prev[$j - 1] + $cost;
+            $min = $delCost;
+            if ($insCost < $min) {
+                $min = $insCost;
+            }
+            if ($repCost < $min) {
+                $min = $repCost;
+            }
+            $current[$j] = $min;
+        }
+        $prev = $current;
+    }
+
+    return $prev[$len2];
 }

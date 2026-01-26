@@ -1,3 +1,5 @@
+import { __deka_array_key_from_value } from './utils.phpx';
+
 /// docid: php/array/array_combine()
 /// <Function name="array_combine">
 ///   <Description>
@@ -16,5 +18,33 @@ export function array_combine($keys, $values) {
         return null;
     }
 
-    return __deka_array_combine($keys, $values);
+    if (!is_array($keys) || !is_array($values)) {
+        return null;
+    }
+
+    $keyList = [];
+    foreach ($keys as $key) {
+        $keyList[] = $key;
+    }
+
+    $valueList = [];
+    foreach ($values as $value) {
+        $valueList[] = $value;
+    }
+
+    if (count($keyList) !== count($valueList)) {
+        return false;
+    }
+
+    $out = [];
+    $len = count($keyList);
+    for ($i = 0; $i < $len; $i += 1) {
+        $key = __deka_array_key_from_value($keyList[$i]);
+        if ($key === null) {
+            return null;
+        }
+        $out[$key] = $valueList[$i];
+    }
+
+    return $out;
 }

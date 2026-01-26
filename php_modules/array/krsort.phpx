@@ -13,5 +13,23 @@ export function krsort(&$array) {
         return null;
     }
 
-    return __deka_krsort($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $keys = [];
+    foreach ($array as $key => $_) {
+        $keys[] = $key;
+    }
+
+    sort($keys);
+    $keys = array_reverse($keys);
+
+    $out = [];
+    foreach ($keys as $key) {
+        $out[$key] = $array[$key];
+    }
+
+    $array = $out;
+    return true;
 }

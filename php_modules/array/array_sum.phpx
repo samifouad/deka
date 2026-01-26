@@ -13,5 +13,14 @@ export function array_sum($array) {
         return null;
     }
 
-    return __deka_array_sum($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $sum = 0;
+    foreach ($array as $value) {
+        $sum += $value;
+    }
+
+    return $sum;
 }

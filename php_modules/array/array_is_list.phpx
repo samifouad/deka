@@ -13,5 +13,17 @@ export function array_is_list($array) {
         return null;
     }
 
-    return __deka_array_is_list($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $expected = 0;
+    foreach ($array as $key => $_) {
+        if (!is_int($key) || $key !== $expected) {
+            return false;
+        }
+        $expected += 1;
+    }
+
+    return true;
 }

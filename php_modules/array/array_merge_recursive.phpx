@@ -1,3 +1,5 @@
+import { __deka_array_has_key } from './utils.phpx';
+
 /// docid: php/array/array_merge_recursive()
 /// <Function name="array_merge_recursive">
 ///   <Description>
@@ -14,5 +16,70 @@ export function array_merge_recursive() {
     }
 
     $args = func_get_args();
-    return call_user_func_array('__deka_array_merge_recursive', $args);
+    $out = [];
+    $nextIntKey = 0;
+
+    foreach ($args as $arr) {
+        if (!is_array($arr)) {
+            return null;
+        }
+
+        foreach ($arr as $key => $value) {
+            if (is_int($key)) {
+                $out[$nextIntKey] = $value;
+                $nextIntKey += 1;
+                continue;
+            }
+
+            if (__deka_array_has_key($out, $key)) {
+                $out[$key] = __deka_merge_recursive_values($out[$key], $value);
+            } else {
+                $out[$key] = $value;
+            }
+        }
+    }
+
+    return $out;
+}
+
+function __deka_merge_recursive_values($left, $right) {
+    if (!is_array($left)) {
+        return [$left, $right];
+    }
+
+    if (!is_array($right)) {
+        $out = [];
+        foreach ($left as $value) {
+            $out[] = $value;
+        }
+        $out[] = $right;
+        return $out;
+    }
+
+    $out = [];
+    $nextIntKey = 0;
+    foreach ($left as $key => $value) {
+        if (is_int($key)) {
+            $out[$nextIntKey] = $value;
+            $nextIntKey += 1;
+        } else {
+            $out[$key] = $value;
+        }
+    }
+
+    foreach ($right as $key => $value) {
+        if (is_int($key)) {
+            $out[$nextIntKey] = $value;
+            $nextIntKey += 1;
+            continue;
+        }
+
+        if (__deka_array_has_key($out, $key)) {
+            $out[$key] = __deka_merge_recursive_values($out[$key], $value);
+        } else {
+            $out[$key] = $value;
+        }
+    }
+
+    return $out;
 }

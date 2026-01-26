@@ -23,13 +23,68 @@ export function array_splice(&$array, $offset, $length = null, $replacement = nu
         return null;
     }
 
-    if ($argc === 2) {
-        return __deka_array_splice($array, $offset);
+    if (!is_array($array)) {
+        return null;
     }
 
-    if ($argc === 3) {
-        return __deka_array_splice($array, $offset, $length);
+    $values = [];
+    foreach ($array as $value) {
+        $values[] = $value;
     }
 
-    return __deka_array_splice($array, $offset, $length, $replacement);
+    $len = count($values);
+    $start = (int)$offset;
+    if ($start < 0) {
+        $start = $len + $start;
+        if ($start < 0) {
+            $start = 0;
+        }
+    }
+    if ($start > $len) {
+        $start = $len;
+    }
+
+    if ($argc >= 3) {
+        $sliceLen = (int)$length;
+    } else {
+        $sliceLen = $len - $start;
+    }
+    if ($sliceLen < 0) {
+        $sliceLen = 0;
+    }
+
+    $end = $start + $sliceLen;
+    if ($end > $len) {
+        $end = $len;
+    }
+
+    $removed = [];
+    for ($i = $start; $i < $end; $i += 1) {
+        $removed[] = $values[$i];
+    }
+
+    $replacementValues = [];
+    if ($argc === 4) {
+        if (is_array($replacement)) {
+            foreach ($replacement as $value) {
+                $replacementValues[] = $value;
+            }
+        } else {
+            $replacementValues[] = $replacement;
+        }
+    }
+
+    $out = [];
+    for ($i = 0; $i < $start; $i += 1) {
+        $out[] = $values[$i];
+    }
+    foreach ($replacementValues as $value) {
+        $out[] = $value;
+    }
+    for ($i = $end; $i < $len; $i += 1) {
+        $out[] = $values[$i];
+    }
+
+    $array = $out;
+    return $removed;
 }

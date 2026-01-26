@@ -13,5 +13,5 @@ export function current(&$array) {
         return null;
     }
 
-    return __deka_current($array);
+    return __deka_array_cursor($array, 'current');
 }

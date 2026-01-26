@@ -13,5 +13,5 @@ export function pos(&$array) {
         return null;
     }
 
-    return __deka_pos($array);
+    return __deka_array_cursor($array, 'pos');
 }

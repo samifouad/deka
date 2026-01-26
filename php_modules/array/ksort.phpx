@@ -13,5 +13,22 @@ export function ksort(&$array) {
         return null;
     }
 
-    return __deka_ksort($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $keys = [];
+    foreach ($array as $key => $_) {
+        $keys[] = $key;
+    }
+
+    sort($keys);
+
+    $out = [];
+    foreach ($keys as $key) {
+        $out[$key] = $array[$key];
+    }
+
+    $array = $out;
+    return true;
 }

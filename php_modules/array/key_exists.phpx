@@ -16,5 +16,5 @@ export function key_exists($key, $array) {
         return null;
     }
 
-    return __deka_key_exists($key, $array);
+    return array_key_exists($key, $array);
 }

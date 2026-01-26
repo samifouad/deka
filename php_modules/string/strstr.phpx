@@ -1,3 +1,5 @@
+import { __deka_slice_bytes, __deka_strlen_bytes, __deka_strpos_bytes } from './bytes_utils.phpx';
+
 /// docid: php/string/strstr()
 /// <Function name="strstr">
 ///   <Description>
@@ -20,9 +22,24 @@ export function strstr($haystack, $needle, $before_needle = false) {
         return null;
     }
 
-    if ($argc === 2) {
-        return __deka_strstr('' . $haystack, '' . $needle);
+    if (is_array($haystack) || is_object($haystack)) {
+        return null;
+    }
+    if (is_array($needle) || is_object($needle)) {
+        return null;
     }
 
-    return __deka_strstr('' . $haystack, '' . $needle, (bool)$before_needle);
+    $hs = '' . $haystack;
+    $nd = '' . $needle;
+    $pos = __deka_strpos_bytes($hs, $nd, 0);
+    if ($pos < 0) {
+        return false;
+    }
+
+    if ($argc === 3 && $before_needle) {
+        return __deka_slice_bytes($hs, 0, $pos);
+    }
+
+    $len = __deka_strlen_bytes($hs);
+    return __deka_slice_bytes($hs, $pos, $len);
 }

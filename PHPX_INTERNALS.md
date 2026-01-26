@@ -8,126 +8,125 @@ everything else into phpx.
 - crc32, md5, md5_file, sha1, sha1_file, crypt (hash/crypto)
 
 ## Keep until phpx can access VM state directly
-- parse_str (symbol table injection)
-- extract, compact (symbol table access)
-- current, next, prev, reset, end, key, pos (array internal pointer state)
+- __deka_symbol_get, __deka_symbol_set, __deka_symbol_exists (symbol table access)
+- __deka_array_cursor (array internal pointer state)
 
 ## Candidates to reimplement in phpx (remove __deka_* usage)
 ### String
-- [ ] convert_cyr_string
-- [ ] convert_uuencode
-- [ ] convert_uudecode
-- [ ] metaphone
-- [ ] number_format
-- [ ] strcmp
-- [ ] strcasecmp
-- [ ] strncmp
-- [ ] strncasecmp
-- [ ] strnatcmp
-- [ ] strnatcasecmp
-- [ ] levenshtein
-- [ ] similar_text
-- [ ] soundex
-- [ ] substr_compare
-- [ ] strstr
-- [ ] stristr
-- [ ] hebrev
-- [ ] wordwrap
-- [ ] quotemeta
-- [ ] nl2br
-- [ ] strip_tags
-- [ ] strtok
-- [ ] count_chars
-- [ ] str_word_count
-- [ ] str_increment
-- [ ] str_decrement
-- [ ] htmlspecialchars
-- [ ] htmlspecialchars_decode
-- [ ] htmlentities
-- [ ] html_entity_decode
-- [ ] str_replace
-- [ ] str_ireplace
-- [ ] utf8_encode
-- [ ] utf8_decode
-- [ ] version_compare
-- [ ] setlocale
-- [ ] localeconv
-- [ ] nl_langinfo
-- [ ] strcoll
-- [ ] money_format
-- [ ] sprintf
-- [ ] sscanf
-- [ ] printf
-- [ ] vsprintf
-- [ ] vprintf
-- [ ] fprintf
-- [ ] vfprintf
+- [x] convert_cyr_string
+- [x] convert_uuencode
+- [x] convert_uudecode
+- [x] metaphone
+- [x] number_format
+- [x] strcmp
+- [x] strcasecmp
+- [x] strncmp
+- [x] strncasecmp
+- [x] strnatcmp
+- [x] strnatcasecmp
+- [x] levenshtein
+- [x] similar_text
+- [x] soundex
+- [x] substr_compare
+- [x] strstr
+- [x] stristr
+- [x] hebrev
+- [x] wordwrap
+- [x] quotemeta
+- [x] nl2br
+- [x] strip_tags
+- [x] strtok
+- [x] count_chars
+- [x] str_word_count
+- [x] str_increment
+- [x] str_decrement
+- [x] htmlspecialchars
+- [x] htmlspecialchars_decode
+- [x] htmlentities
+- [x] html_entity_decode
+- [x] str_replace
+- [x] str_ireplace
+- [x] utf8_encode
+- [x] utf8_decode
+- [x] version_compare
+- [x] setlocale
+- [x] localeconv
+- [x] nl_langinfo
+- [x] strcoll
+- [x] money_format
+- [x] sprintf
+- [x] sscanf
+- [x] printf
+- [x] vsprintf
+- [x] vprintf
+- [x] fprintf
+- [x] vfprintf
 
 ### Array
-- [ ] array
-- [ ] array_all
-- [ ] array_any
-- [ ] array_change_key_case
-- [ ] array_chunk
-- [ ] array_column
-- [ ] array_combine
-- [ ] array_count_values
-- [ ] array_diff
-- [ ] array_diff_assoc
-- [ ] array_diff_key
-- [ ] array_diff_uassoc
-- [ ] array_diff_ukey
-- [ ] array_fill
-- [ ] array_fill_keys
-- [ ] array_filter
-- [ ] array_find
-- [ ] array_find_key
-- [ ] array_first
-- [ ] array_flip
-- [ ] array_intersect
-- [ ] array_intersect_assoc
-- [ ] array_intersect_key
-- [ ] array_intersect_uassoc
-- [ ] array_intersect_ukey
-- [ ] array_is_list
-- [ ] array_key_first
-- [ ] array_key_last
-- [ ] array_last
-- [ ] array_map
-- [ ] array_merge
-- [ ] array_merge_recursive
-- [ ] array_multisort
-- [ ] array_pad
-- [ ] array_product
-- [ ] array_reduce
-- [ ] array_replace
-- [ ] array_replace_recursive
-- [ ] array_reverse
-- [ ] array_search
-- [ ] array_shift
-- [ ] array_slice
-- [ ] array_splice
-- [ ] array_sum
-- [ ] array_rand
-- [ ] array_udiff
-- [ ] array_udiff_assoc
-- [ ] array_udiff_uassoc
-- [ ] array_uintersect
-- [ ] array_uintersect_assoc
-- [ ] array_uintersect_uassoc
-- [ ] array_walk
-- [ ] array_walk_recursive
-- [ ] arsort
-- [ ] asort
-- [ ] key_exists
-- [ ] krsort
-- [ ] natcasesort
-- [ ] natsort
-- [ ] range
-- [ ] rsort
-- [ ] shuffle
-- [ ] sort
-- [ ] uasort
-- [ ] uksort
-- [ ] usort
-- [ ] ksort
+- [x] array
+- [x] array_all
+- [x] array_any
+- [x] array_change_key_case
+- [x] array_chunk
+- [x] array_column
+- [x] array_combine
+- [x] array_count_values
+- [x] array_diff
+- [x] array_diff_assoc
+- [x] array_diff_key
+- [x] array_diff_uassoc
+- [x] array_diff_ukey
+- [x] array_fill
+- [x] array_fill_keys
+- [x] array_filter
+- [x] array_find
+- [x] array_find_key
+- [x] array_first
+- [x] array_flip
+- [x] array_intersect
+- [x] array_intersect_assoc
+- [x] array_intersect_key
+- [x] array_intersect_uassoc
+- [x] array_intersect_ukey
+- [x] array_is_list
+- [x] array_key_first
+- [x] array_key_last
+- [x] array_last
+- [x] array_map
+- [x] array_merge
+- [x] array_merge_recursive
+- [x] array_multisort
+- [x] array_pad
+- [x] array_product
+- [x] array_reduce
+- [x] array_replace
+- [x] array_replace_recursive
+- [x] array_reverse
+- [x] array_search
+- [x] array_shift
+- [x] array_slice
+- [x] array_splice
+- [x] array_sum
+- [x] array_rand
+- [x] array_udiff
+- [x] array_udiff_assoc
+- [x] array_udiff_uassoc
+- [x] array_uintersect
+- [x] array_uintersect_assoc
+- [x] array_uintersect_uassoc
+- [x] array_walk
+- [x] array_walk_recursive
+- [x] arsort
+- [x] asort
+- [x] key_exists
+- [x] krsort
+- [x] natcasesort
+- [x] natsort
+- [x] range
+- [x] rsort
+- [x] shuffle
+- [x] sort
+- [x] uasort
+- [x] uksort
+- [x] usort
+- [x] ksort

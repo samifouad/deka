@@ -1,3 +1,5 @@
+import { __deka_array_sort_preserve_keys } from './utils.phpx';
+
 /// docid: php/array/asort()
 /// <Function name="asort">
 ///   <Description>
@@ -8,10 +10,16 @@
 ///   </Parameter>
 ///   <ReturnType type="bool" typeLink="/docs/php/types/bool" />
 /// </Function>
+
 export function asort(&$array) {
     if (func_num_args() !== 1) {
         return null;
     }
 
-    return __deka_asort($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $array = __deka_array_sort_preserve_keys($array, false);
+    return true;
 }

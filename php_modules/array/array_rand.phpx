@@ -17,9 +17,40 @@ export function array_rand($array, $num = 1) {
         return null;
     }
 
-    if ($argc === 1) {
-        return __deka_array_rand($array);
+    if (!is_array($array)) {
+        return null;
     }
 
-    return __deka_array_rand($array, $num);
+    $keys = [];
+    foreach ($array as $key => $_) {
+        $keys[] = $key;
+    }
+
+    $count = count($keys);
+    if ($count === 0) {
+        return null;
+    }
+
+    $pick = $argc === 2 ? (int)$num : 1;
+    if ($pick < 1 || $pick > $count) {
+        return null;
+    }
+
+    if ($pick === 1) {
+        return $keys[rand(0, $count - 1)];
+    }
+
+    for ($i = $count - 1; $i > 0; $i -= 1) {
+        $j = rand(0, $i);
+        $tmp = $keys[$i];
+        $keys[$i] = $keys[$j];
+        $keys[$j] = $tmp;
+    }
+
+    $out = [];
+    for ($i = 0; $i < $pick; $i += 1) {
+        $out[] = $keys[$i];
+    }
+
+    return $out;
 }

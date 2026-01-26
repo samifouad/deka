@@ -16,5 +16,15 @@ export function array_all($array, $callback) {
         return null;
     }
 
-    return __deka_array_all($array, $callback);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    foreach ($array as $key => $value) {
+        if (!call_user_func($callback, $value, $key)) {
+            return false;
+        }
+    }
+
+    return true;
 }

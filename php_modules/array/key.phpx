@@ -13,5 +13,5 @@ export function key(&$array) {
         return null;
     }
 
-    return __deka_key($array);
+    return __deka_array_cursor($array, 'key');
 }

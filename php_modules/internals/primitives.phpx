@@ -1,0 +1,14 @@
+/// docid: php/internals/rand()
+/// <Function name="rand">
+///   <Description>
+///     Internal RNG primitive used by higher-level helpers like array_rand() and str_shuffle().
+///     Uses the runtime RNG (seeded by srand()).
+///   </Description>
+///   <Parameter name="$min" type="int" required="false" typeLink="/docs/php/types/int">
+///     Lower bound (inclusive).
+///   </Parameter>
+///   <Parameter name="$max" type="int" required="false" typeLink="/docs/php/types/int">
+///     Upper bound (inclusive).
+///   </Parameter>
+///   <ReturnType type="int" typeLink="/docs/php/types/int" />
+/// </Function>

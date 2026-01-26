@@ -17,5 +17,22 @@ export function compact($var_name) {
     }
 
     $args = func_get_args();
-    return call_user_func_array('__deka_compact', $args);
+    $names = [];
+    foreach ($args as $arg) {
+        if (is_array($arg)) {
+            foreach ($arg as $value) {
+                $names[] = '' . $value;
+            }
+        } else if (is_string($arg) || is_int($arg) || is_float($arg) || is_bool($arg)) {
+            $names[] = '' . $arg;
+        }
+    }
+
+    $out = [];
+    foreach ($names as $name) {
+        if (__deka_symbol_exists($name, 2)) {
+            $out[$name] = __deka_symbol_get($name, 2);
+        }
+    }
+    return $out;
 }

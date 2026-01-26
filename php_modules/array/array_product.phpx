@@ -13,5 +13,14 @@ export function array_product($array) {
         return null;
     }
 
-    return __deka_array_product($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $product = 1;
+    foreach ($array as $value) {
+        $product *= $value;
+    }
+
+    return $product;
 }

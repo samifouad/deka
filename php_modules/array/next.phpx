@@ -13,5 +13,5 @@ export function next(&$array) {
         return null;
     }
 
-    return __deka_next($array);
+    return __deka_array_cursor($array, 'next');
 }

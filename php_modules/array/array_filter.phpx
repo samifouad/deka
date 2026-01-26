@@ -20,13 +20,35 @@ export function array_filter($array, $callback = null, $mode = 0) {
         return null;
     }
 
-    if ($argc === 1) {
-        return __deka_array_filter($array);
+    if (!is_array($array)) {
+        return null;
     }
 
-    if ($argc === 2) {
-        return __deka_array_filter($array, $callback);
+    $out = [];
+    if ($argc === 1 || $callback === null) {
+        foreach ($array as $key => $value) {
+            if ($value) {
+                $out[$key] = $value;
+            }
+        }
+        return $out;
     }
 
-    return __deka_array_filter($array, $callback, $mode);
+    $useKey = $mode === 1;
+    $useBoth = $mode === 2;
+    foreach ($array as $key => $value) {
+        if ($useKey) {
+            $result = call_user_func($callback, $key);
+        } else if ($useBoth) {
+            $result = call_user_func($callback, $value, $key);
+        } else {
+            $result = call_user_func($callback, $value);
+        }
+
+        if ($result) {
+            $out[$key] = $value;
+        }
+    }
+
+    return $out;
 }

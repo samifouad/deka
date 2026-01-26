@@ -1,3 +1,5 @@
+import { __deka_format_sprintf_from_args } from './printf_utils.phpx';
+
 /// docid: php/string/fprintf()
 /// <Function name="fprintf">
 ///   <Description>
@@ -20,5 +22,15 @@ export function fprintf($stream, $format) {
     }
 
     $args = func_get_args();
-    return call_user_func_array('__deka_fprintf', $args);
+    $formatArgs = [];
+    $argCount = count($args);
+    for ($i = 1; $i < $argCount; $i += 1) {
+        $formatArgs[] = $args[$i];
+    }
+
+    $formatted = __deka_format_sprintf_from_args($formatArgs);
+    if ($formatted === null) {
+        return null;
+    }
+    return fwrite($stream, $formatted);
 }

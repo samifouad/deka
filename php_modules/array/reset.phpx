@@ -13,5 +13,5 @@ export function reset(&$array) {
         return null;
     }
 
-    return __deka_reset($array);
+    return __deka_array_cursor($array, 'reset');
 }

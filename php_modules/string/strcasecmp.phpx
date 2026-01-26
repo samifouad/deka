@@ -1,3 +1,5 @@
+import { __deka_strlen_bytes, __deka_to_lower_ascii } from './bytes_utils.phpx';
+
 /// docid: php/string/strcasecmp()
 /// <Function name="strcasecmp">
 ///   <Description>
@@ -23,5 +25,17 @@ export function strcasecmp($string1, $string2) {
         return null;
     }
 
-    return __deka_strcasecmp('' . $string1, '' . $string2);
+    $left = __deka_to_lower_ascii('' . $string1);
+    $right = __deka_to_lower_ascii('' . $string2);
+    $len1 = __deka_strlen_bytes($left);
+    $len2 = __deka_strlen_bytes($right);
+    $limit = $len1 > $len2 ? $len1 : $len2;
+    for ($i = 0; $i < $limit; $i += 1) {
+        $b1 = $i < $len1 ? ord($left[$i]) : 0;
+        $b2 = $i < $len2 ? ord($right[$i]) : 0;
+        if ($b1 !== $b2) {
+            return $b1 - $b2;
+        }
+    }
+    return 0;
 }

@@ -23,5 +23,5 @@ export function strcoll($string1, $string2) {
         return null;
     }
 
-    return __deka_strcoll('' . $string1, '' . $string2);
+    return strcmp('' . $string1, '' . $string2);
 }

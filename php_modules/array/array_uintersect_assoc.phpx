@@ -1,7 +1,9 @@
+import { __deka_array_has_key } from './utils.phpx';
+
 /// docid: php/array/array_uintersect_assoc()
 /// <Function name="array_uintersect_assoc">
 ///   <Description>
-///     Computes the intersection of arrays with additional index check using a callback for values.
+///     Computes the intersection of arrays with additional index check using callback.
 ///   </Description>
 ///   <Parameter name="$array" type="array" required="true" typeLink="/docs/php/types/array">
 ///     The array to compare.
@@ -15,10 +17,38 @@
 ///   <ReturnType type="array" typeLink="/docs/php/types/array" />
 /// </Function>
 export function array_uintersect_assoc($array) {
-    if (func_num_args() < 3) {
+    $argc = func_num_args();
+    if ($argc < 3) {
+        return null;
+    }
+
+    if (!is_array($array)) {
         return null;
     }
 
     $args = func_get_args();
-    return call_user_func_array('__deka_array_uintersect_assoc', $args);
+    $callback = $args[$argc - 1];
+
+    $out = [];
+    foreach ($array as $key => $value) {
+        $found = false;
+        for ($i = 1; $i < $argc - 1; $i += 1) {
+            $arr = $args[$i];
+            if (!is_array($arr)) {
+                continue;
+            }
+            if (!__deka_array_has_key($arr, $key)) {
+                continue;
+            }
+            if ((int)call_user_func($callback, $value, $arr[$key]) === 0) {
+                $found = true;
+                break;
+            }
+        }
+        if ($found) {
+            $out[$key] = $value;
+        }
+    }
+
+    return $out;
 }

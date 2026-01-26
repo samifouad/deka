@@ -19,5 +19,35 @@ export function array_pad($array, $length, $value) {
         return null;
     }
 
-    return __deka_array_pad($array, $length, $value);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $values = [];
+    foreach ($array as $item) {
+        $values[] = $item;
+    }
+
+    $target = abs((int)$length);
+    if ($target <= count($values)) {
+        return $values;
+    }
+
+    $padCount = $target - count($values);
+    if ((int)$length >= 0) {
+        for ($i = 0; $i < $padCount; $i += 1) {
+            $values[] = $value;
+        }
+    } else {
+        $padded = [];
+        for ($i = 0; $i < $padCount; $i += 1) {
+            $padded[] = $value;
+        }
+        foreach ($values as $item) {
+            $padded[] = $item;
+        }
+        $values = $padded;
+    }
+
+    return $values;
 }

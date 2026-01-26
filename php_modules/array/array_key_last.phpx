@@ -13,5 +13,16 @@ export function array_key_last($array) {
         return null;
     }
 
-    return __deka_array_key_last($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $last = null;
+    $hasKey = false;
+    foreach ($array as $key => $_) {
+        $last = $key;
+        $hasKey = true;
+    }
+
+    return $hasKey ? $last : null;
 }

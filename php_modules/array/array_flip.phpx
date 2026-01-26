@@ -13,5 +13,17 @@ export function array_flip($array) {
         return null;
     }
 
-    return __deka_array_flip($array);
+    if (!is_array($array)) {
+        return null;
+    }
+
+    $out = [];
+    foreach ($array as $key => $value) {
+        if (!(is_int($value) || is_string($value))) {
+            continue;
+        }
+        $out[$value] = $key;
+    }
+
+    return $out;
 }

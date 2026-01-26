@@ -17,6 +17,9 @@ export function hebrev($string, $max_chars_per_line = 0) {
         return null;
     }
 
-    $max = $argc === 2 ? (int)$max_chars_per_line : 0;
-    return __deka_hebrev('' . $string, $max);
+    if (is_array($string) || is_object($string)) {
+        return null;
+    }
+
+    return '' . $string;
 }
