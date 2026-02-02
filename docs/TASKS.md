@@ -22,7 +22,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Fix namespaced struct coercion (type metadata should use fully-qualified struct names).
 - [x] Resolve type aliases for applied types (e.g., `type Maybe<T> = Option<T>`).
 - [x] Define `Result` array schema rules (`ok` boolean vs truthy) and align coercion.
-- [ ] Decide/document missing struct fields behavior (defaults vs unset).
+- [x] Decide/document missing struct fields behavior (defaults vs unset).
 
 ### Phase 7: Tests + Docs
 - Add PHP<->PHPX bridge tests:

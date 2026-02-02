@@ -102,6 +102,9 @@ interact with the Rust/WASM bridge.
 - Boundary conversions are lenient for legacy PHP:
   - `null` -> `Option::None` for `Option<T>` params.
   - arrays/stdClass -> Object/object-shape/struct params (extra keys ignored).
+  - Struct params set provided fields; missing fields keep defaults (or remain
+    uninitialized for required typed fields with no default). PHPX struct
+    literals still require all non-default fields.
   - `Option<T>` return -> `null` or inner value.
   - `Result<T,E>` return -> `T` or `['ok' => false, 'error' => ...]`.
   - Preferred Result array shape:
