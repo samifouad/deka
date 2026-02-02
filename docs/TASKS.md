@@ -40,7 +40,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Infer type params for `array<T>` from array literals / `Type::Array` actuals.
 - [x] Infer type params for `Option<T>` / `Result<T,E>` when actuals are enum cases
   (`Option::Some`, `Result::Ok`, `Result::Err`).
-- [ ] Add method-call type checking for structs/interfaces (arity + arg types).
+- [x] Add method-call type checking for structs/interfaces (arity + arg types).
 - [ ] Add dot-access typing for promoted embedded fields in inference (if any gap remains).
 
 ### Phase 2–3: Object/Struct Runtime (hardening)

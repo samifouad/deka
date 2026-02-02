@@ -31,7 +31,7 @@ Notes:
 5. [x] Add match expression inference (union of arm types) so `match` participates in return/assignment typing.
 6. [x] Infer type params for `array<T>` from array literals / `Type::Array` actuals.
 7. [x] Infer type params for `Option<T>` / `Result<T,E>` when actuals are enum cases (`Option::Some`, `Result::Ok`, `Result::Err`).
-8. [ ] Add method-call type checking for structs/interfaces (arity + arg types).
+8. [x] Add method-call type checking for structs/interfaces (arity + arg types).
 9. [ ] Add dot-access typing for promoted embedded fields in inference (if any gap remains).
 10. [ ] Add `unset($obj.field)` support for dot access (ObjectMap + struct).
 11. [ ] Support `->` property access on ObjectMap for PHP compatibility
