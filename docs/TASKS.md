@@ -58,10 +58,10 @@ This file tracks the live phase/task status for the PHPX upgrade work.
   `docs/PHPX-VALIDATION.md`.
 - [x] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
 - [ ] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
-- [ ] Decide on JSX whitespace normalization (current renderer trims text nodes).
+- [x] Decide on JSX whitespace normalization (current renderer trims text nodes).
 
 ### Phase 5: Module Isolation (hardening)
-- [ ] Verify unused-import detection in presence of synthetic JSX/runtime imports
+- [x] Verify unused-import detection in presence of synthetic JSX/runtime imports
   (avoid false positives/negatives).
 - [ ] Decide whether `import` in `.php` should allow additional PHP statements before it
   when `<?php` is present (currently must be first non-empty line).

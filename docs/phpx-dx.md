@@ -108,9 +108,11 @@ enum Option {
 ## JSX + components (PHPX)
 - JSX is PHPX-only and lowers to `jsx/jsxs` calls from `component/core`.
 - JSX auto-injects the runtime import; user code should not import `jsx/jsxs`.
+- Unused-import checks ignore synthetic JSX/runtime imports.
 - `<>...</>` lowers to a special fragment tag.
 - JSX outputs VNode values (renderer lives in `component/dom`).
 - `{ ... }` accepts any PHPX expression (no statements). Object literals use `{ { ... } }`.
+- JSX text whitespace is normalized (indentation/newlines are trimmed).
 
 ## PHP interoperability
 - PHP can call PHPX exports via `phpx_import` or bridged helpers.
