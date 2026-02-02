@@ -1,0 +1,5 @@
+$cfg = { host: 'localhost', port: 5432, nested: { enabled: true } };
+
+echo $cfg.host . "\n";
+echo $cfg.port . "\n";
+echo ($cfg.nested.enabled ? 'yes' : 'no') . "\n";

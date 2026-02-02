@@ -1,0 +1,125 @@
+struct VNode {
+    $kind: string = 'component.element';
+    $type: mixed;
+    $props: mixed;
+    $key: mixed = '';
+}
+
+struct Context {
+    $id: int;
+    $default: mixed;
+}
+
+function &__component_context_stack() {
+    static $stack = [];
+    return $stack;
+}
+
+function &__component_context_next_id() {
+    static $next = 1;
+    return $next;
+}
+
+export function jsx($type, $props, $key = '') {
+    return VNode { $type: $type, $props: $props, $key: $key };
+}
+
+export function jsxs($type, $props, $key = '') {
+    return VNode { $type: $type, $props: $props, $key: $key };
+}
+
+export function createElement($type, $props, ...$children) {
+    if (count($children) > 0) {
+        $props.children = $children;
+    }
+    return VNode { $type: $type, $props: $props, $key: '' };
+}
+
+export function isValidElement($value): bool {
+    return $value instanceof VNode;
+}
+
+export function childrenToArray($children): array {
+    if (is_array($children)) {
+        return $children;
+    }
+    return [$children];
+}
+
+export function createContext($default) {
+    $next = &__component_context_next_id();
+    $id = $next;
+    $next = $next + 1;
+    return Context { $id: $id, $default: $default };
+}
+
+function __pushContext($ctx, $value) {
+    $stack = &__component_context_stack();
+    $stack[] = { id: $ctx.id, value: $value };
+}
+
+function __popContext() {
+    $stack = &__component_context_stack();
+    array_pop($stack);
+}
+
+export function __component_push_context($ctx, $value) {
+    __pushContext($ctx, $value);
+}
+
+export function __component_pop_context() {
+    __popContext();
+}
+
+export function useContext($ctx) {
+    $stack = &__component_context_stack();
+    for ($i = count($stack) - 1; $i >= 0; $i--) {
+        $entry = $stack[$i];
+        if ($entry.id === $ctx.id) {
+            return $entry.value;
+        }
+    }
+    return $ctx.default;
+}
+
+export function ContextProvider($props) {
+    return $props.children;
+}
+
+export function __component_each($items, $fn) {
+    $out = [];
+    if ($items === false || $items === null) {
+        return $out;
+    }
+    if (is_array($items)) {
+        foreach ($items as $value) {
+            $out[] = $fn($value);
+        }
+        return $out;
+    }
+    if ($items instanceof Traversable) {
+        foreach ($items as $value) {
+            $out[] = $fn($value);
+        }
+    }
+    return $out;
+}
+
+export function __component_each_kv($items, $fn) {
+    $out = [];
+    if ($items === false || $items === null) {
+        return $out;
+    }
+    if (is_array($items)) {
+        foreach ($items as $key => $value) {
+            $out[] = $fn($value, $key);
+        }
+        return $out;
+    }
+    if ($items instanceof Traversable) {
+        foreach ($items as $key => $value) {
+            $out[] = $fn($value, $key);
+        }
+    }
+    return $out;
+}

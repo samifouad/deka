@@ -1,0 +1,3 @@
+import { greet } from '@user/phpx_tests';
+
+echo greet('deka') . "\n";

@@ -1,0 +1,12 @@
+$opt = Option::Some(5);
+$none = Option::None;
+
+$result = Result::Ok('ok');
+$error = Result::Err('fail');
+
+echo ($opt.is_some() ? 'some' : 'none') . "\n";
+echo $opt.unwrap() . "\n";
+echo $none.unwrap_or(9) . "\n";
+
+echo $result.unwrap() . "\n";
+echo $error.unwrap_or('fallback') . "\n";

@@ -1,0 +1,8 @@
+import { isValidElement } from 'component/core';
+
+$v = <div class="x">Hello</div>;
+
+echo (isValidElement($v) ? 'true' : 'false') . "\n";
+echo $v.type . "\n";
+echo $v.props.class . "\n";
+echo $v.props.children[0] . "\n";

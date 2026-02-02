@@ -1,0 +1,9 @@
+import { renderToString, Link } from 'component/dom';
+
+$v = <div id="root" class="x"><span>Hello</span></div>;
+echo renderToString($v) . "\n";
+
+echo renderToString(<Link to="/home">Home</Link>) . "\n";
+echo renderToString(<header><h1>Title</h1></header>) . "\n";
+echo renderToString(<script>{"console.log('x<y');"}</script>) . "\n";
+echo renderToString(<style>{"body{color:red;}"}</style>) . "\n";
