@@ -41,7 +41,7 @@ Notes:
 15. [x] Add tests for dot-unset + object-literal equality (value semantics).
 16. [x] Implement JSX validation pass (syntax/expressions/components) as outlined in `docs/PHPX-VALIDATION.md`.
 17. [x] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
-18. [ ] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
+18. [x] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
 19. [ ] Decide on JSX whitespace normalization (current renderer trims text nodes).
 20. [ ] Verify unused-import detection in presence of synthetic JSX/runtime imports (avoid false positives/negatives).
 21. [ ] Decide whether `import` in `.php` should allow additional PHP statements before it when `<?php` is present (currently must be first non-empty line).
