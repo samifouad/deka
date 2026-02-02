@@ -44,7 +44,7 @@ Notes:
 18. [x] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
 19. [x] Decide on JSX whitespace normalization (current renderer trims text nodes).
 20. [x] Verify unused-import detection in presence of synthetic JSX/runtime imports (avoid false positives/negatives).
-21. [ ] Decide whether `import` in `.php` should allow additional PHP statements before it when `<?php` is present (currently must be first non-empty line).
+21. [x] Decide whether `import` in `.php` should allow additional PHP statements before it when `<?php` is present (currently must be first non-empty line).
 22. [ ] Add explicit tests for duplicate imports, duplicate export aliases, and cyclic imports.
 23. [ ] Clarify behavior of `phpx_import()` when module load fails (panic/trigger_error/echo).
 24. [ ] Allow unary +/− constant expressions in struct defaults (e.g. `$x: int = -1`).

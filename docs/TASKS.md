@@ -63,7 +63,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 ### Phase 5: Module Isolation (hardening)
 - [x] Verify unused-import detection in presence of synthetic JSX/runtime imports
   (avoid false positives/negatives).
-- [ ] Decide whether `import` in `.php` should allow additional PHP statements before it
+- [x] Decide whether `import` in `.php` should allow additional PHP statements before it
   when `<?php` is present (currently must be first non-empty line).
 - [ ] Add explicit tests for duplicate imports, duplicate export aliases, and cyclic imports.
 - [ ] Clarify behavior of `phpx_import()` when module load fails (panic/trigger_error/echo).
