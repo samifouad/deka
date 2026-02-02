@@ -1977,6 +1977,7 @@ function buildExportWrappers(moduleId, moduleNamespace, exports, typeInfo) {
         code += " if ($sig) { $args = \\__phpx_coerce_args($sig, $args); }";
         code += ` $result = \\${moduleNamespace}\\${name}(...$args);`;
         code += " if ($sig && \\__phpx_array_has_key($sig, 'return')) { $result = \\__phpx_coerce_return($sig['return'], $result); }";
+        code += " $result = \\__phpx_to_php($result);";
         code += " return $result;";
         code += " }\n";
     }
@@ -2556,6 +2557,10 @@ function buildPhpxBridgePrelude() {
     out += "  }\n";
     out += "  return $obj;\n";
     out += "} }\n";
+    out += "if (!function_exists('__phpx_to_php')) { function __phpx_to_php($value) {\n";
+    out += "  if (function_exists('__phpx_object_to_stdclass')) { return __phpx_object_to_stdclass($value); }\n";
+    out += "  return $value;\n";
+    out += "} }\n";
     out += "if (!function_exists('__phpx_coerce_option')) { function __phpx_coerce_option($type, $value) {\n";
     out += "  if ($value instanceof Option) { return $value; }\n";
     out += "  if ($value === null) { return Option::None; }\n";
@@ -2682,9 +2687,9 @@ function buildPhpxBridgePrelude() {
     out += "if (!function_exists('phpx_import')) { function phpx_import($moduleId, $name = null) {\n";
     out += "  __phpx_load($moduleId);\n";
     out += "  $exports = $GLOBALS['__PHPX_MODULES'][$moduleId];\n";
-    out += "  if ($name === null) { return $exports; }\n";
+    out += "  if ($name === null) { return __phpx_to_php($exports); }\n";
     out += "  if (!__phpx_array_has_key($exports, $name)) { return __phpx_fail('Unknown phpx export: ' . $moduleId . ':' . $name); }\n";
-    out += "  return $exports[$name];\n";
+    out += "  return __phpx_to_php($exports[$name]);\n";
     out += "} }\n";
     return out;
 }

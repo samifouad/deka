@@ -44,10 +44,10 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Add dot-access typing for promoted embedded fields in inference (if any gap remains).
 
 ### Phase 2–3: Object/Struct Runtime (hardening)
-- [ ] Add `unset($obj.field)` support for dot access (ObjectMap + struct).
-- [ ] Support `->` property access on ObjectMap for PHP compatibility
+- [x] Add `unset($obj.field)` support for dot access (ObjectMap + struct).
+- [x] Support `->` property access on ObjectMap for PHP compatibility
   (FetchProp/AssignProp/UnsetObj/IssetProp/Dynamic).
-- [ ] Decide how ObjectMap crosses PHP boundary: keep ObjectMap or coerce to stdClass.
+- [x] Decide how ObjectMap crosses PHP boundary: keep ObjectMap or coerce to stdClass.
 - [ ] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`)
   for ObjectMap/Struct semantics and document/implement decisions.
 - [ ] Define object-literal equality semantics (`==`/`===`) and implement deep comparison.

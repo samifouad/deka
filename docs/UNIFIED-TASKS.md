@@ -33,9 +33,9 @@ Notes:
 7. [x] Infer type params for `Option<T>` / `Result<T,E>` when actuals are enum cases (`Option::Some`, `Result::Ok`, `Result::Err`).
 8. [x] Add method-call type checking for structs/interfaces (arity + arg types).
 9. [x] Add dot-access typing for promoted embedded fields in inference (if any gap remains).
-10. [ ] Add `unset($obj.field)` support for dot access (ObjectMap + struct).
-11. [ ] Support `->` property access on ObjectMap for PHP compatibility
-12. [ ] Decide how ObjectMap crosses PHP boundary: keep ObjectMap or coerce to stdClass.
+10. [x] Add `unset($obj.field)` support for dot access (ObjectMap + struct).
+11. [x] Support `->` property access on ObjectMap for PHP compatibility
+12. [x] Decide how ObjectMap crosses PHP boundary: keep ObjectMap or coerce to stdClass.
 13. [ ] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`) for ObjectMap/Struct semantics and document/implement decisions.
 14. [ ] Define object-literal equality semantics (`==`/`===`) and implement deep comparison.
 15. [ ] Add tests for dot-unset + object-literal equality (value semantics).
