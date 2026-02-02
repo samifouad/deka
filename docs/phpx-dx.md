@@ -111,6 +111,12 @@ enum Option {
 - PHP can call PHPX exports via `phpx_import` or bridged helpers.
 - PHPX compiles to valid PHP, and types are stripped before execution.
 - Runtime values remain standard PHP values at the boundary.
+- Boundary coercions are lenient for legacy PHP:
+  - `null` -> `Option::None` for `Option<T>` params.
+  - Arrays/stdClass are accepted for `Object`/object-shape + `struct` params
+    (extra keys are ignored).
+  - `Option<T>` return -> `null` (None) or inner value (Some).
+  - `Result<T,E>` return -> `T` (Ok) or `['ok' => false, 'error' => ...]` (Err).
 
 ## Not supported in PHPX (by design)
 - `class`, `trait`, `extends`, `implements`
