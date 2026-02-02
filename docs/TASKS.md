@@ -37,7 +37,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 
 ### Phase 4.x: Type System Hardening
 - [x] Add match expression inference (union of arm types) so `match` participates in return/assignment typing.
-- [ ] Infer type params for `array<T>` from array literals / `Type::Array` actuals.
+- [x] Infer type params for `array<T>` from array literals / `Type::Array` actuals.
 - [ ] Infer type params for `Option<T>` / `Result<T,E>` when actuals are enum cases
   (`Option::Some`, `Result::Ok`, `Result::Err`).
 - [ ] Add method-call type checking for structs/interfaces (arity + arg types).
