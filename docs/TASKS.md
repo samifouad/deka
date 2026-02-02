@@ -56,7 +56,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 ### Phase 8: JSX + Component Core (hardening)
 - [ ] Implement JSX validation pass (syntax/expressions/components) as outlined in
   `docs/PHPX-VALIDATION.md`.
-- [ ] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
+- [x] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
 - [ ] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
 - [ ] Decide on JSX whitespace normalization (current renderer trims text nodes).
 

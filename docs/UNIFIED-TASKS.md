@@ -39,8 +39,8 @@ Notes:
 13. [x] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`) for ObjectMap/Struct semantics and document/implement decisions.
 14. [x] Define object-literal equality semantics (`==`/`===`) and implement deep comparison.
 15. [x] Add tests for dot-unset + object-literal equality (value semantics).
-16. [ ] Implement JSX validation pass (syntax/expressions/components) as outlined in `docs/PHPX-VALIDATION.md`.
-17. [ ] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
+16. [x] Implement JSX validation pass (syntax/expressions/components) as outlined in `docs/PHPX-VALIDATION.md`.
+17. [x] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
 18. [ ] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
 19. [ ] Decide on JSX whitespace normalization (current renderer trims text nodes).
 20. [ ] Verify unused-import detection in presence of synthetic JSX/runtime imports (avoid false positives/negatives).
