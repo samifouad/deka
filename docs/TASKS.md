@@ -50,8 +50,8 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Decide how ObjectMap crosses PHP boundary: keep ObjectMap or coerce to stdClass.
 - [x] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`)
   for ObjectMap/Struct semantics and document/implement decisions.
-- [ ] Define object-literal equality semantics (`==`/`===`) and implement deep comparison.
-- [ ] Add tests for dot-unset + object-literal equality (value semantics).
+- [x] Define object-literal equality semantics (`==`/`===`) and implement deep comparison.
+- [x] Add tests for dot-unset + object-literal equality (value semantics).
 
 ### Phase 8: JSX + Component Core (hardening)
 - [ ] Implement JSX validation pass (syntax/expressions/components) as outlined in

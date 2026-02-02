@@ -41,6 +41,7 @@ Rules:
 - Dot access only when there is no whitespace and RHS is an identifier.
 - Keys: identifiers or quoted strings only (no computed keys yet).
 - Dot access works for object literals and structs (not classes).
+- Object literals use value semantics for `==` and `===` (deep compare by key).
 - `get_class()` returns `stdClass` for object literals and the struct name for structs.
 - `property_exists()` checks object-literal keys and struct fields (including promoted).
 - `method_exists()` works for structs; object literals always return false.
