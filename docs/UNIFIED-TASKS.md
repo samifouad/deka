@@ -28,7 +28,7 @@ Notes:
 2. [x] Resolve type aliases for applied types (e.g., `type Maybe<T> = Option<T>`).
 3. [x] Define `Result` array schema rules (`ok` boolean vs truthy) and align coercion.
 4. [x] Decide/document missing struct fields behavior (defaults vs unset).
-5. [ ] Add match expression inference (union of arm types) so `match` participates in return/assignment typing.
+5. [x] Add match expression inference (union of arm types) so `match` participates in return/assignment typing.
 6. [ ] Infer type params for `array<T>` from array literals / `Type::Array` actuals.
 7. [ ] Infer type params for `Option<T>` / `Result<T,E>` when actuals are enum cases (`Option::Some`, `Result::Ok`, `Result::Err`).
 8. [ ] Add method-call type checking for structs/interfaces (arity + arg types).

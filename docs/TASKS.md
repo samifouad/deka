@@ -36,7 +36,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - Deduplicate boundary coercion bullets in `docs/phpx-dx.md`. ✅
 
 ### Phase 4.x: Type System Hardening
-- [ ] Add match expression inference (union of arm types) so `match` participates in return/assignment typing.
+- [x] Add match expression inference (union of arm types) so `match` participates in return/assignment typing.
 - [ ] Infer type params for `array<T>` from array literals / `Type::Array` actuals.
 - [ ] Infer type params for `Option<T>` / `Result<T,E>` when actuals are enum cases
   (`Option::Some`, `Result::Ok`, `Result::Err`).
