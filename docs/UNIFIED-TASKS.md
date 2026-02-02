@@ -24,9 +24,9 @@ Notes:
   (use this for testing after rebuilding).
 
 ## Runtime + Language Hardening (from `docs/TASKS.md`)
-1. [ ] Fix namespaced struct coercion (type metadata should use fully-qualified struct names).
-2. [ ] Resolve type aliases for applied types (e.g., `type Maybe<T> = Option<T>`).
-3. [ ] Define `Result` array schema rules (`ok` boolean vs truthy) and align coercion.
+1. [x] Fix namespaced struct coercion (type metadata should use fully-qualified struct names).
+2. [x] Resolve type aliases for applied types (e.g., `type Maybe<T> = Option<T>`).
+3. [x] Define `Result` array schema rules (`ok` boolean vs truthy) and align coercion.
 4. [ ] Decide/document missing struct fields behavior (defaults vs unset).
 5. [ ] Add match expression inference (union of arm types) so `match` participates in return/assignment typing.
 6. [ ] Infer type params for `array<T>` from array literals / `Type::Array` actuals.
@@ -61,6 +61,7 @@ Notes:
 3. [ ] Add PHP<->PHPX bridge tests for object/object-shape + struct param coercion (extra keys ignored).
 4. [ ] Add runtime coverage for module isolation + unused import errors.
 5. [ ] Add tests/docs for frontmatter templates + `<Hydration />`.
+6. [x] Deduplicate boundary coercion bullets in `docs/phpx-dx.md`.
 
 ## Validation System (from `docs/VALIDATION-STATUS.md` + `docs/PHPX-VALIDATION.md`)
 
