@@ -41,6 +41,10 @@ Rules:
 - Dot access only when there is no whitespace and RHS is an identifier.
 - Keys: identifiers or quoted strings only (no computed keys yet).
 - Dot access works for object literals and structs (not classes).
+- `get_class()` returns `stdClass` for object literals and the struct name for structs.
+- `property_exists()` checks object-literal keys and struct fields (including promoted).
+- `method_exists()` works for structs; object literals always return false.
+- `count()` returns the number of keys/fields for object literals and structs.
 
 ## Structs (value semantics)
 Structs are nominal value types with Rust-style syntax:

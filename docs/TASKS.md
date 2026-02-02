@@ -48,7 +48,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Support `->` property access on ObjectMap for PHP compatibility
   (FetchProp/AssignProp/UnsetObj/IssetProp/Dynamic).
 - [x] Decide how ObjectMap crosses PHP boundary: keep ObjectMap or coerce to stdClass.
-- [ ] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`)
+- [x] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`)
   for ObjectMap/Struct semantics and document/implement decisions.
 - [ ] Define object-literal equality semantics (`==`/`===`) and implement deep comparison.
 - [ ] Add tests for dot-unset + object-literal equality (value semantics).

@@ -36,7 +36,7 @@ Notes:
 10. [x] Add `unset($obj.field)` support for dot access (ObjectMap + struct).
 11. [x] Support `->` property access on ObjectMap for PHP compatibility
 12. [x] Decide how ObjectMap crosses PHP boundary: keep ObjectMap or coerce to stdClass.
-13. [ ] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`) for ObjectMap/Struct semantics and document/implement decisions.
+13. [x] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`) for ObjectMap/Struct semantics and document/implement decisions.
 14. [ ] Define object-literal equality semantics (`==`/`===`) and implement deep comparison.
 15. [ ] Add tests for dot-unset + object-literal equality (value semantics).
 16. [ ] Implement JSX validation pass (syntax/expressions/components) as outlined in `docs/PHPX-VALIDATION.md`.
