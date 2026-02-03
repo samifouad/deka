@@ -1,0 +1,5 @@
+import { fromA } from './cycle_a.phpx';
+
+export function fromB() {
+    return 'B' . fromA();
+}

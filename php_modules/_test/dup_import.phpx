@@ -1,0 +1,6 @@
+import { strlen as size } from 'string';
+import { strtoupper as size } from 'string';
+
+export function ping() {
+    return size('ok');
+}

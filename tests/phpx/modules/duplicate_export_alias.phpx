@@ -1,0 +1,3 @@
+import { Text } from '_test/dup_export_alias';
+
+echo Text('hi') . "\n";

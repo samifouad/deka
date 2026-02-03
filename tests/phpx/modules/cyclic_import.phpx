@@ -1,0 +1,3 @@
+import { fromA } from '_test/cycle_a';
+
+echo fromA() . "\n";

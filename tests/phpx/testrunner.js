@@ -30,6 +30,9 @@ const suiteDir = path.resolve(repoRoot, suiteArg);
 const phpBinaryCandidate = process.env.PHPX_BIN
   ? path.resolve(process.env.PHPX_BIN)
   : path.resolve(repoRoot, "target/release/php");
+const phpBinArgs = process.env.PHPX_BIN_ARGS
+  ? process.env.PHPX_BIN_ARGS.split(" ").map((arg) => arg.trim()).filter(Boolean)
+  : [];
 
 const skipPatterns = [];
 for (const raw of skipArgs.flatMap((arg) => arg.split(","))) {
@@ -59,7 +62,7 @@ async function collectPhpxFiles(dir) {
 
 async function runBinary(binary, scriptPath) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(binary, [scriptPath], {
+    const proc = spawn(binary, [...phpBinArgs, scriptPath], {
       env: { ...process.env },
       cwd: repoRoot,
       stdio: ["ignore", "pipe", "pipe"],
@@ -87,12 +90,13 @@ function sanitizeStream(text) {
   const sanitized = text
     .split(/\r?\n/)
     .filter((line) => !line.startsWith("[PthreadsExtension]"))
+    .filter((line) => !line.startsWith("    at ") && !line.startsWith("\tat "))
     .join("\n")
     .replace(/\n{3,}/g, "\n\n");
   const trimmedStart = sanitized.replace(/^\s*\n/, "");
-  return trimmedStart
-    .trimEnd()
-    .concat(text.endsWith("\n") ? "\n" : "");
+  const trimmed = trimmedStart.trimEnd().concat(text.endsWith("\n") ? "\n" : "");
+  const normalizedRoot = repoRoot.replace(/\\/g, "/");
+  return trimmed.replaceAll(normalizedRoot, "<repo>");
 }
 
 function indent(text) {
