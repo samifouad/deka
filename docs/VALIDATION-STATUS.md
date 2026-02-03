@@ -179,9 +179,9 @@ pub struct ParseError {
 **Goal**: Make parse errors beautiful using deka-validation
 
 **Tasks**:
-1. Update `ParseError::to_human_readable()` to use `deka-validation`
-2. Add `error_kind` and `help_text` to ParseError
-3. Map parser errors to PHPX validation errors
+1. [x] Update `ParseError::to_human_readable()` to use `deka-validation`
+2. [ ] Add `error_kind` and `help_text` to ParseError
+3. [ ] Map parser errors to PHPX validation errors
 
 **Files to modify**:
 - `crates/php-rs/src/parser/ast/mod.rs` (ParseError struct)
@@ -294,8 +294,8 @@ pub fn compile_phpx(source: &str, file_path: &str) -> ValidationResult {
 | Feature | Status | Location | Action Needed |
 |---------|--------|----------|---------------|
 | **PHPX Parser** | ✅ Exists | `php-rs/src/parser/` | None |
-| **Parse Errors** | ⚠️ Basic | `php-rs/src/parser/ast/mod.rs` | Add deka-validation |
-| **Error Formatting** | ❌ Missing | N/A | Integrate deka-validation |
+| **Parse Errors** | ✅ Pretty | `php-rs/src/parser/ast/mod.rs` | Add error kind + help text |
+| **Error Formatting** | ✅ Partial | N/A | Add error kinds + suggestions |
 | **Semantic Validation** | ❌ Missing | N/A | Build validators (Phase 2) |
 | **Type Checking** | ❌ Missing | N/A | Build type checker |
 | **PHPX Rules** | ❌ Missing | N/A | Build PHPX validators |
