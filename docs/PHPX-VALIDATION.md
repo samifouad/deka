@@ -206,11 +206,11 @@ import { bar } from 'mod';
 **Goal**: Validate export syntax and semantics
 
 **What to validate**:
-- [ ] Export only functions, constants, types
-- [ ] No duplicate exports
-- [ ] Exported names actually exist
-- [ ] Re-export syntax validation
-- [ ] Template files: no explicit exports (auto-exported as Component)
+- [x] Export only functions, constants, types
+- [x] No duplicate exports
+- [x] Exported names actually exist
+- [x] Re-export syntax validation
+- [x] Template files: no explicit exports (auto-exported as Component)
 
 **Example errors**:
 ```phpx
@@ -233,12 +233,12 @@ export function Component() {}
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/exports.rs`
-- [ ] Implement `validate_exports(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Track exported names
-- [ ] Check for duplicates
-- [ ] Verify definitions exist
-- [ ] Special handling for template files
+- [x] Create `crates/modules_php/src/validation/exports.rs`
+- [x] Implement `validate_exports(source: &str, file_path: &str, ast: &Program) -> Vec<ValidationError>`
+- [x] Track exported names
+- [x] Check for duplicates
+- [x] Verify definitions exist
+- [x] Special handling for template files
 
 ---
 
@@ -949,7 +949,7 @@ pub fn compile_phpx(source: &str, file_path: &str) -> ValidationResult {
     let (import_errors, import_warnings) = validate_imports(source, file_path);
     errors.extend(import_errors);
     warnings.extend(import_warnings);
-    errors.extend(validate_exports(&ast));
+    errors.extend(validate_exports(source, file_path, &ast));
 
     // 4. Type checking
     errors.extend(check_types(&ast));

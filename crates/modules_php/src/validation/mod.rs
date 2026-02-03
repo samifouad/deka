@@ -1,4 +1,5 @@
 pub mod imports;
+pub mod exports;
 pub mod syntax;
 
 use php_rs::parser::ast::Program;

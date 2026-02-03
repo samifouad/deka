@@ -3,22 +3,22 @@ use std::collections::{HashMap, HashSet};
 use super::{ErrorKind, Severity, ValidationError, ValidationWarning};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ImportKind {
+pub(crate) enum ImportKind {
     Phpx,
     Wasm,
 }
 
 #[derive(Debug, Clone)]
-struct ImportSpec {
+pub(crate) struct ImportSpec {
     #[allow(dead_code)]
-    imported: String,
-    local: String,
-    from: String,
+    pub(crate) imported: String,
+    pub(crate) local: String,
+    pub(crate) from: String,
     #[allow(dead_code)]
-    kind: ImportKind,
-    line: usize,
-    column: usize,
-    line_text: String,
+    pub(crate) kind: ImportKind,
+    pub(crate) line: usize,
+    pub(crate) column: usize,
+    pub(crate) line_text: String,
 }
 
 pub fn validate_imports(
@@ -131,7 +131,7 @@ pub fn validate_imports(
     (errors, warnings)
 }
 
-fn parse_import_line(
+pub(crate) fn parse_import_line(
     line: &str,
     raw_line: &str,
     line_number: usize,
@@ -323,7 +323,7 @@ fn import_warning(
     }
 }
 
-fn is_ident(name: &str) -> bool {
+pub(crate) fn is_ident(name: &str) -> bool {
     let mut chars = name.chars();
     let Some(first) = chars.next() else { return false };
     if !(first == '_' || first.is_ascii_alphabetic()) {
@@ -332,7 +332,7 @@ fn is_ident(name: &str) -> bool {
     chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
 
-fn parse_quoted_string(input: &str) -> Option<(String, &str)> {
+pub(crate) fn parse_quoted_string(input: &str) -> Option<(String, &str)> {
     let mut chars = input.char_indices();
     let (_, quote) = chars.next()?;
     if quote != '\'' && quote != '"' {
@@ -362,14 +362,14 @@ fn parse_quoted_string(input: &str) -> Option<(String, &str)> {
     Some((out, rest))
 }
 
-fn strip_php_tags_inline(line: &str) -> String {
+pub(crate) fn strip_php_tags_inline(line: &str) -> String {
     line.replace("<?phpx", "")
         .replace("<?php", "")
         .replace("<?", "")
         .replace("?>", "")
 }
 
-fn frontmatter_bounds(lines: &[&str]) -> Option<(usize, usize)> {
+pub(crate) fn frontmatter_bounds(lines: &[&str]) -> Option<(usize, usize)> {
     if lines.is_empty() {
         return None;
     }
@@ -397,7 +397,7 @@ fn frontmatter_bounds(lines: &[&str]) -> Option<(usize, usize)> {
     None
 }
 
-fn consume_comment_line(trimmed: &str, in_block: &mut bool) -> bool {
+pub(crate) fn consume_comment_line(trimmed: &str, in_block: &mut bool) -> bool {
     if *in_block {
         if let Some(end_idx) = trimmed.find("*/") {
             let rest = trimmed[end_idx + 2..].trim();
@@ -431,7 +431,7 @@ fn strip_import_lines(source: &str, import_lines: &HashSet<usize>) -> String {
     out
 }
 
-fn strip_comments_and_strings(source: &str) -> String {
+pub(crate) fn strip_comments_and_strings(source: &str) -> String {
     let mut out = String::with_capacity(source.len());
     let mut chars = source.chars().peekable();
     let mut in_single = false;
@@ -536,6 +536,6 @@ fn is_ident_char(byte: u8) -> bool {
     (byte as char).is_ascii_alphanumeric() || byte == b'_'
 }
 
-fn find_column(line: &str, needle: &str) -> usize {
+pub(crate) fn find_column(line: &str, needle: &str) -> usize {
     line.find(needle).map(|idx| idx + 1).unwrap_or(1)
 }

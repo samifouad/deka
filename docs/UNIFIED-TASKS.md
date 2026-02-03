@@ -99,17 +99,17 @@ Notes:
 20. [x] PHPX-VALIDATION:  Validate module paths
 21. [x] PHPX-VALIDATION:  Track used imports (mark on usage)
 22. [x] PHPX-VALIDATION:  Detect duplicates
-23. [ ] PHPX-VALIDATION:  Export only functions, constants, types
-24. [ ] PHPX-VALIDATION:  No duplicate exports
-25. [ ] PHPX-VALIDATION:  Exported names actually exist
-26. [ ] PHPX-VALIDATION:  Re-export syntax validation
-27. [ ] PHPX-VALIDATION:  Template files: no explicit exports (auto-exported as Component)
-28. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/exports.rs`
-29. [ ] PHPX-VALIDATION:  Implement `validate_exports(ast: &Ast) -> Vec<ValidationError>`
-30. [ ] PHPX-VALIDATION:  Track exported names
-31. [ ] PHPX-VALIDATION:  Check for duplicates
-32. [ ] PHPX-VALIDATION:  Verify definitions exist
-33. [ ] PHPX-VALIDATION:  Special handling for template files
+23. [x] PHPX-VALIDATION:  Export only functions, constants, types
+24. [x] PHPX-VALIDATION:  No duplicate exports
+25. [x] PHPX-VALIDATION:  Exported names actually exist
+26. [x] PHPX-VALIDATION:  Re-export syntax validation
+27. [x] PHPX-VALIDATION:  Template files: no explicit exports (auto-exported as Component)
+28. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/exports.rs`
+29. [x] PHPX-VALIDATION:  Implement `validate_exports(source: &str, file_path: &str, ast: &Program) -> Vec<ValidationError>`
+30. [x] PHPX-VALIDATION:  Track exported names
+31. [x] PHPX-VALIDATION:  Check for duplicates
+32. [x] PHPX-VALIDATION:  Verify definitions exist
+33. [x] PHPX-VALIDATION:  Special handling for template files
 34. [ ] PHPX-VALIDATION:  Valid type names
 35. [ ] PHPX-VALIDATION:  Generic syntax: `Option<T>`, `Result<T, E>`, `array<T>`
 36. [ ] PHPX-VALIDATION:  Object shape syntax: `Object<{ field: Type }>`
