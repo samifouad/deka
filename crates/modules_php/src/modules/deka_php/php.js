@@ -1857,6 +1857,10 @@ function qualifyTypeInfoForModule(typeInfo, moduleId) {
     const moduleNamespace = buildModuleNamespace(moduleId);
     const prefix = `${moduleNamespace}\\\\`;
     const structNames = new Set(Object.keys(typeInfo.structs || {}));
+    const normalizeStructFieldName = (name)=>{
+        if (typeof name !== 'string') return name;
+        return name.startsWith('$') ? name.slice(1) : name;
+    };
 
     const qualifyType = (ty)=>{
         if (!ty || typeof ty !== 'object') return ty;
@@ -1868,6 +1872,7 @@ function qualifyTypeInfoForModule(typeInfo, moduleId) {
                 }
                 const fields = Array.isArray(ty.fields) ? ty.fields.map((field)=>({
                     ...field,
+                    name: normalizeStructFieldName(field.name),
                     type: qualifyType(field.type)
                 })) : ty.fields;
                 return {
@@ -1922,6 +1927,7 @@ function qualifyTypeInfoForModule(typeInfo, moduleId) {
             ...struct,
             fields: Array.isArray(struct.fields) ? struct.fields.map((field)=>({
                 ...field,
+                name: normalizeStructFieldName(field.name),
                 type: qualifyType(field.type)
             })) : struct.fields
         };
@@ -1946,6 +1952,37 @@ function qualifyTypeInfoForModule(typeInfo, moduleId) {
     };
 }
 
+function buildStructFromHelpers(typeInfo, moduleNamespace) {
+    if (!typeInfo || !typeInfo.structs) return '';
+    const entries = Object.entries(typeInfo.structs || {});
+    if (entries.length === 0) return '';
+    let code = '';
+    code += "if (!isset($GLOBALS['__PHPX_STRUCT_FROM'])) { $GLOBALS['__PHPX_STRUCT_FROM'] = array(); }\n";
+    for (const [name, struct] of entries){
+        const fnName = `__phpx_struct_from_${sanitizePhpIdentifier(name)}`;
+        const classLiteral = escapePhpString(name);
+        code += `if (!function_exists('${fnName}')) { function ${fnName}($value) {\n`;
+        code += "  if (!is_array($value) && !is_object($value)) { return $value; }\n";
+        code += `  if (is_object($value) && function_exists('get_class') && get_class($value) === '${classLiteral}') { return $value; }\n`;
+        code += "  if (!function_exists('__phpx_struct_new')) { return $value; }\n";
+        code += "  $data = is_array($value) ? $value : get_object_vars($value);\n";
+        code += `  $obj = __phpx_struct_new('${classLiteral}');\n`;
+        const fields = Array.isArray(struct.fields) ? struct.fields : [];
+        for (const field of fields){
+            if (!field || typeof field.name !== 'string') continue;
+            const fieldName = field.name;
+            const fieldLiteral = escapePhpString(fieldName);
+            const fieldType = toPhpLiteral(field.type);
+            code += `  if (__phpx_array_has_key($data, '${fieldLiteral}')) { $val = __phpx_coerce_value(${fieldType}, $data['${fieldLiteral}']); $obj->${fieldName} = $val; }\n`;
+        }
+        code += "  return $obj;\n";
+        code += "} }\n";
+        const qualifiedFn = moduleNamespace ? `${moduleNamespace}\\\\${fnName}` : fnName;
+        code += `$GLOBALS['__PHPX_STRUCT_FROM']['${classLiteral}'] = '${escapePhpString(qualifiedFn)}';\n`;
+    }
+    return code;
+}
+
 function buildExportWrappers(moduleId, moduleNamespace, exports, typeInfo) {
     if (!exports.length) return {
         code: '',
@@ -1965,6 +2002,7 @@ function buildExportWrappers(moduleId, moduleNamespace, exports, typeInfo) {
     let code = '';
     code += `${typeVar} = ${toPhpLiteral(types)};\n`;
     code += `if (!empty(${typeVar})) { __phpx_register_types('${escapePhpString(moduleId)}', ${typeVar}); }\n`;
+    code += buildStructFromHelpers(typeInfo, moduleNamespace);
     for (const name of exports){
         const wrapperName = `__phpx_wrap_${name}`;
         exportTargets.set(name, wrapperName);
@@ -2579,6 +2617,7 @@ function buildPhpxBridgePrelude() {
     let out = '';
     out += "if (!isset($GLOBALS['__PHPX_MODULES'])) { $GLOBALS['__PHPX_MODULES'] = array(); }\n";
     out += "if (!isset($GLOBALS['__PHPX_TYPES'])) { $GLOBALS['__PHPX_TYPES'] = array(); }\n";
+    out += "if (!isset($GLOBALS['__PHPX_STRUCT_FROM'])) { $GLOBALS['__PHPX_STRUCT_FROM'] = array(); }\n";
     out += "if (!function_exists('__phpx_fail')) { function __phpx_fail($msg) { if (function_exists('panic')) { panic($msg); return null; } if (function_exists('trigger_error')) { trigger_error($msg); return null; } echo $msg; return null; } }\n";
     out += "if (!function_exists('__phpx_register')) { function __phpx_register($moduleId, $exports) { $GLOBALS['__PHPX_MODULES'][$moduleId] = $exports; } }\n";
     out += "if (!function_exists('__phpx_register_types')) { function __phpx_register_types($moduleId, $types) { $GLOBALS['__PHPX_TYPES'][$moduleId] = $types; } }\n";
@@ -2608,18 +2647,27 @@ function buildPhpxBridgePrelude() {
     out += "if (!function_exists('__phpx_struct_from')) { function __phpx_struct_from($type, $value) {\n";
     out += "  if (!is_array($type) || !isset($type['name'])) { return $value; }\n";
     out += "  $class = $type['name'];\n";
-    out += "  if (is_object($value) && $value instanceof $class) { return $value; }\n";
+    out += "  if (is_object($value) && function_exists('get_class') && get_class($value) === $class) { return $value; }\n";
     out += "  if (!is_array($value) && !is_object($value)) { return $value; }\n";
+    out += "  if (isset($GLOBALS['__PHPX_STRUCT_FROM']) && __phpx_array_has_key($GLOBALS['__PHPX_STRUCT_FROM'], $class)) {\n";
+    out += "    $fn = $GLOBALS['__PHPX_STRUCT_FROM'][$class];\n";
+    out += "    if (is_string($fn) && function_exists($fn)) { return call_user_func($fn, $value); }\n";
+    out += "  }\n";
     out += "  if (!function_exists('__phpx_struct_new')) { return $value; }\n";
     out += "  $data = is_array($value) ? $value : get_object_vars($value);\n";
     out += "  $obj = __phpx_struct_new($class);\n";
     out += "  $fields = __phpx_array_get($type, 'fields', array());\n";
-    out += "  foreach ($fields as $field) {\n";
+    out += "  if (is_object($fields)) { $fields = get_object_vars($fields); }\n";
+    out += "  if (!is_array($fields)) { $fields = array(); }\n";
+    out += "  $field_count = is_array($fields) ? count($fields) : 0;\n";
+    out += "  for ($i = 0; $i < $field_count; $i++) {\n";
+    out += "    $field = $fields[$i];\n";
     out += "    if (!is_array($field) || !isset($field['name'])) { continue; }\n";
     out += "    $name = $field['name'];\n";
     out += "    if (__phpx_array_has_key($data, $name)) {\n";
     out += "      $val = __phpx_coerce_value(__phpx_array_get($field, 'type'), $data[$name]);\n";
-    out += "      $obj->$name = $val;\n";
+    out += "      if (function_exists('__phpx_struct_set')) { __phpx_struct_set($obj, $name, $val); }\n";
+    out += "      else { $obj->$name = $val; }\n";
     out += "    }\n";
     out += "  }\n";
     out += "  return $obj;\n";
