@@ -1,9 +1,27 @@
 #!/usr/bin/env bun
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 const repoRoot = path.resolve(process.cwd());
+const envLockRoot = process.env.DEKA_LOCK_ROOT ? path.resolve(process.env.DEKA_LOCK_ROOT) : null;
+function findLockRoot(startDir) {
+  let current = startDir;
+  while (true) {
+    const candidate = path.join(current, "deka.lock");
+    if (existsSync(candidate)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return null;
+}
+const lockRoot = envLockRoot ?? findLockRoot(repoRoot);
 let suiteArg = "tests/phpx";
 let skipArgs = [];
 
@@ -95,8 +113,11 @@ function sanitizeStream(text) {
     .replace(/\n{3,}/g, "\n\n");
   const trimmedStart = sanitized.replace(/^\s*\n/, "");
   const trimmed = trimmedStart.trimEnd().concat(text.endsWith("\n") ? "\n" : "");
-  const normalizedRoot = repoRoot.replace(/\\/g, "/");
-  return trimmed.replaceAll(normalizedRoot, "<repo>");
+  const normalizedRepo = repoRoot.replace(/\\/g, "/");
+  const normalizedLock = (lockRoot ?? repoRoot).replace(/\\/g, "/");
+  return trimmed
+    .replaceAll(normalizedRepo, "<repo>")
+    .replaceAll(normalizedLock, "<repo>");
 }
 
 function indent(text) {
