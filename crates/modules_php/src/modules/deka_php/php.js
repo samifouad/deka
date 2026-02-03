@@ -318,7 +318,7 @@ function findLockRoot(startDir) {
     return '';
 }
 function resolveProjectRoot(entryPath) {
-    const envRoot = globalThis.process?.env?.PHPX_MODULE_ROOT || globalThis.process?.env?.DEKA_LOCK_ROOT;
+    const envRoot = globalThis.process?.env?.PHPX_MODULE_ROOT;
     if (envRoot) {
         const normalized = normalizeHostPath(envRoot);
         const lockPath = globalThis.path.resolve(normalized, 'deka.lock');
