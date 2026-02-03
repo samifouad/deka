@@ -199,6 +199,13 @@ export function Link(props: {
 and performs partial navigation into the configured container. If the container
 is missing, it falls back to a hard navigation. Plain `<a>` remains hard navigation.
 
+Layout semantics:
+- The container can declare a layout id via `data-layout="users"` (or legacy `dataComponentLayout`).
+- `<Hydration layout="users" />` sets a default layout id when the container has none.
+- Partial navigation only happens when the current container layout matches the
+  link layout (or the hydration default). If missing/mismatched, the client
+  performs a full navigation.
+
 #### Layout-aware navigation
 To avoid re-sending layout HTML, define a layout id on the container:
 ```

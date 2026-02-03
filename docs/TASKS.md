@@ -79,7 +79,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Implement or remove `Link` prefetch option (currently unused in hydration).
 - [x] Add helper to emit partial JSON responses with proper headers
   (or document required headers in examples).
-- [ ] Clarify layout semantics (where layout id is set and when partial navigation falls back).
+- [x] Clarify layout semantics (where layout id is set and when partial navigation falls back).
 
 ## Notes (Bridge Behavior)
 - Boundary coercions are lenient for legacy PHP:

@@ -53,7 +53,7 @@ Notes:
 27. [x] Decide on `createRoot` `mode` support (implement or remove + document).
 28. [x] Implement or remove `Link` prefetch option (currently unused in hydration).
 29. [x] Add helper to emit partial JSON responses with proper headers (or document required headers in examples).
-30. [ ] Clarify layout semantics (where layout id is set and when partial navigation falls back).
+30. [x] Clarify layout semantics (where layout id is set and when partial navigation falls back).
 
 ### Phase 7 Tests/Docs (from `docs/TASKS.md`, non-checkbox items)
 1. [ ] Add PHP<->PHPX bridge tests for `Option<T>` (null -> None, Some -> value, return mapping).
