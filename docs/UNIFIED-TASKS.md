@@ -60,7 +60,7 @@ Notes:
 
 ### Phase 7 Tests/Docs (from `docs/TASKS.md`, non-checkbox items)
 1. [x] Add PHP<->PHPX bridge tests for `Option<T>` (null -> None, Some -> value, return mapping).
-2. [ ] Add PHP<->PHPX bridge tests for `Result<T,E>` (Ok/Err return mapping; array/stdClass coercions).
+2. [x] Add PHP<->PHPX bridge tests for `Result<T,E>` (Ok/Err return mapping; array/stdClass coercions).
 3. [ ] Add PHP<->PHPX bridge tests for object/object-shape + struct param coercion (extra keys ignored).
 4. [ ] Add runtime coverage for module isolation + unused import errors.
 5. [ ] Add tests/docs for frontmatter templates + `<Hydration />`.

@@ -29,7 +29,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 
 ### Phase 7: Tests + Docs
 - [x] Add PHP<->PHPX bridge tests for `Option<T>` (null -> None, Some -> value, return mapping).
-- [ ] Add PHP<->PHPX bridge tests for `Result<T,E>` (Ok/Err return mapping; array/stdClass coercions).
+- [x] Add PHP<->PHPX bridge tests for `Result<T,E>` (Ok/Err return mapping; array/stdClass coercions).
 - [ ] Add PHP<->PHPX bridge tests for object/object-shape + struct param coercion (extra keys ignored).
 - [ ] Add runtime coverage for module isolation + unused import errors.
 - [ ] Add tests/docs for frontmatter templates + `<Hydration />`.
