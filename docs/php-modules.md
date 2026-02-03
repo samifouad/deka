@@ -23,8 +23,13 @@ This document defines the intended behavior for the PHP module system in deka.
 1) The runtime always auto-includes `php_modules/deka.php` before user code.
    - This is the only magic. No other autoload system exists.
 2) Module mode is enabled for `.phpx` entrypoints or when a `.php` file uses `import`.
-3) When module mode is enabled, the runtime pre-processes `php_modules/` (compile + cache).
+3) The project root is discovered by locating `deka.lock`.
+   - `php_modules/` must live alongside `deka.lock`.
+   - Set `DEKA_LOCK_ROOT=/path/to/project` for a global user-level lock+modules root.
+4) When module mode is enabled, the runtime always keeps a cache updated.
    - `.phpx` files are parsed and compiled into a module registry.
+   - Compiled artifacts are stored under `php_modules/.cache/phpx/`.
+   - Cache metadata (hash + paths) is written into `deka.lock` under `php.cache`.
    - The registry maps module exports to callable functions (lazy-loaded).
 4) The stdlib module list comes from `php_modules/stdlib.json` (hand-maintained).
    - Used to build a lazy registry even when module mode is disabled.
@@ -116,8 +121,9 @@ Initial categories (Node-like):
   - returns `null` in all cases
 
 ## Build/dev pipeline (intended)
-- Dev run: compile `.phpx` on first use with a file-hash cache.
-- Build: precompile `.phpx` and ship a module registry alongside runtime.
+- Dev/run: compile `.phpx` on first use and auto-refresh the cache.
+- Cache artifacts live in `php_modules/.cache/phpx/` and are tracked in `deka.lock`.
+- Build: precompile `.phpx` and ship a module registry alongside runtime (later).
 
 ## Example layout
 ```

@@ -1,0 +1,159 @@
+{
+  "lockfileVersion": 1,
+  "node": {
+    "packages": {}
+  },
+  "php": {
+    "packages": {},
+    "cache": {
+      "version": 1,
+      "compiler": "phpx-cache-v1",
+      "modules": {
+        "component/core": {
+          "src": "php_modules/component/core.phpx",
+          "hash": "sha256:0156e5767f68c927237ba0c0e704914e7589430adf89153c01a3f150971b50bb",
+          "cache": "php_modules/.cache/phpx/component/core.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [],
+          "exports": [
+            "jsx",
+            "jsxs",
+            "createElement",
+            "isValidElement",
+            "childrenToArray",
+            "createContext",
+            "__component_push_context",
+            "__component_pop_context",
+            "useContext",
+            "ContextProvider",
+            "__component_each",
+            "__component_each_kv"
+          ]
+        },
+        "component/dom": {
+          "src": "php_modules/component/dom.phpx",
+          "hash": "sha256:09e95ff7773bb9b0116106c54ea3066e2580183a18d2b1f8737831165721fcb0",
+          "cache": "php_modules/.cache/phpx/component/dom.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [
+            "component/core",
+            "json"
+          ],
+          "exports": [
+            "createRoot",
+            "renderToString",
+            "renderToStream",
+            "renderPartial",
+            "renderPartialJson",
+            "renderPartialResponse",
+            "Link",
+            "Hydration",
+            "isPartialRequest"
+          ]
+        },
+        "json": {
+          "src": "php_modules/json/index.phpx",
+          "hash": "sha256:716b9390e1d863aa69315b980b6b89b892b843857964fec3a67ebe6ff93d703a",
+          "cache": "php_modules/.cache/phpx/json/index.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [
+            "core/result",
+            "core/reader",
+            "core/byte",
+            "core/num"
+          ],
+          "exports": [
+            "json_encode",
+            "json_decode",
+            "json_decode_result",
+            "json_last_error",
+            "json_last_error_msg",
+            "json_validate"
+          ]
+        },
+        "core/num": {
+          "src": "php_modules/core/num.phpx",
+          "hash": "sha256:5f9c6553ddf78dc899e56b124b99274f55986c9c21bd6a630e9574fcc45c9ffc",
+          "cache": "php_modules/.cache/phpx/core/num.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [],
+          "exports": [
+            "num_parse_int",
+            "num_parse_float"
+          ]
+        },
+        "core/byte": {
+          "src": "php_modules/core/byte.phpx",
+          "hash": "sha256:345ed51e8ff79620faaf941cef2e6359644263475826eb5a78e2003dd7a004d3",
+          "cache": "php_modules/.cache/phpx/core/byte.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [],
+          "exports": [
+            "byte_from_char",
+            "byte_to_char",
+            "byte_is_whitespace",
+            "byte_is_digit",
+            "byte_is_hex"
+          ]
+        },
+        "core/reader": {
+          "src": "php_modules/core/reader.phpx",
+          "hash": "sha256:8875cc969346a9f89ca7277828c896b4ba321d47664f530eee1dec4ee7ad4a09",
+          "cache": "php_modules/.cache/phpx/core/reader.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [],
+          "exports": [
+            "reader_new",
+            "reader_pos",
+            "reader_eof",
+            "reader_peek_byte",
+            "reader_next_byte",
+            "reader_peek_char",
+            "reader_next_char",
+            "reader_skip_ws"
+          ]
+        },
+        "core/result": {
+          "src": "php_modules/core/result.phpx",
+          "hash": "sha256:c138f94b55755045e7575843cb791ef653ed1089dd6c6dac0adcde228ae3f3d6",
+          "cache": "php_modules/.cache/phpx/core/result.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [],
+          "exports": [
+            "result_ok",
+            "result_err",
+            "result_is_ok",
+            "result_is_err",
+            "result_unwrap",
+            "result_unwrap_or"
+          ]
+        },
+        "_test/frontmatter_card": {
+          "src": "php_modules/_test/frontmatter_card.phpx",
+          "hash": "sha256:e10d94c8151a3cc9238ae81d1b6c1a42bb719ac1cc8e94811a02d781446720bb",
+          "cache": "php_modules/.cache/phpx/_test/frontmatter_card.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [
+            "component/core"
+          ],
+          "exports": [
+            "Component"
+          ]
+        },
+        "@user/phpx_tests": {
+          "src": "php_modules/@user/phpx_tests/index.phpx",
+          "hash": "sha256:9c4b186184cffbfcf3de3d464d935e8dc8a8b8074c825700dfb1761f44c8db5c",
+          "cache": "php_modules/.cache/phpx/@user/phpx_tests/index.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [],
+          "exports": [
+            "greet"
+          ]
+        }
+      }
+    }
+  },
+  "gleam": {
+    "packages": {}
+  }
+}

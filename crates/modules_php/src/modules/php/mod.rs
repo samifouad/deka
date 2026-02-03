@@ -574,6 +574,26 @@ fn op_php_write_file_sync(
     })
 }
 
+#[op2(fast)]
+fn op_php_mkdirs(#[string] path: String) -> Result<(), deno_core::error::CoreError> {
+    std::fs::create_dir_all(&path).map_err(|e| {
+        deno_core::error::CoreError::from(std::io::Error::new(
+            e.kind(),
+            format!("Failed to create dir '{}': {}", path, e),
+        ))
+    })
+}
+
+#[op2]
+#[string]
+fn op_php_sha256(#[string] data: String) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(data.as_bytes());
+    let digest = hasher.finalize();
+    format!("{:x}", digest)
+}
+
 #[op2]
 #[serde]
 fn op_php_read_env() -> HashMap<String, String> {
@@ -722,6 +742,8 @@ deno_core::extension!(
         op_php_parse_phpx_types,
         op_php_read_file_sync,
         op_php_write_file_sync,
+        op_php_mkdirs,
+        op_php_sha256,
         op_php_read_env,
         op_php_cwd,
         op_php_file_exists,
