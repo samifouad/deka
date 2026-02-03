@@ -1,3 +1,5 @@
+pub mod syntax;
+
 use php_rs::parser::ast::Program;
 use serde::Serialize;
 

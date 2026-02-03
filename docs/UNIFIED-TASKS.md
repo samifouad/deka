@@ -77,15 +77,15 @@ Notes:
 6. [x] Map parser errors to PHPX validation errors.
 
 ### Validation plan checklist (from `docs/PHPX-VALIDATION.md`)
-1. [ ] PHPX-VALIDATION:  Unclosed braces, brackets, parentheses
-2. [ ] PHPX-VALIDATION:  Invalid tokens
-3. [ ] PHPX-VALIDATION:  Unexpected end of file
-4. [ ] PHPX-VALIDATION:  Malformed expressions
-5. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/syntax.rs`
-6. [ ] PHPX-VALIDATION:  Implement `validate_syntax(source: &str) -> Vec<ValidationError>`
-7. [ ] PHPX-VALIDATION:  Use php-rs parser error recovery
-8. [ ] PHPX-VALIDATION:  Map parser errors to validation errors
-9. [ ] PHPX-VALIDATION:  Add helpful suggestions for common mistakes
+1. [x] PHPX-VALIDATION:  Unclosed braces, brackets, parentheses
+2. [x] PHPX-VALIDATION:  Invalid tokens
+3. [x] PHPX-VALIDATION:  Unexpected end of file
+4. [x] PHPX-VALIDATION:  Malformed expressions
+5. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/syntax.rs`
+6. [x] PHPX-VALIDATION:  Implement `validate_syntax(source: &str, ast: &Program) -> Vec<ValidationError>`
+7. [x] PHPX-VALIDATION:  Use php-rs parser error recovery
+8. [x] PHPX-VALIDATION:  Map parser errors to validation errors
+9. [x] PHPX-VALIDATION:  Add helpful suggestions for common mistakes
 10. [ ] PHPX-VALIDATION:  Import at top of file (before other code)
 11. [ ] PHPX-VALIDATION:  Valid import syntax
 12. [ ] PHPX-VALIDATION:  Named imports: `import { foo, bar } from 'module'`

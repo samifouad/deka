@@ -131,10 +131,10 @@ pub enum Severity {
 **Goal**: Catch syntax errors and provide helpful messages
 
 **What to validate**:
-- [ ] Unclosed braces, brackets, parentheses
-- [ ] Invalid tokens
-- [ ] Unexpected end of file
-- [ ] Malformed expressions
+- [x] Unclosed braces, brackets, parentheses
+- [x] Invalid tokens
+- [x] Unexpected end of file
+- [x] Malformed expressions
 
 **Example errors**:
 ```phpx
@@ -146,11 +146,11 @@ function foo() {
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/syntax.rs`
-- [ ] Implement `validate_syntax(source: &str) -> Vec<ValidationError>`
-- [ ] Use php-rs parser error recovery
-- [ ] Map parser errors to validation errors
-- [ ] Add helpful suggestions for common mistakes
+- [x] Create `crates/modules_php/src/validation/syntax.rs`
+- [x] Implement `validate_syntax(source: &str, ast: &Program) -> Vec<ValidationError>`
+- [x] Use php-rs parser error recovery
+- [x] Map parser errors to validation errors
+- [x] Add helpful suggestions for common mistakes
 
 **Files to create**:
 - `crates/modules_php/src/validation/mod.rs`
@@ -943,7 +943,7 @@ pub fn compile_phpx(source: &str, file_path: &str) -> ValidationResult {
     };
 
     // 2. Validate syntax
-    errors.extend(validate_syntax(&ast));
+    errors.extend(validate_syntax(source, &ast));
 
     // 3. Validate imports/exports
     errors.extend(validate_imports(&ast));
