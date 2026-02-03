@@ -318,12 +318,12 @@ function findLockRoot(startDir) {
     return '';
 }
 function resolveProjectRoot(entryPath) {
-    const envRoot = globalThis.process?.env?.DEKA_LOCK_ROOT;
+    const envRoot = globalThis.process?.env?.PHPX_MODULE_ROOT || globalThis.process?.env?.DEKA_LOCK_ROOT;
     if (envRoot) {
         const normalized = normalizeHostPath(envRoot);
         const lockPath = globalThis.path.resolve(normalized, 'deka.lock');
         if (!globalThis.fs.existsSync(lockPath)) {
-            throw new Error(`DEKA_LOCK_ROOT set but deka.lock not found at ${lockPath}`);
+            throw new Error(`PHPX_MODULE_ROOT set but deka.lock not found at ${lockPath}`);
         }
         return normalized;
     }
@@ -2448,7 +2448,7 @@ function resolveLockPath(entryPath) {
 function readDekaLock(entryPath) {
     const lockPath = resolveLockPath(entryPath);
     if (!lockPath || !globalThis.fs.existsSync(lockPath)) {
-        throw new Error("Missing deka.lock. Run `deka init` or set DEKA_LOCK_ROOT.");
+        throw new Error("Missing deka.lock. Run `deka init` or set PHPX_MODULE_ROOT.");
     }
     const raw = globalThis.fs.readFileSync(lockPath, 'utf8');
     let lock = null;
@@ -2967,7 +2967,7 @@ function buildPhpxBridgePrelude() {
 function buildModulePrelude(entryPath) {
     const projectRoot = resolveProjectRoot(entryPath);
     if (!projectRoot) {
-        throw new Error("Missing deka.lock. Run `deka init` or set DEKA_LOCK_ROOT.");
+        throw new Error("Missing deka.lock. Run `deka init` or set PHPX_MODULE_ROOT.");
     }
     const modulesRoot = resolvePhpModulesRoot(entryPath);
     if (!modulesRoot) {

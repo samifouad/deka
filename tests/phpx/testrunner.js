@@ -5,7 +5,9 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 const repoRoot = path.resolve(process.cwd());
-const envLockRoot = process.env.DEKA_LOCK_ROOT ? path.resolve(process.env.DEKA_LOCK_ROOT) : null;
+const envLockRoot = process.env.PHPX_MODULE_ROOT
+  ? path.resolve(process.env.PHPX_MODULE_ROOT)
+  : null;
 function findLockRoot(startDir) {
   let current = startDir;
   while (true) {

@@ -72,7 +72,11 @@ async fn run_async(context: &Context) -> Result<(), String> {
         }
     }
 
-    let is_php = normalized.to_ascii_lowercase().ends_with(".php");
+    let lowered = normalized.to_ascii_lowercase();
+    let is_php = lowered.ends_with(".php") || lowered.ends_with(".phpx");
+    if is_php {
+        ensure_phpx_module_root(&normalized);
+    }
     let serve_mode = if is_php {
         runtime_config::ServeMode::Php
     } else {
@@ -109,14 +113,21 @@ async fn run_async(context: &Context) -> Result<(), String> {
         )
     } else {
         format!(
-            "globalThis.__dekaLoadModuleAsync({}).then(async () => {{\
-if (globalThis.__dekaRuntimeHold) {{ await globalThis.__dekaRuntimeHold; }}\
+            "if (globalThis.process?.env?.DEKA_IPC_DEBUG === '1') {{ console.error('[HANDLER-LOAD] Loading module:', {}); }}\
+globalThis.__dekaLoadModuleAsync({}).then(async () => {{\
+if (globalThis.process?.env?.DEKA_IPC_DEBUG === '1') {{ console.error('[HANDLER-LOAD] Module loaded, checking runtime hold'); }}\
+if (globalThis.__dekaRuntimeHold) {{ \
+if (globalThis.process?.env?.DEKA_IPC_DEBUG === '1') {{ console.error('[HANDLER-LOAD] Waiting for runtime hold'); }}\
+await globalThis.__dekaRuntimeHold; \
+}}\
+if (globalThis.process?.env?.DEKA_IPC_DEBUG === '1') {{ console.error('[HANDLER-LOAD] Handler execution complete'); }}\
 }}).catch((err) => {{\
 const msg = err && (err.stack || err.message) ? (err.stack || err.message) : String(err);\
 if (String(msg).includes('DekaExit:')) {{ return; }}\
 console.error(err);\
 throw err;\
 }});",
+            serde_json::to_string(&normalized).unwrap_or_else(|_| "\"\"".to_string()),
             serde_json::to_string(&normalized).unwrap_or_else(|_| "\"\"".to_string())
         )
     };
@@ -188,6 +199,34 @@ throw err;\
     // If a server is running, the promise won't resolve and execution won't complete
     // This matches Node.js/Bun/Deno behavior automatically
     Ok(())
+}
+
+fn ensure_phpx_module_root(handler_path: &str) {
+    if std::env::var("PHPX_MODULE_ROOT").is_ok() {
+        return;
+    }
+    let path = FsPath::new(handler_path);
+    let start = if path.is_dir() {
+        path
+    } else {
+        match path.parent() {
+            Some(parent) => parent,
+            None => return,
+        }
+    };
+    let mut current = start.to_path_buf();
+    loop {
+        let candidate = current.join("deka.lock");
+        if candidate.exists() {
+            unsafe {
+                std::env::set_var("PHPX_MODULE_ROOT", &current);
+            }
+            return;
+        }
+        if !current.pop() {
+            break;
+        }
+    }
 }
 
 fn handler_input(context: &Context) -> (String, Vec<String>) {

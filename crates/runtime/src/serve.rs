@@ -36,6 +36,9 @@ async fn serve_async(context: &Context) -> Result<(), String> {
     let is_static_dir = resolved.path.is_dir();
     let is_html_entry =
         matches!(resolved.mode, runtime_config::ServeMode::Static) && !is_static_dir;
+    if matches!(resolved.mode, runtime_config::ServeMode::Php) {
+        ensure_phpx_module_root(&handler_path);
+    }
     if std::env::var("HANDLER_PATH").is_err() {
         unsafe {
             std::env::set_var("HANDLER_PATH", &handler_path);
@@ -115,6 +118,34 @@ async fn serve_async(context: &Context) -> Result<(), String> {
     spawn_archive_task(&state, engine.archive());
 
     serve_listeners(state, &serve_options, perf_mode, server_pool_workers).await
+}
+
+fn ensure_phpx_module_root(handler_path: &str) {
+    if std::env::var("PHPX_MODULE_ROOT").is_ok() {
+        return;
+    }
+    let path = FsPath::new(handler_path);
+    let start = if path.is_dir() {
+        path
+    } else {
+        match path.parent() {
+            Some(parent) => parent,
+            None => return,
+        }
+    };
+    let mut current = start.to_path_buf();
+    loop {
+        let candidate = current.join("deka.lock");
+        if candidate.exists() {
+            unsafe {
+                std::env::set_var("PHPX_MODULE_ROOT", &current);
+            }
+            return;
+        }
+        if !current.pop() {
+            break;
+        }
+    }
 }
 
 fn watch_enabled(context: &Context) -> bool {

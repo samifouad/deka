@@ -55,11 +55,15 @@ async fn serve_vfs_async(_context: &Context, vfs: &mut VfsProvider) -> Result<()
         .map_err(|e| format!("Failed to load handler from VFS: {}", e))?;
 
     // Determine serve mode from file extension
-    let serve_mode = if entry_point.to_lowercase().ends_with(".php") {
+    let lowered = entry_point.to_lowercase();
+    let serve_mode = if lowered.ends_with(".php") || lowered.ends_with(".phpx") {
         runtime_config::ServeMode::Php
     } else {
         runtime_config::ServeMode::Js
     };
+    if matches!(serve_mode, runtime_config::ServeMode::Php) {
+        ensure_phpx_module_root(&vfs_root);
+    }
 
     // Use default serve options for now (TODO: extract from handler if needed)
     let serve_options = pool::validation::ServeOptions::default();
@@ -130,6 +134,18 @@ async fn serve_vfs_async(_context: &Context, vfs: &mut VfsProvider) -> Result<()
     spawn_archive_task(&state, engine.archive());
 
     serve_listeners(state, &serve_options, perf_mode, server_pool_workers).await
+}
+
+fn ensure_phpx_module_root(root: &std::path::Path) {
+    if std::env::var("PHPX_MODULE_ROOT").is_ok() {
+        return;
+    }
+    let candidate = root.join("deka.lock");
+    if candidate.exists() {
+        unsafe {
+            std::env::set_var("PHPX_MODULE_ROOT", root);
+        }
+    }
 }
 
 async fn serve_listeners(
