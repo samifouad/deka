@@ -2358,12 +2358,14 @@ function buildExportRegistry(moduleId, exports, moduleNamespace, exportTargets =
     out += " );\n";
     return out;
 }
-function buildLazyModuleRegistry(modules) {
+function buildLazyModuleRegistry(modules, skipModules = null) {
     let out = '';
     out += "if (!isset($GLOBALS['__PHPX_LAZY'])) { $GLOBALS['__PHPX_LAZY'] = array(); }\n";
     out += "if (!function_exists('__phpx_register_lazy')) { function __phpx_register_lazy($moduleId, $code, $deps) { $GLOBALS['__PHPX_LAZY'][$moduleId] = array('code' => $code, 'deps' => $deps); } }\n";
+    const skip = skipModules instanceof Set ? skipModules : new Set(Array.isArray(skipModules) ? skipModules : skipModules ? Array.from(skipModules) : []);
     const escapeNowdocContent = (value)=>String(value);
     for (const module of modules.values()){
+        if (skip.has(module.moduleId)) continue;
         const deps = [];
         if (Array.isArray(module.deps)) {
             for (const dep of module.deps){
@@ -2839,6 +2841,7 @@ function buildModulePrelude(entryPath) {
         return {
             prelude,
             entryPrelude: '',
+            modulePrelude: '',
             source: importsInfo.strippedSource
         };
     }
@@ -2878,14 +2881,75 @@ function buildModulePrelude(entryPath) {
             throw new Error(`Missing export '${spec.imported}' in '${spec.from}' (imported by ${entryPath}).`);
         }
     }
+    const inlineModules = new Set();
+    const inlineEnvRaw = globalThis.process?.env?.DEKA_PHPX_INLINE_MODULES;
+    if (inlineEnvRaw !== undefined) {
+        const inlineEnv = String(inlineEnvRaw).trim();
+        if (inlineEnv.length > 0 && inlineEnv.toLowerCase() !== 'none') {
+            if (inlineEnv.toLowerCase() === 'all') {
+                for (const moduleId of moduleBuild.modules.keys()){
+                    inlineModules.add(moduleId);
+                }
+            } else {
+                for (const part of inlineEnv.split(',')){
+                    const moduleId = part.trim();
+                    if (moduleId) inlineModules.add(moduleId);
+                }
+            }
+        }
+    } else if (moduleBuild.modules.size > 0) {
+        const defaults = [
+            'component/dom'
+        ];
+        for (const moduleId of defaults){
+            if (moduleBuild.modules.has(moduleId)) {
+                inlineModules.add(moduleId);
+            }
+        }
+    }
+    if (inlineModules.size > 0) {
+        const stack = Array.from(inlineModules);
+        while(stack.length > 0){
+            const moduleId = stack.pop();
+            const module = moduleBuild.modules.get(moduleId);
+            if (!module) continue;
+            if (Array.isArray(module.deps)) {
+                for (const dep of module.deps){
+                    if (!inlineModules.has(dep)) {
+                        inlineModules.add(dep);
+                        stack.push(dep);
+                    }
+                }
+            }
+            for (const spec of module.imports){
+                if (spec.kind === 'wasm') continue;
+                if (!inlineModules.has(spec.from)) {
+                    inlineModules.add(spec.from);
+                    stack.push(spec.from);
+                }
+            }
+        }
+    }
     let prelude = '';
     let entryPrelude = '';
+    let modulePrelude = '';
     prelude += buildPhpxBridgePrelude();
     if (isPhpxEntry) {
         prelude += "define('__DEKA_PHPX_ENTRY', true);\n";
     }
     if (moduleBuild.modules.size > 0) {
-        prelude += buildLazyModuleRegistry(moduleBuild.modules);
+        prelude += buildLazyModuleRegistry(moduleBuild.modules, inlineModules.size > 0 ? inlineModules : null);
+        if (inlineModules.size > 0) {
+            const order = topoSortModules(moduleBuild.modules);
+            for (const moduleId of order){
+                if (inlineModules.has(moduleId)) {
+                    const module = moduleBuild.modules.get(moduleId);
+                    if (module && module.code) {
+                        modulePrelude += `${module.code}\n`;
+                    }
+                }
+            }
+        }
     }
     if (phpxImports.length > 0) {
         const wrappers = buildPhpImportWrappers(phpxImports, { useRegistry: !isPhpxEntry });
@@ -2910,6 +2974,7 @@ function buildModulePrelude(entryPath) {
     return {
         prelude,
         entryPrelude,
+        modulePrelude,
         source: importsInfo.strippedSource
     };
 }
@@ -4515,6 +4580,7 @@ function buildPrelude(request, filePath) {
     return {
         prelude,
         entryPrelude: moduleInfo.entryPrelude,
+        modulePrelude: moduleInfo.modulePrelude,
         source: moduleInfo.source
     };
 }
@@ -4561,10 +4627,11 @@ function buildCliPrelude(filePath) {
     return {
         prelude,
         entryPrelude: moduleInfo.entryPrelude,
+        modulePrelude: moduleInfo.modulePrelude,
         source: moduleInfo.source
     };
 }
-function injectPrelude(source, prelude, filePath = '', entryPrelude = '') {
+function injectPrelude(source, prelude, filePath = '', entryPrelude = '', modulePrelude = '') {
     const trimmed = source.trimStart();
     if (trimmed.startsWith('<?php')) {
         const idx = source.indexOf('<?php');
@@ -4582,7 +4649,7 @@ function injectPrelude(source, prelude, filePath = '', entryPrelude = '') {
     }
     if (String(filePath || '').endsWith('.phpx')) {
         // Wrap PHPX prelude in the global namespace and the entry code in a dedicated namespace.
-        return `${PHPX_INTERNAL_MARKER}\nnamespace {\n${prelude}\n}\nnamespace __phpx_entry {\n${entryPrelude}${source}\n}\n`;
+        return `${PHPX_INTERNAL_MARKER}\nnamespace {\n${prelude}\n}\n${modulePrelude}\nnamespace __phpx_entry {\n${entryPrelude}${source}\n}\n`;
     }
     return `<?php\n${prelude}\n?>\n` + source;
 }
@@ -4603,7 +4670,7 @@ async function runFile(filePath) {
     await initPhpWasm();
     setPhpActiveRoots(filePath);
     const moduleInfo = buildCliPrelude(filePath);
-    const stitched = injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude);
+    const stitched = injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude, moduleInfo.modulePrelude);
     const dumpPath = globalThis.process?.env?.DEKA_DUMP_PHPX;
     if (dumpPath) {
         if (dumpPath === 'stdout') {
@@ -4623,7 +4690,7 @@ async function runFile(filePath) {
 function runRequest(request, filePath) {
     setPhpActiveRoots(filePath);
     const moduleInfo = buildPrelude(request || {}, filePath);
-    const stitched = injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude);
+    const stitched = injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude, moduleInfo.modulePrelude);
     const dumpPath = globalThis.process?.env?.DEKA_DUMP_PHPX;
     if (dumpPath) {
         if (dumpPath === 'stdout') {

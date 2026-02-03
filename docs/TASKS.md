@@ -32,7 +32,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Add PHP<->PHPX bridge tests for `Result<T,E>` (Ok/Err return mapping; array/stdClass coercions).
 - [x] Add PHP<->PHPX bridge tests for object/object-shape + struct param coercion (extra keys ignored).
 - [x] Add runtime coverage for module isolation + unused import errors.
-- [ ] Add tests/docs for frontmatter templates + `<Hydration />`.
+- [x] Add tests/docs for frontmatter templates + `<Hydration />`.
 - [ ] Update `docs/VALIDATION-STATUS.md` to reflect current typechecker + PHPX rule coverage.
 - [ ] Update `docs/PHPX-VALIDATION.md` checklists to mark implemented rules (structs, enums, module rules).
 - [x] Deduplicate boundary coercion bullets in `docs/phpx-dx.md`.

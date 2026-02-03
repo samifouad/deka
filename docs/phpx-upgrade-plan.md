@@ -185,7 +185,7 @@
   - ✅ Add PHPX fixtures for object literals, structs, enums, Option/Result, module import
   - ✅ Document new phpx syntax and typing rules (`docs/phpx-dx.md`, `PHPX_TYPES.md`)
   - ⏳ Add module isolation + unused import runtime coverage
-  - ⏳ Add tests/docs for frontmatter templates + Hydration
+  - ✅ Add tests/docs for frontmatter templates + Hydration
 - Phase 10: Tooling (Editors) ⏳
   - ⏳ Zed + Tree-sitter syntax highlighting for `.phpx`
 

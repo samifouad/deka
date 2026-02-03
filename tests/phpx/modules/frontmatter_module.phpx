@@ -1,0 +1,5 @@
+import { Component as Card } from '_test/frontmatter_card';
+import { renderToString } from 'component/dom';
+
+$node = <Card title="Hello" message="Welcome" />;
+echo renderToString($node) . "\n";
