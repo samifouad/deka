@@ -301,7 +301,7 @@ pub fn compile_phpx(source: &str, file_path: &str) -> ValidationResult {
 | **PHPX Rules** | ❌ Missing | N/A | Build PHPX validators |
 | **Compiler API** | ❌ Missing | N/A | Create API (Phase 3) |
 | **Help Text** | ❌ Missing | N/A | Add to validators |
-| **Error Kinds** | ⚠️ Partial | N/A | Define ErrorKind enum |
+| **Error Kinds** | ✅ Defined | `modules_php/src/validation/mod.rs` | Wire into validators |
 
 ---
 
