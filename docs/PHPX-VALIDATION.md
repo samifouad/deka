@@ -163,13 +163,13 @@ function foo() {
 **Goal**: Validate import syntax and semantics
 
 **What to validate**:
-- [ ] Import at top of file (before other code)
-- [ ] Valid import syntax
-- [ ] Named imports: `import { foo, bar } from 'module'`
-- [ ] WASM imports: `import { fn } from '@user/mod' as wasm`
-- [ ] Module path format (no relative paths with `../`)
-- [ ] Unused imports (warning)
-- [ ] Duplicate imports
+- [x] Import at top of file (before other code)
+- [x] Valid import syntax
+- [x] Named imports: `import { foo, bar } from 'module'`
+- [x] WASM imports: `import { fn } from '@user/mod' as wasm`
+- [x] Module path format (no relative paths with `../`)
+- [x] Unused imports (warning)
+- [x] Duplicate imports
 
 **Example errors**:
 ```phpx
@@ -193,12 +193,12 @@ import { bar } from 'mod';
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/imports.rs`
-- [ ] Implement `validate_imports(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Check import placement (AST position)
-- [ ] Validate module paths
-- [ ] Track used imports (mark on usage)
-- [ ] Detect duplicates
+- [x] Create `crates/modules_php/src/validation/imports.rs`
+- [x] Implement `validate_imports(source: &str, file_path: &str) -> (Vec<ValidationError>, Vec<ValidationWarning>)`
+- [x] Check import placement (AST position)
+- [x] Validate module paths
+- [x] Track used imports (mark on usage)
+- [x] Detect duplicates
 
 ---
 
@@ -946,7 +946,9 @@ pub fn compile_phpx(source: &str, file_path: &str) -> ValidationResult {
     errors.extend(validate_syntax(source, &ast));
 
     // 3. Validate imports/exports
-    errors.extend(validate_imports(&ast));
+    let (import_errors, import_warnings) = validate_imports(source, file_path);
+    errors.extend(import_errors);
+    warnings.extend(import_warnings);
     errors.extend(validate_exports(&ast));
 
     // 4. Type checking

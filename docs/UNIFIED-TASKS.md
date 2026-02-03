@@ -86,19 +86,19 @@ Notes:
 7. [x] PHPX-VALIDATION:  Use php-rs parser error recovery
 8. [x] PHPX-VALIDATION:  Map parser errors to validation errors
 9. [x] PHPX-VALIDATION:  Add helpful suggestions for common mistakes
-10. [ ] PHPX-VALIDATION:  Import at top of file (before other code)
-11. [ ] PHPX-VALIDATION:  Valid import syntax
-12. [ ] PHPX-VALIDATION:  Named imports: `import { foo, bar } from 'module'`
-13. [ ] PHPX-VALIDATION:  WASM imports: `import { fn } from '@user/mod' as wasm`
-14. [ ] PHPX-VALIDATION:  Module path format (no relative paths with `../`)
-15. [ ] PHPX-VALIDATION:  Unused imports (warning)
-16. [ ] PHPX-VALIDATION:  Duplicate imports
-17. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/imports.rs`
-18. [ ] PHPX-VALIDATION:  Implement `validate_imports(ast: &Ast) -> Vec<ValidationError>`
-19. [ ] PHPX-VALIDATION:  Check import placement (AST position)
-20. [ ] PHPX-VALIDATION:  Validate module paths
-21. [ ] PHPX-VALIDATION:  Track used imports (mark on usage)
-22. [ ] PHPX-VALIDATION:  Detect duplicates
+10. [x] PHPX-VALIDATION:  Import at top of file (before other code)
+11. [x] PHPX-VALIDATION:  Valid import syntax
+12. [x] PHPX-VALIDATION:  Named imports: `import { foo, bar } from 'module'`
+13. [x] PHPX-VALIDATION:  WASM imports: `import { fn } from '@user/mod' as wasm`
+14. [x] PHPX-VALIDATION:  Module path format (no relative paths with `../`)
+15. [x] PHPX-VALIDATION:  Unused imports (warning)
+16. [x] PHPX-VALIDATION:  Duplicate imports
+17. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/imports.rs`
+18. [x] PHPX-VALIDATION:  Implement `validate_imports(source: &str, file_path: &str) -> (Vec<ValidationError>, Vec<ValidationWarning>)`
+19. [x] PHPX-VALIDATION:  Check import placement (AST position)
+20. [x] PHPX-VALIDATION:  Validate module paths
+21. [x] PHPX-VALIDATION:  Track used imports (mark on usage)
+22. [x] PHPX-VALIDATION:  Detect duplicates
 23. [ ] PHPX-VALIDATION:  Export only functions, constants, types
 24. [ ] PHPX-VALIDATION:  No duplicate exports
 25. [ ] PHPX-VALIDATION:  Exported names actually exist
