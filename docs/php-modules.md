@@ -26,8 +26,6 @@ This document defines the intended behavior for the PHP module system in deka.
 3) The project root is discovered by locating `deka.lock`.
    - `php_modules/` must live alongside `deka.lock`.
    - Set `PHPX_MODULE_ROOT=/path/to/project` for a global user-level lock+modules root.
-   - Monorepo tip: point `PHPX_MODULE_ROOT` at the monorepo root and symlink
-     `php_modules/` there if the sources live deeper in the tree.
 4) When module mode is enabled, the runtime always keeps a cache updated.
    - `.phpx` files are parsed and compiled into a module registry.
    - Compiled artifacts are stored under `php_modules/.cache/phpx/`.
