@@ -50,7 +50,7 @@ Notes:
 24. [x] Allow unary +/− constant expressions in struct defaults (e.g. `$x: int = -1`).
 25. [x] Decide whether object/struct literals should be permitted as struct defaults; if yes, extend constant-expr validation + runtime init.
 26. [x] ContextProvider should push/pop context even when JSX passes callable (not string).
-27. [ ] Decide on `createRoot` `mode` support (implement or remove + document).
+27. [x] Decide on `createRoot` `mode` support (implement or remove + document).
 28. [ ] Implement or remove `Link` prefetch option (currently unused in hydration).
 29. [ ] Add helper to emit partial JSON responses with proper headers (or document required headers in examples).
 30. [ ] Clarify layout semantics (where layout id is set and when partial navigation falls back).

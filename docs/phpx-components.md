@@ -143,7 +143,7 @@ export function Hydration($props): VNode;
 
 Config:
 - `container`: selector for the swap target (configured in app root)
-- `mode`: `replace` (default)
+- Replace-only for now (no mode switching).
 
 Notes:
 - `renderToStream` currently returns a full string (streaming hook is stubbed).
@@ -245,7 +245,6 @@ near the end of `<body>`.
 Props:
 - `container`: selector for the swap target (default `#app`).
 - `layout`: layout id to enforce partial navigation (required for partial swaps).
-- `mode`: reserved for future diffing/streaming modes (currently `replace` only).
 - `nonce`: optional CSP nonce for the inline script.
 
 Example with custom container + nonce:

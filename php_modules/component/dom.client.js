@@ -2,7 +2,6 @@ export function createRoot(config = {}) {
   const root = {
     container: config.container || "#app",
     layout: config.layout || "",
-    mode: config.mode || "replace",
   };
 
   function getContainer(selector) {

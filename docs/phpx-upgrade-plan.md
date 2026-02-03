@@ -79,9 +79,9 @@
 - Unused imports raise errors at runtime compile time.
 - Entry code executes in `namespace __phpx_entry` to avoid leaking globals.
 
-### Phase 6: PHP <-> PHPX Bridge
+### Phase 6: PHP <-> PHPX Bridge ✅
 - Emit raw impls + wrapper exports.
-- Wrapper does boundary conversions based on phpx types.
+- Wrapper does boundary conversions based on phpx types (lenient for legacy PHP).
 - phpx-to-phpx calls use raw impls (no overhead).
 
 ### Phase 7: Tests + Docs
@@ -102,7 +102,7 @@
 
 ### Phase 9: component/dom (Replace Mode Default)
 - HTML renderer (`renderToString`, `renderToStream`).
-- `createRoot({ container, mode: 'replace' })`.
+- `createRoot({ container })` (replace-only).
 - `<Link to>` helper for client-side routing.
 - Partial response JSON format + client JS runtime.
 - Tests for partials + Link.
@@ -157,7 +157,7 @@
   - ✅ Tests for JSX parsing + core runtime
 - Phase 9: component/dom (Replace Mode Default) ✅
   - ✅ HTML renderer (`renderToString`, `renderToStream` stub)
-  - ✅ `createRoot({ container, mode: 'replace' })`
+  - ✅ `createRoot({ container })` (replace-only)
   - ✅ `<Link to>` helper + client JS runtime
   - ✅ Partial response JSON format
   - ✅ `<Hydration />` helper (explicit client boot)
@@ -173,10 +173,14 @@
   - ✅ Lazy evaluate modules on import
   - ✅ Unused imports raise errors at runtime compile time
   - ✅ Entry code runs in `namespace __phpx_entry` (global prelude stays global)
-- Phase 6: PHP <-> PHPX Bridge ⏳ (paused)
-  - ⏳ Emit raw impls + wrapper exports
-  - ⏳ Boundary conversions based on phpx types
-  - ⏳ phpx-to-phpx calls use raw impls (no overhead)
+- Phase 6: PHP <-> PHPX Bridge ✅
+  - ✅ Emit raw impls + wrapper exports
+  - ✅ Boundary conversions based on phpx types (lenient):
+    - `null` -> `Option::None` for `Option<T>` params
+    - arrays/stdClass -> Object/object-shape/struct (extra keys ignored)
+    - `Option<T>` return -> `null` or inner value
+    - `Result<T,E>` return -> `T` or `['ok' => false, 'error' => ...]`
+  - ✅ phpx-to-phpx calls use raw impls (no overhead)
 - Phase 7: Tests + Docs — in progress (paused)
   - ✅ Add PHPX fixtures for object literals, structs, enums, Option/Result, module import
   - ✅ Document new phpx syntax and typing rules (`docs/phpx-dx.md`, `PHPX_TYPES.md`)

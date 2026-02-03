@@ -3,30 +3,22 @@ import { json_encode } from 'json';
 
 struct Root {
     $container: string = '#app';
-    $mode: string = 'replace';
 }
 
 export function createRoot($config = false) {
     $container = '#app';
-    $mode = 'replace';
 
     if (is_array($config)) {
         if (array_key_exists('container', $config)) {
             $container = $config['container'];
         }
-        if (array_key_exists('mode', $config)) {
-            $mode = $config['mode'];
-        }
     } else if (is_object($config)) {
         if (isset($config.container)) {
             $container = $config.container;
         }
-        if (isset($config.mode)) {
-            $mode = $config.mode;
-        }
     }
 
-    return Root { $container: '' . $container, $mode: '' . $mode };
+    return Root { $container: '' . $container };
 }
 
 export function renderToString($node) {
@@ -121,7 +113,6 @@ const createRoot = (config = {}) => {
   const root = {
     container: config.container || "#app",
     layout: config.layout || "",
-    mode: config.mode || "replace",
   };
 
   const getContainer = (selector) => {
