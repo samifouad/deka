@@ -1,0 +1,7 @@
+function secret() {
+    return 'hidden';
+}
+
+export function expose() {
+    return secret();
+}

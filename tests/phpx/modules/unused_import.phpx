@@ -1,0 +1,3 @@
+import { expose } from '_test/hidden';
+
+echo "ok\n";

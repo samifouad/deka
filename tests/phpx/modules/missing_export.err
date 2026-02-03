@@ -1,0 +1,1 @@
+Error: Missing export 'secret' in '_test/hidden' (imported by <repo>/tests/phpx/modules/missing_export.phpx).

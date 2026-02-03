@@ -62,7 +62,7 @@ Notes:
 1. [x] Add PHP<->PHPX bridge tests for `Option<T>` (null -> None, Some -> value, return mapping).
 2. [x] Add PHP<->PHPX bridge tests for `Result<T,E>` (Ok/Err return mapping; array/stdClass coercions).
 3. [x] Add PHP<->PHPX bridge tests for object/object-shape + struct param coercion (extra keys ignored).
-4. [ ] Add runtime coverage for module isolation + unused import errors.
+4. [x] Add runtime coverage for module isolation + unused import errors.
 5. [ ] Add tests/docs for frontmatter templates + `<Hydration />`.
 6. [x] Deduplicate boundary coercion bullets in `docs/phpx-dx.md`.
 
