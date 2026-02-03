@@ -457,6 +457,10 @@ function stripPhpxTypes(source) {
 }
 const PHPX_MARKER = '/*__DEKA_PHPX__*/';
 const PHPX_INTERNAL_MARKER = '/*__DEKA_PHPX_INTERNAL__*/';
+const PHP_SAPI_MARKER_PREFIX = '/*__DEKA_PHP_SAPI:';
+function buildSapiMarker(value) {
+    return `${PHP_SAPI_MARKER_PREFIX}${value}__*/\n`;
+}
 function updateLastSignificant(prev, chunk) {
     for(let i = chunk.length - 1; i >= 0; i--){
         const ch = chunk[i];
@@ -4223,11 +4227,17 @@ function normalizeRequestUrl(request) {
 function buildPrelude(request, filePath) {
     const url = normalizeRequestUrl(request);
     const headers = normalizeHeaders(request.headers || {});
+    const contentType = headers['content-type'] || headers['Content-Type'] || '';
+    const contentLength = headers['content-length'] || headers['Content-Length'] || '';
     const hostHeader = headers.host || headers.Host || url.host || 'localhost';
     const hostParts = String(hostHeader).split(':');
     const hostname = hostParts[0] || 'localhost';
     const port = hostParts[1] ? Number(hostParts[1]) : url.protocol === 'https:' ? 443 : 80;
     const queryString = url.search ? url.search.slice(1) : '';
+    const now = Date.now();
+    const requestTime = Math.floor(now / 1000);
+    const requestTimeFloat = (now / 1000).toFixed(6);
+    const requestScheme = url.protocol === 'https:' ? 'https' : 'http';
     const serverEntries = [
         [
             'REQUEST_METHOD',
@@ -4242,6 +4252,10 @@ function buildPrelude(request, filePath) {
             queryString
         ],
         [
+            'GATEWAY_INTERFACE',
+            'CGI/1.1'
+        ],
+        [
             'HTTP_HOST',
             hostHeader
         ],
@@ -4252,6 +4266,14 @@ function buildPrelude(request, filePath) {
         [
             'SERVER_PORT',
             String(port)
+        ],
+        [
+            'SERVER_PROTOCOL',
+            'HTTP/1.1'
+        ],
+        [
+            'SERVER_SOFTWARE',
+            'deka'
         ],
         [
             'SCRIPT_NAME',
@@ -4266,6 +4288,10 @@ function buildPrelude(request, filePath) {
             globalThis.path && typeof globalThis.path.dirname === 'function' ? globalThis.path.dirname(filePath) : '.'
         ],
         [
+            'REQUEST_SCHEME',
+            requestScheme
+        ],
+        [
             'HTTPS',
             url.protocol === 'https:' ? 'on' : 'off'
         ],
@@ -4276,8 +4302,36 @@ function buildPrelude(request, filePath) {
         [
             'REMOTE_PORT',
             '0'
+        ],
+        [
+            'PATH_INFO',
+            ''
+        ],
+        [
+            'REQUEST_TIME',
+            String(requestTime)
+        ],
+        [
+            'REQUEST_TIME_FLOAT',
+            String(requestTimeFloat)
+        ],
+        [
+            'PHP_SAPI',
+            'cli-server'
         ]
     ];
+    if (contentType) {
+        serverEntries.push([
+            'CONTENT_TYPE',
+            contentType
+        ]);
+    }
+    if (contentLength) {
+        serverEntries.push([
+            'CONTENT_LENGTH',
+            contentLength
+        ]);
+    }
     for (const [key, value] of Object.entries(headers)){
         const headerKey = `HTTP_${String(key).toUpperCase().replace(/-/g, '_')}`;
         serverEntries.push([
@@ -4285,7 +4339,7 @@ function buildPrelude(request, filePath) {
             value
         ]);
     }
-    let prelude = '';
+    let prelude = buildSapiMarker('cli-server');
     if (String(filePath || '').endsWith('.phpx')) {
         // PHPX entry code runs in its own namespace block (in injectPrelude).
     }
@@ -4297,7 +4351,6 @@ function buildPrelude(request, filePath) {
     const cookieEntries = parseCookies(headers.cookie || headers.Cookie);
     const postEntries = [];
     const fileEntries = [];
-    const contentType = headers['content-type'] || headers['Content-Type'] || '';
     const rawBody = bodyToString(request.body);
     if (rawBody && String(contentType).includes('application/x-www-form-urlencoded')) {
         postEntries.push(...parseQuery(rawBody));
@@ -4358,7 +4411,10 @@ function buildCliPrelude(filePath) {
     const cwd = globalThis.process?.cwd ? globalThis.process.cwd() : '';
     const resolved = op_php_path_resolve(cwd, filePath);
     const docRoot = resolved.includes('/') ? resolved.slice(0, resolved.lastIndexOf('/')) : '';
-    let prelude = '';
+    const now = Date.now();
+    const requestTime = Math.floor(now / 1000);
+    const requestTimeFloat = (now / 1000).toFixed(6);
+    let prelude = buildSapiMarker('cli');
     if (String(filePath || '').endsWith('.phpx')) {
         // PHPX entry code runs in its own namespace block (in injectPrelude).
     }
@@ -4369,6 +4425,8 @@ function buildCliPrelude(filePath) {
     prelude += `$_SERVER['DOCUMENT_ROOT'] = '${escapePhpString(docRoot)}';\n`;
     prelude += `$_SERVER['PWD'] = '${escapePhpString(cwd)}';\n`;
     prelude += "$_SERVER['PHP_SAPI'] = 'cli';\n";
+    prelude += `$_SERVER['REQUEST_TIME'] = '${requestTime}';\n`;
+    prelude += `$_SERVER['REQUEST_TIME_FLOAT'] = '${requestTimeFloat}';\n`;
     prelude += "$argv = array();\n";
     prelude += `$argv[] = '${escapePhpString(resolved)}';\n`;
     for (const arg of argv){

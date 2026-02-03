@@ -12,6 +12,8 @@ contributors quickly understand the current behavior.
 Runtime notes:
 - `php_modules/deka.php` is auto-included by the runtime.
 - Request prelude (superglobals, headers, body, etc.) is shared between `.php` and `.phpx`.
+- Run mode is CLI-like (`PHP_SAPI=cli`, minimal `$_SERVER`, `argv/argc`).
+- Serve mode is web-like (`PHP_SAPI=cli-server`, CGI-style `$_SERVER`, request timing, headers).
 - Module prelude diverges: `.phpx` (or `.php` with top-level `import`) adds module
   registry, import wrappers, unused-import checks, and JSX auto-runtime injection.
 - `.phpx` entry files execute inside `namespace __phpx_entry` to avoid leaking globals;
