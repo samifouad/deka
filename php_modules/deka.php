@@ -34,11 +34,6 @@ namespace Deka\Internal {
 }
 
 namespace {
-    if (function_exists('__phpx_load')) {
-        __phpx_load('core/option');
-        __phpx_load('core/result');
-    }
-
     if (!function_exists('panic')) {
         function panic(string $message): void {
             throw new \Exception($message);
@@ -46,22 +41,37 @@ namespace {
     }
 
     function option_some($value) {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/option');
+        }
         return Option::Some($value);
     }
 
     function option_none() {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/option');
+        }
         return Option::None;
     }
 
     function option_is_some($value): bool {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/option');
+        }
         return $value instanceof Option && $value->is_some();
     }
 
     function option_is_none($value): bool {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/option');
+        }
         return $value instanceof Option && $value->is_none();
     }
 
     function option_unwrap($value) {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/option');
+        }
         if ($value instanceof Option) {
             return $value->unwrap();
         }
@@ -69,22 +79,37 @@ namespace {
     }
 
     function result_ok($value) {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/result');
+        }
         return Result::Ok($value);
     }
 
     function result_err($error) {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/result');
+        }
         return Result::Err($error);
     }
 
     function result_is_ok($value): bool {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/result');
+        }
         return $value instanceof Result && $value->is_ok();
     }
 
     function result_is_err($value): bool {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/result');
+        }
         return $value instanceof Result && $value->is_err();
     }
 
     function result_unwrap($value) {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/result');
+        }
         if ($value instanceof Result) {
             return $value->unwrap();
         }
@@ -92,6 +117,9 @@ namespace {
     }
 
     function result_unwrap_or($value, $fallback) {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/result');
+        }
         if ($value instanceof Result) {
             return $value->unwrap_or($fallback);
         }
@@ -99,6 +127,9 @@ namespace {
     }
 
     function try_result(callable $fn) {
+        if (function_exists('__phpx_load')) {
+            __phpx_load('core/result');
+        }
         try {
             return Result::Ok($fn());
         } catch (\Throwable $e) {
@@ -306,9 +337,17 @@ namespace {
         'wordwrap' => ['string/wordwrap', 'wordwrap'],
     ];
 
-    foreach ($GLOBALS['__DEKA_PHPX_STDLIB'] as $name => $binding) {
-        $moduleId = $binding[0];
-        $export = $binding[1];
-        \Deka\Internal\__phpx_define_function($name, $moduleId, $export);
+    if (!defined('__DEKA_PHPX_ENTRY')) {
+        $lazyModules = isset($GLOBALS['__PHPX_LAZY']) && is_array($GLOBALS['__PHPX_LAZY'])
+            ? $GLOBALS['__PHPX_LAZY']
+            : null;
+        foreach ($GLOBALS['__DEKA_PHPX_STDLIB'] as $name => $binding) {
+            $moduleId = $binding[0];
+            if ($lazyModules !== null && !isset($lazyModules[$moduleId])) {
+                continue;
+            }
+            $export = $binding[1];
+            \Deka\Internal\__phpx_define_function($name, $moduleId, $export);
+        }
     }
 }

@@ -23,17 +23,19 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Resolve type aliases for applied types (e.g., `type Maybe<T> = Option<T>`).
 - [x] Define `Result` array schema rules (`ok` boolean vs truthy) and align coercion.
 - [x] Decide/document missing struct fields behavior (defaults vs unset).
+- [x] Fix PHPX eval frame depth so eval'd PHPX can call functions (no stack underflow).
+- [x] Read export signatures from `__PHPX_TYPES` registry (avoid namespace-scoped type vars).
+- [x] Auto-add `core/option` + `core/result` as deps when referenced in PHPX modules.
 
 ### Phase 7: Tests + Docs
-- Add PHP<->PHPX bridge tests:
-  - `Option<T>`: null -> None, Some -> value, return mapping.
-  - `Result<T,E>`: Ok/Err return mapping; array/stdClass coercions.
-  - Object/object-shape + struct param coercion (extra keys ignored).
-- Add runtime coverage for module isolation + unused import errors.
-- Add tests/docs for frontmatter templates + `<Hydration />`.
-- Update `docs/VALIDATION-STATUS.md` to reflect current typechecker + PHPX rule coverage.
-- Update `docs/PHPX-VALIDATION.md` checklists to mark implemented rules (structs, enums, module rules).
-- Deduplicate boundary coercion bullets in `docs/phpx-dx.md`. ✅
+- [x] Add PHP<->PHPX bridge tests for `Option<T>` (null -> None, Some -> value, return mapping).
+- [ ] Add PHP<->PHPX bridge tests for `Result<T,E>` (Ok/Err return mapping; array/stdClass coercions).
+- [ ] Add PHP<->PHPX bridge tests for object/object-shape + struct param coercion (extra keys ignored).
+- [ ] Add runtime coverage for module isolation + unused import errors.
+- [ ] Add tests/docs for frontmatter templates + `<Hydration />`.
+- [ ] Update `docs/VALIDATION-STATUS.md` to reflect current typechecker + PHPX rule coverage.
+- [ ] Update `docs/PHPX-VALIDATION.md` checklists to mark implemented rules (structs, enums, module rules).
+- [x] Deduplicate boundary coercion bullets in `docs/phpx-dx.md`.
 
 ### Phase 4.x: Type System Hardening
 - [x] Add match expression inference (union of arm types) so `match` participates in return/assignment typing.
@@ -57,7 +59,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [ ] Implement JSX validation pass (syntax/expressions/components) as outlined in
   `docs/PHPX-VALIDATION.md`.
 - [x] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
-- [ ] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
+- [x] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
 - [x] Decide on JSX whitespace normalization (current renderer trims text nodes).
 
 ### Phase 5: Module Isolation (hardening)

@@ -1,0 +1,73 @@
+enum Option {
+    case Some(mixed $value);
+    case None;
+
+    public function is_some(): bool {
+        return match ($this) {
+            Option::Some => true,
+            Option::None => false,
+        };
+    }
+
+    public function is_none(): bool {
+        return match ($this) {
+            Option::Some => false,
+            Option::None => true,
+        };
+    }
+
+    public function unwrap() {
+        return match ($this) {
+            Option::Some => $this.value,
+            Option::None => \panic('Option::unwrap on None'),
+        };
+    }
+
+    public function expect(string $message) {
+        return match ($this) {
+            Option::Some => $this.value,
+            Option::None => \panic($message),
+        };
+    }
+
+    public function unwrap_or($fallback) {
+        return match ($this) {
+            Option::Some => $this.value,
+            Option::None => $fallback,
+        };
+    }
+
+    public function unwrap_or_else($fn) {
+        return match ($this) {
+            Option::Some => $this.value,
+            Option::None => $fn(),
+        };
+    }
+}
+
+if (!class_exists('Option', false)) {
+    class_alias(__NAMESPACE__ . '\\Option', 'Option');
+}
+
+export function option_some($value) {
+    return Option::Some($value);
+}
+
+export function option_none() {
+    return Option::None;
+}
+
+export function option_is_some($opt) {
+    return $opt instanceof Option && $opt->is_some();
+}
+
+export function option_is_none($opt) {
+    return $opt instanceof Option && $opt->is_none();
+}
+
+export function option_unwrap($opt) {
+    if ($opt instanceof Option) {
+        return $opt->unwrap();
+    }
+    \panic('Option::unwrap expected Option');
+}

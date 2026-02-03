@@ -39,7 +39,7 @@ Notes:
 13. [x] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`) for ObjectMap/Struct semantics and document/implement decisions.
 14. [x] Define object-literal equality semantics (`==`/`===`) and implement deep comparison.
 15. [x] Add tests for dot-unset + object-literal equality (value semantics).
-16. [x] Implement JSX validation pass (syntax/expressions/components) as outlined in `docs/PHPX-VALIDATION.md`.
+16. [ ] Implement JSX validation pass (syntax/expressions/components) as outlined in `docs/PHPX-VALIDATION.md`.
 17. [x] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
 18. [x] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
 19. [x] Decide on JSX whitespace normalization (current renderer trims text nodes).
@@ -54,9 +54,12 @@ Notes:
 28. [x] Implement or remove `Link` prefetch option (currently unused in hydration).
 29. [x] Add helper to emit partial JSON responses with proper headers (or document required headers in examples).
 30. [x] Clarify layout semantics (where layout id is set and when partial navigation falls back).
+31. [x] Fix PHPX eval frame depth so eval'd PHPX can call functions (no stack underflow).
+32. [x] Read export signatures from `__PHPX_TYPES` registry (avoid namespace-scoped type vars).
+33. [x] Auto-add `core/option` + `core/result` as deps when referenced in PHPX modules.
 
 ### Phase 7 Tests/Docs (from `docs/TASKS.md`, non-checkbox items)
-1. [ ] Add PHP<->PHPX bridge tests for `Option<T>` (null -> None, Some -> value, return mapping).
+1. [x] Add PHP<->PHPX bridge tests for `Option<T>` (null -> None, Some -> value, return mapping).
 2. [ ] Add PHP<->PHPX bridge tests for `Result<T,E>` (Ok/Err return mapping; array/stdClass coercions).
 3. [ ] Add PHP<->PHPX bridge tests for object/object-shape + struct param coercion (extra keys ignored).
 4. [ ] Add runtime coverage for module isolation + unused import errors.

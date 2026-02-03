@@ -111,7 +111,7 @@ if (globalThis.Deno) {
         globalThis.fs.writeFileSync = (path, data, encoding)=>{
             if (typeof data === 'string') {
                 const enc = encoding || 'utf8';
-                if (enc === 'utf8' || enc === 'utf-8') {
+                if ((enc === 'utf8' || enc === 'utf-8') && typeof globalThis.Deno.writeTextFileSync === 'function') {
                     globalThis.Deno.writeTextFileSync(path, data);
                     return;
                 }
@@ -819,6 +819,7 @@ function stripParamTypes(params) {
     let depthParen = 0;
     let depthBracket = 0;
     let depthBrace = 0;
+    let depthAngle = 0;
     let i = 0;
     while(i < params.length){
         const ch = params[i];
@@ -848,7 +849,9 @@ function stripParamTypes(params) {
         if (ch === ']') depthBracket = Math.max(0, depthBracket - 1);
         if (ch === '{') depthBrace++;
         if (ch === '}') depthBrace = Math.max(0, depthBrace - 1);
-        if (ch === ',' && depthParen === 0 && depthBracket === 0 && depthBrace === 0) {
+        if (ch === '<') depthAngle++;
+        if (ch === '>') depthAngle = Math.max(0, depthAngle - 1);
+        if (ch === ',' && depthParen === 0 && depthBracket === 0 && depthBrace === 0 && depthAngle === 0) {
             parts.push(buf);
             buf = '';
             i++;
@@ -1499,6 +1502,14 @@ function ensureJsxRuntimeImports(imports, source, filePath) {
     }
     return true;
 }
+function detectCoreRuntimeDeps(source, filePath) {
+    if (!String(filePath || '').endsWith('.phpx')) return [];
+    const clean = stripPhpCommentsAndStrings(stripPhpTags(source));
+    const deps = new Set();
+    if (/\bOption\b/.test(clean)) deps.add('core/option');
+    if (/\bResult\b/.test(clean)) deps.add('core/result');
+    return Array.from(deps);
+}
 function ensureTemplateRuntimeImports(imports, source, filePath, mode) {
     if (!String(filePath || '').endsWith('.phpx')) return false;
     const frontmatter = splitFrontmatter(source);
@@ -1642,23 +1653,6 @@ function isImportedFunctionUsed(source, name) {
 function isImportedAsJsxTag(source, name) {
     const pattern = new RegExp(`<\\/?\\s*${escapeRegex(name)}\\b`, 'g');
     return pattern.test(source);
-}
-function buildUseStatements(imports) {
-    let out = '';
-    const seen = new Set();
-    for (const spec of imports){
-        if (spec.kind === 'wasm') continue;
-        const targetNs = buildModuleNamespace(spec.from);
-        const key = `${targetNs}::${spec.imported} as ${spec.local}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        if (spec.local === spec.imported) {
-            out += `use function \\${targetNs}\\${spec.imported};\n`;
-        } else {
-            out += `use function \\${targetNs}\\${spec.imported} as ${spec.local};\n`;
-        }
-    }
-    return out;
 }
 function buildExportAliasFunction(exported, targetNamespace, targetName) {
     const params = [
@@ -1974,12 +1968,31 @@ function buildExportWrappers(moduleId, moduleNamespace, exports, typeInfo) {
     for (const name of exports){
         const wrapperName = `__phpx_wrap_${name}`;
         exportTargets.set(name, wrapperName);
-        const sigAccess = `((__phpx_array_has_key(${typeVar}, '${escapePhpString(name)}')) ? ${typeVar}['${escapePhpString(name)}'] : null)`;
-        code += `function ${wrapperName}(...$args) {`;
-        code += ` global ${typeVar};`;
+        const escapedModuleId = escapePhpString(moduleId);
+        const escapedName = escapePhpString(name);
+        const typesAccess = `(isset($GLOBALS['__PHPX_TYPES']) && __phpx_array_has_key($GLOBALS['__PHPX_TYPES'], '${escapedModuleId}') ? $GLOBALS['__PHPX_TYPES']['${escapedModuleId}'] : null)`;
+        const sigAccess = `((${typesAccess} && __phpx_array_has_key(${typesAccess}, '${escapedName}')) ? ${typesAccess}['${escapedName}'] : null)`;
+        const params = [
+            '$a',
+            '$b',
+            '$c',
+            '$d',
+            '$e',
+            '$f'
+        ];
+        const target = `${moduleNamespace}\\${name}`;
+        code += `function ${wrapperName}(${params.join(', ')}) {`;
+        code += " $argc = func_num_args();";
+        code += " $args = array();";
+        code += " if ($argc >= 1) { $args[] = $a; }";
+        code += " if ($argc >= 2) { $args[] = $b; }";
+        code += " if ($argc >= 3) { $args[] = $c; }";
+        code += " if ($argc >= 4) { $args[] = $d; }";
+        code += " if ($argc >= 5) { $args[] = $e; }";
+        code += " if ($argc >= 6) { $args[] = $f; }";
         code += ` $sig = ${sigAccess};`;
         code += " if ($sig) { $args = \\__phpx_coerce_args($sig, $args); }";
-        code += ` $result = \\${moduleNamespace}\\${name}(...$args);`;
+        code += ` $result = call_user_func_array('${escapePhpString(target)}', $args);`;
         code += " if ($sig && \\__phpx_array_has_key($sig, 'return')) { $result = \\__phpx_coerce_return($sig['return'], $result); }";
         code += " $result = \\__phpx_to_php($result);";
         code += " return $result;";
@@ -2133,6 +2146,7 @@ function parsePhpxModule(filePath, modulesRoot) {
     const rel = globalThis.path.relative(modulesRoot, filePath).replace(/\\/g, '/');
     const moduleId = moduleIdFromRel(rel);
     const raw = globalThis.fs.readFileSync(filePath, 'utf8');
+    const runtimeDeps = detectCoreRuntimeDeps(raw, filePath).filter((dep)=>dep !== moduleId);
     const lines = raw.split(/\r?\n/);
     const frontmatter = splitFrontmatter(raw);
     const frontmatterStart = frontmatter ? frontmatter.startLine : -1;
@@ -2188,8 +2202,17 @@ function parsePhpxModule(filePath, modulesRoot) {
     ensureTemplateRuntimeImports(imports, raw, filePath, 'module');
     const joinedBody = body.join('\n');
     const compiled = compilePhpxSource(joinedBody, moduleId);
+    let compiledCode = compiled.code;
+    let markerPrefix = '';
+    if (compiledCode.startsWith(PHPX_INTERNAL_MARKER)) {
+        markerPrefix = `${PHPX_INTERNAL_MARKER}\n`;
+        compiledCode = compiledCode.slice(PHPX_INTERNAL_MARKER.length);
+        if (compiledCode.startsWith('\n')) {
+            compiledCode = compiledCode.slice(1);
+        }
+    }
     const typeInfo = buildModuleTypeInfo(joinedBody, filePath, moduleId);
-    const searchable = stripPhpCommentsAndStrings(compiled.code);
+    const searchable = stripPhpCommentsAndStrings(compiledCode);
     const declaredFunctions = collectFunctionDeclarations(searchable);
     const importedLocals = new Set();
     const importByLocal = new Map();
@@ -2244,7 +2267,12 @@ function parsePhpxModule(filePath, modulesRoot) {
         seenExports.add(name);
         mergedExports.push(name);
     }
-    const aliasCode = buildUseStatements(imports);
+    const aliasCode = buildPhpImportWrappers(
+        imports.filter((spec)=>!reexportedLocals.has(spec.local)),
+        {
+            useRegistry: false
+        }
+    );
     const wasmBindingCode = buildWasmImportWrappers(imports);
     const moduleNamespace = buildModuleNamespace(moduleId);
     let exportAliasCode = '';
@@ -2271,9 +2299,10 @@ function parsePhpxModule(filePath, modulesRoot) {
     return {
         moduleId,
         filePath,
+        deps: runtimeDeps,
         imports,
         exports: mergedExports,
-        code: `namespace ${moduleNamespace};\n${aliasCode}${wasmBindingCode}${exportAliasCode}${compiled.code}\n${wrappers.code}${registryCode}`
+        code: `${markerPrefix}namespace ${moduleNamespace};\n${aliasCode}${wasmBindingCode}${exportAliasCode}${compiledCode}\n${wrappers.code}${registryCode}`
     };
 }
 function buildExportRegistry(moduleId, exports, moduleNamespace, exportTargets = null) {
@@ -2295,12 +2324,14 @@ function buildLazyModuleRegistry(modules) {
     let out = '';
     out += "if (!isset($GLOBALS['__PHPX_LAZY'])) { $GLOBALS['__PHPX_LAZY'] = array(); }\n";
     out += "if (!function_exists('__phpx_register_lazy')) { function __phpx_register_lazy($moduleId, $code, $deps) { $GLOBALS['__PHPX_LAZY'][$moduleId] = array('code' => $code, 'deps' => $deps); } }\n";
-    const escapeNowdocContent = (value)=>{
-        // Nowdoc content is currently parsed like heredoc; double backslashes to preserve literal code.
-        return String(value).replace(/\\/g, '\\\\');
-    };
+    const escapeNowdocContent = (value)=>String(value);
     for (const module of modules.values()){
         const deps = [];
+        if (Array.isArray(module.deps)) {
+            for (const dep of module.deps){
+                if (!deps.includes(dep)) deps.push(dep);
+            }
+        }
         for (const spec of module.imports){
             if (spec.kind === 'wasm') continue;
             if (!deps.includes(spec.from)) deps.push(spec.from);
@@ -2348,6 +2379,11 @@ function topoSortModules(modules) {
             if (spec.kind === 'wasm') continue;
             visit(spec.from);
         }
+        if (Array.isArray(module.deps)) {
+            for (const dep of module.deps){
+                visit(dep);
+            }
+        }
         visiting.delete(moduleId);
         visited.add(moduleId);
         order.push(moduleId);
@@ -2359,6 +2395,13 @@ function topoSortModules(modules) {
 }
 function validateImports(modules) {
     for (const module of modules.values()){
+        if (Array.isArray(module.deps)) {
+            for (const dep of module.deps){
+                if (!modules.has(dep)) {
+                    throw new Error(`Unknown phpx module '${dep}' referenced by '${module.moduleId}'.`);
+                }
+            }
+        }
         for (const spec of module.imports){
             if (spec.kind === 'wasm') continue;
             const target = modules.get(spec.from);
@@ -2455,6 +2498,21 @@ function selectStdlibModuleIds(modulePathMap, patterns) {
 function resolveStdlibModuleIds(entryPath) {
     const modulesRoot = resolvePhpModulesRoot(entryPath);
     if (!modulesRoot) return [];
+    const override = globalThis.process?.env?.DEKA_PHPX_STDLIB;
+    if (override && typeof override === 'string') {
+        const trimmed = override.trim();
+        if (trimmed.toLowerCase() === 'none') {
+            return [];
+        }
+        const patterns = trimmed
+            .split(',')
+            .map((entry)=>String(entry).trim())
+            .filter(Boolean);
+        if (patterns.length > 0) {
+            const modulePathMap = collectModulePathMap(modulesRoot);
+            return selectStdlibModuleIds(modulePathMap, patterns);
+        }
+    }
     const patterns = readStdlibModuleList(entryPath);
     if (patterns.length === 0) return [];
     const modulePathMap = collectModulePathMap(modulesRoot);
@@ -2486,6 +2544,11 @@ function compilePhpxModules(entryPath, rootModuleIds = null) {
             for (const spec of parsed.imports){
                 if (spec.kind === 'wasm') continue;
                 queue.push(spec.from);
+            }
+            if (Array.isArray(parsed.deps)) {
+                for (const dep of parsed.deps){
+                    queue.push(dep);
+                }
             }
         }
         validateImports(modules);
@@ -2684,7 +2747,8 @@ function buildPhpxBridgePrelude() {
     out += "  if (!isset($GLOBALS['__PHPX_LAZY'][$moduleId])) { return __phpx_fail('Unknown phpx module: ' . $moduleId); }\n";
     out += "  $entry = $GLOBALS['__PHPX_LAZY'][$moduleId];\n";
     out += "  $deps = __phpx_array_get($entry, 'deps', array());\n";
-    out += "  foreach ($deps as $dep) { __phpx_load($dep); }\n";
+    out += "  $dep_count = is_array($deps) ? count($deps) : 0;\n";
+    out += "  for ($i = 0; $i < $dep_count; $i++) { $dep = $deps[$i]; __phpx_load($dep); }\n";
     out += "  eval($entry['code']);\n";
     out += "  if (!isset($GLOBALS['__PHPX_MODULES'][$moduleId])) { return __phpx_fail('Failed to load phpx module: ' . $moduleId); }\n";
     out += "} }\n";
@@ -2708,7 +2772,7 @@ function buildModulePrelude(entryPath) {
         if (!dekaPath) {
             throw new Error("Missing php_modules/deka.php. Run `deka init` to create a project.");
         }
-        const stdlibModules = resolveStdlibModuleIds(entryPath);
+        const stdlibModules = isPhpxEntry ? [] : resolveStdlibModuleIds(entryPath);
         const moduleBuild = stdlibModules.length
             ? compilePhpxModules(entryPath, stdlibModules)
             : {
@@ -2720,7 +2784,10 @@ function buildModulePrelude(entryPath) {
         if (moduleBuild.modules.size > 0) {
             prelude += buildLazyModuleRegistry(moduleBuild.modules);
         }
-        prelude += `require_once '${escapePhpString(dekaPath)}';\n`;
+        const skipDeka = globalThis.process?.env?.DEKA_PHPX_SKIP_DEKA;
+        if (!skipDeka) {
+            prelude += `require_once '${escapePhpString(dekaPath)}';\n`;
+        }
         return {
             prelude,
             entryPrelude: '',
@@ -2731,7 +2798,7 @@ function buildModulePrelude(entryPath) {
     if (!dekaPath) {
         throw new Error("Missing php_modules/deka.php. Run `deka init` to create a project.");
     }
-    const stdlibModules = resolveStdlibModuleIds(entryPath);
+    const stdlibModules = isPhpxEntry ? [] : resolveStdlibModuleIds(entryPath);
     const phpxImports = importsInfo.imports.filter((spec)=>spec.kind !== 'wasm');
     const wasmImports = importsInfo.imports.filter((spec)=>spec.kind === 'wasm');
     let moduleBuild = null;
@@ -2766,6 +2833,9 @@ function buildModulePrelude(entryPath) {
     let prelude = '';
     let entryPrelude = '';
     prelude += buildPhpxBridgePrelude();
+    if (isPhpxEntry) {
+        prelude += "define('__DEKA_PHPX_ENTRY', true);\n";
+    }
     if (moduleBuild.modules.size > 0) {
         prelude += buildLazyModuleRegistry(moduleBuild.modules);
     }
@@ -2785,7 +2855,10 @@ function buildModulePrelude(entryPath) {
             prelude += wrappers;
         }
     }
-    prelude += `require_once '${escapePhpString(dekaPath)}';\n`;
+    const skipDeka = globalThis.process?.env?.DEKA_PHPX_SKIP_DEKA;
+    if (!skipDeka) {
+        prelude += `require_once '${escapePhpString(dekaPath)}';\n`;
+    }
     return {
         prelude,
         entryPrelude,
@@ -4461,7 +4534,7 @@ function injectPrelude(source, prelude, filePath = '', entryPrelude = '') {
     }
     if (String(filePath || '').endsWith('.phpx')) {
         // Wrap PHPX prelude in the global namespace and the entry code in a dedicated namespace.
-        return `<?php\n${PHPX_INTERNAL_MARKER}\nnamespace {\n${prelude}\n}\nnamespace __phpx_entry {\n${entryPrelude}${source}\n}\n`;
+        return `${PHPX_INTERNAL_MARKER}\nnamespace {\n${prelude}\n}\nnamespace __phpx_entry {\n${entryPrelude}${source}\n}\n`;
     }
     return `<?php\n${prelude}\n?>\n` + source;
 }
@@ -4485,9 +4558,17 @@ async function runFile(filePath) {
     const stitched = injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude);
     const dumpPath = globalThis.process?.env?.DEKA_DUMP_PHPX;
     if (dumpPath) {
-        try {
-            globalThis.fs.writeFileSync(dumpPath, stitched, 'utf8');
-        } catch (_err) {}
+        if (dumpPath === 'stdout') {
+            Deno.core.print(stitched, false);
+        } else if (dumpPath === 'stderr') {
+            Deno.core.print(stitched, true);
+        } else {
+            try {
+                globalThis.fs.writeFileSync(dumpPath, stitched, 'utf8');
+            } catch (err) {
+                console.error('[phpx] failed to write DEKA_DUMP_PHPX:', err);
+            }
+        }
     }
     return runSource(stitched);
 }
@@ -4497,9 +4578,17 @@ function runRequest(request, filePath) {
     const stitched = injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude);
     const dumpPath = globalThis.process?.env?.DEKA_DUMP_PHPX;
     if (dumpPath) {
-        try {
-            globalThis.fs.writeFileSync(dumpPath, stitched, 'utf8');
-        } catch (_err) {}
+        if (dumpPath === 'stdout') {
+            Deno.core.print(stitched, false);
+        } else if (dumpPath === 'stderr') {
+            Deno.core.print(stitched, true);
+        } else {
+            try {
+                globalThis.fs.writeFileSync(dumpPath, stitched, 'utf8');
+            } catch (err) {
+                console.error('[phpx] failed to write DEKA_DUMP_PHPX:', err);
+            }
+        }
     }
     return runSource(stitched);
 }

@@ -1,0 +1,41 @@
+struct Person {
+    $name: string;
+    $age: int = 0;
+}
+
+export function takes_option(Option<int> $value): int {
+    return match ($value) {
+        \Option::Some => $value.value,
+        \Option::None => 0,
+    };
+}
+
+export function returns_option(int $value): Option<int> {
+    if ($value > 0) {
+        return \Option::Some($value);
+    }
+    return \Option::None;
+}
+
+export function takes_object(Object<{ name: string, age?: int }> $user): string {
+    $age = isset($user.age) ? (string)$user.age : 'na';
+    return $user.name . ':' . $age;
+}
+
+export function takes_struct(Person $person): string {
+    return $person.name . ':' . (string)$person.age;
+}
+
+export function returns_result(int $value): Result<int, string> {
+    if ($value > 0) {
+        return \Result::Ok($value);
+    }
+    return \Result::Err('bad');
+}
+
+export function echo_result(Result<int, string> $value): int {
+    return match ($value) {
+        \Result::Ok => $value.value,
+        \Result::Err => -1,
+    };
+}
