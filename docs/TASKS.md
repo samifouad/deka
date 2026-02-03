@@ -70,7 +70,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 
 ### Phase 4.75: Struct Syntax (hardening)
 - [x] Allow unary +/− constant expressions in struct defaults (e.g. `$x: int = -1`).
-- [ ] Decide whether object/struct literals should be permitted as struct defaults;
+- [x] Decide whether object/struct literals should be permitted as struct defaults;
   if yes, extend constant-expr validation + runtime init.
 
 ### Phase 9: component/dom (hardening)
