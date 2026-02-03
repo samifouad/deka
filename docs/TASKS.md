@@ -74,7 +74,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
   if yes, extend constant-expr validation + runtime init.
 
 ### Phase 9: component/dom (hardening)
-- [ ] ContextProvider should push/pop context even when JSX passes callable (not string).
+- [x] ContextProvider should push/pop context even when JSX passes callable (not string).
 - [ ] Decide on `createRoot` `mode` support (implement or remove + document).
 - [ ] Implement or remove `Link` prefetch option (currently unused in hydration).
 - [ ] Add helper to emit partial JSON responses with proper headers

@@ -318,7 +318,7 @@ function __component_render_vnode($node) {
         return __component_render_children(__component_read_children($props));
     }
 
-    if (is_string($type) && $type === 'ContextProvider') {
+    if (__component_is_context_provider($type)) {
         $ctx = __component_read_prop($props, 'ctx');
         $value = __component_read_prop($props, 'value');
         __component_push_context($ctx, $value);
@@ -545,6 +545,22 @@ function __component_is_component_name($tag) {
     }
     $first = $name[0];
     return $first >= 'A' && $first <= 'Z';
+}
+
+function __component_is_context_provider($type) {
+    if (is_string($type)) {
+        $trim = ltrim($type, '\\');
+        if ($trim === '') {
+            return false;
+        }
+        $parts = explode('\\', $trim);
+        $name = $parts[count($parts) - 1];
+        return $name === 'ContextProvider';
+    }
+    if (is_array($type) && count($type) >= 2 && is_string($type[1])) {
+        return $type[1] === 'ContextProvider';
+    }
+    return false;
 }
 
 function __component_is_void_tag($tag) {

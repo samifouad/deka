@@ -49,7 +49,7 @@ Notes:
 23. [x] Clarify behavior of `phpx_import()` when module load fails (panic/trigger_error/echo).
 24. [x] Allow unary +/− constant expressions in struct defaults (e.g. `$x: int = -1`).
 25. [x] Decide whether object/struct literals should be permitted as struct defaults; if yes, extend constant-expr validation + runtime init.
-26. [ ] ContextProvider should push/pop context even when JSX passes callable (not string).
+26. [x] ContextProvider should push/pop context even when JSX passes callable (not string).
 27. [ ] Decide on `createRoot` `mode` support (implement or remove + document).
 28. [ ] Implement or remove `Link` prefetch option (currently unused in hydration).
 29. [ ] Add helper to emit partial JSON responses with proper headers (or document required headers in examples).
