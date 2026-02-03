@@ -474,13 +474,15 @@ fn op_php_parse_phpx_types(
     #[string] source: String,
     #[string] file_path: String,
 ) -> Result<BridgeModuleTypes, deno_core::error::CoreError> {
-    let mut wrapped_source = None;
-    let source_bytes = if source.contains("<?php") {
-        source.as_bytes()
+    let mut cleaned_source = None;
+    let trimmed = source.trim_start();
+    let source_bytes = if trimmed.starts_with("<?php") {
+        let prefix_len = source.len() - trimmed.len();
+        let without_tag = source[prefix_len + 5..].to_string();
+        cleaned_source = Some(without_tag);
+        cleaned_source.as_ref().unwrap().as_bytes()
     } else {
-        let wrapped = format!("<?php\n{}", source);
-        wrapped_source = Some(wrapped);
-        wrapped_source.as_ref().unwrap().as_bytes()
+        source.as_bytes()
     };
     let arena = Bump::new();
     let lexer = Lexer::new(source_bytes);
@@ -555,6 +557,19 @@ fn op_php_read_file_sync(#[string] path: String) -> Result<Vec<u8>, deno_core::e
         deno_core::error::CoreError::from(std::io::Error::new(
             e.kind(),
             format!("Failed to read file '{}': {}", path, e),
+        ))
+    })
+}
+
+#[op2(fast)]
+fn op_php_write_file_sync(
+    #[string] path: String,
+    #[buffer] data: &[u8],
+) -> Result<(), deno_core::error::CoreError> {
+    std::fs::write(&path, data).map_err(|e| {
+        deno_core::error::CoreError::from(std::io::Error::new(
+            e.kind(),
+            format!("Failed to write file '{}': {}", path, e),
         ))
     })
 }
@@ -706,6 +721,7 @@ deno_core::extension!(
         op_php_get_wasm,
         op_php_parse_phpx_types,
         op_php_read_file_sync,
+        op_php_write_file_sync,
         op_php_read_env,
         op_php_cwd,
         op_php_file_exists,
