@@ -299,7 +299,7 @@ pub fn compile_phpx(source: &str, file_path: &str) -> ValidationResult {
 | **Semantic Validation** | ❌ Missing | N/A | Build validators (Phase 2) |
 | **Type Checking** | ❌ Missing | N/A | Build type checker |
 | **PHPX Rules** | ❌ Missing | N/A | Build PHPX validators |
-| **Compiler API** | ❌ Missing | N/A | Create API (Phase 3) |
+| **Compiler API** | ✅ Basic | `modules_php/src/compiler_api.rs` | Wire in validation passes |
 | **Help Text** | ❌ Missing | N/A | Add to validators |
 | **Error Kinds** | ✅ Defined | `modules_php/src/validation/mod.rs` | Wire into validators |
 
