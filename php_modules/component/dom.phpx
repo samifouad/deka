@@ -49,7 +49,6 @@ export function Link($props) {
     $href = '';
     $target = '';
     $replace = false;
-    $prefetch = false;
     $layout = '';
 
     if (is_array($props)) {
@@ -61,9 +60,6 @@ export function Link($props) {
         }
         if (array_key_exists('replace', $props)) {
             $replace = $props['replace'];
-        }
-        if (array_key_exists('prefetch', $props)) {
-            $prefetch = $props['prefetch'];
         }
         if (array_key_exists('layout', $props)) {
             $layout = $props['layout'];
@@ -77,9 +73,6 @@ export function Link($props) {
         }
         if (isset($props.replace)) {
             $replace = $props.replace;
-        }
-        if (isset($props.prefetch)) {
-            $prefetch = $props.prefetch;
         }
         if (isset($props.layout)) {
             $layout = $props.layout;
@@ -102,7 +95,6 @@ export function Link($props) {
         dataComponentLink={true}
         dataComponentTarget={$target !== '' ? $target : false}
         dataComponentReplace={$replace}
-        dataComponentPrefetch={$prefetch}
         dataLayout={$layout !== '' ? $layout : false}
     >{$children}</a>;
 }

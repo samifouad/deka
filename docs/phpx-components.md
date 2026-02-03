@@ -189,7 +189,6 @@ export function Link(props: {
   target?: string,
   layout?: string,
   replace?: bool,
-  prefetch?: bool,
   children: array<mixed>
 }): VNode;
 ```
