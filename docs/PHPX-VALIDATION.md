@@ -381,10 +381,10 @@ process($nr);
 **Goal**: Ban null literals and null checks
 
 **What to validate**:
-- [ ] No `null` literals
-- [ ] No `=== null` or `!== null` comparisons
-- [ ] No `is_null()` calls
-- [ ] Suggest `Option<T>` instead
+- [x] No `null` literals
+- [x] No `=== null` or `!== null` comparisons
+- [x] No `is_null()` calls
+- [x] Suggest `Option<T>` instead
 
 **Example errors**:
 ```phpx
@@ -402,11 +402,11 @@ if (is_null($user)) {
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/phpx_rules.rs`
-- [ ] Implement `validate_no_null(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Scan AST for null literals
-- [ ] Scan for null comparisons
-- [ ] Scan for is_null() calls
+- [x] Create `crates/modules_php/src/validation/phpx_rules.rs`
+- [x] Implement `validate_no_null(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Scan AST for null literals
+- [x] Scan for null comparisons
+- [x] Scan for is_null() calls
 
 ---
 
@@ -414,10 +414,10 @@ if (is_null($user)) {
 **Goal**: Ban throw/try/catch
 
 **What to validate**:
-- [ ] No `throw` statements
-- [ ] No `try/catch/finally` blocks
-- [ ] Suggest `Result<T, E>` instead
-- [ ] Allow `panic()` for unrecoverable errors
+- [x] No `throw` statements
+- [x] No `try/catch/finally` blocks
+- [x] Suggest `Result<T, E>` instead
+- [x] Allow `panic()` for unrecoverable errors
 
 **Example errors**:
 ```phpx
@@ -443,10 +443,10 @@ function riskyOperation(): Result<int, string> {
 ```
 
 **Implementation**:
-- [ ] Add to `crates/modules_php/src/validation/phpx_rules.rs`
-- [ ] Implement `validate_no_exceptions(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Scan for throw statements
-- [ ] Scan for try/catch/finally
+- [x] Add to `crates/modules_php/src/validation/phpx_rules.rs`
+- [x] Implement `validate_no_exceptions(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Scan for throw statements
+- [x] Scan for try/catch/finally
 
 ---
 
@@ -454,13 +454,13 @@ function riskyOperation(): Result<int, string> {
 **Goal**: Ban classes, traits, extends, implements
 
 **What to validate**:
-- [ ] No `class` declarations
-- [ ] No `trait` declarations
-- [ ] No `extends` keyword
-- [ ] No `implements` keyword
-- [ ] No `new` keyword
-- [ ] No `interface` inheritance (structural interfaces only)
-- [ ] Suggest structs instead
+- [x] No `class` declarations
+- [x] No `trait` declarations
+- [x] No `extends` keyword
+- [x] No `implements` keyword
+- [x] No `new` keyword
+- [x] No `interface` inheritance (structural interfaces only)
+- [x] Suggest structs instead
 
 **Example errors**:
 ```phpx
@@ -481,11 +481,11 @@ interface Reader extends BaseReader {
 ```
 
 **Implementation**:
-- [ ] Add to `crates/modules_php/src/validation/phpx_rules.rs`
-- [ ] Implement `validate_no_oop(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Scan for class/trait/interface declarations
-- [ ] Scan for extends/implements
-- [ ] Scan for new keyword
+- [x] Add to `crates/modules_php/src/validation/phpx_rules.rs`
+- [x] Implement `validate_no_oop(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Scan for class/trait/interface declarations
+- [x] Scan for extends/implements
+- [x] Scan for new keyword
 
 ---
 
@@ -493,9 +493,9 @@ interface Reader extends BaseReader {
 **Goal**: Ban namespace declarations and top-level use
 
 **What to validate**:
-- [ ] No `namespace` declarations
-- [ ] No top-level `use` statements
-- [ ] Suggest import/export instead
+- [x] No `namespace` declarations
+- [x] No top-level `use` statements
+- [x] Suggest import/export instead
 
 **Example errors**:
 ```phpx
@@ -509,10 +509,10 @@ use App\Models\User;
 ```
 
 **Implementation**:
-- [ ] Add to `crates/modules_php/src/validation/phpx_rules.rs`
-- [ ] Implement `validate_no_namespace(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Scan for namespace declarations
-- [ ] Scan for top-level use statements
+- [x] Add to `crates/modules_php/src/validation/phpx_rules.rs`
+- [x] Implement `validate_no_namespace(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Scan for namespace declarations
+- [x] Scan for top-level use statements
 
 ---
 
@@ -955,10 +955,10 @@ pub fn compile_phpx(source: &str, file_path: &str) -> ValidationResult {
     errors.extend(check_types(&ast));
 
     // 5. PHPX rules
-    errors.extend(validate_no_null(&ast));
-    errors.extend(validate_no_exceptions(&ast));
-    errors.extend(validate_no_oop(&ast));
-    errors.extend(validate_no_namespace(&ast));
+    errors.extend(validate_no_null(&ast, source));
+    errors.extend(validate_no_exceptions(&ast, source));
+    errors.extend(validate_no_oop(&ast, source));
+    errors.extend(validate_no_namespace(&ast, source));
 
     // 6. Structs
     errors.extend(validate_struct_definitions(&ast));

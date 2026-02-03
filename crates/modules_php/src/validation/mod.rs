@@ -1,5 +1,6 @@
 pub mod imports;
 pub mod exports;
+pub mod phpx_rules;
 pub mod syntax;
 pub mod type_syntax;
 
@@ -26,6 +27,7 @@ pub enum ErrorKind {
     ModuleError,
     WasmError,
     NullNotAllowed,
+    ExceptionNotAllowed,
     OopNotAllowed,
     NamespaceNotAllowed,
     JsxError,
@@ -48,6 +50,7 @@ impl ErrorKind {
             ErrorKind::ModuleError => "Module Error",
             ErrorKind::WasmError => "WASM Error",
             ErrorKind::NullNotAllowed => "Null Not Allowed",
+            ErrorKind::ExceptionNotAllowed => "Exceptions Not Allowed",
             ErrorKind::OopNotAllowed => "OOP Not Allowed",
             ErrorKind::NamespaceNotAllowed => "Namespace Not Allowed",
             ErrorKind::JsxError => "JSX Error",

@@ -143,42 +143,42 @@ Notes:
 64. [ ] PHPX-VALIDATION:  Track generic parameters
 65. [ ] PHPX-VALIDATION:  Check constraints
 66. [ ] PHPX-VALIDATION:  Infer type arguments
-67. [ ] PHPX-VALIDATION:  No `null` literals
-68. [ ] PHPX-VALIDATION:  No `=== null` or `!== null` comparisons
-69. [ ] PHPX-VALIDATION:  No `is_null()` calls
-70. [ ] PHPX-VALIDATION:  Suggest `Option<T>` instead
-71. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/phpx_rules.rs`
-72. [ ] PHPX-VALIDATION:  Implement `validate_no_null(ast: &Ast) -> Vec<ValidationError>`
-73. [ ] PHPX-VALIDATION:  Scan AST for null literals
-74. [ ] PHPX-VALIDATION:  Scan for null comparisons
-75. [ ] PHPX-VALIDATION:  Scan for is_null() calls
-76. [ ] PHPX-VALIDATION:  No `throw` statements
-77. [ ] PHPX-VALIDATION:  No `try/catch/finally` blocks
-78. [ ] PHPX-VALIDATION:  Suggest `Result<T, E>` instead
-79. [ ] PHPX-VALIDATION:  Allow `panic()` for unrecoverable errors
-80. [ ] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/phpx_rules.rs`
-81. [ ] PHPX-VALIDATION:  Implement `validate_no_exceptions(ast: &Ast) -> Vec<ValidationError>`
-82. [ ] PHPX-VALIDATION:  Scan for throw statements
-83. [ ] PHPX-VALIDATION:  Scan for try/catch/finally
-84. [ ] PHPX-VALIDATION:  No `class` declarations
-85. [ ] PHPX-VALIDATION:  No `trait` declarations
-86. [ ] PHPX-VALIDATION:  No `extends` keyword
-87. [ ] PHPX-VALIDATION:  No `implements` keyword
-88. [ ] PHPX-VALIDATION:  No `new` keyword
-89. [ ] PHPX-VALIDATION:  No `interface` inheritance (structural interfaces only)
-90. [ ] PHPX-VALIDATION:  Suggest structs instead
-91. [ ] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/phpx_rules.rs`
-92. [ ] PHPX-VALIDATION:  Implement `validate_no_oop(ast: &Ast) -> Vec<ValidationError>`
-93. [ ] PHPX-VALIDATION:  Scan for class/trait/interface declarations
-94. [ ] PHPX-VALIDATION:  Scan for extends/implements
-95. [ ] PHPX-VALIDATION:  Scan for new keyword
-96. [ ] PHPX-VALIDATION:  No `namespace` declarations
-97. [ ] PHPX-VALIDATION:  No top-level `use` statements
-98. [ ] PHPX-VALIDATION:  Suggest import/export instead
-99. [ ] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/phpx_rules.rs`
-100. [ ] PHPX-VALIDATION:  Implement `validate_no_namespace(ast: &Ast) -> Vec<ValidationError>`
-101. [ ] PHPX-VALIDATION:  Scan for namespace declarations
-102. [ ] PHPX-VALIDATION:  Scan for top-level use statements
+67. [x] PHPX-VALIDATION:  No `null` literals
+68. [x] PHPX-VALIDATION:  No `=== null` or `!== null` comparisons
+69. [x] PHPX-VALIDATION:  No `is_null()` calls
+70. [x] PHPX-VALIDATION:  Suggest `Option<T>` instead
+71. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/phpx_rules.rs`
+72. [x] PHPX-VALIDATION:  Implement `validate_no_null(program: &Program, source: &str) -> Vec<ValidationError>`
+73. [x] PHPX-VALIDATION:  Scan AST for null literals
+74. [x] PHPX-VALIDATION:  Scan for null comparisons
+75. [x] PHPX-VALIDATION:  Scan for is_null() calls
+76. [x] PHPX-VALIDATION:  No `throw` statements
+77. [x] PHPX-VALIDATION:  No `try/catch/finally` blocks
+78. [x] PHPX-VALIDATION:  Suggest `Result<T, E>` instead
+79. [x] PHPX-VALIDATION:  Allow `panic()` for unrecoverable errors
+80. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/phpx_rules.rs`
+81. [x] PHPX-VALIDATION:  Implement `validate_no_exceptions(program: &Program, source: &str) -> Vec<ValidationError>`
+82. [x] PHPX-VALIDATION:  Scan for throw statements
+83. [x] PHPX-VALIDATION:  Scan for try/catch/finally
+84. [x] PHPX-VALIDATION:  No `class` declarations
+85. [x] PHPX-VALIDATION:  No `trait` declarations
+86. [x] PHPX-VALIDATION:  No `extends` keyword
+87. [x] PHPX-VALIDATION:  No `implements` keyword
+88. [x] PHPX-VALIDATION:  No `new` keyword
+89. [x] PHPX-VALIDATION:  No `interface` inheritance (structural interfaces only)
+90. [x] PHPX-VALIDATION:  Suggest structs instead
+91. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/phpx_rules.rs`
+92. [x] PHPX-VALIDATION:  Implement `validate_no_oop(program: &Program, source: &str) -> Vec<ValidationError>`
+93. [x] PHPX-VALIDATION:  Scan for class/trait/interface declarations
+94. [x] PHPX-VALIDATION:  Scan for extends/implements
+95. [x] PHPX-VALIDATION:  Scan for new keyword
+96. [x] PHPX-VALIDATION:  No `namespace` declarations
+97. [x] PHPX-VALIDATION:  No top-level `use` statements
+98. [x] PHPX-VALIDATION:  Suggest import/export instead
+99. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/phpx_rules.rs`
+100. [x] PHPX-VALIDATION:  Implement `validate_no_namespace(program: &Program, source: &str) -> Vec<ValidationError>`
+101. [x] PHPX-VALIDATION:  Scan for namespace declarations
+102. [x] PHPX-VALIDATION:  Scan for top-level use statements
 103. [ ] PHPX-VALIDATION:  No `__construct` in PHPX structs
 104. [ ] PHPX-VALIDATION:  Field defaults are constant expressions
 105. [ ] PHPX-VALIDATION:  Field type annotations are valid
