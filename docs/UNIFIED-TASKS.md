@@ -52,7 +52,7 @@ Notes:
 26. [x] ContextProvider should push/pop context even when JSX passes callable (not string).
 27. [x] Decide on `createRoot` `mode` support (implement or remove + document).
 28. [x] Implement or remove `Link` prefetch option (currently unused in hydration).
-29. [ ] Add helper to emit partial JSON responses with proper headers (or document required headers in examples).
+29. [x] Add helper to emit partial JSON responses with proper headers (or document required headers in examples).
 30. [ ] Clarify layout semantics (where layout id is set and when partial navigation falls back).
 
 ### Phase 7 Tests/Docs (from `docs/TASKS.md`, non-checkbox items)

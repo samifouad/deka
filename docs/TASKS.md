@@ -77,7 +77,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] ContextProvider should push/pop context even when JSX passes callable (not string).
 - [x] Decide on `createRoot` `mode` support (implement or remove + document).
 - [x] Implement or remove `Link` prefetch option (currently unused in hydration).
-- [ ] Add helper to emit partial JSON responses with proper headers
+- [x] Add helper to emit partial JSON responses with proper headers
   (or document required headers in examples).
 - [ ] Clarify layout semantics (where layout id is set and when partial navigation falls back).
 

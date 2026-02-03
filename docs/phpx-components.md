@@ -137,6 +137,7 @@ export function renderToString(VNode $node): string;
 export function renderToStream(VNode $node): Stream;
 export function renderPartial($node, $title = '', $head = ''): Object;
 export function renderPartialJson($node, $title = '', $head = ''): string;
+export function renderPartialResponse($node, $title = '', $head = ''): string;
 export function Link($props): VNode;
 export function Hydration($props): VNode;
 ```
@@ -148,6 +149,7 @@ Config:
 Notes:
 - `renderToStream` currently returns a full string (streaming hook is stubbed).
 - `renderPartial` returns `{ html, title, head? }` (object literal).
+- `renderPartialResponse` sets `Content-Type: application/json; charset=utf-8` and returns JSON.
 - Components are resolved by name: uppercase tags call a function with the same name
   when it exists; otherwise the tag is rendered as a DOM element.
 - Lowercase tags always render as DOM elements, even if a PHP function with the
