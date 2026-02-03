@@ -66,7 +66,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Decide whether `import` in `.php` should allow additional PHP statements before it
   when `<?php` is present (currently must be first non-empty line).
 - [x] Add explicit tests for duplicate imports, duplicate export aliases, and cyclic imports.
-- [ ] Clarify behavior of `phpx_import()` when module load fails (panic/trigger_error/echo).
+- [x] Clarify behavior of `phpx_import()` when module load fails (panic/trigger_error/echo).
 
 ### Phase 4.75: Struct Syntax (hardening)
 - [ ] Allow unary +/− constant expressions in struct defaults (e.g. `$x: int = -1`).

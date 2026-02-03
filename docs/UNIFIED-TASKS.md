@@ -46,7 +46,7 @@ Notes:
 20. [x] Verify unused-import detection in presence of synthetic JSX/runtime imports (avoid false positives/negatives).
 21. [x] Decide whether `import` in `.php` should allow additional PHP statements before it when `<?php` is present (currently must be first non-empty line).
 22. [x] Add explicit tests for duplicate imports, duplicate export aliases, and cyclic imports.
-23. [ ] Clarify behavior of `phpx_import()` when module load fails (panic/trigger_error/echo).
+23. [x] Clarify behavior of `phpx_import()` when module load fails (panic/trigger_error/echo).
 24. [ ] Allow unary +/− constant expressions in struct defaults (e.g. `$x: int = -1`).
 25. [ ] Decide whether object/struct literals should be permitted as struct defaults; if yes, extend constant-expr validation + runtime init.
 26. [ ] ContextProvider should push/pop context even when JSX passes callable (not string).
