@@ -180,7 +180,7 @@ pub struct ParseError {
 
 **Tasks**:
 1. [x] Update `ParseError::to_human_readable()` to use `deka-validation`
-2. [ ] Add `error_kind` and `help_text` to ParseError
+2. [x] Add `error_kind` and `help_text` to ParseError
 3. [ ] Map parser errors to PHPX validation errors
 
 **Files to modify**:
@@ -295,13 +295,13 @@ pub fn compile_phpx(source: &str, file_path: &str) -> ValidationResult {
 |---------|--------|----------|---------------|
 | **PHPX Parser** | ✅ Exists | `php-rs/src/parser/` | None |
 | **Parse Errors** | ✅ Pretty | `php-rs/src/parser/ast/mod.rs` | Add error kind + help text |
-| **Error Formatting** | ✅ Partial | N/A | Add error kinds + suggestions |
+| **Error Formatting** | ✅ Partial | N/A | Add parser error mapping + suggestions |
 | **Semantic Validation** | ❌ Missing | N/A | Build validators (Phase 2) |
 | **Type Checking** | ❌ Missing | N/A | Build type checker |
 | **PHPX Rules** | ❌ Missing | N/A | Build PHPX validators |
 | **Compiler API** | ❌ Missing | N/A | Create API (Phase 3) |
 | **Help Text** | ❌ Missing | N/A | Add to validators |
-| **Error Kinds** | ❌ Missing | N/A | Define ErrorKind enum |
+| **Error Kinds** | ⚠️ Partial | N/A | Define ErrorKind enum |
 
 ---
 

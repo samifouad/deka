@@ -70,7 +70,7 @@ Notes:
 
 ### Validation status gaps (explicit in `docs/VALIDATION-STATUS.md`)
 1. [x] Add `deka-validation` integration for parser errors (use formatter instead of basic text).
-2. [ ] Extend `ParseError` to include `error_kind` and `help_text`.
+2. [x] Extend `ParseError` to include `error_kind` and `help_text`.
 3. [ ] Add PHPX error kinds (Syntax/Type/Import/Export/Null/OOP/JSX/etc.) for validation output.
 4. [ ] Add compiler API: `compile_phpx(source, file_path) -> ValidationResult` with structured errors.
 5. [ ] Return `ValidationResult { errors, warnings, ast }` instead of generic CoreError.

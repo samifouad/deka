@@ -5703,6 +5703,7 @@ dependencies = [
  "clap",
  "crc32fast",
  "ctrlc",
+ "deka-validation",
  "digest",
  "encoding_rs",
  "flate2",
