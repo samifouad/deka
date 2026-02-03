@@ -248,12 +248,12 @@ export function Component() {}
 **Goal**: Validate type annotation syntax
 
 **What to validate**:
-- [ ] Valid type names
-- [ ] Generic syntax: `Option<T>`, `Result<T, E>`, `array<T>`
-- [ ] Object shape syntax: `Object<{ field: Type }>`
-- [ ] Type alias syntax: `type Name = ...`
-- [ ] Union types (limited): `int|float`
-- [ ] No nullable types (`?T`, `T|null` are banned)
+- [x] Valid type names
+- [x] Generic syntax: `Option<T>`, `Result<T, E>`, `array<T>`
+- [x] Object shape syntax: `Object<{ field: Type }>`
+- [x] Type alias syntax: `type Name = ...`
+- [x] Union types (limited): `int|float`
+- [x] No nullable types (`?T`, `T|null` are banned)
 
 **Example errors**:
 ```phpx
@@ -271,11 +271,11 @@ type MaybeUser = User|null;
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/type_syntax.rs`
-- [ ] Implement `validate_type_annotations(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Reject `null`, `?T`, `T|null` syntax
-- [ ] Validate generic parameter syntax
-- [ ] Check object shape syntax
+- [x] Create `crates/modules_php/src/validation/type_syntax.rs`
+- [x] Implement `validate_type_annotations(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Reject `null`, `?T`, `T|null` syntax
+- [x] Validate generic parameter syntax
+- [x] Check object shape syntax
 
 ---
 

@@ -2,10 +2,11 @@ use bumpalo::Bump;
 use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
 
+use crate::validation::exports::validate_exports;
 use crate::validation::imports::validate_imports;
 use crate::validation::imports::{frontmatter_bounds, strip_php_tags_inline};
-use crate::validation::exports::validate_exports;
 use crate::validation::syntax::validate_syntax;
+use crate::validation::type_syntax::validate_type_annotations;
 use crate::validation::ValidationResult;
 
 pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> ValidationResult<'a> {
@@ -37,6 +38,16 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
 
     let export_errors = validate_exports(source, file_path, &program);
     errors.extend(export_errors);
+    if !errors.is_empty() {
+        return ValidationResult {
+            errors,
+            warnings,
+            ast: None,
+        };
+    }
+
+    let type_errors = validate_type_annotations(&program, source);
+    errors.extend(type_errors);
     if !errors.is_empty() {
         return ValidationResult {
             errors,

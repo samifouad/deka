@@ -110,17 +110,17 @@ Notes:
 31. [x] PHPX-VALIDATION:  Check for duplicates
 32. [x] PHPX-VALIDATION:  Verify definitions exist
 33. [x] PHPX-VALIDATION:  Special handling for template files
-34. [ ] PHPX-VALIDATION:  Valid type names
-35. [ ] PHPX-VALIDATION:  Generic syntax: `Option<T>`, `Result<T, E>`, `array<T>`
-36. [ ] PHPX-VALIDATION:  Object shape syntax: `Object<{ field: Type }>`
-37. [ ] PHPX-VALIDATION:  Type alias syntax: `type Name = ...`
-38. [ ] PHPX-VALIDATION:  Union types (limited): `int|float`
-39. [ ] PHPX-VALIDATION:  No nullable types (`?T`, `T|null` are banned)
-40. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/type_syntax.rs`
-41. [ ] PHPX-VALIDATION:  Implement `validate_type_annotations(ast: &Ast) -> Vec<ValidationError>`
-42. [ ] PHPX-VALIDATION:  Reject `null`, `?T`, `T|null` syntax
-43. [ ] PHPX-VALIDATION:  Validate generic parameter syntax
-44. [ ] PHPX-VALIDATION:  Check object shape syntax
+34. [x] PHPX-VALIDATION:  Valid type names
+35. [x] PHPX-VALIDATION:  Generic syntax: `Option<T>`, `Result<T, E>`, `array<T>`
+36. [x] PHPX-VALIDATION:  Object shape syntax: `Object<{ field: Type }>`
+37. [x] PHPX-VALIDATION:  Type alias syntax: `type Name = ...`
+38. [x] PHPX-VALIDATION:  Union types (limited): `int|float`
+39. [x] PHPX-VALIDATION:  No nullable types (`?T`, `T|null` are banned)
+40. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/type_syntax.rs`
+41. [x] PHPX-VALIDATION:  Implement `validate_type_annotations(program: &Program, source: &str) -> Vec<ValidationError>`
+42. [x] PHPX-VALIDATION:  Reject `null`, `?T`, `T|null` syntax
+43. [x] PHPX-VALIDATION:  Validate generic parameter syntax
+44. [x] PHPX-VALIDATION:  Check object shape syntax
 45. [ ] PHPX-VALIDATION:  Variable assignment type matches
 46. [ ] PHPX-VALIDATION:  Function parameter types match arguments
 47. [ ] PHPX-VALIDATION:  Return type matches returned value

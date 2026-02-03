@@ -1,6 +1,7 @@
 pub mod imports;
 pub mod exports;
 pub mod syntax;
+pub mod type_syntax;
 
 use php_rs::parser::ast::Program;
 use serde::Serialize;
