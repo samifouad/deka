@@ -74,6 +74,7 @@ Notes:
 3. [x] Add PHPX error kinds (Syntax/Type/Import/Export/Null/OOP/JSX/etc.) for validation output.
 4. [ ] Add compiler API: `compile_phpx(source, file_path) -> ValidationResult` with structured errors.
 5. [ ] Return `ValidationResult { errors, warnings, ast }` instead of generic CoreError.
+6. [x] Map parser errors to PHPX validation errors.
 
 ### Validation plan checklist (from `docs/PHPX-VALIDATION.md`)
 1. [ ] PHPX-VALIDATION:  Unclosed braces, brackets, parentheses

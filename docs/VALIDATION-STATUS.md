@@ -181,7 +181,7 @@ pub struct ParseError {
 **Tasks**:
 1. [x] Update `ParseError::to_human_readable()` to use `deka-validation`
 2. [x] Add `error_kind` and `help_text` to ParseError
-3. [ ] Map parser errors to PHPX validation errors
+3. [x] Map parser errors to PHPX validation errors
 
 **Files to modify**:
 - `crates/php-rs/src/parser/ast/mod.rs` (ParseError struct)
