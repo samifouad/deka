@@ -69,7 +69,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Clarify behavior of `phpx_import()` when module load fails (panic/trigger_error/echo).
 
 ### Phase 4.75: Struct Syntax (hardening)
-- [ ] Allow unary +/− constant expressions in struct defaults (e.g. `$x: int = -1`).
+- [x] Allow unary +/− constant expressions in struct defaults (e.g. `$x: int = -1`).
 - [ ] Decide whether object/struct literals should be permitted as struct defaults;
   if yes, extend constant-expr validation + runtime init.
 
