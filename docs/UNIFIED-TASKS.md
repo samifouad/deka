@@ -295,12 +295,12 @@ Notes:
 216. [x] PHPX-VALIDATION:  `format_with_docs_link()` - Add doc links
 
 ## DX / Tooling (from `docs/DX-TASKS.md`)
-1. [ ] DX-TASKS:  Create `tooling/tree-sitter-phpx/` directory
-2. [ ] DX-TASKS:  Clone `tree-sitter-php` as starting point
-3. [ ] DX-TASKS:  Rename project to `tree-sitter-phpx`
-4. [ ] DX-TASKS:  Update `package.json` metadata (name, description, repo)
-5. [ ] DX-TASKS:  Install tree-sitter CLI: `npm install -g tree-sitter-cli`
-6. [ ] DX-TASKS:  Verify build: `tree-sitter generate && tree-sitter test`
+1. [x] DX-TASKS:  Create `tooling/tree-sitter-phpx/` directory
+2. [x] DX-TASKS:  Clone `tree-sitter-php` as starting point
+3. [x] DX-TASKS:  Rename project to `tree-sitter-phpx`
+4. [x] DX-TASKS:  Update `package.json` metadata (name, description, repo)
+5. [x] DX-TASKS:  Install tree-sitter CLI: `npm install -g tree-sitter-cli`
+6. [x] DX-TASKS:  Verify build: `tree-sitter generate && tree-sitter test`
 7. [ ] DX-TASKS:  Add type annotation rules to `grammar.js`
 48:  - [ ] Primitive types: `int`, `string`, `bool`, `float`, `mixed`
 49:  - [ ] Generic types: `Option<T>`, `Result<T, E>`, `array<T>`
