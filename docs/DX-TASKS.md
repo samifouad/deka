@@ -436,7 +436,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] Functions (show signature)
   - [x] Imports (show module path)
   - [x] Struct fields (show type)
-  - [ ] WASM imports (show WIT signature from `.d.phpx`)
+  - [x] WASM imports (show WIT signature from `.d.phpx`)
 - [ ] Test with various PHPX constructs
 
 **Acceptance**: Hover shows useful type info

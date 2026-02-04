@@ -179,6 +179,9 @@ impl LanguageServer for Backend {
         if hover_text.is_none() {
             hover_text = hover_from_import(&text, offset);
         }
+        if hover_text.is_none() {
+            hover_text = hover_from_wasm_import(&text, &file_path, offset);
+        }
 
         let Some(value) = hover_text else {
             return Ok(None);
@@ -1387,6 +1390,23 @@ fn hover_from_import(source: &str, offset: usize) -> Option<String> {
     None
 }
 
+fn hover_from_wasm_import(source: &str, file_path: &str, offset: usize) -> Option<String> {
+    let word = word_at_offset(source.as_bytes(), offset)?;
+    let imports = parse_imports(source);
+    for import in imports {
+        if !import.is_wasm || import.local != word {
+            continue;
+        }
+        let root = find_php_modules_root(Path::new(file_path))?;
+        let path = resolve_module_file(&root, &import.from, true)?;
+        let module_source = fs::read_to_string(path).ok()?;
+        if let Some(signature) = wasm_stub_signature(&module_source, &import.imported) {
+            return Some(format!("```php\n{}\n```", signature));
+        }
+    }
+    None
+}
+
 fn definition_for_import_module(
     source: &str,
     file_path: &str,
@@ -1482,6 +1502,22 @@ fn export_range_for_symbol(source: &str, symbol: &str) -> Option<Range> {
             }
         }
         offset += line.len() + 1;
+    }
+    None
+}
+
+fn wasm_stub_signature(source: &str, symbol: &str) -> Option<String> {
+    for line in source.lines() {
+        let trimmed = line.trim_start();
+        let rest = match trimmed.strip_prefix("export function ") {
+            Some(rest) => rest,
+            None => continue,
+        };
+        let sig = rest.trim_end_matches(';').trim();
+        let name = sig.split('(').next().unwrap_or("").trim();
+        if name == symbol {
+            return Some(format!("function {}", sig));
+        }
     }
     None
 }

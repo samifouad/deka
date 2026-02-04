@@ -480,7 +480,7 @@ Notes:
 435:  - [x] Functions (show signature)
 436:  - [x] Imports (show module path)
 437:  - [x] Struct fields (show type)
-438:  - [ ] WASM imports (show WIT signature from `.d.phpx`)
+438:  - [x] WASM imports (show WIT signature from `.d.phpx`)
 97. [ ] DX-TASKS:  Test with various PHPX constructs
 98. [x] DX-TASKS:  Add `completionProvider` capability to LSP
 99. [ ] DX-TASKS:  Implement `completion` method:
