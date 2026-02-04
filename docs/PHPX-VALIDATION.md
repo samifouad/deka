@@ -522,11 +522,11 @@ use App\Models\User;
 **Goal**: Validate struct definitions
 
 **What to validate**:
-- [ ] No `__construct` in PHPX structs
-- [ ] Field defaults are constant expressions
-- [ ] Field type annotations are valid
-- [ ] No duplicate field names
-- [ ] Struct composition (`use A`) is valid
+- [x] No `__construct` in PHPX structs
+- [x] Field defaults are constant expressions
+- [x] Field type annotations are valid
+- [x] No duplicate field names
+- [x] Struct composition (`use A`) is valid
 
 **Example errors**:
 ```phpx
@@ -556,12 +556,12 @@ struct User {
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/structs.rs`
-- [ ] Implement `validate_struct_definitions(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Check for __construct
-- [ ] Validate field defaults are constants
-- [ ] Check for duplicate fields
-- [ ] Validate composition
+- [x] Create `crates/modules_php/src/validation/structs.rs`
+- [x] Implement `validate_struct_definitions(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Check for __construct
+- [x] Validate field defaults are constants
+- [x] Check for duplicate fields
+- [x] Validate composition
 
 ---
 
@@ -569,11 +569,11 @@ struct User {
 **Goal**: Validate struct literal syntax and usage
 
 **What to validate**:
-- [ ] All required fields provided
-- [ ] No extra fields
-- [ ] Field types match values
-- [ ] Shorthand syntax valid
-- [ ] Nested struct literals valid
+- [x] All required fields provided
+- [x] No extra fields
+- [x] Field types match values
+- [x] Shorthand syntax valid
+- [x] Nested struct literals valid
 
 **Example errors**:
 ```phpx
@@ -606,9 +606,9 @@ $p = Point { $z };
 ```
 
 **Implementation**:
-- [ ] Add to `crates/modules_php/src/validation/structs.rs`
-- [ ] Implement `validate_struct_literals(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Check required fields
+- [x] Add to `crates/modules_php/src/validation/structs.rs`
+- [x] Implement `validate_struct_literals(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Check required fields
 - [ ] Reject extra fields
 - [ ] Validate field types
 - [ ] Handle shorthand syntax

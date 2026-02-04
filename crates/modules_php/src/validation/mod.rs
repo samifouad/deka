@@ -3,6 +3,7 @@ pub mod exports;
 pub mod generics;
 pub mod phpx_rules;
 pub mod syntax;
+pub mod structs;
 pub mod type_checker;
 pub mod type_syntax;
 

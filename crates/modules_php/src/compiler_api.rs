@@ -12,6 +12,7 @@ use crate::validation::type_syntax::validate_type_annotations;
 use crate::validation::phpx_rules::{
     validate_no_exceptions, validate_no_namespace, validate_no_null, validate_no_oop,
 };
+use crate::validation::structs::{validate_struct_definitions, validate_struct_literals};
 use crate::validation::ValidationResult;
 
 pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> ValidationResult<'a> {
@@ -86,6 +87,16 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
     errors.extend(validate_no_exceptions(&program, source));
     errors.extend(validate_no_oop(&program, source));
     errors.extend(validate_no_namespace(&program, source));
+    if !errors.is_empty() {
+        return ValidationResult {
+            errors,
+            warnings,
+            ast: None,
+        };
+    }
+
+    errors.extend(validate_struct_definitions(&program, source));
+    errors.extend(validate_struct_literals(&program, source));
     if !errors.is_empty() {
         return ValidationResult {
             errors,

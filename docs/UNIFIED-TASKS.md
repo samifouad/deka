@@ -179,25 +179,25 @@ Notes:
 100. [x] PHPX-VALIDATION:  Implement `validate_no_namespace(program: &Program, source: &str) -> Vec<ValidationError>`
 101. [x] PHPX-VALIDATION:  Scan for namespace declarations
 102. [x] PHPX-VALIDATION:  Scan for top-level use statements
-103. [ ] PHPX-VALIDATION:  No `__construct` in PHPX structs
-104. [ ] PHPX-VALIDATION:  Field defaults are constant expressions
-105. [ ] PHPX-VALIDATION:  Field type annotations are valid
-106. [ ] PHPX-VALIDATION:  No duplicate field names
-107. [ ] PHPX-VALIDATION:  Struct composition (`use A`) is valid
-108. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/structs.rs`
-109. [ ] PHPX-VALIDATION:  Implement `validate_struct_definitions(ast: &Ast) -> Vec<ValidationError>`
-110. [ ] PHPX-VALIDATION:  Check for __construct
-111. [ ] PHPX-VALIDATION:  Validate field defaults are constants
-112. [ ] PHPX-VALIDATION:  Check for duplicate fields
-113. [ ] PHPX-VALIDATION:  Validate composition
-114. [ ] PHPX-VALIDATION:  All required fields provided
-115. [ ] PHPX-VALIDATION:  No extra fields
-116. [ ] PHPX-VALIDATION:  Field types match values
-117. [ ] PHPX-VALIDATION:  Shorthand syntax valid
-118. [ ] PHPX-VALIDATION:  Nested struct literals valid
-119. [ ] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/structs.rs`
-120. [ ] PHPX-VALIDATION:  Implement `validate_struct_literals(ast: &Ast) -> Vec<ValidationError>`
-121. [ ] PHPX-VALIDATION:  Check required fields
+103. [x] PHPX-VALIDATION:  No `__construct` in PHPX structs
+104. [x] PHPX-VALIDATION:  Field defaults are constant expressions
+105. [x] PHPX-VALIDATION:  Field type annotations are valid
+106. [x] PHPX-VALIDATION:  No duplicate field names
+107. [x] PHPX-VALIDATION:  Struct composition (`use A`) is valid
+108. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/structs.rs`
+109. [x] PHPX-VALIDATION:  Implement `validate_struct_definitions(program: &Program, source: &str) -> Vec<ValidationError>`
+110. [x] PHPX-VALIDATION:  Check for __construct
+111. [x] PHPX-VALIDATION:  Validate field defaults are constants
+112. [x] PHPX-VALIDATION:  Check for duplicate fields
+113. [x] PHPX-VALIDATION:  Validate composition
+114. [x] PHPX-VALIDATION:  All required fields provided
+115. [x] PHPX-VALIDATION:  No extra fields
+116. [x] PHPX-VALIDATION:  Field types match values
+117. [x] PHPX-VALIDATION:  Shorthand syntax valid
+118. [x] PHPX-VALIDATION:  Nested struct literals valid
+119. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/structs.rs`
+120. [x] PHPX-VALIDATION:  Implement `validate_struct_literals(program: &Program, source: &str) -> Vec<ValidationError>`
+121. [x] PHPX-VALIDATION:  Check required fields
 122. [ ] PHPX-VALIDATION:  Reject extra fields
 123. [ ] PHPX-VALIDATION:  Validate field types
 124. [ ] PHPX-VALIDATION:  Handle shorthand syntax
