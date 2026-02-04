@@ -6206,6 +6206,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "object_literal"
+        },
+        {
+          "type": "SYMBOL",
           "name": "struct_literal"
         },
         {
@@ -11183,6 +11187,14 @@
     [
       "primary_expression",
       "struct_literal"
+    ],
+    [
+      "compound_statement",
+      "object_literal"
+    ],
+    [
+      "named_label_statement",
+      "object_literal_item"
     ]
   ],
   "precedences": [],

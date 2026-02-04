@@ -458,7 +458,7 @@ Notes:
 396:  - [x] If/else/foreach blocks
 397:  - [x] JSX children
 398:  - [x] Struct literals
-399:  - [ ] Object literals (phpx-only; keep queries compatible with php grammar)
+399:  - [x] Object literals (tooling accepts in php grammar)
 88. [ ] DX-TASKS:  Test auto-indentation in Zed
 89. [ ] DX-TASKS:  Verify correct indent after newline
 90. [x] DX-TASKS:  Create `queries/textobjects.scm`

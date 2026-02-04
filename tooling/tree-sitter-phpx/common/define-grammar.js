@@ -88,31 +88,24 @@ module.exports = function defineGrammar(dialect) {
   return grammar({
     name: dialect,
 
-    conflicts: $ => {
-      const conflicts = [
-        [$._array_destructing, $.array_creation_expression],
-        [$._array_destructing_element, $.array_element_initializer],
-        [$.primary_expression, $._array_destructing_element],
+    conflicts: $ => [
+      [$._array_destructing, $.array_creation_expression],
+      [$._array_destructing_element, $.array_element_initializer],
+      [$.primary_expression, $._array_destructing_element],
 
-        [$.type, $.union_type, $.intersection_type, $.disjunctive_normal_form_type],
-        [$.union_type, $.disjunctive_normal_form_type],
-        [$.intersection_type],
-        [$.if_statement],
-        [$.jsx_element],
-        [$.jsx_fragment],
+      [$.type, $.union_type, $.intersection_type, $.disjunctive_normal_form_type],
+      [$.union_type, $.disjunctive_normal_form_type],
+      [$.intersection_type],
+      [$.if_statement],
+      [$.jsx_element],
+      [$.jsx_fragment],
 
-        [$.namespace_name],
-        [$.heredoc_body],
-        [$.primary_expression, $.struct_literal],
-      ];
-
-      if (!isPhp) {
-        conflicts.push([$.compound_statement, $.object_literal]);
-        conflicts.push([$.named_label_statement, $.object_literal_item]);
-      }
-
-      return conflicts;
-    },
+      [$.namespace_name],
+      [$.heredoc_body],
+      [$.primary_expression, $.struct_literal],
+      [$.compound_statement, $.object_literal],
+      [$.named_label_statement, $.object_literal_item],
+    ],
 
     externals: $ => [
       $._automatic_semicolon,
@@ -1199,32 +1192,25 @@ module.exports = function defineGrammar(dialect) {
 
       clone_expression: $ => seq(keyword('clone'), $.primary_expression),
 
-      primary_expression: $ => {
-        const primary = [
-          $._variable,
-          $.literal,
-          $.class_constant_access_expression,
-          $.qualified_name,
-          $.relative_name,
-          $.name,
-          $.array_creation_expression,
-          $.struct_literal,
-          $.print_intrinsic,
-          $.anonymous_function,
-          $.arrow_function,
-          $.object_creation_expression,
-          $.update_expression,
-          $.shell_command_expression,
-          $.parenthesized_expression,
-          $.throw_expression,
-        ];
-
-        if (!isPhp) {
-          primary.splice(primary.indexOf($.struct_literal), 0, $.object_literal);
-        }
-
-        return choice(...primary);
-      },
+      primary_expression: $ => choice(
+        $._variable,
+        $.literal,
+        $.class_constant_access_expression,
+        $.qualified_name,
+        $.relative_name,
+        $.name,
+        $.array_creation_expression,
+        $.object_literal,
+        $.struct_literal,
+        $.print_intrinsic,
+        $.anonymous_function,
+        $.arrow_function,
+        $.object_creation_expression,
+        $.update_expression,
+        $.shell_command_expression,
+        $.parenthesized_expression,
+        $.throw_expression,
+      ),
 
       parenthesized_expression: $ => seq('(', $.expression, ')'),
 

@@ -396,7 +396,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] If/else/foreach blocks
   - [x] JSX children
   - [x] Struct literals
-  - [ ] Object literals (phpx-only; keep queries compatible with php grammar)
+  - [x] Object literals (tooling accepts in php grammar)
 - [ ] Test auto-indentation in Zed
 - [ ] Verify correct indent after newline
 

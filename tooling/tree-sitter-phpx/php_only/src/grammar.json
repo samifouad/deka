@@ -6380,6 +6380,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "object_literal"
+        },
+        {
+          "type": "SYMBOL",
           "name": "struct_literal"
         },
         {
@@ -6409,10 +6413,6 @@
         {
           "type": "SYMBOL",
           "name": "parenthesized_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "object_literal"
         },
         {
           "type": "SYMBOL",
