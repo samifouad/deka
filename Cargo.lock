@@ -4475,6 +4475,7 @@ name = "modules_php"
 version = "0.1.0"
 dependencies = [
  "bumpalo",
+ "deka-validation",
  "deno_core",
  "php-rs",
  "serde",

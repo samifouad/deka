@@ -97,7 +97,7 @@ pub struct ValidationResult<'a> {
 }
 
 pub fn format_validation_error(source: &str, file_path: &str, error: &ValidationError) -> String {
-    deka_validation::format_validation_error(
+    deka_validation::format_validation_error_extended(
         source,
         file_path,
         error.kind.as_str(),
@@ -106,6 +106,8 @@ pub fn format_validation_error(source: &str, file_path: &str, error: &Validation
         &error.message,
         &error.help_text,
         error.underline_length,
+        severity_label(error.severity),
+        docs_link_for_kind(error.kind),
     )
 }
 
@@ -114,7 +116,7 @@ pub fn format_validation_warning(
     file_path: &str,
     warning: &ValidationWarning,
 ) -> String {
-    deka_validation::format_validation_error(
+    deka_validation::format_validation_error_extended(
         source,
         file_path,
         warning.kind.as_str(),
@@ -123,6 +125,8 @@ pub fn format_validation_warning(
         &warning.message,
         &warning.help_text,
         warning.underline_length,
+        severity_label(warning.severity),
+        docs_link_for_kind(warning.kind),
     )
 }
 
@@ -140,6 +144,36 @@ pub fn format_multiple_errors(
         out.push_str(&format_validation_warning(source, file_path, warning));
     }
     out
+}
+
+fn severity_label(severity: Severity) -> &'static str {
+    match severity {
+        Severity::Error => "error",
+        Severity::Warning => "warning",
+        Severity::Info => "info",
+    }
+}
+
+fn docs_link_for_kind(kind: ErrorKind) -> Option<String> {
+    let path = match kind {
+        ErrorKind::SyntaxError | ErrorKind::UnexpectedToken | ErrorKind::InvalidToken => {
+            "docs/phpx/syntax"
+        }
+        ErrorKind::ImportError | ErrorKind::ExportError | ErrorKind::ModuleError => {
+            "docs/phpx/modules"
+        }
+        ErrorKind::WasmError => "docs/phpx/wasm",
+        ErrorKind::NullNotAllowed | ErrorKind::ExceptionNotAllowed => "docs/phpx/strict",
+        ErrorKind::OopNotAllowed => "docs/phpx/oop",
+        ErrorKind::NamespaceNotAllowed => "docs/phpx/modules",
+        ErrorKind::JsxError => "docs/phpx/jsx",
+        ErrorKind::StructError => "docs/phpx/structs",
+        ErrorKind::EnumError | ErrorKind::PatternError => "docs/phpx/enums",
+        ErrorKind::TypeError | ErrorKind::TypeMismatch | ErrorKind::UnknownType => {
+            "docs/phpx/types"
+        }
+    };
+    Some(path.to_string())
 }
 
 pub fn parse_errors_to_validation_errors(

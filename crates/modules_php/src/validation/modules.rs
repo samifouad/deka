@@ -36,30 +36,8 @@ pub fn validate_module_resolution(source: &str, file_path: &str) -> Vec<Validati
         .unwrap_or_default();
 
     let mut graph = ModuleGraph::new(modules_root.clone(), available_modules.clone());
-    for spec in &imports {
-        if spec.kind == ImportKind::Wasm {
-            continue;
-        }
-        if spec.from.starts_with('@') && !is_valid_user_module(&spec.from) {
-            errors.push(module_error(
-                spec.line,
-                spec.column,
-                spec.from.len().max(1),
-                format!("Invalid module id '{}'.", spec.from),
-                "Use '@user/module' format for user modules.",
-            ));
-        }
-        match resolve_import_target(
-            &spec.from,
-            file_path,
-            modules_root.as_deref(),
-            Some(&available_modules),
-        ) {
-            Ok(resolved) => {
-                graph.ensure_loaded(&resolved.module_id, &resolved.file_path, &mut errors);
-            }
-            Err(err) => errors.push(err),
-        }
+    if !imports.is_empty() {
+        graph.ensure_loaded("<entry>", Path::new(file_path), &mut errors);
     }
 
     if !errors.is_empty() {
@@ -156,6 +134,16 @@ impl ModuleGraph {
         let import_specs = collect_import_specs(&source, file_path.to_string_lossy().as_ref());
         for spec in import_specs {
             if spec.kind == ImportKind::Wasm {
+                continue;
+            }
+            if spec.from.starts_with('@') && !is_valid_user_module(&spec.from) {
+                errors.push(module_error(
+                    spec.line,
+                    spec.column,
+                    spec.from.len().max(1),
+                    format!("Invalid module id '{}'.", spec.from),
+                    "Use '@user/module' format for user modules.",
+                ));
                 continue;
             }
             match resolve_import_target(

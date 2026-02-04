@@ -285,7 +285,7 @@ Notes:
 206. [ ] PHPX-VALIDATION:  Error message quality
 207. [ ] PHPX-VALIDATION:  Help text accuracy
 208. [ ] PHPX-VALIDATION:  Edge cases
-209. [ ] PHPX-VALIDATION:  Support for multiple errors in single file
+209. [x] PHPX-VALIDATION:  Support for multiple errors in single file
 210. [ ] PHPX-VALIDATION:  Color coding by error kind
 211. [ ] PHPX-VALIDATION:  Code suggestions (auto-fix hints)
 212. [ ] PHPX-VALIDATION:  Reference links to PHPX docs

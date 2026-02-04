@@ -29,124 +29,48 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
 
     let mut errors = validate_syntax(source, &program);
     let mut warnings = Vec::new();
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
+    let has_parse_errors = !errors.is_empty();
 
     let (import_errors, import_warnings) = validate_imports(source, file_path);
     errors.extend(import_errors);
     warnings.extend(import_warnings);
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     let export_errors = validate_exports(source, file_path, &program);
     errors.extend(export_errors);
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     let type_errors = validate_type_annotations(&program, source);
     errors.extend(type_errors);
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     let type_errors = check_types(&program, source, Some(file_path));
     errors.extend(type_errors);
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     let (generic_errors, generic_warnings) = validate_generics(&program, source);
     errors.extend(generic_errors);
     warnings.extend(generic_warnings);
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     errors.extend(validate_no_null(&program, source));
     errors.extend(validate_no_exceptions(&program, source));
     errors.extend(validate_no_oop(&program, source));
     errors.extend(validate_no_namespace(&program, source));
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     errors.extend(validate_struct_definitions(&program, source));
     errors.extend(validate_struct_literals(&program, source));
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     errors.extend(validate_frontmatter(source, file_path));
     errors.extend(validate_template_section(source, file_path));
     errors.extend(validate_jsx_syntax(&program, source));
     errors.extend(validate_jsx_expressions(&program, source));
     errors.extend(validate_components(&program, source));
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     errors.extend(validate_module_resolution(source, file_path));
     errors.extend(validate_wasm_imports(source, file_path));
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     errors.extend(validate_match_exhaustiveness(&program, source));
-    if !errors.is_empty() {
-        return ValidationResult {
-            errors,
-            warnings,
-            ast: None,
-        };
-    }
 
     ValidationResult {
         errors,
         warnings,
-        ast: Some(program),
+        ast: if has_parse_errors { None } else { Some(program) },
     }
 }
 
