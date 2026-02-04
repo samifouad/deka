@@ -333,10 +333,10 @@ $result = add("1", "2");
 **Goal**: Validate generic parameters and constraints
 
 **What to validate**:
-- [ ] Generic parameters are used
-- [ ] Generic constraints are satisfied
-- [ ] Type arguments provided where required
-- [ ] Constraint syntax: `T: Reader`
+- [x] Generic parameters are used
+- [x] Generic constraints are satisfied
+- [x] Type arguments provided where required
+- [x] Constraint syntax: `T: Reader`
 
 **Example errors**:
 ```phpx
@@ -367,11 +367,11 @@ process($nr);
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/generics.rs`
-- [ ] Implement `validate_generics(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Track generic parameters
-- [ ] Check constraints
-- [ ] Infer type arguments
+- [x] Create `crates/modules_php/src/validation/generics.rs`
+- [x] Implement `validate_generics(program: &Program, source: &str) -> (Vec<ValidationError>, Vec<ValidationWarning>)`
+- [x] Track generic parameters
+- [x] Check constraints
+- [x] Infer type arguments
 
 ---
 

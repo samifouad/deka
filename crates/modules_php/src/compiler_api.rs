@@ -3,6 +3,7 @@ use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
 
 use crate::validation::exports::validate_exports;
+use crate::validation::generics::validate_generics;
 use crate::validation::imports::validate_imports;
 use crate::validation::imports::{frontmatter_bounds, strip_php_tags_inline};
 use crate::validation::syntax::validate_syntax;
@@ -62,6 +63,17 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
 
     let type_errors = check_types(&program, source, Some(file_path));
     errors.extend(type_errors);
+    if !errors.is_empty() {
+        return ValidationResult {
+            errors,
+            warnings,
+            ast: None,
+        };
+    }
+
+    let (generic_errors, generic_warnings) = validate_generics(&program, source);
+    errors.extend(generic_errors);
+    warnings.extend(generic_warnings);
     if !errors.is_empty() {
         return ValidationResult {
             errors,

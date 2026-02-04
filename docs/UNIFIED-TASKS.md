@@ -134,15 +134,15 @@ Notes:
 55. [x] PHPX-VALIDATION:  Infer types for expressions
 56. [x] PHPX-VALIDATION:  Check compatibility at assignments/calls/returns
 57. [x] PHPX-VALIDATION:  Track widening rules
-58. [ ] PHPX-VALIDATION:  Generic parameters are used
-59. [ ] PHPX-VALIDATION:  Generic constraints are satisfied
-60. [ ] PHPX-VALIDATION:  Type arguments provided where required
-61. [ ] PHPX-VALIDATION:  Constraint syntax: `T: Reader`
-62. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/generics.rs`
-63. [ ] PHPX-VALIDATION:  Implement `validate_generics(ast: &Ast) -> Vec<ValidationError>`
-64. [ ] PHPX-VALIDATION:  Track generic parameters
-65. [ ] PHPX-VALIDATION:  Check constraints
-66. [ ] PHPX-VALIDATION:  Infer type arguments
+58. [x] PHPX-VALIDATION:  Generic parameters are used
+59. [x] PHPX-VALIDATION:  Generic constraints are satisfied
+60. [x] PHPX-VALIDATION:  Type arguments provided where required
+61. [x] PHPX-VALIDATION:  Constraint syntax: `T: Reader`
+62. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/generics.rs`
+63. [x] PHPX-VALIDATION:  Implement `validate_generics(program: &Program, source: &str) -> (Vec<ValidationError>, Vec<ValidationWarning>)`
+64. [x] PHPX-VALIDATION:  Track generic parameters
+65. [x] PHPX-VALIDATION:  Check constraints
+66. [x] PHPX-VALIDATION:  Infer type arguments
 67. [x] PHPX-VALIDATION:  No `null` literals
 68. [x] PHPX-VALIDATION:  No `=== null` or `!== null` comparisons
 69. [x] PHPX-VALIDATION:  No `is_null()` calls
