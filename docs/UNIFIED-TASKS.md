@@ -201,47 +201,47 @@ Notes:
 122. [x] PHPX-VALIDATION:  Reject extra fields
 123. [x] PHPX-VALIDATION:  Validate field types
 124. [x] PHPX-VALIDATION:  Handle shorthand syntax
-125. [ ] PHPX-VALIDATION:  Valid tag names
-126. [ ] PHPX-VALIDATION:  Matching opening/closing tags
-127. [ ] PHPX-VALIDATION:  Valid attribute syntax
-128. [ ] PHPX-VALIDATION:  Fragment syntax: `<>...</>`
-129. [ ] PHPX-VALIDATION:  Self-closing tags
-130. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/jsx.rs`
-131. [ ] PHPX-VALIDATION:  Implement `validate_jsx_syntax(ast: &Ast) -> Vec<ValidationError>`
-132. [ ] PHPX-VALIDATION:  Check tag matching
-133. [ ] PHPX-VALIDATION:  Validate attribute names
-134. [ ] PHPX-VALIDATION:  Check self-closing vs paired tags
-135. [ ] PHPX-VALIDATION:  Expression syntax: `{$var}`, `{$obj.field}`
-136. [ ] PHPX-VALIDATION:  If blocks: `{if ($cond) { <p>yes</p> }}`
-137. [ ] PHPX-VALIDATION:  Foreach loops: `{foreach ($items as $item) { <li>{$item}</li> }}`
-138. [ ] PHPX-VALIDATION:  Object literals require double braces: `{{ key: 'value' }}`
-139. [ ] PHPX-VALIDATION:  No statements in expressions (only expressions)
-140. [ ] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/jsx.rs`
-141. [ ] PHPX-VALIDATION:  Implement `validate_jsx_expressions(ast: &Ast) -> Vec<ValidationError>`
-142. [ ] PHPX-VALIDATION:  Check expression syntax
-143. [ ] PHPX-VALIDATION:  Validate if/foreach blocks
-144. [ ] PHPX-VALIDATION:  Detect statements in expressions
-145. [ ] PHPX-VALIDATION:  Check object literal braces
-146. [ ] PHPX-VALIDATION:  Component names are capitalized (or imported)
-147. [ ] PHPX-VALIDATION:  Built-in tags are lowercase
-148. [ ] PHPX-VALIDATION:  Component props match definition (if available)
-149. [ ] PHPX-VALIDATION:  Special components: `<Link>`, `<Hydration>`, `<ContextProvider>`
-150. [ ] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/jsx.rs`
-151. [ ] PHPX-VALIDATION:  Implement `validate_components(ast: &Ast) -> Vec<ValidationError>`
-152. [ ] PHPX-VALIDATION:  Check component naming
-153. [ ] PHPX-VALIDATION:  Validate props (if type info available)
-154. [ ] PHPX-VALIDATION:  Track imported components
-155. [ ] PHPX-VALIDATION:  Frontmatter starts at beginning of file
-156. [ ] PHPX-VALIDATION:  Proper `---` delimiters
-157. [ ] PHPX-VALIDATION:  No explicit exports in template files (under `php_modules/`)
+125. [x] PHPX-VALIDATION:  Valid tag names
+126. [x] PHPX-VALIDATION:  Matching opening/closing tags
+127. [x] PHPX-VALIDATION:  Valid attribute syntax
+128. [x] PHPX-VALIDATION:  Fragment syntax: `<>...</>`
+129. [x] PHPX-VALIDATION:  Self-closing tags
+130. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/jsx.rs`
+131. [x] PHPX-VALIDATION:  Implement `validate_jsx_syntax(program: &Program, source: &str) -> Vec<ValidationError>`
+132. [x] PHPX-VALIDATION:  Check tag matching
+133. [x] PHPX-VALIDATION:  Validate attribute names
+134. [x] PHPX-VALIDATION:  Check self-closing vs paired tags
+135. [x] PHPX-VALIDATION:  Expression syntax: `{$var}`, `{$obj.field}`
+136. [x] PHPX-VALIDATION:  If blocks: `{if ($cond) { <p>yes</p> }}`
+137. [x] PHPX-VALIDATION:  Foreach loops: `{foreach ($items as $item) { <li>{$item}</li> }}`
+138. [x] PHPX-VALIDATION:  Object literals require double braces: `{{ key: 'value' }}`
+139. [x] PHPX-VALIDATION:  No statements in expressions (only expressions)
+140. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/jsx.rs`
+141. [x] PHPX-VALIDATION:  Implement `validate_jsx_expressions(program: &Program, source: &str) -> Vec<ValidationError>`
+142. [x] PHPX-VALIDATION:  Check expression syntax
+143. [x] PHPX-VALIDATION:  Validate if/foreach blocks
+144. [x] PHPX-VALIDATION:  Detect statements in expressions
+145. [x] PHPX-VALIDATION:  Check object literal braces
+146. [x] PHPX-VALIDATION:  Component names are capitalized (or imported)
+147. [x] PHPX-VALIDATION:  Built-in tags are lowercase
+148. [x] PHPX-VALIDATION:  Component props match definition (if available)
+149. [x] PHPX-VALIDATION:  Special components: `<Link>`, `<Hydration>`, `<ContextProvider>`
+150. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/jsx.rs`
+151. [x] PHPX-VALIDATION:  Implement `validate_components(program: &Program, source: &str) -> Vec<ValidationError>`
+152. [x] PHPX-VALIDATION:  Check component naming
+153. [x] PHPX-VALIDATION:  Validate props (if type info available)
+154. [x] PHPX-VALIDATION:  Track imported components
+155. [x] PHPX-VALIDATION:  Frontmatter starts at beginning of file
+156. [x] PHPX-VALIDATION:  Proper `---` delimiters
+157. [x] PHPX-VALIDATION:  No explicit exports in template files (under `php_modules/`)
 158. [ ] PHPX-VALIDATION:  Template section is valid JSX
-159. [ ] PHPX-VALIDATION:  Imports in frontmatter only
-160. [ ] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/jsx.rs`
-161. [ ] PHPX-VALIDATION:  Implement `validate_frontmatter(ast: &Ast, file_path: &str) -> Vec<ValidationError>`
-162. [ ] PHPX-VALIDATION:  Check frontmatter position
-163. [ ] PHPX-VALIDATION:  Validate delimiters
-164. [ ] PHPX-VALIDATION:  Check for exports (if in php_modules/)
-165. [ ] PHPX-VALIDATION:  Validate imports placement
+159. [x] PHPX-VALIDATION:  Imports in frontmatter only
+160. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/jsx.rs`
+161. [x] PHPX-VALIDATION:  Implement `validate_frontmatter(source: &str, file_path: &str) -> Vec<ValidationError>`
+162. [x] PHPX-VALIDATION:  Check frontmatter position
+163. [x] PHPX-VALIDATION:  Validate delimiters
+164. [x] PHPX-VALIDATION:  Check for exports (if in php_modules/)
+165. [x] PHPX-VALIDATION:  Validate imports placement
 166. [ ] PHPX-VALIDATION:  Module exists in `php_modules/`
 167. [ ] PHPX-VALIDATION:  Module has valid entry point
 168. [ ] PHPX-VALIDATION:  Circular imports detected

@@ -621,11 +621,11 @@ $p = Point { $z };
 **Goal**: Validate JSX element syntax
 
 **What to validate**:
-- [ ] Valid tag names
-- [ ] Matching opening/closing tags
-- [ ] Valid attribute syntax
-- [ ] Fragment syntax: `<>...</>`
-- [ ] Self-closing tags
+- [x] Valid tag names
+- [x] Matching opening/closing tags
+- [x] Valid attribute syntax
+- [x] Fragment syntax: `<>...</>`
+- [x] Self-closing tags
 
 **Example errors**:
 ```phpx
@@ -643,11 +643,11 @@ $p = Point { $z };
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/jsx.rs`
-- [ ] Implement `validate_jsx_syntax(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Check tag matching
-- [ ] Validate attribute names
-- [ ] Check self-closing vs paired tags
+- [x] Create `crates/modules_php/src/validation/jsx.rs`
+- [x] Implement `validate_jsx_syntax(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Check tag matching
+- [x] Validate attribute names
+- [x] Check self-closing vs paired tags
 
 ---
 
@@ -655,11 +655,11 @@ $p = Point { $z };
 **Goal**: Validate PHPX expressions in JSX
 
 **What to validate**:
-- [ ] Expression syntax: `{$var}`, `{$obj.field}`
-- [ ] If blocks: `{if ($cond) { <p>yes</p> }}`
-- [ ] Foreach loops: `{foreach ($items as $item) { <li>{$item}</li> }}`
-- [ ] Object literals require double braces: `{{ key: 'value' }}`
-- [ ] No statements in expressions (only expressions)
+- [x] Expression syntax: `{$var}`, `{$obj.field}`
+- [x] If blocks: `{if ($cond) { <p>yes</p> }}`
+- [x] Foreach loops: `{foreach ($items as $item) { <li>{$item}</li> }}`
+- [x] Object literals require double braces: `{{ key: 'value' }}`
+- [x] No statements in expressions (only expressions)
 
 **Example errors**:
 ```phpx
@@ -684,12 +684,12 @@ $p = Point { $z };
 ```
 
 **Implementation**:
-- [ ] Add to `crates/modules_php/src/validation/jsx.rs`
-- [ ] Implement `validate_jsx_expressions(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Check expression syntax
-- [ ] Validate if/foreach blocks
-- [ ] Detect statements in expressions
-- [ ] Check object literal braces
+- [x] Add to `crates/modules_php/src/validation/jsx.rs`
+- [x] Implement `validate_jsx_expressions(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Check expression syntax
+- [x] Validate if/foreach blocks
+- [x] Detect statements in expressions
+- [x] Check object literal braces
 
 ---
 
@@ -697,10 +697,10 @@ $p = Point { $z };
 **Goal**: Validate component usage
 
 **What to validate**:
-- [ ] Component names are capitalized (or imported)
-- [ ] Built-in tags are lowercase
-- [ ] Component props match definition (if available)
-- [ ] Special components: `<Link>`, `<Hydration>`, `<ContextProvider>`
+- [x] Component names are capitalized (or imported)
+- [x] Built-in tags are lowercase
+- [x] Component props match definition (if available)
+- [x] Special components: `<Link>`, `<Hydration>`, `<ContextProvider>`
 
 **Example errors**:
 ```phpx
@@ -721,11 +721,11 @@ function userCard($props) {
 ```
 
 **Implementation**:
-- [ ] Add to `crates/modules_php/src/validation/jsx.rs`
-- [ ] Implement `validate_components(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Check component naming
-- [ ] Validate props (if type info available)
-- [ ] Track imported components
+- [x] Add to `crates/modules_php/src/validation/jsx.rs`
+- [x] Implement `validate_components(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Check component naming
+- [x] Validate props (if type info available)
+- [x] Track imported components
 
 ---
 
@@ -733,11 +733,11 @@ function userCard($props) {
 **Goal**: Validate frontmatter templates
 
 **What to validate**:
-- [ ] Frontmatter starts at beginning of file
-- [ ] Proper `---` delimiters
-- [ ] No explicit exports in template files (under `php_modules/`)
+- [x] Frontmatter starts at beginning of file
+- [x] Proper `---` delimiters
+- [x] No explicit exports in template files (under `php_modules/`)
 - [ ] Template section is valid JSX
-- [ ] Imports in frontmatter only
+- [x] Imports in frontmatter only
 
 **Example errors**:
 ```phpx
@@ -764,12 +764,12 @@ export function foo() {}
 ```
 
 **Implementation**:
-- [ ] Add to `crates/modules_php/src/validation/jsx.rs`
-- [ ] Implement `validate_frontmatter(ast: &Ast, file_path: &str) -> Vec<ValidationError>`
-- [ ] Check frontmatter position
-- [ ] Validate delimiters
-- [ ] Check for exports (if in php_modules/)
-- [ ] Validate imports placement
+- [x] Add to `crates/modules_php/src/validation/jsx.rs`
+- [x] Implement `validate_frontmatter(source: &str, file_path: &str) -> Vec<ValidationError>`
+- [x] Check frontmatter position
+- [x] Validate delimiters
+- [x] Check for exports (if in php_modules/)
+- [x] Validate imports placement
 
 ---
 
