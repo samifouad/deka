@@ -376,13 +376,13 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 3.2: Add Code Folding
-- [ ] Create `queries/folds.scm`
-- [ ] Add folding for:
-  - [ ] Function bodies
-  - [ ] Struct definitions
-  - [ ] JSX elements
-  - [ ] If/foreach blocks
-  - [ ] Frontmatter sections
+- [x] Create `queries/folds.scm`
+- [x] Add folding for:
+  - [x] Function bodies
+  - [x] Struct definitions
+  - [x] JSX elements
+  - [x] If/foreach blocks
+  - [x] Frontmatter sections
 - [ ] Test in Zed (verify fold markers appear)
 
 **Acceptance**: PHPX code can be folded at logical boundaries
@@ -390,12 +390,13 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 3.3: Add Indentation Rules
-- [ ] Create `queries/indents.scm`
-- [ ] Define indent increases for:
-  - [ ] Function bodies
-  - [ ] If/else/foreach blocks
-  - [ ] JSX children
-  - [ ] Struct/object literals
+- [x] Create `queries/indents.scm`
+- [x] Define indent increases for:
+  - [x] Function bodies
+  - [x] If/else/foreach blocks
+  - [x] JSX children
+  - [x] Struct literals
+  - [ ] Object literals (phpx-only; keep queries compatible with php grammar)
 - [ ] Test auto-indentation in Zed
 - [ ] Verify correct indent after newline
 
@@ -404,12 +405,12 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 3.4: Add Textobjects
-- [ ] Create `queries/textobjects.scm`
-- [ ] Define textobjects for:
-  - [ ] Functions (`@function.outer`, `@function.inner`)
-  - [ ] Structs (`@struct.outer`, `@struct.inner`)
-  - [ ] JSX elements (`@jsx.outer`, `@jsx.inner`)
-  - [ ] Parameters (`@parameter.outer`)
+- [x] Create `queries/textobjects.scm`
+- [x] Define textobjects for:
+  - [x] Functions (`@function.outer`, `@function.inner`)
+  - [x] Structs (`@struct.outer`, `@struct.inner`)
+  - [x] JSX elements (`@jsx.outer`, `@jsx.inner`)
+  - [x] Parameters (`@parameter.outer`)
 - [ ] Test in Neovim (via nvim-treesitter)
 - [ ] Document textobject usage
 

@@ -444,28 +444,29 @@ Notes:
 80. [x] DX-TASKS:  Test and fix if/foreach blocks in JSX
 81. [ ] DX-TASKS:  Add error recovery rules for better partial highlighting
 82. [x] DX-TASKS:  Test with malformed PHPX (ensure no crashes)
-83. [ ] DX-TASKS:  Create `queries/folds.scm`
-84. [ ] DX-TASKS:  Add folding for:
-381:  - [ ] Function bodies
-382:  - [ ] Struct definitions
-383:  - [ ] JSX elements
-384:  - [ ] If/foreach blocks
-385:  - [ ] Frontmatter sections
+83. [x] DX-TASKS:  Create `queries/folds.scm`
+84. [x] DX-TASKS:  Add folding for:
+381:  - [x] Function bodies
+382:  - [x] Struct definitions
+383:  - [x] JSX elements
+384:  - [x] If/foreach blocks
+385:  - [x] Frontmatter sections
 85. [ ] DX-TASKS:  Test in Zed (verify fold markers appear)
-86. [ ] DX-TASKS:  Create `queries/indents.scm`
-87. [ ] DX-TASKS:  Define indent increases for:
-395:  - [ ] Function bodies
-396:  - [ ] If/else/foreach blocks
-397:  - [ ] JSX children
-398:  - [ ] Struct/object literals
+86. [x] DX-TASKS:  Create `queries/indents.scm`
+87. [x] DX-TASKS:  Define indent increases for:
+395:  - [x] Function bodies
+396:  - [x] If/else/foreach blocks
+397:  - [x] JSX children
+398:  - [x] Struct literals
+399:  - [ ] Object literals (phpx-only; keep queries compatible with php grammar)
 88. [ ] DX-TASKS:  Test auto-indentation in Zed
 89. [ ] DX-TASKS:  Verify correct indent after newline
-90. [ ] DX-TASKS:  Create `queries/textobjects.scm`
-91. [ ] DX-TASKS:  Define textobjects for:
-409:  - [ ] Functions (`@function.outer`, `@function.inner`)
-410:  - [ ] Structs (`@struct.outer`, `@struct.inner`)
-411:  - [ ] JSX elements (`@jsx.outer`, `@jsx.inner`)
-412:  - [ ] Parameters (`@parameter.outer`)
+90. [x] DX-TASKS:  Create `queries/textobjects.scm`
+91. [x] DX-TASKS:  Define textobjects for:
+409:  - [x] Functions (`@function.outer`, `@function.inner`)
+410:  - [x] Structs (`@struct.outer`, `@struct.inner`)
+411:  - [x] JSX elements (`@jsx.outer`, `@jsx.inner`)
+412:  - [x] Parameters (`@parameter.outer`)
 92. [ ] DX-TASKS:  Test in Neovim (via nvim-treesitter)
 93. [ ] DX-TASKS:  Document textobject usage
 94. [ ] DX-TASKS:  Add `hoverProvider` capability to LSP
