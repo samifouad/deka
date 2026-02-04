@@ -443,7 +443,7 @@ Notes:
 79. [x] DX-TASKS:  Test and fix multiline JSX expressions
 80. [x] DX-TASKS:  Test and fix if/foreach blocks in JSX
 81. [ ] DX-TASKS:  Add error recovery rules for better partial highlighting
-82. [ ] DX-TASKS:  Test with malformed PHPX (ensure no crashes)
+82. [x] DX-TASKS:  Test with malformed PHPX (ensure no crashes)
 83. [ ] DX-TASKS:  Create `queries/folds.scm`
 84. [ ] DX-TASKS:  Add folding for:
 381:  - [ ] Function bodies

@@ -369,7 +369,7 @@ Import Error: Missing type stubs for '@user/hello'
 - [x] Test and fix multiline JSX expressions
 - [x] Test and fix if/foreach blocks in JSX
 - [ ] Add error recovery rules for better partial highlighting
-- [ ] Test with malformed PHPX (ensure no crashes)
+- [x] Test with malformed PHPX (ensure no crashes)
 
 **Acceptance**: Tree-sitter handles edge cases gracefully
 
