@@ -338,14 +338,14 @@ Notes:
 109:  - [x] Object literals (double braces): `{{ host: 'localhost' }}`
 110:  - [x] Statements are not allowed in JSX expressions (validation error; use expressions).
 21. [x] DX-TASKS:  Add highlighting for tags, attributes, expressions
-22. [ ] DX-TASKS:  Test with component examples from `examples/phpx-components/`
-23. [ ] DX-TASKS:  Add `frontmatter` rule to `grammar.js`
-120:  - [ ] Detect `---` at start of file
-121:  - [ ] Parse PHPX code section
-122:  - [ ] Parse JSX template section
-24. [ ] DX-TASKS:  Add highlighting for frontmatter delimiters
-25. [ ] DX-TASKS:  Test with template examples
-26. [ ] DX-TASKS:  Verify code and template sections have correct highlighting
+22. [x] DX-TASKS:  Test with component examples from `examples/phpx-components/`
+23. [x] DX-TASKS:  Add `frontmatter` rule to `grammar.js`
+120:  - [x] Detect `---` at start of file
+121:  - [x] Parse PHPX code section
+122:  - [x] Parse JSX template section
+24. [x] DX-TASKS:  Add highlighting for frontmatter delimiters
+25. [x] DX-TASKS:  Test with template examples
+26. [x] DX-TASKS:  Verify code and template sections have correct highlighting
 27. [ ] DX-TASKS:  Create `extensions/phpx/` directory
 28. [ ] DX-TASKS:  Create `extension.toml` with PHPX language config
 147:  - [ ] Set file suffixes: `["phpx"]`

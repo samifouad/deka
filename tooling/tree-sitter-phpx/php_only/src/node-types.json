@@ -2444,6 +2444,42 @@
     }
   },
   {
+    "type": "frontmatter",
+    "named": true,
+    "fields": {
+      "end": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "frontmatter_delimiter",
+            "named": true
+          }
+        ]
+      },
+      "start": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "frontmatter_delimiter",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "statement",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "function_call_expression",
     "named": true,
     "fields": {
@@ -4651,6 +4687,10 @@
       "required": false,
       "types": [
         {
+          "type": "frontmatter",
+          "named": true
+        },
+        {
           "type": "php_end_tag",
           "named": true
         },
@@ -4660,6 +4700,10 @@
         },
         {
           "type": "statement",
+          "named": true
+        },
+        {
+          "type": "template_section",
           "named": true
         }
       ]
@@ -5804,6 +5848,45 @@
     }
   },
   {
+    "type": "template_section",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "html_comment",
+          "named": true
+        },
+        {
+          "type": "html_doctype",
+          "named": true
+        },
+        {
+          "type": "jsx_element",
+          "named": true
+        },
+        {
+          "type": "jsx_expression",
+          "named": true
+        },
+        {
+          "type": "jsx_fragment",
+          "named": true
+        },
+        {
+          "type": "jsx_self_closing_element",
+          "named": true
+        },
+        {
+          "type": "template_text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "throw_expression",
     "named": true,
     "fields": {},
@@ -6823,6 +6906,10 @@
     "named": false
   },
   {
+    "type": "frontmatter_delimiter",
+    "named": true
+  },
+  {
     "type": "function",
     "named": false
   },
@@ -6840,6 +6927,14 @@
   },
   {
     "type": "heredoc_start",
+    "named": true
+  },
+  {
+    "type": "html_comment",
+    "named": true
+  },
+  {
+    "type": "html_doctype",
     "named": true
   },
   {
@@ -6993,6 +7088,10 @@
   {
     "type": "switch",
     "named": false
+  },
+  {
+    "type": "template_text",
+    "named": true
   },
   {
     "type": "throw",

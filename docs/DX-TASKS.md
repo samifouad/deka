@@ -109,20 +109,20 @@ $user = User { $name: 'Sam', Profile { $bio: 'Dev' } };
   - [x] Object literals (double braces): `{{ host: 'localhost' }}`
   - [x] Statements are not allowed in JSX expressions (validation error; use expressions).
 - [x] Add highlighting for tags, attributes, expressions
-- [ ] Test with component examples from `examples/phpx-components/`
+- [x] Test with component examples from `examples/phpx-components/`
 
 **Acceptance**: JSX in `.phpx` files has proper highlighting, PHPX expressions work
 
 ---
 
 ### Task 1.6: Add Frontmatter Template Support
-- [ ] Add `frontmatter` rule to `grammar.js`
-  - [ ] Detect `---` at start of file
-  - [ ] Parse PHPX code section
-  - [ ] Parse JSX template section
-- [ ] Add highlighting for frontmatter delimiters
-- [ ] Test with template examples
-- [ ] Verify code and template sections have correct highlighting
+- [x] Add `frontmatter` rule to `grammar.js`
+  - [x] Detect `---` at start of file
+  - [x] Parse PHPX code section
+  - [x] Parse JSX template section
+- [x] Add highlighting for frontmatter delimiters
+- [x] Test with template examples
+- [x] Verify code and template sections have correct highlighting
 
 **Test case**:
 ```phpx

@@ -1,6 +1,7 @@
 [
   (php_tag)
   (php_end_tag)
+  (frontmatter_delimiter)
 ] @tag
 
 ; Keywords

@@ -158,19 +158,31 @@ module.exports = function defineGrammar(dialect) {
     rules: {
       program: $ => {
         if (isPhp) {
-          return seq(
-            optional($.text),
-            optional(seq(
-              $.php_tag,
-              repeat($.statement),
-            )),
+          return choice(
+            seq(
+              $.frontmatter,
+              optional($.template_section),
+            ),
+            seq(
+              optional($.text),
+              optional(seq(
+                $.php_tag,
+                repeat($.statement),
+              )),
+            ),
           );
         }
 
-        return seq(
-          optional($.php_tag),
-          repeat($.statement),
-          optional($.php_end_tag),
+        return choice(
+          seq(
+            $.frontmatter,
+            optional($.template_section),
+          ),
+          seq(
+            optional($.php_tag),
+            repeat($.statement),
+            optional($.php_end_tag),
+          ),
         );
       },
 
@@ -187,6 +199,30 @@ module.exports = function defineGrammar(dialect) {
         token(prec(-1, /</)),
         token(prec(1, /[^\s<][^<]*/)),
       )),
+
+      frontmatter: $ => seq(
+        field('start', $.frontmatter_delimiter),
+        repeat($.statement),
+        field('end', $.frontmatter_delimiter),
+      ),
+
+      frontmatter_delimiter: _ => token(prec(1, /---/)),
+
+      template_section: $ => repeat1($._template_node),
+
+      _template_node: $ => choice(
+        $.template_text,
+        $.html_doctype,
+        $.html_comment,
+        $.jsx_expression,
+        $._jsx_element,
+      ),
+
+      template_text: _ => token(prec(1, /[^<{]+/)),
+
+      html_doctype: _ => token(prec(1, /<!doctype[^>]*>/i)),
+
+      html_comment: _ => token(prec(1, /<!--[\s\S]*?-->/)),
 
       statement: $ => choice(
         $.empty_statement,
