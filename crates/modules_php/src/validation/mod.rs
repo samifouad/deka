@@ -2,6 +2,7 @@ pub mod imports;
 pub mod exports;
 pub mod generics;
 pub mod jsx;
+pub mod modules;
 pub mod phpx_rules;
 pub mod syntax;
 pub mod structs;

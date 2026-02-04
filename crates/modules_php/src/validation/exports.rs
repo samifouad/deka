@@ -9,8 +9,8 @@ use crate::validation::imports::{
 };
 
 #[derive(Debug, Clone)]
-struct ExportSpec {
-    name: String,
+pub(crate) struct ExportSpec {
+    pub(crate) name: String,
     line: usize,
     column: usize,
     is_reexport: bool,
@@ -167,7 +167,7 @@ fn collect_import_locals(
     locals
 }
 
-fn parse_export_function(
+pub(crate) fn parse_export_function(
     line: &str,
     raw_line: &str,
     line_number: usize,
@@ -223,7 +223,7 @@ fn parse_export_function(
     })
 }
 
-fn parse_export_list_line(
+pub(crate) fn parse_export_list_line(
     line: &str,
     raw_line: &str,
     line_number: usize,

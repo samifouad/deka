@@ -779,10 +779,10 @@ export function foo() {}
 **Goal**: Validate module paths resolve correctly
 
 **What to validate**:
-- [ ] Module exists in `php_modules/`
-- [ ] Module has valid entry point
-- [ ] Circular imports detected
-- [ ] Import/export names match
+- [x] Module exists in `php_modules/`
+- [x] Module has valid entry point
+- [x] Circular imports detected
+- [x] Import/export names match
 
 **Example errors**:
 ```phpx
@@ -805,12 +805,12 @@ import { bar } from './moduleA';
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/modules.rs`
-- [ ] Implement `validate_module_resolution(ast: &Ast, base_path: &str) -> Vec<ValidationError>`
+- [x] Create `crates/modules_php/src/validation/modules.rs`
+- [x] Implement `validate_module_resolution(source: &str, file_path: &str) -> Vec<ValidationError>`
 - [ ] Scan php_modules/ for available modules
-- [ ] Build dependency graph
-- [ ] Detect cycles
-- [ ] Check export names
+- [x] Build dependency graph
+- [x] Detect cycles
+- [x] Check export names
 
 ---
 
@@ -818,11 +818,11 @@ import { bar } from './moduleA';
 **Goal**: Validate WASM imports
 
 **What to validate**:
-- [ ] `@user/module` format
-- [ ] `deka.json` exists
-- [ ] `module.wasm` exists
-- [ ] `.d.phpx` stub file exists (suggest generating if missing)
-- [ ] Imported names exist in stubs
+- [x] `@user/module` format
+- [x] `deka.json` exists
+- [x] `module.wasm` exists
+- [x] `.d.phpx` stub file exists (suggest generating if missing)
+- [x] Imported names exist in stubs
 
 **Example errors**:
 ```phpx
@@ -842,12 +842,12 @@ import { invalid } from '@user/hello' as wasm;
 ```
 
 **Implementation**:
-- [ ] Add to `crates/modules_php/src/validation/modules.rs`
-- [ ] Implement `validate_wasm_imports(ast: &Ast) -> Vec<ValidationError>`
+- [x] Add to `crates/modules_php/src/validation/modules.rs`
+- [x] Implement `validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationError>`
 - [ ] Scan php_modules/@*/ for WASM modules
-- [ ] Check deka.json, module.wasm, .d.phpx
-- [ ] Parse .d.phpx for exported names
-- [ ] Suggest deka wasm commands
+- [x] Check deka.json, module.wasm, .d.phpx
+- [x] Parse .d.phpx for exported names
+- [x] Suggest deka wasm commands
 
 ---
 

@@ -242,27 +242,27 @@ Notes:
 163. [x] PHPX-VALIDATION:  Validate delimiters
 164. [x] PHPX-VALIDATION:  Check for exports (if in php_modules/)
 165. [x] PHPX-VALIDATION:  Validate imports placement
-166. [ ] PHPX-VALIDATION:  Module exists in `php_modules/`
-167. [ ] PHPX-VALIDATION:  Module has valid entry point
-168. [ ] PHPX-VALIDATION:  Circular imports detected
-169. [ ] PHPX-VALIDATION:  Import/export names match
-170. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/modules.rs`
-171. [ ] PHPX-VALIDATION:  Implement `validate_module_resolution(ast: &Ast, base_path: &str) -> Vec<ValidationError>`
+166. [x] PHPX-VALIDATION:  Module exists in `php_modules/`
+167. [x] PHPX-VALIDATION:  Module has valid entry point
+168. [x] PHPX-VALIDATION:  Circular imports detected
+169. [x] PHPX-VALIDATION:  Import/export names match
+170. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/modules.rs`
+171. [x] PHPX-VALIDATION:  Implement `validate_module_resolution(source: &str, file_path: &str) -> Vec<ValidationError>`
 172. [ ] PHPX-VALIDATION:  Scan php_modules/ for available modules
-173. [ ] PHPX-VALIDATION:  Build dependency graph
-174. [ ] PHPX-VALIDATION:  Detect cycles
-175. [ ] PHPX-VALIDATION:  Check export names
-176. [ ] PHPX-VALIDATION:  `@user/module` format
-177. [ ] PHPX-VALIDATION:  `deka.json` exists
-178. [ ] PHPX-VALIDATION:  `module.wasm` exists
-179. [ ] PHPX-VALIDATION:  `.d.phpx` stub file exists (suggest generating if missing)
-180. [ ] PHPX-VALIDATION:  Imported names exist in stubs
-181. [ ] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/modules.rs`
-182. [ ] PHPX-VALIDATION:  Implement `validate_wasm_imports(ast: &Ast) -> Vec<ValidationError>`
+173. [x] PHPX-VALIDATION:  Build dependency graph
+174. [x] PHPX-VALIDATION:  Detect cycles
+175. [x] PHPX-VALIDATION:  Check export names
+176. [x] PHPX-VALIDATION:  `@user/module` format
+177. [x] PHPX-VALIDATION:  `deka.json` exists
+178. [x] PHPX-VALIDATION:  `module.wasm` exists
+179. [x] PHPX-VALIDATION:  `.d.phpx` stub file exists (suggest generating if missing)
+180. [x] PHPX-VALIDATION:  Imported names exist in stubs
+181. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/modules.rs`
+182. [x] PHPX-VALIDATION:  Implement `validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationError>`
 183. [ ] PHPX-VALIDATION:  Scan php_modules/@*/ for WASM modules
-184. [ ] PHPX-VALIDATION:  Check deka.json, module.wasm, .d.phpx
-185. [ ] PHPX-VALIDATION:  Parse .d.phpx for exported names
-186. [ ] PHPX-VALIDATION:  Suggest deka wasm commands
+184. [x] PHPX-VALIDATION:  Check deka.json, module.wasm, .d.phpx
+185. [x] PHPX-VALIDATION:  Parse .d.phpx for exported names
+186. [x] PHPX-VALIDATION:  Suggest deka wasm commands
 187. [ ] PHPX-VALIDATION:  Enum match covers all cases
 188. [ ] PHPX-VALIDATION:  No unreachable match arms
 189. [ ] PHPX-VALIDATION:  Variable binding in match arms

@@ -9,6 +9,7 @@ use crate::validation::imports::{frontmatter_bounds, strip_php_tags_inline};
 use crate::validation::jsx::{
     validate_components, validate_frontmatter, validate_jsx_expressions, validate_jsx_syntax,
 };
+use crate::validation::modules::{validate_module_resolution, validate_wasm_imports};
 use crate::validation::syntax::validate_syntax;
 use crate::validation::type_checker::check_types;
 use crate::validation::type_syntax::validate_type_annotations;
@@ -112,6 +113,16 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
     errors.extend(validate_jsx_syntax(&program, source));
     errors.extend(validate_jsx_expressions(&program, source));
     errors.extend(validate_components(&program, source));
+    if !errors.is_empty() {
+        return ValidationResult {
+            errors,
+            warnings,
+            ast: None,
+        };
+    }
+
+    errors.extend(validate_module_resolution(source, file_path));
+    errors.extend(validate_wasm_imports(source, file_path));
     if !errors.is_empty() {
         return ValidationResult {
             errors,
