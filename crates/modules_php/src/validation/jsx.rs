@@ -136,7 +136,7 @@ pub fn validate_template_section(source: &str, _file_path: &str) -> Vec<Validati
     }
 
     let template = template_lines.join("\n");
-    let prefix = "<?phpx\nfunction __phpx_template() {\n  return <__fragment__>\n";
+    let prefix = "function __phpx_template() {\n  return <__fragment__>\n";
     let suffix = "\n  </__fragment__>;\n}\n";
     let wrapped = format!("{prefix}{template}{suffix}");
 
