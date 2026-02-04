@@ -28,12 +28,12 @@ We can leverage the existing **`deka-validation`** crate for beautiful error for
 **Duration**: 1-2 weeks
 
 ### Task 1.1: Setup Tree-sitter Project
-- [ ] Create `tooling/tree-sitter-phpx/` directory
-- [ ] Clone `tree-sitter-php` as starting point
-- [ ] Rename project to `tree-sitter-phpx`
-- [ ] Update `package.json` metadata (name, description, repo)
-- [ ] Install tree-sitter CLI: `npm install -g tree-sitter-cli`
-- [ ] Verify build: `tree-sitter generate && tree-sitter test`
+- [x] Create `tooling/tree-sitter-phpx/` directory
+- [x] Clone `tree-sitter-php` as starting point
+- [x] Rename project to `tree-sitter-phpx`
+- [x] Update `package.json` metadata (name, description, repo)
+- [x] Install tree-sitter CLI: `npm install -g tree-sitter-cli`
+- [x] Verify build: `tree-sitter generate && tree-sitter test`
 
 **Files to create**:
 - `tooling/tree-sitter-phpx/grammar.js`
@@ -44,12 +44,12 @@ We can leverage the existing **`deka-validation`** crate for beautiful error for
 ---
 
 ### Task 1.2: Add PHPX Type Syntax
-- [ ] Add type annotation rules to `grammar.js`
-  - [ ] Primitive types: `int`, `string`, `bool`, `float`, `mixed`
-  - [ ] Generic types: `Option<T>`, `Result<T, E>`, `array<T>`
-  - [ ] Object types: `Object<{ field: Type }>`
-  - [ ] Type aliases: `type Name = ...`
-- [ ] Create `queries/highlights.scm` for type highlighting
+- [x] Add type annotation rules to `grammar.js`
+  - [x] Primitive types: `int`, `string`, `bool`, `float`, `mixed`
+  - [x] Generic types: `Option<T>`, `Result<T, E>`, `array<T>`
+  - [x] Object types: `Object<{ field: Type }>`
+  - [x] Type aliases: `type Name = ...`
+- [x] Create `queries/highlights.scm` for type highlighting
 - [ ] Test with PHPX files containing type annotations
 - [ ] Verify types are highlighted differently from values
 
@@ -62,15 +62,15 @@ We can leverage the existing **`deka-validation`** crate for beautiful error for
 ---
 
 ### Task 1.3: Add Import/Export Syntax
-- [ ] Add `import_statement` rule to `grammar.js`
-  - [ ] Named imports: `import { foo, bar } from 'module'`
-  - [ ] WASM imports: `import { fn } from '@user/mod' as wasm`
+- [x] Add `import_statement` rule to `grammar.js`
+  - [x] Named imports: `import { foo, bar } from 'module'`
+  - [x] WASM imports: `import { fn } from '@user/mod' as wasm`
   - [ ] Default import (if needed)
-- [ ] Add `export_statement` rule
-  - [ ] Export functions: `export function foo() {}`
+- [x] Add `export_statement` rule
+  - [x] Export functions: `export function foo() {}`
   - [ ] Export constants: `export const X = 1`
-  - [ ] Re-exports: `export { foo } from './bar'`
-- [ ] Add highlighting for `import`, `export`, `from`, `as` keywords
+  - [x] Re-exports: `export { foo } from './bar'`
+- [x] Add highlighting for `import`, `export`, `from`, `as` keywords
 - [ ] Test with module examples from `examples/php/modules/`
 
 **Acceptance**: Import/export statements have proper highlighting
@@ -78,11 +78,11 @@ We can leverage the existing **`deka-validation`** crate for beautiful error for
 ---
 
 ### Task 1.4: Add Struct Literal Syntax
-- [ ] Add `struct_literal` rule to `grammar.js`
-  - [ ] Type name: `Point`
-  - [ ] Field list: `{ $x: 1, $y: 2 }`
-  - [ ] Shorthand: `{ $x, $y }`
-- [ ] Add highlighting for struct names and fields
+- [x] Add `struct_literal` rule to `grammar.js`
+  - [x] Type name: `Point`
+  - [x] Field list: `{ $x: 1, $y: 2 }`
+  - [x] Shorthand: `{ $x, $y }`
+- [x] Add highlighting for struct names and fields
 - [ ] Test with struct examples
 - [ ] Verify nested struct literals work
 

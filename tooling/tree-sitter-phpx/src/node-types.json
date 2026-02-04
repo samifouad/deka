@@ -196,6 +196,10 @@
         "named": true
       },
       {
+        "type": "struct_literal",
+        "named": true
+      },
+      {
         "type": "subscript_expression",
         "named": true
       },
@@ -262,6 +266,10 @@
         "named": true
       },
       {
+        "type": "export_statement",
+        "named": true
+      },
+      {
         "type": "expression_statement",
         "named": true
       },
@@ -294,6 +302,10 @@
         "named": true
       },
       {
+        "type": "import_statement",
+        "named": true
+      },
+      {
         "type": "interface_declaration",
         "named": true
       },
@@ -314,6 +326,10 @@
         "named": true
       },
       {
+        "type": "struct_declaration",
+        "named": true
+      },
+      {
         "type": "switch_statement",
         "named": true
       },
@@ -323,6 +339,10 @@
       },
       {
         "type": "try_statement",
+        "named": true
+      },
+      {
+        "type": "type_alias_declaration",
         "named": true
       },
       {
@@ -344,11 +364,19 @@
         "named": true
       },
       {
+        "type": "generic_type",
+        "named": true
+      },
+      {
         "type": "intersection_type",
         "named": true
       },
       {
         "type": "named_type",
+        "named": true
+      },
+      {
+        "type": "object_shape_type",
         "named": true
       },
       {
@@ -1770,6 +1798,10 @@
           "named": true
         },
         {
+          "type": "phpx_property_declaration",
+          "named": true
+        },
+        {
           "type": "property_declaration",
           "named": true
         },
@@ -1838,11 +1870,19 @@
       "required": true,
       "types": [
         {
+          "type": "generic_type",
+          "named": true
+        },
+        {
           "type": "intersection_type",
           "named": true
         },
         {
           "type": "named_type",
+          "named": true
+        },
+        {
+          "type": "object_shape_type",
           "named": true
         },
         {
@@ -2162,6 +2202,77 @@
     }
   },
   {
+    "type": "export_list",
+    "named": true,
+    "fields": {
+      "source": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "export_specifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "export_specifier",
+    "named": true,
+    "fields": {
+      "alias": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "export_statement",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "export_list",
+          "named": true
+        },
+        {
+          "type": "function_definition",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "expression_statement",
     "named": true,
     "fields": {},
@@ -2467,6 +2578,16 @@
             "named": true
           }
         ]
+      },
+      "type_parameters": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "type_parameter_list",
+            "named": true
+          }
+        ]
       }
     },
     "children": {
@@ -2493,6 +2614,36 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "generic_type",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "named_type",
+            "named": true
+          },
+          {
+            "type": "primitive_type",
+            "named": true
+          }
+        ]
+      },
+      "type_arguments": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -2649,6 +2800,68 @@
     }
   },
   {
+    "type": "import_specifier",
+    "named": true,
+    "fields": {
+      "alias": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "import_statement",
+    "named": true,
+    "fields": {
+      "kind": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      },
+      "source": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "import_specifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "include_expression",
     "named": true,
     "fields": {},
@@ -2733,7 +2946,15 @@
       "required": true,
       "types": [
         {
+          "type": "generic_type",
+          "named": true
+        },
+        {
           "type": "named_type",
+          "named": true
+        },
+        {
+          "type": "object_shape_type",
           "named": true
         },
         {
@@ -3220,6 +3441,16 @@
           },
           {
             "type": "type",
+            "named": true
+          }
+        ]
+      },
+      "type_parameters": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "type_parameter_list",
             "named": true
           }
         ]
@@ -3817,6 +4048,51 @@
     }
   },
   {
+    "type": "object_shape_field",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "object_shape_type",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "object_shape_field",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "optional_type",
     "named": true,
     "fields": {},
@@ -3825,7 +4101,15 @@
       "required": true,
       "types": [
         {
+          "type": "generic_type",
+          "named": true
+        },
+        {
           "type": "named_type",
+          "named": true
+        },
+        {
+          "type": "object_shape_type",
           "named": true
         },
         {
@@ -3871,6 +4155,68 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "phpx_property_declaration",
+    "named": true,
+    "fields": {
+      "attributes": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "attribute_list",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "phpx_property_element",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "phpx_property_element",
+    "named": true,
+    "fields": {
+      "default_value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "variable_name",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -4790,6 +5136,124 @@
     "fields": {}
   },
   {
+    "type": "struct_declaration",
+    "named": true,
+    "fields": {
+      "attributes": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "attribute_list",
+            "named": true
+          }
+        ]
+      },
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "declaration_list",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "abstract_modifier",
+          "named": true
+        },
+        {
+          "type": "final_modifier",
+          "named": true
+        },
+        {
+          "type": "readonly_modifier",
+          "named": true
+        },
+        {
+          "type": "static_modifier",
+          "named": true
+        },
+        {
+          "type": "var_modifier",
+          "named": true
+        },
+        {
+          "type": "visibility_modifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "struct_field_initializer",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "variable_name",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "struct_literal",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "struct_field_initializer",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "subscript_expression",
     "named": true,
     "fields": {},
@@ -5019,6 +5483,42 @@
     }
   },
   {
+    "type": "type_alias_declaration",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      },
+      "type_parameters": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "type_parameter_list",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "type_list",
     "named": true,
     "fields": {},
@@ -5028,6 +5528,47 @@
       "types": [
         {
           "type": "named_type",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "type_parameter",
+    "named": true,
+    "fields": {
+      "constraint": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "named_type",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "type_parameter_list",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "type_parameter",
           "named": true
         }
       ]
@@ -5090,7 +5631,15 @@
       "required": true,
       "types": [
         {
+          "type": "generic_type",
+          "named": true
+        },
+        {
           "type": "named_type",
+          "named": true
+        },
+        {
+          "type": "object_shape_type",
           "named": true
         },
         {
@@ -5824,6 +6373,10 @@
     "named": false
   },
   {
+    "type": "export",
+    "named": false
+  },
+  {
     "type": "extends",
     "named": false
   },
@@ -5856,6 +6409,10 @@
     "named": false
   },
   {
+    "type": "from",
+    "named": false
+  },
+  {
     "type": "function",
     "named": false
   },
@@ -5881,6 +6438,10 @@
   },
   {
     "type": "implements",
+    "named": false
+  },
+  {
+    "type": "import",
     "named": false
   },
   {
@@ -6008,6 +6569,10 @@
     "named": false
   },
   {
+    "type": "struct",
+    "named": false
+  },
+  {
     "type": "switch",
     "named": false
   },
@@ -6025,6 +6590,10 @@
   },
   {
     "type": "try",
+    "named": false
+  },
+  {
+    "type": "type",
     "named": false
   },
   {

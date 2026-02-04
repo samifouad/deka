@@ -301,29 +301,29 @@ Notes:
 4. [x] DX-TASKS:  Update `package.json` metadata (name, description, repo)
 5. [x] DX-TASKS:  Install tree-sitter CLI: `npm install -g tree-sitter-cli`
 6. [x] DX-TASKS:  Verify build: `tree-sitter generate && tree-sitter test`
-7. [ ] DX-TASKS:  Add type annotation rules to `grammar.js`
+7. [x] DX-TASKS:  Add type annotation rules to `grammar.js`
 48:  - [ ] Primitive types: `int`, `string`, `bool`, `float`, `mixed`
 49:  - [ ] Generic types: `Option<T>`, `Result<T, E>`, `array<T>`
 50:  - [ ] Object types: `Object<{ field: Type }>`
 51:  - [ ] Type aliases: `type Name = ...`
-8. [ ] DX-TASKS:  Create `queries/highlights.scm` for type highlighting
+8. [x] DX-TASKS:  Create `queries/highlights.scm` for type highlighting
 9. [ ] DX-TASKS:  Test with PHPX files containing type annotations
 10. [ ] DX-TASKS:  Verify types are highlighted differently from values
-11. [ ] DX-TASKS:  Add `import_statement` rule to `grammar.js`
+11. [x] DX-TASKS:  Add `import_statement` rule to `grammar.js`
 66:  - [ ] Named imports: `import { foo, bar } from 'module'`
 67:  - [ ] WASM imports: `import { fn } from '@user/mod' as wasm`
 68:  - [ ] Default import (if needed)
-12. [ ] DX-TASKS:  Add `export_statement` rule
+12. [x] DX-TASKS:  Add `export_statement` rule
 70:  - [ ] Export functions: `export function foo() {}`
 71:  - [ ] Export constants: `export const X = 1`
 72:  - [ ] Re-exports: `export { foo } from './bar'`
-13. [ ] DX-TASKS:  Add highlighting for `import`, `export`, `from`, `as` keywords
+13. [x] DX-TASKS:  Add highlighting for `import`, `export`, `from`, `as` keywords
 14. [ ] DX-TASKS:  Test with module examples from `examples/php/modules/`
-15. [ ] DX-TASKS:  Add `struct_literal` rule to `grammar.js`
+15. [x] DX-TASKS:  Add `struct_literal` rule to `grammar.js`
 82:  - [ ] Type name: `Point`
 83:  - [ ] Field list: `{ $x: 1, $y: 2 }`
 84:  - [ ] Shorthand: `{ $x, $y }`
-16. [ ] DX-TASKS:  Add highlighting for struct names and fields
+16. [x] DX-TASKS:  Add highlighting for struct names and fields
 17. [ ] DX-TASKS:  Test with struct examples
 18. [ ] DX-TASKS:  Verify nested struct literals work
 19. [ ] DX-TASKS:  Port JSX grammar from `tree-sitter-javascript`

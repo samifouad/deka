@@ -54,6 +54,7 @@ const BASE_RESERVED_KEYWORD_SET = [
   'endfor', 'endforeach', 'endif', 'endswitch', 'endwhile', 'extends',
   'final', 'finally', 'fn', 'for', 'foreach', 'function',
   'global', 'goto', 'if', 'implements', 'include', 'include_once',
+  'import', 'export', 'type', 'struct',
   'instanceof', 'insteadof', 'interface', 'match', 'namespace', 'new',
   'or', 'print', 'private', 'protected', 'public', 'readonly',
   'require', 'require_once', 'return', 'static', 'switch', 'throw',
@@ -70,8 +71,14 @@ const OTHER_RESERVED_KEYWORD_SET = [
   'never', 'null', 'object', 'string', 'true', 'void',
 ].map(r => keyword(r, false));
 
+function identifierRegex() {
+  // We need to side step around the whitespace characters in the extras array.
+  const range = String.raw`\u0080-\u009f\u00a1-\u200a\u200c-\u205f\u2061-\ufefe\uff00-\uffff`;
+  return new RegExp(`[_a-zA-Z${range}][_a-zA-Z${range}\\d]*`);
+}
+
 module.exports = function defineGrammar(dialect) {
-  const normalized = dialect === 'phpx' || dialect === 'phpx_only' ? 'php_only' : dialect;
+  const normalized = dialect === 'phpx' ? 'php' : dialect === 'phpx_only' ? 'php_only' : dialect;
   if (normalized !== 'php' && normalized !== 'php_only') {
     throw new Error(`Unknown dialect ${dialect}`);
   }
@@ -92,6 +99,7 @@ module.exports = function defineGrammar(dialect) {
 
       [$.namespace_name],
       [$.heredoc_body],
+      [$.primary_expression, $.struct_literal],
     ],
 
     externals: $ => [
@@ -200,6 +208,10 @@ module.exports = function defineGrammar(dialect) {
         $.exit_statement,
         $.unset_statement,
         $.const_declaration,
+        $.import_statement,
+        $.export_statement,
+        $.type_alias_declaration,
+        $.struct_declaration,
         $.function_definition,
         $.class_declaration,
         $.interface_declaration,
@@ -368,6 +380,7 @@ module.exports = function defineGrammar(dialect) {
       _member_declaration: $ => choice(
         alias($._class_const_declaration, $.const_declaration),
         $.property_declaration,
+        $.phpx_property_declaration,
         $.method_declaration,
         $.use_declaration,
       ),
@@ -391,6 +404,60 @@ module.exports = function defineGrammar(dialect) {
         $._semicolon,
       ),
 
+      import_statement: $ => seq(
+        keyword('import'),
+        '{',
+        commaSep1($.import_specifier),
+        '}',
+        keyword('from'),
+        field('source', $.string),
+        optional(seq(keyword('as'), field('kind', $.name))),
+        $._semicolon,
+      ),
+
+      import_specifier: $ => seq(
+        field('name', $.name),
+        optional(seq(keyword('as'), field('alias', $.name))),
+      ),
+
+      export_statement: $ => seq(
+        keyword('export'),
+        choice(
+          $.function_definition,
+          $.export_list,
+        ),
+      ),
+
+      export_list: $ => seq(
+        '{',
+        commaSep1($.export_specifier),
+        '}',
+        optional(seq(keyword('from'), field('source', $.string))),
+        $._semicolon,
+      ),
+
+      export_specifier: $ => seq(
+        field('name', $.name),
+        optional(seq(keyword('as'), field('alias', $.name))),
+      ),
+
+      type_alias_declaration: $ => seq(
+        keyword('type'),
+        field('name', reserved('classes', $.name)),
+        optional(field('type_parameters', $.type_parameter_list)),
+        '=',
+        field('value', $.type),
+        $._semicolon,
+      ),
+
+      struct_declaration: $ => prec.right(seq(
+        optional(field('attributes', $.attribute_list)),
+        repeat($._modifier),
+        keyword('struct'),
+        field('name', reserved('classes', $.name)),
+        field('body', $.declaration_list),
+      )),
+
       property_declaration: $ => seq(
         optional(field('attributes', $.attribute_list)),
         repeat1($._modifier),
@@ -400,6 +467,12 @@ module.exports = function defineGrammar(dialect) {
           $._semicolon,
           $.property_hook_list,
         ),
+      ),
+
+      phpx_property_declaration: $ => seq(
+        optional(field('attributes', $.attribute_list)),
+        commaSep1($.phpx_property_element),
+        $._semicolon,
       ),
 
       _modifier: $ => prec.left(choice(
@@ -413,6 +486,13 @@ module.exports = function defineGrammar(dialect) {
 
       property_element: $ => seq(
         field('name', $.variable_name),
+        optional(seq('=', field('default_value', $.expression))),
+      ),
+
+      phpx_property_element: $ => seq(
+        field('name', $.variable_name),
+        ':',
+        field('type', $.type),
         optional(seq('=', field('default_value', $.expression))),
       ),
 
@@ -439,6 +519,7 @@ module.exports = function defineGrammar(dialect) {
         keyword('function'),
         optional($.reference_modifier),
         field('name', reserved('nothing', $.name)),
+        optional(field('type_parameters', $.type_parameter_list)),
         field('parameters', $.formal_parameters),
         optional($._return_type),
         choice(
@@ -507,6 +588,7 @@ module.exports = function defineGrammar(dialect) {
         keyword('function'),
         optional($.reference_modifier),
         field('name', $.name),
+        optional(field('type_parameters', $.type_parameter_list)),
         field('parameters', $.formal_parameters),
         optional($._return_type),
         field('body', $.compound_statement),
@@ -561,6 +643,17 @@ module.exports = function defineGrammar(dialect) {
         ')',
       ),
 
+      type_parameter_list: $ => seq(
+        '<',
+        commaSep1($.type_parameter),
+        '>',
+      ),
+
+      type_parameter: $ => seq(
+        field('name', $.name),
+        optional(seq(':', field('constraint', $.named_type))),
+      ),
+
       property_promotion_parameter: $ => seq(
         optional(field('attributes', $.attribute_list)),
         field('visibility', $.visibility_modifier),
@@ -596,6 +689,8 @@ module.exports = function defineGrammar(dialect) {
 
       _types: $ => choice(
         $.optional_type,
+        $.generic_type,
+        $.object_shape_type,
         $.named_type,
         $.primitive_type,
       ),
@@ -609,9 +704,32 @@ module.exports = function defineGrammar(dialect) {
       optional_type: $ => seq(
         '?',
         choice(
+          $.generic_type,
+          $.object_shape_type,
           $.named_type,
           $.primitive_type,
         ),
+      ),
+
+      generic_type: $ => seq(
+        field('name', choice($.named_type, $.primitive_type)),
+        '<',
+        commaSep1(field('type_arguments', $.type)),
+        '>',
+      ),
+
+      object_shape_type: $ => seq(
+        '{',
+        commaSep1($.object_shape_field),
+        optional(','),
+        '}',
+      ),
+
+      object_shape_field: $ => seq(
+        field('name', choice($.name, $.string)),
+        optional('?'),
+        ':',
+        field('type', $.type),
       ),
 
       bottom_type: _ => keyword('never', false),
@@ -1006,6 +1124,7 @@ module.exports = function defineGrammar(dialect) {
         $.relative_name,
         $.name,
         $.array_creation_expression,
+        $.struct_literal,
         $.print_intrinsic,
         $.anonymous_function,
         $.arrow_function,
@@ -1353,6 +1472,23 @@ module.exports = function defineGrammar(dialect) {
         seq('[', commaSep($.array_element_initializer), optional(','), ']'),
       ),
 
+      struct_literal: $ => seq(
+        field('name', $.name),
+        '{',
+        commaSep1($.struct_field_initializer),
+        optional(','),
+        '}',
+      ),
+
+      struct_field_initializer: $ => choice(
+        seq(
+          field('name', $.variable_name),
+          ':',
+          field('value', $.expression),
+        ),
+        field('name', $.variable_name),
+      ),
+
       attribute_group: $ => seq(
         '#[',
         commaSep1($.attribute),
@@ -1550,7 +1686,10 @@ module.exports = function defineGrammar(dialect) {
         $.scoped_call_expression,
       ),
 
-      variable_name: $ => seq('$', reserved('nothing', $.name)),
+      variable_name: $ => seq(
+        '$',
+        alias(token(prec(1, identifierRegex())), $.name),
+      ),
 
       by_ref: $ => seq('&', $._variable),
 
@@ -1630,11 +1769,7 @@ module.exports = function defineGrammar(dialect) {
       // for a much larger range of characters to be used in identifiers.
       //
       // See: https://www.php.net/manual/en/language.variables.basics.php
-      name: _ => {
-        // We need to side step around the whitespace characters in the extras array.
-        const range = String.raw`\u0080-\u009f\u00a1-\u200a\u200c-\u205f\u2061-\ufefe\uff00-\uffff`;
-        return new RegExp(`[_a-zA-Z${range}][_a-zA-Z${range}\\d]*`);
-      },
+      name: _ => identifierRegex(),
 
       comment: _ => token(choice(
         seq(

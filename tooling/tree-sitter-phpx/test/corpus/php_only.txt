@@ -1,6 +1,6 @@
 ==============================
 If statement
-:language(php_only)
+:language(phpx_only)
 ==============================
 
 if ($a==0) {
@@ -29,7 +29,7 @@ if ($a==0) {
 
 =========================================
 Class
-:language(php_only)
+:language(phpx_only)
 =========================================
 
 class A {

@@ -32,6 +32,7 @@
   "extends"
   "finally"
   "fn"
+  "from"
   "for"
   "foreach"
   "function"
@@ -39,11 +40,14 @@
   "goto"
   "if"
   "implements"
+  "import"
   "include"
   "include_once"
   "instanceof"
   "insteadof"
   "interface"
+  "export"
+  "type"
   "match"
   "namespace"
   "new"
@@ -52,6 +56,7 @@
   "require"
   "require_once"
   "return"
+  "struct"
   "switch"
   "throw"
   "trait"
@@ -132,6 +137,13 @@
 
 (primitive_type) @type.builtin
 (cast_type) @type.builtin
+(type_alias_declaration name: (name) @type)
+(struct_declaration name: (name) @type)
+(type_parameter name: (name) @type.parameter)
+(object_shape_field name: (name) @property)
+(object_shape_field name: (string) @property)
+(struct_literal name: (name) @type)
+(struct_field_initializer name: (variable_name) @property)
 (named_type [
   (name) @type
   (qualified_name (name) @type)

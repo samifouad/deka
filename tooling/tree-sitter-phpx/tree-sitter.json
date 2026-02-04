@@ -7,7 +7,14 @@
       "path": "php",
       "external-files": "common/scanner.h",
       "file-types": [
-        "phpx"
+        "php",
+        "php3",
+        "php4",
+        "php5",
+        "php7",
+        "phps",
+        "phpt",
+        "phtml"
       ],
       "highlights": "queries/highlights.scm",
       "injections": [
@@ -22,6 +29,9 @@
       "scope": "source.phpx",
       "path": "php_only",
       "external-files": "common/scanner.h",
+      "file-types": [
+        "phpx"
+      ],
       "highlights": "queries/highlights.scm",
       "injections": "queries/injections.scm",
       "tags": "queries/tags.scm"
