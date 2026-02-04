@@ -195,6 +195,9 @@
 (member_access_expression
   name: (name) @property)
 
+(dot_access_expression
+  property: (dot_access_property) @property)
+
 ; JSX
 
 (jsx_opening_element

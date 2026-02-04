@@ -1336,6 +1336,7 @@ module.exports = function defineGrammar(dialect) {
         $.scoped_property_access_expression,
         $.member_access_expression,
         $.nullsafe_member_access_expression,
+        $.dot_access_expression,
       ),
 
       _variable_member_access_expression: $ => prec(PREC.MEMBER, seq(
@@ -1602,6 +1603,13 @@ module.exports = function defineGrammar(dialect) {
         $._simple_variable,
         alias($._simple_string_subscript_expression, $.subscript_expression),
       ),
+
+      dot_access_expression: $ => prec(PREC.MEMBER, seq(
+        field('object', $._variable),
+        field('property', $.dot_access_property),
+      )),
+
+      dot_access_property: _ => token.immediate(new RegExp(`\\.${identifierRegex().source}`)),
 
       _jsx_element: $ => choice(
         $.jsx_element,

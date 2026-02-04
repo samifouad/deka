@@ -438,7 +438,7 @@ Notes:
 74. [ ] DX-TASKS:  Document compiler API in `crates/modules_php/src/compiler_api.rs`
 75. [ ] DX-TASKS:  Add troubleshooting section
 76. [ ] DX-TASKS:  List supported features and roadmap
-77. [ ] DX-TASKS:  Test and fix tight dot access: `$user.name.first`
+77. [x] DX-TASKS:  Test and fix tight dot access: `$user.name.first`
 78. [ ] DX-TASKS:  Test and fix nested object literals in JSX: `{{ nested: { value: 1 } }}`
 79. [ ] DX-TASKS:  Test and fix multiline JSX expressions
 80. [ ] DX-TASKS:  Test and fix if/foreach blocks in JSX
