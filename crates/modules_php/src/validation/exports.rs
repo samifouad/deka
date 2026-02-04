@@ -83,12 +83,13 @@ pub fn validate_exports(source: &str, file_path: &str, program: &Program) -> Vec
         }
 
         if trimmed.starts_with("export ") {
-            errors.push(export_error(
+            errors.push(export_error_with_suggestion(
                 idx + 1,
                 find_column(line, "export"),
                 trimmed.len(),
                 format!("Unsupported export syntax in {}.", file_path),
                 "Use `export function name(...)` or `export { name }`.",
+                Some("export function name() { }"),
             ));
         }
     }
@@ -180,12 +181,13 @@ pub(crate) fn parse_export_function(
         .trim_start()
         .strip_prefix("function")
         .ok_or_else(|| {
-            export_error(
+            export_error_with_suggestion(
                 line_number,
                 find_column(raw_line, "export"),
                 line.trim().len(),
                 format!("Invalid export syntax in {}.", file_path),
                 "Use `export function name(...)`.",
+                Some("export function name() { }"),
             )
         })?
         .trim_start();
@@ -206,12 +208,13 @@ pub(crate) fn parse_export_function(
     }
 
     if name.is_empty() || !is_ident(&name) {
-        return Err(export_error(
+        return Err(export_error_with_suggestion(
             line_number,
             find_column(raw_line, "export"),
             line.trim().len(),
             format!("Invalid export function name in {}.", file_path),
             "Function name must be a valid identifier.",
+            Some("export function name() { }"),
         ));
     }
 
@@ -238,22 +241,24 @@ pub(crate) fn parse_export_list_line(
     let rest = rest
         .strip_prefix('{')
         .ok_or_else(|| {
-            export_error(
+            export_error_with_suggestion(
                 line_number,
                 find_column(raw_line, "export"),
                 line.trim().len(),
                 format!("Invalid export syntax in {}.", file_path),
                 "Expected '{' after export.",
+                Some("export { name };"),
             )
         })?;
 
     let close_idx = rest.find('}').ok_or_else(|| {
-        export_error(
+        export_error_with_suggestion(
             line_number,
             find_column(raw_line, "export"),
             line.trim().len(),
             format!("Invalid export syntax in {}.", file_path),
             "Missing closing '}' in export list.",
+            Some("export { name };"),
         )
     })?;
 
@@ -409,13 +414,31 @@ fn export_error(
     message: String,
     help_text: &str,
 ) -> ValidationError {
+    export_error_with_suggestion(
+        line,
+        column,
+        underline_length,
+        message,
+        help_text,
+        None,
+    )
+}
+
+fn export_error_with_suggestion(
+    line: usize,
+    column: usize,
+    underline_length: usize,
+    message: String,
+    help_text: &str,
+    suggestion: Option<&str>,
+) -> ValidationError {
     ValidationError {
         kind: ErrorKind::ExportError,
         line,
         column,
         message,
         help_text: help_text.to_string(),
-        suggestion: None,
+        suggestion: suggestion.map(|value| value.to_string()),
         underline_length: underline_length.max(1),
         severity: Severity::Error,
     }

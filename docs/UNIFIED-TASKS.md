@@ -282,9 +282,9 @@ Notes:
 203. [x] PHPX-VALIDATION:  Create test file for each validation rule
 204. [x] PHPX-VALIDATION:  Positive tests (valid code passes)
 205. [x] PHPX-VALIDATION:  Negative tests (invalid code caught)
-206. [ ] PHPX-VALIDATION:  Error message quality
-207. [ ] PHPX-VALIDATION:  Help text accuracy
-208. [ ] PHPX-VALIDATION:  Edge cases
+206. [x] PHPX-VALIDATION:  Error message quality
+207. [x] PHPX-VALIDATION:  Help text accuracy
+208. [x] PHPX-VALIDATION:  Edge cases
 209. [x] PHPX-VALIDATION:  Support for multiple errors in single file
 210. [x] PHPX-VALIDATION:  Color coding by error kind
 211. [x] PHPX-VALIDATION:  Code suggestions (auto-fix hints)

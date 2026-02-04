@@ -141,12 +141,13 @@ pub(crate) fn parse_import_line(
         .trim_start()
         .strip_prefix("import")
         .ok_or_else(|| {
-            import_error(
+            import_error_with_suggestion(
                 line_number,
                 find_column(raw_line, "import"),
                 line.trim().len(),
                 format!("Invalid import syntax in {}.", file_path),
                 "Use: import { name } from 'module'.",
+                Some("import { name } from 'module';"),
             )
         })?
         .trim_start();
@@ -154,22 +155,24 @@ pub(crate) fn parse_import_line(
     let rest = rest
         .strip_prefix('{')
         .ok_or_else(|| {
-            import_error(
+            import_error_with_suggestion(
                 line_number,
                 find_column(raw_line, "import"),
                 line.trim().len(),
                 format!("Invalid import syntax in {}.", file_path),
                 "Expected '{' after import.",
+                Some("import { name } from 'module';"),
             )
         })?;
 
     let close_idx = rest.find('}').ok_or_else(|| {
-        import_error(
+        import_error_with_suggestion(
             line_number,
             find_column(raw_line, "import"),
             line.trim().len(),
             format!("Invalid import syntax in {}.", file_path),
             "Missing closing '}' in import specifiers.",
+            Some("import { name } from 'module';"),
         )
     })?;
 
@@ -178,23 +181,25 @@ pub(crate) fn parse_import_line(
     after = after
         .strip_prefix("from")
         .ok_or_else(|| {
-            import_error(
+            import_error_with_suggestion(
                 line_number,
                 find_column(raw_line, "import"),
                 line.trim().len(),
                 format!("Invalid import syntax in {}.", file_path),
                 "Expected 'from' after import specifiers.",
+                Some("import { name } from 'module';"),
             )
         })?
         .trim_start();
 
     let (from, mut after_from) = parse_quoted_string(after).ok_or_else(|| {
-        import_error(
+        import_error_with_suggestion(
             line_number,
             find_column(raw_line, "from"),
             line.trim().len(),
             format!("Invalid import syntax in {}.", file_path),
             "Module specifier must be quoted: from 'module'.",
+            Some("import { name } from 'module';"),
         )
     })?;
 
@@ -221,12 +226,13 @@ pub(crate) fn parse_import_line(
 
     let after_from = after_from.trim_start_matches(';').trim();
     if !after_from.is_empty() {
-        return Err(import_error(
+        return Err(import_error_with_suggestion(
             line_number,
             find_column(raw_line, after_from),
             after_from.len().max(1),
             format!("Invalid import syntax in {}.", file_path),
             "Unexpected tokens after import statement.",
+            Some("import { name } from 'module';"),
         ));
     }
 
@@ -237,12 +243,13 @@ pub(crate) fn parse_import_line(
         .collect();
 
     if spec_list.is_empty() {
-        return Err(import_error(
+        return Err(import_error_with_suggestion(
             line_number,
             find_column(raw_line, "import"),
             line.trim().len(),
             format!("Empty import list in {}.", file_path),
             "Add at least one import specifier.",
+            Some("import { name } from 'module';"),
         ));
     }
 
@@ -294,13 +301,31 @@ fn import_error(
     message: String,
     help_text: &str,
 ) -> ValidationError {
+    import_error_with_suggestion(
+        line,
+        column,
+        underline_length,
+        message,
+        help_text,
+        None,
+    )
+}
+
+fn import_error_with_suggestion(
+    line: usize,
+    column: usize,
+    underline_length: usize,
+    message: String,
+    help_text: &str,
+    suggestion: Option<&str>,
+) -> ValidationError {
     ValidationError {
         kind: ErrorKind::ImportError,
         line,
         column,
         message,
         help_text: help_text.to_string(),
-        suggestion: None,
+        suggestion: suggestion.map(|value| value.to_string()),
         underline_length: underline_length.max(1),
         severity: Severity::Error,
     }
