@@ -286,11 +286,11 @@ Notes:
 207. [ ] PHPX-VALIDATION:  Help text accuracy
 208. [ ] PHPX-VALIDATION:  Edge cases
 209. [x] PHPX-VALIDATION:  Support for multiple errors in single file
-210. [ ] PHPX-VALIDATION:  Color coding by error kind
+210. [x] PHPX-VALIDATION:  Color coding by error kind
 211. [ ] PHPX-VALIDATION:  Code suggestions (auto-fix hints)
 212. [ ] PHPX-VALIDATION:  Reference links to PHPX docs
 213. [x] PHPX-VALIDATION:  `format_multiple_errors()` - Format list of errors
-214. [ ] PHPX-VALIDATION:  Color codes by severity (error=red, warning=yellow, info=blue)
+214. [x] PHPX-VALIDATION:  Color codes by severity (error=red, warning=yellow, info=blue)
 215. [ ] PHPX-VALIDATION:  `format_with_suggestion()` - Include code fix suggestions
 216. [x] PHPX-VALIDATION:  `format_with_docs_link()` - Add doc links
 
