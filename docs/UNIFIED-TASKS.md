@@ -430,8 +430,8 @@ Notes:
 331:  - [x] Suggest running `deka wasm stubs` if missing
 71. [ ] DX-TASKS:  Add helpful error messages with fixes
 72. [ ] DX-TASKS:  Test with various import scenarios
-73. [ ] DX-TASKS:  Create `crates/phpx_lsp/README.md`
-348:  - [ ] Installation instructions
+73. [x] DX-TASKS:  Create `crates/phpx_lsp/README.md`
+348:  - [x] Installation instructions
 349:  - [ ] Editor integration guides (Zed, VSCode, Neovim)
 350:  - [ ] Configuration options
 351:  - [ ] Debugging tips
