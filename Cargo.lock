@@ -5776,6 +5776,7 @@ name = "phpx_lsp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bumpalo",
  "deka-validation",
  "modules_php",
  "serde_json",

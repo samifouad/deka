@@ -244,8 +244,8 @@ $title = 'Home';
 ---
 
 ### Task 2.4: Integrate Validation Formatting
-- [ ] Add `deka-validation` dependency to `phpx_lsp`
-- [ ] Implement error formatting in LSP:
+- [x] Add `deka-validation` dependency to `phpx_lsp`
+- [x] Implement error formatting in LSP:
   ```rust
   use deka_validation::format_validation_error;
 
@@ -262,7 +262,7 @@ $title = 'Home';
       )
   }
   ```
-- [ ] Convert formatted errors to LSP Diagnostic messages
+- [x] Convert formatted errors to LSP Diagnostic messages
 - [ ] Test with PHPX files containing errors
 - [ ] Verify beautiful error output in editor
 
@@ -271,13 +271,13 @@ $title = 'Home';
 ---
 
 ### Task 2.5: Implement Diagnostics Publishing
-- [ ] Implement `validate_document` method in LSP server:
-  - [ ] Call `compile_phpx` API
-  - [ ] Convert `CompileError` to LSP `Diagnostic`
-  - [ ] Map line/column positions
-  - [ ] Set severity (Error vs Warning)
-  - [ ] Include formatted message
-- [ ] Call `client.publish_diagnostics` on document open/change
+- [x] Implement `validate_document` method in LSP server:
+  - [x] Call `compile_phpx` API
+  - [x] Convert `CompileError` to LSP `Diagnostic`
+  - [x] Map line/column positions
+  - [x] Set severity (Error vs Warning)
+  - [x] Include formatted message
+- [x] Call `client.publish_diagnostics` on document open/change
 - [ ] Test with PHPX files containing:
   - [ ] Syntax errors
   - [ ] Type errors

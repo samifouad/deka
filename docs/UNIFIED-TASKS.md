@@ -394,17 +394,17 @@ Notes:
 51. [x] DX-TASKS:  Add unit tests for error collection
 52. [x] DX-TASKS:  Export from `crates/modules_php/src/lib.rs`
 53. [x] DX-TASKS:  Add `deka-validation` dependency to `phpx_lsp`
-54. [ ] DX-TASKS:  Implement error formatting in LSP:
-55. [ ] DX-TASKS:  Convert formatted errors to LSP Diagnostic messages
+54. [x] DX-TASKS:  Implement error formatting in LSP:
+55. [x] DX-TASKS:  Convert formatted errors to LSP Diagnostic messages
 56. [ ] DX-TASKS:  Test with PHPX files containing errors
 57. [ ] DX-TASKS:  Verify beautiful error output in editor
-58. [ ] DX-TASKS:  Implement `validate_document` method in LSP server:
-275:  - [ ] Call `compile_phpx` API
-276:  - [ ] Convert `CompileError` to LSP `Diagnostic`
-277:  - [ ] Map line/column positions
-278:  - [ ] Set severity (Error vs Warning)
-279:  - [ ] Include formatted message
-59. [ ] DX-TASKS:  Call `client.publish_diagnostics` on document open/change
+58. [x] DX-TASKS:  Implement `validate_document` method in LSP server:
+275:  - [x] Call `compile_phpx` API
+276:  - [x] Convert `CompileError` to LSP `Diagnostic`
+277:  - [x] Map line/column positions
+278:  - [x] Set severity (Error vs Warning)
+279:  - [x] Include formatted message
+59. [x] DX-TASKS:  Call `client.publish_diagnostics` on document open/change
 60. [ ] DX-TASKS:  Test with PHPX files containing:
 282:  - [ ] Syntax errors
 283:  - [ ] Type errors
