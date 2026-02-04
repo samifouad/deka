@@ -474,7 +474,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] Imported functions
   - [x] Local variables
   - [x] Struct definitions
-  - [ ] WASM imports (jump to `.d.phpx` stub)
+  - [x] WASM imports (jump to `.d.phpx` stub)
 - [ ] Test with multi-file projects
 
 **Acceptance**: Can jump to definitions across files
