@@ -426,7 +426,7 @@ Import Error: Missing type stubs for '@user/hello'
 
 ### Task 4.1: Implement Hover Provider
 - [x] Add `hoverProvider` capability to LSP
-- [ ] Implement `hover` method:
+- [x] Implement `hover` method:
   - [x] Parse PHPX to AST
   - [x] Find symbol at cursor position
   - [x] Look up type information
@@ -445,7 +445,7 @@ Import Error: Missing type stubs for '@user/hello'
 
 ### Task 4.2: Implement Completion Provider
 - [x] Add `completionProvider` capability to LSP
-- [ ] Implement `completion` method:
+- [x] Implement `completion` method:
   - [x] Parse PHPX to AST
   - [x] Determine completion context (import, variable, etc.)
   - [x] Generate completion items
@@ -465,7 +465,7 @@ Import Error: Missing type stubs for '@user/hello'
 
 ### Task 4.3: Implement Go-to-Definition
 - [x] Add `definitionProvider` capability to LSP
-- [ ] Implement `goto_definition` method:
+- [x] Implement `goto_definition` method:
   - [x] Find symbol at cursor
   - [x] Resolve import paths
   - [x] Find definition location

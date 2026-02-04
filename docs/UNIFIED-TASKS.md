@@ -470,7 +470,7 @@ Notes:
 92. [ ] DX-TASKS:  Test in Neovim (via nvim-treesitter)
 93. [ ] DX-TASKS:  Document textobject usage
 94. [x] DX-TASKS:  Add `hoverProvider` capability to LSP
-95. [ ] DX-TASKS:  Implement `hover` method:
+95. [x] DX-TASKS:  Implement `hover` method:
 429:  - [x] Parse PHPX to AST
 430:  - [x] Find symbol at cursor position
 431:  - [x] Look up type information
@@ -483,7 +483,7 @@ Notes:
 438:  - [x] WASM imports (show WIT signature from `.d.phpx`)
 97. [ ] DX-TASKS:  Test with various PHPX constructs
 98. [x] DX-TASKS:  Add `completionProvider` capability to LSP
-99. [ ] DX-TASKS:  Implement `completion` method:
+99. [x] DX-TASKS:  Implement `completion` method:
 448:  - [x] Parse PHPX to AST
 449:  - [x] Determine completion context (import, variable, etc.)
 450:  - [x] Generate completion items
@@ -497,7 +497,7 @@ Notes:
 101. [ ] DX-TASKS:  Add snippets for common patterns
 102. [ ] DX-TASKS:  Test in Zed
 103. [x] DX-TASKS:  Add `definitionProvider` capability to LSP
-104. [ ] DX-TASKS:  Implement `goto_definition` method:
+104. [x] DX-TASKS:  Implement `goto_definition` method:
 468:  - [x] Find symbol at cursor
 469:  - [x] Resolve import paths
 470:  - [x] Find definition location
