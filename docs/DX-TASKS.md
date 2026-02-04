@@ -535,7 +535,7 @@ Import Error: Missing type stubs for '@user/hello'
 - [x] Add `documentSymbolProvider` capability to LSP
 - [x] Implement `document_symbol` method:
   - [x] Parse PHPX to AST
-  - [x] Extract functions, structs, enums, type aliases (constants TBD)
+  - [x] Extract functions, structs, enums, type aliases, constants
   - [x] Return LSP `DocumentSymbol` hierarchy
 - [ ] Show symbols in editor outline/breadcrumbs
 - [ ] Test with large PHPX files

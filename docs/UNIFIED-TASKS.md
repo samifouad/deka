@@ -543,7 +543,7 @@ Notes:
 121. [x] DX-TASKS:  Add `documentSymbolProvider` capability to LSP
 122. [x] DX-TASKS:  Implement `document_symbol` method:
 536:  - [x] Parse PHPX to AST
-537:  - [x] Extract functions, structs, enums, type aliases (constants TBD)
+537:  - [x] Extract functions, structs, enums, type aliases, constants
 538:  - [x] Return LSP `DocumentSymbol` hierarchy
 123. [ ] DX-TASKS:  Show symbols in editor outline/breadcrumbs
 124. [ ] DX-TASKS:  Test with large PHPX files

@@ -548,6 +548,7 @@ struct SymbolIndex {
     enums: Vec<EnumInfo>,
     type_aliases: Vec<TypeAliasInfo>,
     globals: Vec<VarInfo>,
+    consts: Vec<ConstInfo>,
 }
 
 #[derive(Clone)]
@@ -598,6 +599,12 @@ struct TypeAliasInfo {
     name: String,
     span: Span,
     ty: String,
+}
+
+#[derive(Clone)]
+struct ConstInfo {
+    name: String,
+    span: Span,
 }
 
 impl SymbolIndex {
@@ -651,6 +658,12 @@ impl SymbolIndex {
         for alias in &self.type_aliases {
             if span_contains(alias.span, offset) {
                 return Some(format!("```php\ntype {} = {}\n```", alias.name, alias.ty));
+            }
+        }
+
+        for konst in &self.consts {
+            if span_contains(konst.span, offset) {
+                return Some(format!("```php\nconst {}\n```", konst.name));
             }
         }
 
@@ -737,6 +750,14 @@ impl SymbolIndex {
                 });
             }
         }
+        for konst in &self.consts {
+            if konst.name == word {
+                return Some(Location {
+                    uri: uri.clone(),
+                    range: span_to_range(konst.span, line_index),
+                });
+            }
+        }
         None
     }
 
@@ -813,6 +834,18 @@ impl SymbolIndex {
                 kind: SymbolKind::TYPE_PARAMETER,
                 range: span_to_range(alias.span, line_index),
                 selection_range: span_to_range(alias.span, line_index),
+                children: None,
+                deprecated: None,
+                tags: None,
+            });
+        }
+        for konst in &self.consts {
+            symbols.push(DocumentSymbol {
+                name: konst.name.clone(),
+                detail: Some("const".to_string()),
+                kind: SymbolKind::CONSTANT,
+                range: span_to_range(konst.span, line_index),
+                selection_range: span_to_range(konst.span, line_index),
                 children: None,
                 deprecated: None,
                 tags: None,
@@ -990,6 +1023,15 @@ fn collect_stmt(stmt: StmtId, source: &[u8], index: &mut SymbolIndex) {
                 span: name.span,
                 ty: alias_ty,
             });
+        }
+        Stmt::Const { consts, .. } => {
+            for konst in *consts {
+                let const_name = token_text(source, konst.name);
+                index.consts.push(ConstInfo {
+                    name: const_name,
+                    span: konst.name.span,
+                });
+            }
         }
         Stmt::Block { statements, .. } => {
             for stmt in *statements {
