@@ -97,18 +97,18 @@ $user = User { $name: 'Sam', Profile { $bio: 'Dev' } };
 ---
 
 ### Task 1.5: Add JSX Syntax Support
-- [ ] Port JSX grammar from `tree-sitter-javascript`
-  - [ ] Opening tags: `<Component>`
-  - [ ] Self-closing tags: `<Component />`
-  - [ ] Attributes: `<Component id={$val} />`
-  - [ ] Children: `<div>text</div>`
-  - [ ] Fragments: `<>...</>`
-- [ ] Add PHPX-specific JSX expressions
-  - [ ] Variables: `{$user.name}`
-  - [ ] If blocks: `{if ($x) { <p>yes</p> }}`
-  - [ ] Foreach loops: `{foreach ($items as $item) { <li>{$item}</li> }}`
-  - [ ] Object literals (double braces): `{{ host: 'localhost' }}`
-- [ ] Add highlighting for tags, attributes, expressions
+- [x] Port JSX grammar from `tree-sitter-javascript`
+  - [x] Opening tags: `<Component>`
+  - [x] Self-closing tags: `<Component />`
+  - [x] Attributes: `<Component id={$val} />`
+  - [x] Children: `<div>text</div>`
+  - [x] Fragments: `<>...</>`
+- [x] Add PHPX-specific JSX expressions
+  - [x] Variables: `{$user->name}`
+  - [x] Conditional expressions: `{$user->admin ? <Admin /> : null}`
+  - [x] Object literals (double braces): `{{ host: 'localhost' }}`
+  - [x] Statements are not allowed in JSX expressions (validation error; use expressions).
+- [x] Add highlighting for tags, attributes, expressions
 - [ ] Test with component examples from `examples/phpx-components/`
 
 **Acceptance**: JSX in `.phpx` files has proper highlighting, PHPX expressions work

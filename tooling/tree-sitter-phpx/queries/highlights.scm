@@ -194,6 +194,20 @@
 (member_access_expression
   name: (name) @property)
 
+; JSX
+
+(jsx_opening_element
+  name: (_) @tag)
+(jsx_closing_element
+  name: (_) @tag)
+(jsx_self_closing_element
+  name: (_) @tag)
+
+(jsx_attribute
+  name: (_) @attribute)
+
+(jsx_text) @string
+
 ; Basic tokens
 [
   (string)

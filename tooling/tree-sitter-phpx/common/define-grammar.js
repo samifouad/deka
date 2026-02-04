@@ -1122,6 +1122,7 @@ module.exports = function defineGrammar(dialect) {
       expression: $ => choice(
         $.conditional_expression,
         $.match_expression,
+        $._jsx_element,
         $.augmented_assignment_expression,
         $.assignment_expression,
         $.reference_assignment_expression,
@@ -1565,6 +1566,115 @@ module.exports = function defineGrammar(dialect) {
         $._simple_variable,
         alias($._simple_string_subscript_expression, $.subscript_expression),
       ),
+
+      _jsx_element: $ => choice(
+        $.jsx_element,
+        $.jsx_self_closing_element,
+        $.jsx_fragment,
+      ),
+
+      jsx_element: $ => seq(
+        field('open_tag', $.jsx_opening_element),
+        repeat($.jsx_child),
+        field('close_tag', $.jsx_closing_element),
+      ),
+
+      jsx_fragment: $ => seq(
+        '<',
+        '>',
+        repeat($.jsx_child),
+        '</',
+        '>',
+      ),
+
+      jsx_child: $ => choice(
+        $.jsx_text,
+        $.jsx_expression,
+        $._jsx_element,
+      ),
+
+      jsx_opening_element: $ => prec.dynamic(-1, seq(
+        '<',
+        field('name', $.jsx_element_name),
+        repeat($.jsx_attribute),
+        '>',
+      )),
+
+      jsx_closing_element: $ => seq(
+        '</',
+        field('name', $.jsx_element_name),
+        '>',
+      ),
+
+      jsx_self_closing_element: $ => seq(
+        '<',
+        field('name', $.jsx_element_name),
+        repeat($.jsx_attribute),
+        '/>',
+      ),
+
+      jsx_element_name: $ => choice(
+        $._jsx_identifier,
+        $.jsx_namespaced_name,
+        $.jsx_member_expression,
+      ),
+
+      jsx_identifier: _ => token(prec(1, /[a-zA-Z_][a-zA-Z0-9_-]*/)),
+
+      _jsx_identifier: $ => choice(
+        $.jsx_identifier,
+        $.name,
+      ),
+
+      jsx_namespaced_name: $ => seq(
+        field('namespace', $._jsx_identifier),
+        ':',
+        field('name', $._jsx_identifier),
+      ),
+
+      jsx_member_expression: $ => seq(
+        field('object', choice($._jsx_identifier, $.jsx_member_expression)),
+        '.',
+        field('property', $._jsx_identifier),
+      ),
+
+      jsx_attribute: $ => choice(
+        $.jsx_spread_attribute,
+        seq(
+          field('name', $.jsx_attribute_name),
+          optional(seq('=', field('value', $.jsx_attribute_value))),
+        ),
+      ),
+
+      jsx_attribute_name: $ => choice(
+        $._jsx_identifier,
+        $.jsx_namespaced_name,
+      ),
+
+      jsx_attribute_value: $ => choice(
+        $._string,
+        $.jsx_expression,
+        $._jsx_element,
+      ),
+
+      jsx_spread_attribute: $ => seq(
+        '{',
+        '...',
+        field('argument', $.expression),
+        '}',
+      ),
+
+      jsx_expression: $ => seq(
+        '{',
+        optional(choice(
+          $.expression,
+          $.if_statement,
+          $.foreach_statement,
+        )),
+        '}',
+      ),
+
+      jsx_text: _ => token(prec(1, /[^<>{}]+/)),
 
       // Note: remember to also update the is_escapable_sequence method in the
       // external scanner whenever changing these rules

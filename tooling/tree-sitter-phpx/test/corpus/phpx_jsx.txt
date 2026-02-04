@@ -1,0 +1,73 @@
+=========================
+PHPX JSX
+:language(phpx_only)
+=========================
+
+function App($user) {
+  return <div class="card">
+    <h1>{$user->name}</h1>
+    {$user->admin ? <span>Admin</span> : null}
+  </div>;
+}
+
+---
+
+(program
+  (function_definition
+    (name)
+    (formal_parameters
+      (simple_parameter
+        (variable_name
+          (name))))
+    (compound_statement
+      (return_statement
+        (jsx_element
+          (jsx_opening_element
+            (jsx_element_name
+              (jsx_identifier))
+            (jsx_attribute
+              (jsx_attribute_name
+                (jsx_identifier))
+              (jsx_attribute_value
+                (encapsed_string
+                  (string_content)))))
+          (jsx_child
+            (jsx_text))
+          (jsx_child
+            (jsx_element
+              (jsx_opening_element
+                (jsx_element_name
+                  (jsx_identifier)))
+              (jsx_child
+                (jsx_expression
+                  (member_access_expression
+                    (variable_name
+                      (name))
+                    (name))))
+              (jsx_closing_element
+                (jsx_element_name
+                  (jsx_identifier)))))
+          (jsx_child
+            (jsx_text))
+          (jsx_child
+            (jsx_expression
+              (conditional_expression
+                (member_access_expression
+                  (variable_name
+                    (name))
+                  (name))
+                (jsx_element
+                  (jsx_opening_element
+                    (jsx_element_name
+                      (jsx_identifier)))
+                  (jsx_child
+                    (jsx_text))
+                  (jsx_closing_element
+                    (jsx_element_name
+                      (jsx_identifier))))
+                (null))))
+          (jsx_child
+            (jsx_text))
+          (jsx_closing_element
+            (jsx_element_name
+              (jsx_identifier))))))))

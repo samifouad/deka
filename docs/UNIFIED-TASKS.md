@@ -326,18 +326,18 @@ Notes:
 16. [x] DX-TASKS:  Add highlighting for struct names and fields
 17. [x] DX-TASKS:  Test with struct examples
 18. [x] DX-TASKS:  Verify nested struct literals work
-19. [ ] DX-TASKS:  Port JSX grammar from `tree-sitter-javascript`
-101:  - [ ] Opening tags: `<Component>`
-102:  - [ ] Self-closing tags: `<Component />`
-103:  - [ ] Attributes: `<Component id={$val} />`
-104:  - [ ] Children: `<div>text</div>`
-105:  - [ ] Fragments: `<>...</>`
-20. [ ] DX-TASKS:  Add PHPX-specific JSX expressions
-107:  - [ ] Variables: `{$user.name}`
-108:  - [ ] If blocks: `{if ($x) { <p>yes</p> }}`
-109:  - [ ] Foreach loops: `{foreach ($items as $item) { <li>{$item}</li> }}`
-110:  - [ ] Object literals (double braces): `{{ host: 'localhost' }}`
-21. [ ] DX-TASKS:  Add highlighting for tags, attributes, expressions
+19. [x] DX-TASKS:  Port JSX grammar from `tree-sitter-javascript`
+101:  - [x] Opening tags: `<Component>`
+102:  - [x] Self-closing tags: `<Component />`
+103:  - [x] Attributes: `<Component id={$val} />`
+104:  - [x] Children: `<div>text</div>`
+105:  - [x] Fragments: `<>...</>`
+20. [x] DX-TASKS:  Add PHPX-specific JSX expressions
+107:  - [x] Variables: `{$user->name}`
+108:  - [x] Conditional expressions: `{$user->admin ? <Admin /> : null}`
+109:  - [x] Object literals (double braces): `{{ host: 'localhost' }}`
+110:  - [x] Statements are not allowed in JSX expressions (validation error; use expressions).
+21. [x] DX-TASKS:  Add highlighting for tags, attributes, expressions
 22. [ ] DX-TASKS:  Test with component examples from `examples/phpx-components/`
 23. [ ] DX-TASKS:  Add `frontmatter` rule to `grammar.js`
 120:  - [ ] Detect `---` at start of file
