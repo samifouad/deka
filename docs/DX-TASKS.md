@@ -365,9 +365,9 @@ Import Error: Missing type stubs for '@user/hello'
 
 ### Task 3.1: Handle PHPX-Specific Edge Cases
 - [x] Test and fix tight dot access: `$user.name.first`
-- [ ] Test and fix nested object literals in JSX: `{{ nested: { value: 1 } }}`
-- [ ] Test and fix multiline JSX expressions
-- [ ] Test and fix if/foreach blocks in JSX
+- [x] Test and fix nested object literals in JSX: `{{ nested: { value: 1 } }}`
+- [x] Test and fix multiline JSX expressions
+- [x] Test and fix if/foreach blocks in JSX
 - [ ] Add error recovery rules for better partial highlighting
 - [ ] Test with malformed PHPX (ensure no crashes)
 

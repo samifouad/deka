@@ -88,20 +88,29 @@ module.exports = function defineGrammar(dialect) {
   return grammar({
     name: dialect,
 
-    conflicts: $ => [
-      [$._array_destructing, $.array_creation_expression],
-      [$._array_destructing_element, $.array_element_initializer],
-      [$.primary_expression, $._array_destructing_element],
+    conflicts: $ => {
+      const conflicts = [
+        [$._array_destructing, $.array_creation_expression],
+        [$._array_destructing_element, $.array_element_initializer],
+        [$.primary_expression, $._array_destructing_element],
 
-      [$.type, $.union_type, $.intersection_type, $.disjunctive_normal_form_type],
-      [$.union_type, $.disjunctive_normal_form_type],
-      [$.intersection_type],
-      [$.if_statement],
+        [$.type, $.union_type, $.intersection_type, $.disjunctive_normal_form_type],
+        [$.union_type, $.disjunctive_normal_form_type],
+        [$.intersection_type],
+        [$.if_statement],
 
-      [$.namespace_name],
-      [$.heredoc_body],
-      [$.primary_expression, $.struct_literal],
-    ],
+        [$.namespace_name],
+        [$.heredoc_body],
+        [$.primary_expression, $.struct_literal],
+      ];
+
+      if (!isPhp) {
+        conflicts.push([$.compound_statement, $.object_literal]);
+        conflicts.push([$.named_label_statement, $.object_literal_item]);
+      }
+
+      return conflicts;
+    },
 
     externals: $ => [
       $._automatic_semicolon,
@@ -1188,24 +1197,32 @@ module.exports = function defineGrammar(dialect) {
 
       clone_expression: $ => seq(keyword('clone'), $.primary_expression),
 
-      primary_expression: $ => choice(
-        $._variable,
-        $.literal,
-        $.class_constant_access_expression,
-        $.qualified_name,
-        $.relative_name,
-        $.name,
-        $.array_creation_expression,
-        $.struct_literal,
-        $.print_intrinsic,
-        $.anonymous_function,
-        $.arrow_function,
-        $.object_creation_expression,
-        $.update_expression,
-        $.shell_command_expression,
-        $.parenthesized_expression,
-        $.throw_expression,
-      ),
+      primary_expression: $ => {
+        const primary = [
+          $._variable,
+          $.literal,
+          $.class_constant_access_expression,
+          $.qualified_name,
+          $.relative_name,
+          $.name,
+          $.array_creation_expression,
+          $.struct_literal,
+          $.print_intrinsic,
+          $.anonymous_function,
+          $.arrow_function,
+          $.object_creation_expression,
+          $.update_expression,
+          $.shell_command_expression,
+          $.parenthesized_expression,
+          $.throw_expression,
+        ];
+
+        if (!isPhp) {
+          primary.splice(primary.indexOf($.struct_literal), 0, $.object_literal);
+        }
+
+        return choice(...primary);
+      },
 
       parenthesized_expression: $ => seq('(', $.expression, ')'),
 
@@ -1543,6 +1560,19 @@ module.exports = function defineGrammar(dialect) {
       array_creation_expression: $ => choice(
         seq(keyword('array'), '(', commaSep($.array_element_initializer), optional(','), ')'),
         seq('[', commaSep($.array_element_initializer), optional(','), ']'),
+      ),
+
+      object_literal: $ => seq(
+        '{',
+        commaSep($.object_literal_item),
+        optional(','),
+        '}',
+      ),
+
+      object_literal_item: $ => seq(
+        field('key', choice($.name, $.string, $.encapsed_string)),
+        ':',
+        field('value', $.expression),
       ),
 
       struct_literal: $ => seq(

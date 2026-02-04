@@ -439,9 +439,9 @@ Notes:
 75. [ ] DX-TASKS:  Add troubleshooting section
 76. [ ] DX-TASKS:  List supported features and roadmap
 77. [x] DX-TASKS:  Test and fix tight dot access: `$user.name.first`
-78. [ ] DX-TASKS:  Test and fix nested object literals in JSX: `{{ nested: { value: 1 } }}`
-79. [ ] DX-TASKS:  Test and fix multiline JSX expressions
-80. [ ] DX-TASKS:  Test and fix if/foreach blocks in JSX
+78. [x] DX-TASKS:  Test and fix nested object literals in JSX: `{{ nested: { value: 1 } }}`
+79. [x] DX-TASKS:  Test and fix multiline JSX expressions
+80. [x] DX-TASKS:  Test and fix if/foreach blocks in JSX
 81. [ ] DX-TASKS:  Add error recovery rules for better partial highlighting
 82. [ ] DX-TASKS:  Test with malformed PHPX (ensure no crashes)
 83. [ ] DX-TASKS:  Create `queries/folds.scm`
