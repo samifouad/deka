@@ -356,14 +356,14 @@ Notes:
 152:  - [ ] Symlink: `ln -s /path/to/deka/extensions/phpx ~/.config/zed/extensions/phpx`
 31. [ ] DX-TASKS:  Test with real PHPX files
 32. [ ] DX-TASKS:  Verify highlighting works for all features
-33. [ ] DX-TASKS:  Create `tooling/tree-sitter-phpx/README.md`
-166:  - [ ] Installation instructions
-167:  - [ ] Testing instructions
-168:  - [ ] Editor integration guides (Zed, Neovim, Helix)
-169:  - [ ] Grammar rules overview
-34. [ ] DX-TASKS:  Add examples to `test/corpus/`
-35. [ ] DX-TASKS:  Document known limitations
-36. [ ] DX-TASKS:  Add contributing guidelines
+33. [x] DX-TASKS:  Create `tooling/tree-sitter-phpx/README.md`
+166:  - [x] Installation instructions
+167:  - [x] Testing instructions
+168:  - [x] Editor integration guides (Zed, Neovim, Helix)
+169:  - [x] Grammar rules overview
+34. [x] DX-TASKS:  Add examples to `test/corpus/`
+35. [x] DX-TASKS:  Document known limitations
+36. [x] DX-TASKS:  Add contributing guidelines
 37. [ ] DX-TASKS:  Create `crates/phpx_lsp/` directory
 38. [ ] DX-TASKS:  Initialize Cargo project: `cargo new phpx_lsp --bin`
 39. [ ] DX-TASKS:  Add dependencies to `Cargo.toml`:

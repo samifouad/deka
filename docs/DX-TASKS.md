@@ -162,14 +162,14 @@ $title = 'Home';
 ---
 
 ### Task 1.8: Document Tree-sitter Grammar
-- [ ] Create `tooling/tree-sitter-phpx/README.md`
-  - [ ] Installation instructions
-  - [ ] Testing instructions
-  - [ ] Editor integration guides (Zed, Neovim, Helix)
-  - [ ] Grammar rules overview
-- [ ] Add examples to `test/corpus/`
-- [ ] Document known limitations
-- [ ] Add contributing guidelines
+- [x] Create `tooling/tree-sitter-phpx/README.md`
+  - [x] Installation instructions
+  - [x] Testing instructions
+  - [x] Editor integration guides (Zed, Neovim, Helix)
+  - [x] Grammar rules overview
+- [x] Add examples to `test/corpus/`
+- [x] Document known limitations
+- [x] Add contributing guidelines
 
 **Acceptance**: Other developers can extend the grammar
 
