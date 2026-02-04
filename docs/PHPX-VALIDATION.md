@@ -1040,10 +1040,10 @@ fn test_struct_literal_missing_field() {
 **Goal**: Enhance deka-validation with PHPX-specific formatting
 
 **What to add**:
-- [ ] Support for multiple errors in single file
-- [ ] Color coding by error kind
-- [ ] Code suggestions (auto-fix hints)
-- [ ] Reference links to PHPX docs
+- [x] Support for multiple errors in single file
+- [x] Color coding by error kind
+- [x] Code suggestions (auto-fix hints)
+- [x] Reference links to PHPX docs
 
 **Example enhanced output**:
 ```
@@ -1092,10 +1092,10 @@ Validation Errors (3 found)
 - `/Users/samifouad/Projects/deka/deka-validation/src/lib.rs`
 
 **New features**:
-- [ ] `format_multiple_errors()` - Format list of errors
-- [ ] Color codes by severity (error=red, warning=yellow, info=blue)
-- [ ] `format_with_suggestion()` - Include code fix suggestions
-- [ ] `format_with_docs_link()` - Add doc links
+- [x] `format_multiple_errors()` - Format list of errors
+- [x] Color codes by severity (error=red, warning=yellow, info=blue)
+- [x] `format_with_suggestion()` - Include code fix suggestions
+- [x] `format_with_docs_link()` - Add doc links
 
 ---
 

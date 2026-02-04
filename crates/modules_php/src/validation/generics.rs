@@ -91,6 +91,7 @@ impl GenericValidator<'_> {
                     message: format!("Generic parameter '{}' is never used.", name),
                     help_text: "Remove the unused generic parameter or use it in the signature."
                         .to_string(),
+                    suggestion: None,
                     underline_length: 1,
                     severity: Severity::Warning,
                 });
@@ -126,6 +127,7 @@ impl GenericValidator<'_> {
                     message: format!("Generic parameter '{}' is never used.", name),
                     help_text: "Remove the unused generic parameter or use it in the alias."
                         .to_string(),
+                    suggestion: None,
                     underline_length: 1,
                     severity: Severity::Warning,
                 });

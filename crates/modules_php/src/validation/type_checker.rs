@@ -26,6 +26,7 @@ fn to_validation_error(error: PhpTypeError, source: &str) -> ValidationError {
         column,
         message: error.message,
         help_text: "Fix the type mismatch or update the annotation.".to_string(),
+        suggestion: None,
         underline_length,
         severity: Severity::Error,
     }

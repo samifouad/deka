@@ -20,37 +20,32 @@ fn improve_help_text(error: &mut ValidationError) {
     }
 
     let message = error.message.as_str();
+    let mut updated = false;
     if message.contains("Expected ';'") {
         error.help_text = "Add a semicolon at the end of the statement.".to_string();
-        return;
-    }
-
-    if message.contains("Expected '}'") {
+        updated = true;
+    } else if message.contains("Expected '}'") {
         error.help_text = "Add a closing '}' for the block.".to_string();
-        return;
-    }
-
-    if message.contains("Expected ')'") {
+        updated = true;
+    } else if message.contains("Expected ')'") {
         error.help_text = "Add a closing ')' for the expression.".to_string();
-        return;
-    }
-
-    if message.contains("Expected ']'") {
+        updated = true;
+    } else if message.contains("Expected ']'") {
         error.help_text = "Add a closing ']' for the array or index access.".to_string();
-        return;
-    }
-
-    if message.contains("Unexpected end of file") || message.contains("end of file") {
+        updated = true;
+    } else if message.contains("Unexpected end of file") || message.contains("end of file") {
         error.help_text = "Check for missing closing braces or parentheses.".to_string();
-        return;
-    }
-
-    if message.contains("Unexpected token") {
+        updated = true;
+    } else if message.contains("Unexpected token") {
         error.help_text = "Remove the unexpected token or fix the surrounding syntax.".to_string();
-        return;
+        updated = true;
+    } else if message.contains("Invalid token") {
+        error.help_text =
+            "Remove the invalid token or replace it with valid PHPX syntax.".to_string();
+        updated = true;
     }
 
-    if message.contains("Invalid token") {
-        error.help_text = "Remove the invalid token or replace it with valid PHPX syntax.".to_string();
+    if updated && error.suggestion.is_some() {
+        error.suggestion = Some(error.help_text.clone());
     }
 }

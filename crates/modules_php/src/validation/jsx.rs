@@ -172,6 +172,7 @@ pub fn validate_template_section(source: &str, _file_path: &str) -> Vec<Validati
             column: info.column,
             message: err.message.to_string(),
             help_text: "Fix JSX/template syntax in the template section.".to_string(),
+            suggestion: None,
             underline_length,
             severity: Severity::Error,
         });
@@ -481,6 +482,7 @@ fn jsx_error(span: Span, source: &str, message: String, help_text: &str) -> Vali
         column,
         message,
         help_text: help_text.to_string(),
+        suggestion: None,
         underline_length,
         severity: Severity::Error,
     }
@@ -499,6 +501,7 @@ fn frontmatter_error(
         column,
         message,
         help_text: help_text.to_string(),
+        suggestion: None,
         underline_length: underline_length.max(1),
         severity: Severity::Error,
     }

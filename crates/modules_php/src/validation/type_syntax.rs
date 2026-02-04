@@ -121,6 +121,7 @@ impl TypeSyntaxValidator<'_> {
             column,
             message,
             help_text: help_text.to_string(),
+            suggestion: None,
             underline_length,
             severity: Severity::Error,
         });

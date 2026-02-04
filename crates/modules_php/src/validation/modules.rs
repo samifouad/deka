@@ -742,6 +742,7 @@ fn module_error(
         column,
         message,
         help_text: help_text.to_string(),
+        suggestion: None,
         underline_length: underline_length.max(1),
         severity: Severity::Error,
     }
@@ -760,6 +761,7 @@ fn wasm_error(
         column,
         message,
         help_text: help_text.to_string(),
+        suggestion: None,
         underline_length: underline_length.max(1),
         severity: Severity::Error,
     }

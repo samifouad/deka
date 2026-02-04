@@ -74,6 +74,7 @@ pub struct ValidationError {
     pub column: usize,
     pub message: String,
     pub help_text: String,
+    pub suggestion: Option<String>,
     pub underline_length: usize,
     pub severity: Severity,
 }
@@ -85,6 +86,7 @@ pub struct ValidationWarning {
     pub column: usize,
     pub message: String,
     pub help_text: String,
+    pub suggestion: Option<String>,
     pub underline_length: usize,
     pub severity: Severity,
 }
@@ -97,7 +99,7 @@ pub struct ValidationResult<'a> {
 }
 
 pub fn format_validation_error(source: &str, file_path: &str, error: &ValidationError) -> String {
-    deka_validation::format_validation_error_extended(
+    deka_validation::format_validation_error_with_suggestion(
         source,
         file_path,
         error.kind.as_str(),
@@ -108,6 +110,7 @@ pub fn format_validation_error(source: &str, file_path: &str, error: &Validation
         error.underline_length,
         severity_label(error.severity),
         docs_link_for_kind(error.kind),
+        error.suggestion.clone(),
     )
 }
 
@@ -116,7 +119,7 @@ pub fn format_validation_warning(
     file_path: &str,
     warning: &ValidationWarning,
 ) -> String {
-    deka_validation::format_validation_error_extended(
+    deka_validation::format_validation_error_with_suggestion(
         source,
         file_path,
         warning.kind.as_str(),
@@ -127,6 +130,7 @@ pub fn format_validation_warning(
         warning.underline_length,
         severity_label(warning.severity),
         docs_link_for_kind(warning.kind),
+        warning.suggestion.clone(),
     )
 }
 
@@ -205,6 +209,11 @@ pub fn parse_errors_to_validation_errors(
                 column,
                 message: error.message.to_string(),
                 help_text: error.help_text.to_string(),
+                suggestion: if error.help_text.trim().is_empty() {
+                    None
+                } else {
+                    Some(error.help_text.to_string())
+                },
                 underline_length: underline_len,
                 severity: Severity::Error,
             }

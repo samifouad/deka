@@ -105,6 +105,7 @@ impl NoNullValidator<'_> {
             column,
             message,
             help_text: help_text.to_string(),
+            suggestion: None,
             underline_length,
             severity: Severity::Error,
         });
@@ -157,6 +158,7 @@ impl NoExceptionValidator<'_> {
             column,
             message,
             help_text: help_text.to_string(),
+            suggestion: None,
             underline_length,
             severity: Severity::Error,
         });
@@ -255,6 +257,7 @@ impl NoOopValidator<'_> {
             column,
             message,
             help_text: help_text.to_string(),
+            suggestion: None,
             underline_length,
             severity: Severity::Error,
         });
@@ -307,6 +310,7 @@ impl NoNamespaceValidator<'_> {
             column,
             message,
             help_text: help_text.to_string(),
+            suggestion: None,
             underline_length,
             severity: Severity::Error,
         });

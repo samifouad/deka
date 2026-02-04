@@ -310,6 +310,7 @@ fn struct_error(span: Span, source: &str, message: String, help_text: &str) -> V
         column,
         message,
         help_text: help_text.to_string(),
+        suggestion: None,
         underline_length,
         severity: Severity::Error,
     }
