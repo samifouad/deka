@@ -214,8 +214,8 @@ $title = 'Home';
 ---
 
 ### Task 2.3: Expose PHPX Compiler API
-- [ ] Create `crates/modules_php/src/compiler_api.rs`
-- [ ] Define public structs:
+- [x] Create `crates/modules_php/src/compiler_api.rs`
+- [x] Define public structs:
   ```rust
   pub struct CompilationResult {
       pub errors: Vec<CompileError>,
@@ -231,13 +231,13 @@ $title = 'Home';
       pub underline_length: usize,
   }
   ```
-- [ ] Implement `compile_phpx(source: &str, file_path: &str) -> CompilationResult`
-  - [ ] Call existing PHPX parser/compiler
-  - [ ] Collect syntax errors
-  - [ ] Collect type errors
-  - [ ] Return structured results
-- [ ] Add unit tests for error collection
-- [ ] Export from `crates/modules_php/src/lib.rs`
+- [x] Implement `compile_phpx(source: &str, file_path: &str) -> ValidationResult`
+  - [x] Call existing PHPX parser/compiler
+  - [x] Collect syntax errors
+  - [x] Collect type errors
+  - [x] Return structured results
+- [x] Add unit tests for error collection
+- [x] Export from `crates/modules_php/src/lib.rs`
 
 **Acceptance**: Can call compiler API and get structured errors
 

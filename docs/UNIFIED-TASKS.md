@@ -384,15 +384,15 @@ Notes:
 45. [x] DX-TASKS:  Implement `shutdown` method
 46. [x] DX-TASKS:  Implement `did_open` and `did_change` handlers (log only)
 47. [ ] DX-TASKS:  Test with manual stdio: `echo '{"jsonrpc":"2.0","method":"initialize",...}' | cargo run`
-48. [ ] DX-TASKS:  Create `crates/modules_php/src/compiler_api.rs`
-49. [ ] DX-TASKS:  Define public structs:
-50. [ ] DX-TASKS:  Implement `compile_phpx(source: &str, file_path: &str) -> CompilationResult`
-235:  - [ ] Call existing PHPX parser/compiler
-236:  - [ ] Collect syntax errors
-237:  - [ ] Collect type errors
-238:  - [ ] Return structured results
-51. [ ] DX-TASKS:  Add unit tests for error collection
-52. [ ] DX-TASKS:  Export from `crates/modules_php/src/lib.rs`
+48. [x] DX-TASKS:  Create `crates/modules_php/src/compiler_api.rs`
+49. [x] DX-TASKS:  Define public structs:
+50. [x] DX-TASKS:  Implement `compile_phpx(source: &str, file_path: &str) -> ValidationResult`
+235:  - [x] Call existing PHPX parser/compiler
+236:  - [x] Collect syntax errors
+237:  - [x] Collect type errors
+238:  - [x] Return structured results
+51. [x] DX-TASKS:  Add unit tests for error collection
+52. [x] DX-TASKS:  Export from `crates/modules_php/src/lib.rs`
 53. [x] DX-TASKS:  Add `deka-validation` dependency to `phpx_lsp`
 54. [ ] DX-TASKS:  Implement error formatting in LSP:
 55. [ ] DX-TASKS:  Convert formatted errors to LSP Diagnostic messages
