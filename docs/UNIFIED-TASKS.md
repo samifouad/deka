@@ -273,12 +273,12 @@ Notes:
 194. [x] PHPX-VALIDATION:  Check match coverage
 195. [x] PHPX-VALIDATION:  Validate payload destructuring
 196. [x] PHPX-VALIDATION:  Detect unreachable arms
-197. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/compiler_api.rs`
-198. [ ] PHPX-VALIDATION:  Expose `compile_phpx(source: &str, file_path: &str) -> ValidationResult`
-199. [ ] PHPX-VALIDATION:  Run all validation passes in order:
-200. [ ] PHPX-VALIDATION:  Collect all errors and warnings
-201. [ ] PHPX-VALIDATION:  Format with `deka-validation`
-202. [ ] PHPX-VALIDATION:  Return structured result
+197. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/compiler_api.rs`
+198. [x] PHPX-VALIDATION:  Expose `compile_phpx(source: &str, file_path: &str) -> ValidationResult`
+199. [x] PHPX-VALIDATION:  Run all validation passes in order:
+200. [x] PHPX-VALIDATION:  Collect all errors and warnings
+201. [x] PHPX-VALIDATION:  Format with `deka-validation`
+202. [x] PHPX-VALIDATION:  Return structured result
 203. [ ] PHPX-VALIDATION:  Create test file for each validation rule
 204. [ ] PHPX-VALIDATION:  Positive tests (valid code passes)
 205. [ ] PHPX-VALIDATION:  Negative tests (invalid code caught)
@@ -289,7 +289,7 @@ Notes:
 210. [ ] PHPX-VALIDATION:  Color coding by error kind
 211. [ ] PHPX-VALIDATION:  Code suggestions (auto-fix hints)
 212. [ ] PHPX-VALIDATION:  Reference links to PHPX docs
-213. [ ] PHPX-VALIDATION:  `format_multiple_errors()` - Format list of errors
+213. [x] PHPX-VALIDATION:  `format_multiple_errors()` - Format list of errors
 214. [ ] PHPX-VALIDATION:  Color codes by severity (error=red, warning=yellow, info=blue)
 215. [ ] PHPX-VALIDATION:  `format_with_suggestion()` - Include code fix suggestions
 216. [ ] PHPX-VALIDATION:  `format_with_docs_link()` - Add doc links

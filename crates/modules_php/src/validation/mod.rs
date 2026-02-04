@@ -96,6 +96,52 @@ pub struct ValidationResult<'a> {
     pub ast: Option<Program<'a>>,
 }
 
+pub fn format_validation_error(source: &str, file_path: &str, error: &ValidationError) -> String {
+    deka_validation::format_validation_error(
+        source,
+        file_path,
+        error.kind.as_str(),
+        error.line,
+        error.column,
+        &error.message,
+        &error.help_text,
+        error.underline_length,
+    )
+}
+
+pub fn format_validation_warning(
+    source: &str,
+    file_path: &str,
+    warning: &ValidationWarning,
+) -> String {
+    deka_validation::format_validation_error(
+        source,
+        file_path,
+        warning.kind.as_str(),
+        warning.line,
+        warning.column,
+        &warning.message,
+        &warning.help_text,
+        warning.underline_length,
+    )
+}
+
+pub fn format_multiple_errors(
+    source: &str,
+    file_path: &str,
+    errors: &[ValidationError],
+    warnings: &[ValidationWarning],
+) -> String {
+    let mut out = String::new();
+    for error in errors {
+        out.push_str(&format_validation_error(source, file_path, error));
+    }
+    for warning in warnings {
+        out.push_str(&format_validation_warning(source, file_path, warning));
+    }
+    out
+}
+
 pub fn parse_errors_to_validation_errors(
     source: &str,
     errors: &[php_rs::parser::ast::ParseError],

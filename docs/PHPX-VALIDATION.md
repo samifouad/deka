@@ -908,9 +908,9 @@ function handle(Status $status): void {
 **Goal**: Wire validation into PHPX compilation pipeline
 
 **What to implement**:
-- [ ] Create `crates/modules_php/src/compiler_api.rs`
-- [ ] Expose `compile_phpx(source: &str, file_path: &str) -> ValidationResult`
-- [ ] Run all validation passes in order:
+- [x] Create `crates/modules_php/src/compiler_api.rs`
+- [x] Expose `compile_phpx(source: &str, file_path: &str) -> ValidationResult`
+- [x] Run all validation passes in order:
   1. Syntax validation
   2. Import/export validation
   3. Type checking
@@ -919,9 +919,9 @@ function handle(Status $status): void {
   6. JSX validation
   7. Module resolution
   8. Pattern matching
-- [ ] Collect all errors and warnings
-- [ ] Format with `deka-validation`
-- [ ] Return structured result
+- [x] Collect all errors and warnings
+- [x] Format with `deka-validation`
+- [x] Return structured result
 
 **Files to create**:
 - `crates/modules_php/src/compiler_api.rs`
