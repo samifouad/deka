@@ -279,9 +279,9 @@ Notes:
 200. [x] PHPX-VALIDATION:  Collect all errors and warnings
 201. [x] PHPX-VALIDATION:  Format with `deka-validation`
 202. [x] PHPX-VALIDATION:  Return structured result
-203. [ ] PHPX-VALIDATION:  Create test file for each validation rule
-204. [ ] PHPX-VALIDATION:  Positive tests (valid code passes)
-205. [ ] PHPX-VALIDATION:  Negative tests (invalid code caught)
+203. [x] PHPX-VALIDATION:  Create test file for each validation rule
+204. [x] PHPX-VALIDATION:  Positive tests (valid code passes)
+205. [x] PHPX-VALIDATION:  Negative tests (invalid code caught)
 206. [ ] PHPX-VALIDATION:  Error message quality
 207. [ ] PHPX-VALIDATION:  Help text accuracy
 208. [ ] PHPX-VALIDATION:  Edge cases

@@ -29,6 +29,27 @@ fn assert_has_error(result: &ValidationResult<'_>, kind: ErrorKind) {
     );
 }
 
+fn assert_has_warning(result: &ValidationResult<'_>, kind: ErrorKind) {
+    assert!(
+        result.warnings.iter().any(|warn| warn.kind == kind),
+        "expected warning {:?}, got: {:?}",
+        kind,
+        result.warnings
+    );
+}
+
+fn assert_has_error_any(result: &ValidationResult<'_>, kinds: &[ErrorKind]) {
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|err| kinds.iter().any(|kind| err.kind == *kind)),
+        "expected one of {:?}, got: {:?}",
+        kinds,
+        result.errors
+    );
+}
+
 #[test]
 fn module_import_ok() {
     let path = fixtures_root().join("modules/basic.phpx");
@@ -48,6 +69,159 @@ fn module_missing_export_reports_error() {
     let path = fixtures_root().join("modules/missing_export.phpx");
     let result = compile_fixture(&path);
     assert_has_error(&result, ErrorKind::ModuleError);
+}
+
+#[test]
+fn import_ok() {
+    let path = fixtures_root().join("imports/ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+    assert!(
+        result.warnings.is_empty(),
+        "unexpected warnings: {:?}",
+        result.warnings
+    );
+}
+
+#[test]
+fn import_unused_reports_warning() {
+    let path = fixtures_root().join("imports/unused.phpx");
+    let result = compile_fixture(&path);
+    assert_has_warning(&result, ErrorKind::ImportError);
+}
+
+#[test]
+fn import_duplicate_reports_error() {
+    let path = fixtures_root().join("imports/duplicate.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::ImportError);
+}
+
+#[test]
+fn import_after_code_reports_error() {
+    let path = fixtures_root().join("imports/after_code.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::ImportError);
+}
+
+#[test]
+fn import_relative_path_reports_error() {
+    let path = fixtures_root().join("imports/relative.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::ImportError);
+}
+
+#[test]
+fn import_invalid_syntax_reports_error() {
+    let path = fixtures_root().join("imports/invalid_syntax.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::ImportError);
+}
+
+#[test]
+fn export_ok() {
+    let path = fixtures_root().join("exports/ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+}
+
+#[test]
+fn export_undefined_reports_error() {
+    let path = fixtures_root().join("exports/undefined.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::ExportError);
+}
+
+#[test]
+fn export_duplicate_reports_error() {
+    let path = fixtures_root().join("exports/duplicate.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::ExportError);
+}
+
+#[test]
+fn export_invalid_syntax_reports_error() {
+    let path = fixtures_root().join("exports/invalid_syntax.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::ExportError);
+}
+
+#[test]
+fn export_template_reports_error() {
+    let path = fixtures_root().join("exports/template_export.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::ExportError);
+}
+
+#[test]
+fn generics_ok() {
+    let path = fixtures_root().join("generics/ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(result.warnings.is_empty(), "unexpected warnings: {:?}", result.warnings);
+}
+
+#[test]
+fn generics_unused_reports_warning() {
+    let path = fixtures_root().join("generics/unused.phpx");
+    let result = compile_fixture(&path);
+    assert_has_warning(&result, ErrorKind::TypeError);
+}
+
+#[test]
+fn syntax_missing_semicolon_reports_error() {
+    let path = fixtures_root().join("syntax/missing_semicolon.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error_any(
+        &result,
+        &[ErrorKind::SyntaxError, ErrorKind::UnexpectedToken],
+    );
+}
+
+#[test]
+fn types_ok() {
+    let path = fixtures_root().join("types/ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+}
+
+#[test]
+fn structs_ok() {
+    let path = fixtures_root().join("structs/ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+}
+
+#[test]
+fn patterns_ok() {
+    let path = fixtures_root().join("patterns/ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+}
+
+#[test]
+fn jsx_ok() {
+    let path = fixtures_root().join("jsx/ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+}
+
+#[test]
+fn frontmatter_ok() {
+    let path = fixtures_root().join("frontmatter/ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+}
+
+#[test]
+fn rules_ok() {
+    let path = fixtures_root().join("rules/ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
 }
 
 #[test]
