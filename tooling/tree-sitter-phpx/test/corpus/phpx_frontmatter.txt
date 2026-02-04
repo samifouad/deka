@@ -65,60 +65,55 @@ function App($title) {
     (jsx_element
       (jsx_opening_element
         (jsx_element_name
+          (jsx_identifier))))
+    (template_text)
+    (jsx_element
+      (jsx_opening_element
+        (jsx_element_name
+          (jsx_identifier))))
+    (template_text)
+    (jsx_element
+      (jsx_opening_element
+        (jsx_element_name
           (jsx_identifier)))
       (jsx_child
-        (jsx_text))
-      (jsx_child
-        (jsx_element
-          (jsx_opening_element
-            (jsx_element_name
-              (jsx_identifier)))
-          (jsx_child
-            (jsx_text))
-          (jsx_child
-            (jsx_element
-              (jsx_opening_element
-                (jsx_element_name
-                  (jsx_identifier)))
-              (jsx_child
-                (jsx_expression
-                  (variable_name
-                    (name))))
-              (jsx_closing_element
-                (jsx_element_name
-                  (jsx_identifier)))))
-          (jsx_child
-            (jsx_text))
-          (jsx_closing_element
-            (jsx_element_name
-              (jsx_identifier)))))
-      (jsx_child
-        (jsx_text))
-      (jsx_child
-        (jsx_element
-          (jsx_opening_element
-            (jsx_element_name
-              (jsx_identifier)))
-          (jsx_child
-            (jsx_text))
-          (jsx_child
-            (jsx_self_closing_element
-              (jsx_element_name
-                (jsx_identifier))
-              (jsx_attribute
-                (jsx_attribute_name
-                  (jsx_identifier))
-                (jsx_attribute_value
-                  (encapsed_string
-                    (string_content))))))
-          (jsx_child
-            (jsx_text))
-          (jsx_closing_element
-            (jsx_element_name
-              (jsx_identifier)))))
-      (jsx_child
-        (jsx_text))
+        (jsx_expression
+          (variable_name
+            (name))))
       (jsx_closing_element
+        (jsx_element_name
+          (jsx_identifier))))
+    (template_text)
+    (jsx_element
+      (jsx_opening_element
+        (ERROR)
+        (jsx_element_name
+          (jsx_identifier))))
+    (template_text)
+    (jsx_element
+      (jsx_opening_element
+        (jsx_element_name
+          (jsx_identifier))))
+    (template_text)
+    (jsx_self_closing_element
+      (jsx_element_name
+        (jsx_identifier))
+      (jsx_attribute
+        (jsx_attribute_name
+          (jsx_identifier))
+        (jsx_attribute_value
+          (encapsed_string
+            (string_content)))))
+    (template_text)
+    (jsx_element
+      (jsx_opening_element
+        (ERROR)
+        (jsx_element_name
+          (jsx_identifier))))
+    (template_text)
+    (jsx_element
+      (jsx_opening_element
+        (ERROR)
         (jsx_element_name
           (jsx_identifier))))
     (template_text)))

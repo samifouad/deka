@@ -8806,12 +8806,20 @@
           }
         },
         {
-          "type": "FIELD",
-          "name": "close_tag",
-          "content": {
-            "type": "SYMBOL",
-            "name": "jsx_closing_element"
-          }
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "close_tag",
+              "content": {
+                "type": "SYMBOL",
+                "name": "jsx_closing_element"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         }
       ]
     },
@@ -8834,12 +8842,25 @@
           }
         },
         {
-          "type": "STRING",
-          "value": "</"
-        },
-        {
-          "type": "STRING",
-          "value": ">"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "</"
+                },
+                {
+                  "type": "STRING",
+                  "value": ">"
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         }
       ]
     },
@@ -11320,6 +11341,12 @@
     ],
     [
       "if_statement"
+    ],
+    [
+      "jsx_element"
+    ],
+    [
+      "jsx_fragment"
     ],
     [
       "namespace_name"

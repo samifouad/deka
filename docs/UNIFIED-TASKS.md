@@ -442,7 +442,7 @@ Notes:
 78. [x] DX-TASKS:  Test and fix nested object literals in JSX: `{{ nested: { value: 1 } }}`
 79. [x] DX-TASKS:  Test and fix multiline JSX expressions
 80. [x] DX-TASKS:  Test and fix if/foreach blocks in JSX
-81. [ ] DX-TASKS:  Add error recovery rules for better partial highlighting
+81. [x] DX-TASKS:  Add error recovery rules for better partial highlighting
 82. [x] DX-TASKS:  Test with malformed PHPX (ensure no crashes)
 83. [x] DX-TASKS:  Create `queries/folds.scm`
 84. [x] DX-TASKS:  Add folding for:

@@ -14,24 +14,21 @@ function Broken() {
     (name)
     (formal_parameters)
     (compound_statement
-      (ERROR
-        (jsx_opening_element
-          (jsx_element_name
-            (jsx_identifier)))
-        (jsx_child
-          (jsx_element
-            (jsx_opening_element
-              (jsx_element_name
-                (jsx_identifier)))
-            (jsx_child
-              (jsx_text))
-            (jsx_closing_element
-              (jsx_element_name
-                (jsx_identifier)))))
-        (jsx_child
-          (jsx_text))))))
-
-
+      (return_statement
+        (jsx_element
+          (jsx_opening_element
+            (jsx_element_name
+              (jsx_identifier)))
+          (jsx_child
+            (jsx_element
+              (jsx_opening_element
+                (jsx_element_name
+                  (jsx_identifier)))
+              (jsx_child
+                (jsx_text))))
+          (jsx_closing_element
+            (jsx_element_name
+              (jsx_identifier))))))))
 
 =========================
 PHPX Unterminated JSX Expression
@@ -47,25 +44,27 @@ function BrokenExpr($user) {
 ---
 
 (program
-  (function_definition
+  (ERROR
     (name)
     (formal_parameters
       (simple_parameter
         (variable_name
           (name))))
-    (compound_statement
-      (return_statement
-        (ERROR
-          (jsx_opening_element
-            (jsx_element_name
-              (jsx_identifier)))
-          (jsx_child
-            (jsx_text))
+    (jsx_element
+      (jsx_opening_element
+        (jsx_element_name
+          (jsx_identifier)))
+      (jsx_child
+        (jsx_text))
+      (jsx_child
+        (jsx_expression
           (binary_expression
             (member_access_expression
               (variable_name
                 (name))
               (name))
             (ERROR)
-            (name)))))))
-
+            (name))
+          (ERROR)))
+      (jsx_child
+        (jsx_text)))))

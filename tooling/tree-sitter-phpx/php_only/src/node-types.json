@@ -3265,7 +3265,7 @@
     "fields": {
       "close_tag": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "jsx_closing_element",

@@ -98,6 +98,8 @@ module.exports = function defineGrammar(dialect) {
         [$.union_type, $.disjunctive_normal_form_type],
         [$.intersection_type],
         [$.if_statement],
+        [$.jsx_element],
+        [$.jsx_fragment],
 
         [$.namespace_name],
         [$.heredoc_body],
@@ -1650,15 +1652,14 @@ module.exports = function defineGrammar(dialect) {
       jsx_element: $ => seq(
         field('open_tag', $.jsx_opening_element),
         repeat($.jsx_child),
-        field('close_tag', $.jsx_closing_element),
+        optional(field('close_tag', $.jsx_closing_element)),
       ),
 
       jsx_fragment: $ => seq(
         '<',
         '>',
         repeat($.jsx_child),
-        '</',
-        '>',
+        optional(seq('</', '>')),
       ),
 
       jsx_child: $ => choice(
