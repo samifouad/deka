@@ -211,6 +211,13 @@ fn jsx_ok() {
 }
 
 #[test]
+fn jsx_comparison_requires_spacing() {
+    let path = fixtures_root().join("jsx/compare_spacing.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::JsxError);
+}
+
+#[test]
 fn frontmatter_ok() {
     let path = fixtures_root().join("frontmatter/ok.phpx");
     let result = compile_fixture(&path);

@@ -658,10 +658,10 @@ $p = Point { $z };
 - [x] Expression syntax: `{$var}`, `{$obj.field}`
 - [x] Object literals require double braces: `{{ key: 'value' }}`
 - [x] No statements in expressions (only expressions; `if/foreach` must be rewritten)
-- [ ] Disambiguate JSX vs `<`/`>` comparisons in JSX-capable contexts:
-  - [ ] Require spaces around comparison operators (e.g. `$a < $b`) in JSX-capable expressions.
-  - [ ] Allow legacy tight comparisons inside `if (...)` conditions (no JSX ambiguity).
-  - [ ] Emit help text: “Add spaces around `<`/`>` to avoid JSX ambiguity.”
+- [x] Disambiguate JSX vs `<`/`>` comparisons in JSX-capable contexts:
+  - [x] Require spaces around comparison operators (e.g. `$a < $b`) in JSX-capable expressions.
+  - [x] Allow legacy tight comparisons outside JSX expressions (no JSX ambiguity).
+  - [x] Emit help text: “Add spaces around `<`/`>` to avoid JSX ambiguity.”
 
 **Example errors**:
 ```phpx

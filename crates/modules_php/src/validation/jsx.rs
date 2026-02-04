@@ -5,6 +5,7 @@ use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
 use php_rs::parser::ast::visitor::{walk_expr, Visitor};
 use php_rs::parser::ast::{Expr, ExprId, JsxAttribute, JsxChild, Name, Program, Stmt};
+use php_rs::parser::ast::BinaryOp;
 use php_rs::parser::span::Span;
 
 use super::{ErrorKind, Severity, ValidationError};
@@ -295,6 +296,23 @@ struct JsxExprValidator<'a> {
 impl<'ast> Visitor<'ast> for JsxExprValidator<'_> {
     fn visit_expr(&mut self, expr: ExprId<'ast>) {
         match expr {
+            Expr::Binary { left, op, right, .. } => {
+                if let Some(op_text) = comparison_operator(*op) {
+                    if let Some(span) = operator_span(self.source, left.span(), right.span(), op_text) {
+                        if !has_spacing_around_operator(self.source, span, op_text) {
+                            self.errors.push(jsx_error(
+                                span,
+                                self.source,
+                                format!(
+                                    "Add spaces around '{}' to avoid JSX ambiguity.",
+                                    op_text
+                                ),
+                                "Use spaces around comparison operators inside JSX expressions.",
+                            ));
+                        }
+                    }
+                }
+            }
             Expr::Assign { span, .. }
             | Expr::AssignRef { span, .. }
             | Expr::AssignOp { span, .. } => {
@@ -518,6 +536,63 @@ fn span_location(span: Span, source: &str) -> (usize, usize, usize) {
     } else {
         (1, 1, 1)
     }
+}
+
+fn comparison_operator(op: BinaryOp) -> Option<&'static str> {
+    match op {
+        BinaryOp::Lt => Some("<"),
+        BinaryOp::LtEq => Some("<="),
+        BinaryOp::Gt => Some(">"),
+        BinaryOp::GtEq => Some(">="),
+        BinaryOp::Spaceship => Some("<=>"),
+        _ => None,
+    }
+}
+
+fn operator_span(source: &str, left: Span, right: Span, op: &str) -> Option<Span> {
+    let start = left.end.min(source.len());
+    let end = right.start.min(source.len());
+    if end <= start {
+        return None;
+    }
+    let slice = source.as_bytes();
+    let between = &slice[start..end];
+    let op_bytes = op.as_bytes();
+    let pos = between
+        .windows(op_bytes.len())
+        .position(|window| window == op_bytes)?;
+    let op_start = start + pos;
+    Some(Span::new(op_start, op_start + op_bytes.len()))
+}
+
+fn has_spacing_around_operator(source: &str, span: Span, op: &str) -> bool {
+    if span.start >= source.len() || span.end > source.len() {
+        return true;
+    }
+    let bytes = source.as_bytes();
+    let op_start = span.start;
+    let op_end = span.end;
+
+    if op_end <= op_start {
+        return true;
+    }
+
+    let before = if op_start == 0 {
+        None
+    } else {
+        bytes.get(op_start - 1)
+    };
+    let after = bytes.get(op_end);
+
+    let before_ok = before.map(|b| b.is_ascii_whitespace()).unwrap_or(false);
+    let after_ok = after.map(|b| b.is_ascii_whitespace()).unwrap_or(false);
+
+    if !before_ok || !after_ok {
+        return false;
+    }
+
+    // Guard against accidental substring matches in uncommon cases.
+    &source[op_start..op_end] == op
 }
 
 fn name_to_string(name: &Name, source: &str) -> Option<String> {
