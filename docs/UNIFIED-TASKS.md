@@ -346,11 +346,11 @@ Notes:
 24. [x] DX-TASKS:  Add highlighting for frontmatter delimiters
 25. [x] DX-TASKS:  Test with template examples
 26. [x] DX-TASKS:  Verify code and template sections have correct highlighting
-27. [ ] DX-TASKS:  Create `extensions/phpx/` directory
-28. [ ] DX-TASKS:  Create `extension.toml` with PHPX language config
-147:  - [ ] Set file suffixes: `["phpx"]`
-148:  - [ ] Set comment syntax
-149:  - [ ] Link to tree-sitter-phpx grammar
+27. [x] DX-TASKS:  Create `extensions/phpx/` directory
+28. [x] DX-TASKS:  Create `extension.toml` with PHPX language config
+147:  - [x] Set file suffixes: `["phpx"]`
+148:  - [x] Set comment syntax
+149:  - [x] Link to tree-sitter-phpx grammar
 29. [ ] DX-TASKS:  Add syntax highlighting theme overrides (if needed)
 30. [ ] DX-TASKS:  Install extension in Zed:
 152:  - [ ] Symlink: `ln -s /path/to/deka/extensions/phpx ~/.config/zed/extensions/phpx`

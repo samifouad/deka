@@ -142,11 +142,11 @@ $title = 'Home';
 ---
 
 ### Task 1.7: Create Zed Extension
-- [ ] Create `extensions/phpx/` directory
-- [ ] Create `extension.toml` with PHPX language config
-  - [ ] Set file suffixes: `["phpx"]`
-  - [ ] Set comment syntax
-  - [ ] Link to tree-sitter-phpx grammar
+- [x] Create `extensions/phpx/` directory
+- [x] Create `extension.toml` with PHPX language config
+  - [x] Set file suffixes: `["phpx"]`
+  - [x] Set comment syntax
+  - [x] Link to tree-sitter-phpx grammar
 - [ ] Add syntax highlighting theme overrides (if needed)
 - [ ] Install extension in Zed:
   - [ ] Symlink: `ln -s /path/to/deka/extensions/phpx ~/.config/zed/extensions/phpx`

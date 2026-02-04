@@ -1,0 +1,12 @@
+id = "phpx"
+name = "PHPX"
+version = "0.1.0"
+schema_version = 1
+authors = ["Sami Fouad"]
+description = "PHPX language support (tree-sitter)"
+repository = "https://github.com/samifouad/deka"
+
+[grammars.phpx]
+repository = "https://github.com/samifouad/deka"
+rev = "659ff96958ac544f3b72c1158e833312ee15f5b8"
+path = "tooling/tree-sitter-phpx"
