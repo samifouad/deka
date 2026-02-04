@@ -83,6 +83,7 @@ module.exports = function defineGrammar(dialect) {
     throw new Error(`Unknown dialect ${dialect}`);
   }
   const isPhp = normalized === 'php';
+  const phpxTypeAnnotation = $ => seq(':', field('type', $.type));
 
   return grammar({
     name: dialect,
@@ -664,21 +665,55 @@ module.exports = function defineGrammar(dialect) {
         optional($.property_hook_list),
       ),
 
-      simple_parameter: $ => seq(
-        optional(field('attributes', $.attribute_list)),
-        field('type', optional($.type)),
-        optional(field('reference_modifier', $.reference_modifier)),
-        field('name', $.variable_name),
-        optional(seq('=', field('default_value', $.expression))),
-      ),
+      simple_parameter: $ => {
+        const phpParam = seq(
+          optional(field('attributes', $.attribute_list)),
+          field('type', optional($.type)),
+          optional(field('reference_modifier', $.reference_modifier)),
+          field('name', $.variable_name),
+          optional(seq('=', field('default_value', $.expression))),
+        );
 
-      variadic_parameter: $ => seq(
-        optional(field('attributes', $.attribute_list)),
-        field('type', optional($.type)),
-        optional(field('reference_modifier', $.reference_modifier)),
-        '...',
-        field('name', $.variable_name),
-      ),
+        if (isPhp) {
+          return phpParam;
+        }
+
+        return choice(
+          phpParam,
+          seq(
+            optional(field('attributes', $.attribute_list)),
+            optional(field('reference_modifier', $.reference_modifier)),
+            field('name', $.variable_name),
+            optional(phpxTypeAnnotation($)),
+            optional(seq('=', field('default_value', $.expression))),
+          ),
+        );
+      },
+
+      variadic_parameter: $ => {
+        const phpVariadic = seq(
+          optional(field('attributes', $.attribute_list)),
+          field('type', optional($.type)),
+          optional(field('reference_modifier', $.reference_modifier)),
+          '...',
+          field('name', $.variable_name),
+        );
+
+        if (isPhp) {
+          return phpVariadic;
+        }
+
+        return choice(
+          phpVariadic,
+          seq(
+            optional(field('attributes', $.attribute_list)),
+            optional(field('reference_modifier', $.reference_modifier)),
+            '...',
+            field('name', $.variable_name),
+            optional(phpxTypeAnnotation($)),
+          ),
+        );
+      },
 
       type: $ => choice(
         $._types,

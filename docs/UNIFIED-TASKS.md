@@ -307,8 +307,8 @@ Notes:
 50:  - [ ] Object types: `Object<{ field: Type }>`
 51:  - [ ] Type aliases: `type Name = ...`
 8. [x] DX-TASKS:  Create `queries/highlights.scm` for type highlighting
-9. [ ] DX-TASKS:  Test with PHPX files containing type annotations
-10. [ ] DX-TASKS:  Verify types are highlighted differently from values
+9. [x] DX-TASKS:  Test with PHPX files containing type annotations
+10. [x] DX-TASKS:  Verify types are highlighted differently from values
 11. [x] DX-TASKS:  Add `import_statement` rule to `grammar.js`
 66:  - [ ] Named imports: `import { foo, bar } from 'module'`
 67:  - [ ] WASM imports: `import { fn } from '@user/mod' as wasm`
@@ -318,14 +318,14 @@ Notes:
 71:  - [ ] Export constants: `export const X = 1`
 72:  - [ ] Re-exports: `export { foo } from './bar'`
 13. [x] DX-TASKS:  Add highlighting for `import`, `export`, `from`, `as` keywords
-14. [ ] DX-TASKS:  Test with module examples from `examples/php/modules/`
+14. [x] DX-TASKS:  Test with module examples from `examples/php/modules/`
 15. [x] DX-TASKS:  Add `struct_literal` rule to `grammar.js`
 82:  - [ ] Type name: `Point`
 83:  - [ ] Field list: `{ $x: 1, $y: 2 }`
 84:  - [ ] Shorthand: `{ $x, $y }`
 16. [x] DX-TASKS:  Add highlighting for struct names and fields
-17. [ ] DX-TASKS:  Test with struct examples
-18. [ ] DX-TASKS:  Verify nested struct literals work
+17. [x] DX-TASKS:  Test with struct examples
+18. [x] DX-TASKS:  Verify nested struct literals work
 19. [ ] DX-TASKS:  Port JSX grammar from `tree-sitter-javascript`
 101:  - [ ] Opening tags: `<Component>`
 102:  - [ ] Self-closing tags: `<Component />`

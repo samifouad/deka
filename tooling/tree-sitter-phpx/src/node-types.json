@@ -4249,15 +4249,15 @@
       "required": false,
       "types": [
         {
-          "type": "php_end_tag",
-          "named": true
-        },
-        {
           "type": "php_tag",
           "named": true
         },
         {
           "type": "statement",
+          "named": true
+        },
+        {
+          "type": "text",
           "named": true
         }
       ]
@@ -5399,6 +5399,35 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "text",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "text_interpolation",
+    "named": true,
+    "extra": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "php_end_tag",
+          "named": true
+        },
+        {
+          "type": "php_tag",
+          "named": true
+        },
+        {
+          "type": "text",
+          "named": true
+        }
+      ]
     }
   },
   {

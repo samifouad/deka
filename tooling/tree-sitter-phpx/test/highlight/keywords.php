@@ -169,3 +169,11 @@ trait U { public function small(): void {} }
 enum Foo { case Bar; }
 //^^ @keyword
 //         ^^^^  @keyword
+
+import { foo } from 'mod' as wasm;
+//^^^^^^ @keyword
+//               ^^^^ @keyword
+//                          ^^ @keyword
+
+export function make() {}
+//^^^^^^ @keyword

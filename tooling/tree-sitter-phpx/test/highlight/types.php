@@ -20,3 +20,13 @@ class A {
   private function baz(): static {}
 //                        ^^^^^^ @type.builtin
 }
+
+type Maybe = Option<int>;
+//   ^^^^^ @type
+//           ^^^^^^ @type
+//                    ^^^ @type.builtin
+
+type Person = { name: string };
+//   ^^^^^^ @type
+//                ^^^^ @property
+//                      ^^^^^^ @type.builtin

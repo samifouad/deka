@@ -50,8 +50,8 @@ We can leverage the existing **`deka-validation`** crate for beautiful error for
   - [x] Object types: `Object<{ field: Type }>`
   - [x] Type aliases: `type Name = ...`
 - [x] Create `queries/highlights.scm` for type highlighting
-- [ ] Test with PHPX files containing type annotations
-- [ ] Verify types are highlighted differently from values
+- [x] Test with PHPX files containing type annotations
+- [x] Verify types are highlighted differently from values
 
 **Test files**:
 - Create `test/corpus/types.txt` with PHPX type examples
@@ -71,7 +71,7 @@ We can leverage the existing **`deka-validation`** crate for beautiful error for
   - [ ] Export constants: `export const X = 1`
   - [x] Re-exports: `export { foo } from './bar'`
 - [x] Add highlighting for `import`, `export`, `from`, `as` keywords
-- [ ] Test with module examples from `examples/php/modules/`
+- [x] Test with module examples from `examples/php/modules/`
 
 **Acceptance**: Import/export statements have proper highlighting
 
@@ -83,8 +83,8 @@ We can leverage the existing **`deka-validation`** crate for beautiful error for
   - [x] Field list: `{ $x: 1, $y: 2 }`
   - [x] Shorthand: `{ $x, $y }`
 - [x] Add highlighting for struct names and fields
-- [ ] Test with struct examples
-- [ ] Verify nested struct literals work
+- [x] Test with struct examples
+- [x] Verify nested struct literals work
 
 **Test case**:
 ```phpx

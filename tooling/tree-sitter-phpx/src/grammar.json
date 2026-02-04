@@ -1,6 +1,6 @@
 {
   "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json",
-  "name": "phpx_only",
+  "name": "phpx",
   "word": "name",
   "rules": {
     "program": {
@@ -11,7 +11,7 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "php_tag"
+              "name": "text"
             },
             {
               "type": "BLANK"
@@ -19,18 +19,23 @@
           ]
         },
         {
-          "type": "REPEAT",
-          "content": {
-            "type": "SYMBOL",
-            "name": "statement"
-          }
-        },
-        {
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "php_end_tag"
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "php_tag"
+                },
+                {
+                  "type": "REPEAT",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "statement"
+                  }
+                }
+              ]
             },
             {
               "type": "BLANK"
@@ -9094,12 +9099,20 @@
           "value": "$"
         },
         {
-          "type": "RESERVED",
+          "type": "ALIAS",
           "content": {
-            "type": "SYMBOL",
-            "name": "name"
+            "type": "TOKEN",
+            "content": {
+              "type": "PREC",
+              "value": 1,
+              "content": {
+                "type": "PATTERN",
+                "value": "[_a-zA-Z\\u0080-\\u009f\\u00a1-\\u200a\\u200c-\\u205f\\u2061-\\ufefe\\uff00-\\uffff][_a-zA-Z\\u0080-\\u009f\\u00a1-\\u200a\\u200c-\\u205f\\u2061-\\ufefe\\uff00-\\uffff\\d]*"
+              }
+            }
           },
-          "context_name": "nothing"
+          "named": true,
+          "value": "name"
         }
       ]
     },
@@ -10410,6 +10423,10 @@
     {
       "type": "PATTERN",
       "value": "[\\s\\u00A0\\u200B\\u2060\\uFEFF]"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "text_interpolation"
     }
   ],
   "conflicts": [
