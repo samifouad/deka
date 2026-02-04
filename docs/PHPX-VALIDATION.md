@@ -807,7 +807,7 @@ import { bar } from './moduleA';
 **Implementation**:
 - [x] Create `crates/modules_php/src/validation/modules.rs`
 - [x] Implement `validate_module_resolution(source: &str, file_path: &str) -> Vec<ValidationError>`
-- [ ] Scan php_modules/ for available modules
+- [x] Scan php_modules/ for available modules
 - [x] Build dependency graph
 - [x] Detect cycles
 - [x] Check export names
@@ -844,7 +844,7 @@ import { invalid } from '@user/hello' as wasm;
 **Implementation**:
 - [x] Add to `crates/modules_php/src/validation/modules.rs`
 - [x] Implement `validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationError>`
-- [ ] Scan php_modules/@*/ for WASM modules
+- [x] Scan php_modules/@*/ for WASM modules
 - [x] Check deka.json, module.wasm, .d.phpx
 - [x] Parse .d.phpx for exported names
 - [x] Suggest deka wasm commands

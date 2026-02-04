@@ -30,8 +30,12 @@ pub fn validate_module_resolution(source: &str, file_path: &str) -> Vec<Validati
     let mut errors = Vec::new();
     let modules_root = resolve_modules_root(file_path);
     let imports = collect_import_specs(source, file_path);
+    let available_modules = modules_root
+        .as_deref()
+        .map(scan_phpx_modules)
+        .unwrap_or_default();
 
-    let mut graph = ModuleGraph::new(modules_root.clone());
+    let mut graph = ModuleGraph::new(modules_root.clone(), available_modules.clone());
     for spec in &imports {
         if spec.kind == ImportKind::Wasm {
             continue;
@@ -45,7 +49,12 @@ pub fn validate_module_resolution(source: &str, file_path: &str) -> Vec<Validati
                 "Use '@user/module' format for user modules.",
             ));
         }
-        match resolve_import_target(&spec.from, file_path, modules_root.as_deref()) {
+        match resolve_import_target(
+            &spec.from,
+            file_path,
+            modules_root.as_deref(),
+            Some(&available_modules),
+        ) {
             Ok(resolved) => {
                 graph.ensure_loaded(&resolved.module_id, &resolved.file_path, &mut errors);
             }
@@ -66,6 +75,10 @@ pub fn validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationErr
     let mut errors = Vec::new();
     let modules_root = resolve_modules_root(file_path);
     let imports = collect_import_specs(source, file_path);
+    let available_wasm = modules_root
+        .as_deref()
+        .map(scan_wasm_modules)
+        .unwrap_or_default();
 
     for spec in imports {
         if spec.kind != ImportKind::Wasm {
@@ -81,7 +94,12 @@ pub fn validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationErr
             ));
             continue;
         }
-        match resolve_wasm_target(&spec.from, file_path, modules_root.as_deref()) {
+        match resolve_wasm_target(
+            &spec.from,
+            file_path,
+            modules_root.as_deref(),
+            Some(&available_wasm),
+        ) {
             Ok(target) => {
                 validate_wasm_manifest(&target, &spec, &mut errors);
             }
@@ -94,13 +112,15 @@ pub fn validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationErr
 
 struct ModuleGraph {
     modules_root: Option<PathBuf>,
+    available_modules: HashSet<String>,
     nodes: HashMap<String, ModuleNode>,
 }
 
 impl ModuleGraph {
-    fn new(modules_root: Option<PathBuf>) -> Self {
+    fn new(modules_root: Option<PathBuf>, available_modules: HashSet<String>) -> Self {
         Self {
             modules_root,
+            available_modules,
             nodes: HashMap::new(),
         }
     }
@@ -142,6 +162,7 @@ impl ModuleGraph {
                 &spec.from,
                 file_path.to_string_lossy().as_ref(),
                 self.modules_root.as_deref(),
+                Some(&self.available_modules),
             ) {
                 Ok(resolved) => {
                     imports.push(ImportEdge {
@@ -347,6 +368,70 @@ fn resolve_modules_root(file_path: &str) -> Option<PathBuf> {
     None
 }
 
+fn scan_phpx_modules(modules_root: &Path) -> HashSet<String> {
+    let mut modules = HashSet::new();
+    let mut stack = vec![modules_root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let entries = match std::fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with('.') || name == ".cache" {
+                continue;
+            }
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path.extension().and_then(|ext| ext.to_str()) == Some("phpx") {
+                if let Ok(rel) = path.strip_prefix(modules_root) {
+                    let rel = rel.to_string_lossy().replace('\\', "/");
+                    modules.insert(module_id_from_rel(&rel));
+                }
+            }
+        }
+    }
+    modules
+}
+
+fn scan_wasm_modules(modules_root: &Path) -> HashSet<String> {
+    let mut modules = HashSet::new();
+    let mut stack = vec![modules_root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let entries = match std::fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with('.') || name == ".cache" {
+                continue;
+            }
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if name == "deka.json" {
+                if let Some(parent) = path.parent() {
+                    if let Ok(rel) = parent.strip_prefix(modules_root) {
+                        let rel = rel.to_string_lossy().replace('\\', "/");
+                        if !rel.is_empty() {
+                            modules.insert(rel);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    modules
+}
+
 fn find_project_root(start: &Path) -> Option<PathBuf> {
     for ancestor in start.ancestors() {
         if ancestor.join("deka.lock").exists() {
@@ -365,6 +450,7 @@ fn resolve_import_target(
     raw: &str,
     current_file_path: &str,
     modules_root: Option<&Path>,
+    available_modules: Option<&HashSet<String>>,
 ) -> Result<ResolvedImportTarget, ValidationError> {
     let raw = raw.trim();
     let is_relative = raw.starts_with('.');
@@ -430,7 +516,10 @@ fn resolve_import_target(
             "Missing phpx module '{}' (imported from {}).",
             raw, current_file_path
         ),
-        "Ensure the module exists in php_modules/.",
+        available_modules
+            .and_then(|modules| format_available_modules(modules, "Available modules: "))
+            .as_deref()
+            .unwrap_or("Ensure the module exists in php_modules/."),
     ))
 }
 
@@ -443,6 +532,7 @@ fn resolve_wasm_target(
     raw: &str,
     current_file_path: &str,
     modules_root: Option<&Path>,
+    available_wasm: Option<&HashSet<String>>,
 ) -> Result<ResolvedWasmTarget, ValidationError> {
     let raw = raw.trim();
     let modules_root = modules_root.ok_or_else(|| {
@@ -487,6 +577,8 @@ fn resolve_wasm_target(
 
     let manifest_path = root_path.join("deka.json");
     if !manifest_path.exists() {
+        let help = available_wasm
+            .and_then(|modules| format_available_modules(modules, "Available WASM modules: "));
         return Err(wasm_error(
             1,
             1,
@@ -496,7 +588,8 @@ fn resolve_wasm_target(
                 raw,
                 manifest_path.display()
             ),
-            "Add deka.json to the wasm module directory.",
+            help.as_deref()
+                .unwrap_or("Add deka.json to the wasm module directory."),
         ));
     }
 
@@ -633,6 +726,19 @@ fn is_valid_user_module(raw: &str) -> bool {
         && parts[0].len() > 1
         && !parts[1].is_empty()
         && parts.iter().all(|part| !part.trim().is_empty())
+}
+
+fn format_available_modules(
+    modules: &HashSet<String>,
+    prefix: &str,
+) -> Option<String> {
+    if modules.is_empty() {
+        return None;
+    }
+    let mut list: Vec<String> = modules.iter().cloned().collect();
+    list.sort();
+    let preview: Vec<String> = list.into_iter().take(12).collect();
+    Some(format!("{}{}", prefix, preview.join(", ")))
 }
 
 fn module_error(

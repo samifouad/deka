@@ -248,7 +248,7 @@ Notes:
 169. [x] PHPX-VALIDATION:  Import/export names match
 170. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/modules.rs`
 171. [x] PHPX-VALIDATION:  Implement `validate_module_resolution(source: &str, file_path: &str) -> Vec<ValidationError>`
-172. [ ] PHPX-VALIDATION:  Scan php_modules/ for available modules
+172. [x] PHPX-VALIDATION:  Scan php_modules/ for available modules
 173. [x] PHPX-VALIDATION:  Build dependency graph
 174. [x] PHPX-VALIDATION:  Detect cycles
 175. [x] PHPX-VALIDATION:  Check export names
@@ -259,7 +259,7 @@ Notes:
 180. [x] PHPX-VALIDATION:  Imported names exist in stubs
 181. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/modules.rs`
 182. [x] PHPX-VALIDATION:  Implement `validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationError>`
-183. [ ] PHPX-VALIDATION:  Scan php_modules/@*/ for WASM modules
+183. [x] PHPX-VALIDATION:  Scan php_modules/@*/ for WASM modules
 184. [x] PHPX-VALIDATION:  Check deka.json, module.wasm, .d.phpx
 185. [x] PHPX-VALIDATION:  Parse .d.phpx for exported names
 186. [x] PHPX-VALIDATION:  Suggest deka wasm commands
