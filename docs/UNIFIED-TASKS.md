@@ -435,9 +435,9 @@ Notes:
 349:  - [ ] Editor integration guides (Zed, VSCode, Neovim)
 350:  - [ ] Configuration options
 351:  - [ ] Debugging tips
-74. [ ] DX-TASKS:  Document compiler API in `crates/modules_php/src/compiler_api.rs`
-75. [ ] DX-TASKS:  Add troubleshooting section
-76. [ ] DX-TASKS:  List supported features and roadmap
+74. [x] DX-TASKS:  Document compiler API in `crates/modules_php/src/compiler_api.rs`
+75. [x] DX-TASKS:  Add troubleshooting section
+76. [x] DX-TASKS:  List supported features and roadmap
 77. [x] DX-TASKS:  Test and fix tight dot access: `$user.name.first`
 78. [x] DX-TASKS:  Test and fix nested object literals in JSX: `{{ nested: { value: 1 } }}`
 79. [x] DX-TASKS:  Test and fix multiline JSX expressions

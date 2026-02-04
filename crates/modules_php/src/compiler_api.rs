@@ -1,3 +1,5 @@
+//! PHPX compiler/validation entry points for tooling (LSP, tests, etc.).
+
 use bumpalo::Bump;
 use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
@@ -21,6 +23,11 @@ use crate::validation::phpx_rules::{
 use crate::validation::structs::{validate_struct_definitions, validate_struct_literals};
 use crate::validation::ValidationResult;
 
+/// Compile and validate a PHPX source file.
+///
+/// Returns a `ValidationResult` with errors, warnings, and the parsed AST
+/// (if no syntax errors were encountered). Callers should provide a bump
+/// arena for AST allocations.
 pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> ValidationResult<'a> {
     let parser_source = preprocess_phpx_source(source);
     let lexer = Lexer::new(parser_source.as_bytes());

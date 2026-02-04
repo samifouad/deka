@@ -349,9 +349,9 @@ Import Error: Missing type stubs for '@user/hello'
   - [ ] Editor integration guides (Zed, VSCode, Neovim)
   - [ ] Configuration options
   - [ ] Debugging tips
-- [ ] Document compiler API in `crates/modules_php/src/compiler_api.rs`
-- [ ] Add troubleshooting section
-- [ ] List supported features and roadmap
+- [x] Document compiler API in `crates/modules_php/src/compiler_api.rs`
+- [x] Add troubleshooting section
+- [x] List supported features and roadmap
 
 **Acceptance**: Developers can set up and debug the LSP
 

@@ -136,3 +136,26 @@ enum Option {
 - `PHPX_TYPES.md` for detailed type mapping and rules.
 - `docs/php-modules.md` for module system details.
 - `docs/phpx-upgrade-plan.md` for phased status.
+
+## Supported features (summary)
+- Module system (`import`/`export`), explicit exports, and unused-import checks.
+- Value types: structs, object literals, and tight dot access.
+- Strict typing with inference, generics, and Go-style constraints.
+- `Option`/`Result` for error handling; `panic()` for hard failures.
+- Enums + exhaustive `match`.
+- JSX in `.phpx`, with VNode output for rendering.
+- WASM imports via `@user/*` modules with `.d.phpx` stubs.
+
+## Roadmap (short)
+- Tree-sitter polish (error recovery, editor folding/indent verification).
+- LSP intelligence: hover, completion, go-to-definition, references, rename.
+- Editor integrations (VSCode, Neovim) and install scripts.
+- WIT/component-model DX for typed WASM imports.
+
+## Troubleshooting
+- **Imports fail**: ensure the file is `.phpx` (or `.php` with top-level `import`)
+  and the module exists under `php_modules/`.
+- **LSP diagnostics missing**: rebuild `phpx_lsp` and update the editor's binary
+  path; restart the editor after changes.
+- **Local CLI mismatch**: rebuild with `cargo build --release -p cli` and run the
+  wired `target/release/cli` binary.
