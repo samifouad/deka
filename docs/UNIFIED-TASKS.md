@@ -121,19 +121,19 @@ Notes:
 42. [x] PHPX-VALIDATION:  Reject `null`, `?T`, `T|null` syntax
 43. [x] PHPX-VALIDATION:  Validate generic parameter syntax
 44. [x] PHPX-VALIDATION:  Check object shape syntax
-45. [ ] PHPX-VALIDATION:  Variable assignment type matches
-46. [ ] PHPX-VALIDATION:  Function parameter types match arguments
-47. [ ] PHPX-VALIDATION:  Return type matches returned value
-48. [ ] PHPX-VALIDATION:  Binary operation types compatible
-49. [ ] PHPX-VALIDATION:  Struct field types match literal values
-50. [ ] PHPX-VALIDATION:  Safe widening only (int → float allowed, not reverse)
-51. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/type_checker.rs`
-52. [ ] PHPX-VALIDATION:  Implement type inference engine
-53. [ ] PHPX-VALIDATION:  Implement `check_types(ast: &Ast) -> Vec<ValidationError>`
-54. [ ] PHPX-VALIDATION:  Build type environment (symbol table)
-55. [ ] PHPX-VALIDATION:  Infer types for expressions
-56. [ ] PHPX-VALIDATION:  Check compatibility at assignments/calls/returns
-57. [ ] PHPX-VALIDATION:  Track widening rules
+45. [x] PHPX-VALIDATION:  Variable assignment type matches
+46. [x] PHPX-VALIDATION:  Function parameter types match arguments
+47. [x] PHPX-VALIDATION:  Return type matches returned value
+48. [x] PHPX-VALIDATION:  Binary operation types compatible
+49. [x] PHPX-VALIDATION:  Struct field types match literal values
+50. [x] PHPX-VALIDATION:  Safe widening only (int → float allowed, not reverse)
+51. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/type_checker.rs`
+52. [x] PHPX-VALIDATION:  Implement type inference engine (via php-rs PHPX typeck)
+53. [x] PHPX-VALIDATION:  Implement `check_types(program: &Program, source: &str, file_path: Option<&str>) -> Vec<ValidationError>`
+54. [x] PHPX-VALIDATION:  Build type environment (symbol table)
+55. [x] PHPX-VALIDATION:  Infer types for expressions
+56. [x] PHPX-VALIDATION:  Check compatibility at assignments/calls/returns
+57. [x] PHPX-VALIDATION:  Track widening rules
 58. [ ] PHPX-VALIDATION:  Generic parameters are used
 59. [ ] PHPX-VALIDATION:  Generic constraints are satisfied
 60. [ ] PHPX-VALIDATION:  Type arguments provided where required

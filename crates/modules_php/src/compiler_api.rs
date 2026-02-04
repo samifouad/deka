@@ -6,6 +6,7 @@ use crate::validation::exports::validate_exports;
 use crate::validation::imports::validate_imports;
 use crate::validation::imports::{frontmatter_bounds, strip_php_tags_inline};
 use crate::validation::syntax::validate_syntax;
+use crate::validation::type_checker::check_types;
 use crate::validation::type_syntax::validate_type_annotations;
 use crate::validation::phpx_rules::{
     validate_no_exceptions, validate_no_namespace, validate_no_null, validate_no_oop,
@@ -50,6 +51,16 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
     }
 
     let type_errors = validate_type_annotations(&program, source);
+    errors.extend(type_errors);
+    if !errors.is_empty() {
+        return ValidationResult {
+            errors,
+            warnings,
+            ast: None,
+        };
+    }
+
+    let type_errors = check_types(&program, source, Some(file_path));
     errors.extend(type_errors);
     if !errors.is_empty() {
         return ValidationResult {

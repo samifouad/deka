@@ -283,12 +283,12 @@ type MaybeUser = User|null;
 **Goal**: Validate types match across assignments, function calls, returns
 
 **What to validate**:
-- [ ] Variable assignment type matches
-- [ ] Function parameter types match arguments
-- [ ] Return type matches returned value
-- [ ] Binary operation types compatible
-- [ ] Struct field types match literal values
-- [ ] Safe widening only (int → float allowed, not reverse)
+- [x] Variable assignment type matches
+- [x] Function parameter types match arguments
+- [x] Return type matches returned value
+- [x] Binary operation types compatible
+- [x] Struct field types match literal values
+- [x] Safe widening only (int → float allowed, not reverse)
 
 **Example errors**:
 ```phpx
@@ -317,13 +317,13 @@ $result = add("1", "2");
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/type_checker.rs`
-- [ ] Implement type inference engine
-- [ ] Implement `check_types(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Build type environment (symbol table)
-- [ ] Infer types for expressions
-- [ ] Check compatibility at assignments/calls/returns
-- [ ] Track widening rules
+- [x] Create `crates/modules_php/src/validation/type_checker.rs`
+- [x] Implement type inference engine (via php-rs PHPX typeck)
+- [x] Implement `check_types(program: &Program, source: &str, file_path: Option<&str>) -> Vec<ValidationError>`
+- [x] Build type environment (symbol table)
+- [x] Infer types for expressions
+- [x] Check compatibility at assignments/calls/returns
+- [x] Track widening rules
 
 **This is the most complex task - may need 2-3 weeks**
 
