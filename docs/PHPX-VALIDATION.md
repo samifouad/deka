@@ -656,10 +656,12 @@ $p = Point { $z };
 
 **What to validate**:
 - [x] Expression syntax: `{$var}`, `{$obj.field}`
-- [x] If blocks: `{if ($cond) { <p>yes</p> }}`
-- [x] Foreach loops: `{foreach ($items as $item) { <li>{$item}</li> }}`
 - [x] Object literals require double braces: `{{ key: 'value' }}`
-- [x] No statements in expressions (only expressions)
+- [x] No statements in expressions (only expressions; `if/foreach` must be rewritten)
+- [ ] Disambiguate JSX vs `<`/`>` comparisons in JSX-capable contexts:
+  - [ ] Require spaces around comparison operators (e.g. `$a < $b`) in JSX-capable expressions.
+  - [ ] Allow legacy tight comparisons inside `if (...)` conditions (no JSX ambiguity).
+  - [ ] Emit help text: “Add spaces around `<`/`>` to avoid JSX ambiguity.”
 
 **Example errors**:
 ```phpx
@@ -674,20 +676,20 @@ $p = Point { $z };
 
 <div>
     {if $x { <p>yes</p> }}
-//     ^ JsxError: Invalid if block syntax
-//   help: Use: {if ($x) { <p>yes</p> }}
+//     ^ JsxError: Statements not allowed in JSX expressions
+//   help: Use: {$x ? <p>yes</p> : null}
 
 <div>
     {foreach $items as $item { <li>{$item}</li> }}
-//           ^ JsxError: Invalid foreach syntax
-//   help: Use: {foreach ($items as $item) { <li>{$item}</li> }}
+//           ^ JsxError: Statements not allowed in JSX expressions
+//   help: Use: {array_map(fn($item) => <li>{$item}</li>, $items)}
 ```
 
 **Implementation**:
 - [x] Add to `crates/modules_php/src/validation/jsx.rs`
 - [x] Implement `validate_jsx_expressions(program: &Program, source: &str) -> Vec<ValidationError>`
 - [x] Check expression syntax
-- [x] Validate if/foreach blocks
+- [x] Reject statements inside JSX expressions
 - [x] Detect statements in expressions
 - [x] Check object literal braces
 
