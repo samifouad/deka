@@ -234,7 +234,7 @@ Notes:
 155. [x] PHPX-VALIDATION:  Frontmatter starts at beginning of file
 156. [x] PHPX-VALIDATION:  Proper `---` delimiters
 157. [x] PHPX-VALIDATION:  No explicit exports in template files (under `php_modules/`)
-158. [ ] PHPX-VALIDATION:  Template section is valid JSX
+158. [x] PHPX-VALIDATION:  Template section is valid JSX
 159. [x] PHPX-VALIDATION:  Imports in frontmatter only
 160. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/jsx.rs`
 161. [x] PHPX-VALIDATION:  Implement `validate_frontmatter(source: &str, file_path: &str) -> Vec<ValidationError>`

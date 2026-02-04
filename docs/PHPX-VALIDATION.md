@@ -736,7 +736,7 @@ function userCard($props) {
 - [x] Frontmatter starts at beginning of file
 - [x] Proper `---` delimiters
 - [x] No explicit exports in template files (under `php_modules/`)
-- [ ] Template section is valid JSX
+- [x] Template section is valid JSX
 - [x] Imports in frontmatter only
 
 **Example errors**:

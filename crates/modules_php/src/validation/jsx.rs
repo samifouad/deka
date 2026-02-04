@@ -1,5 +1,8 @@
 use std::collections::HashSet;
 
+use bumpalo::Bump;
+use php_rs::parser::lexer::Lexer;
+use php_rs::parser::parser::{Parser, ParserMode};
 use php_rs::parser::ast::visitor::{walk_expr, Visitor};
 use php_rs::parser::ast::{Expr, ExprId, JsxAttribute, JsxChild, Name, Program, Stmt};
 use php_rs::parser::span::Span;
@@ -117,6 +120,61 @@ pub fn validate_frontmatter(source: &str, file_path: &str) -> Vec<ValidationErro
                 "Remove the export statement from the template section.",
             ));
         }
+    }
+
+    errors
+}
+
+pub fn validate_template_section(source: &str, _file_path: &str) -> Vec<ValidationError> {
+    let lines: Vec<&str> = source.lines().collect();
+    let Some((_, end)) = frontmatter_bounds(&lines) else {
+        return Vec::new();
+    };
+    let template_lines: Vec<&str> = lines.iter().skip(end + 1).copied().collect();
+    if template_lines.iter().all(|line| line.trim().is_empty()) {
+        return Vec::new();
+    }
+
+    let template = template_lines.join("\n");
+    let prefix = "<?phpx\nfunction __phpx_template() {\n  return <__fragment__>\n";
+    let suffix = "\n  </__fragment__>;\n}\n";
+    let wrapped = format!("{prefix}{template}{suffix}");
+
+    let prefix_lines = prefix.lines().count();
+    let template_start_line = end + 2;
+
+    let arena = Bump::new();
+    let lexer = Lexer::new(wrapped.as_bytes());
+    let mut parser = Parser::new_with_mode(lexer, &arena, ParserMode::Phpx);
+    let program = parser.parse_program();
+    let mut errors = Vec::new();
+
+    for err in program.errors {
+        let Some(info) = err.span.line_info(wrapped.as_bytes()) else {
+            continue;
+        };
+        if info.line <= prefix_lines {
+            continue;
+        }
+        let template_line = info.line - prefix_lines;
+        let original_line = template_start_line + template_line - 1;
+        let padding = std::cmp::min(info.line_text.len(), info.column.saturating_sub(1));
+        let underline_length = std::cmp::max(
+            1,
+            std::cmp::min(
+                err.span.len(),
+                info.line_text.len().saturating_sub(padding),
+            ),
+        );
+        errors.push(ValidationError {
+            kind: ErrorKind::JsxError,
+            line: original_line,
+            column: info.column,
+            message: err.message.to_string(),
+            help_text: "Fix JSX/template syntax in the template section.".to_string(),
+            underline_length,
+            severity: Severity::Error,
+        });
     }
 
     errors
