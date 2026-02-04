@@ -411,7 +411,7 @@ Notes:
 284:  - [ ] Import errors
 285:  - [ ] WIT import errors (missing stubs)
 61. [ ] DX-TASKS:  Verify errors appear in editor as red squiggles
-62. [ ] DX-TASKS:  Update `extensions/phpx/extension.toml` with LSP config:
+62. [x] DX-TASKS:  Update `extensions/phpx/extension.toml` with LSP config:
 63. [ ] DX-TASKS:  Add LSP binary path to Zed settings:
 64. [ ] DX-TASKS:  Rebuild LSP: `cargo build --release -p phpx_lsp`
 65. [ ] DX-TASKS:  Restart Zed

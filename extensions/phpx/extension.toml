@@ -10,3 +10,7 @@ repository = "https://github.com/samifouad/deka"
 repository = "https://github.com/samifouad/deka"
 rev = "659ff96958ac544f3b72c1158e833312ee15f5b8"
 path = "tooling/tree-sitter-phpx"
+
+[language_servers.phpx-lsp]
+name = "PHPX Language Server"
+language = "phpx"

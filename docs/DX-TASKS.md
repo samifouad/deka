@@ -290,7 +290,7 @@ $title = 'Home';
 ---
 
 ### Task 2.6: Configure LSP in Zed
-- [ ] Update `extensions/phpx/extension.toml` with LSP config:
+- [x] Update `extensions/phpx/extension.toml` with LSP config:
   ```toml
   [language_servers.phpx-lsp]
   name = "PHPX Language Server"
