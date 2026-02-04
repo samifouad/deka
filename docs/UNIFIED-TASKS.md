@@ -292,7 +292,7 @@ Notes:
 213. [x] PHPX-VALIDATION:  `format_multiple_errors()` - Format list of errors
 214. [ ] PHPX-VALIDATION:  Color codes by severity (error=red, warning=yellow, info=blue)
 215. [ ] PHPX-VALIDATION:  `format_with_suggestion()` - Include code fix suggestions
-216. [ ] PHPX-VALIDATION:  `format_with_docs_link()` - Add doc links
+216. [x] PHPX-VALIDATION:  `format_with_docs_link()` - Add doc links
 
 ## DX / Tooling (from `docs/DX-TASKS.md`)
 1. [ ] DX-TASKS:  Create `tooling/tree-sitter-phpx/` directory
