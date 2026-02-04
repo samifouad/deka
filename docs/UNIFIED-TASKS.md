@@ -198,9 +198,9 @@ Notes:
 119. [x] PHPX-VALIDATION:  Add to `crates/modules_php/src/validation/structs.rs`
 120. [x] PHPX-VALIDATION:  Implement `validate_struct_literals(program: &Program, source: &str) -> Vec<ValidationError>`
 121. [x] PHPX-VALIDATION:  Check required fields
-122. [ ] PHPX-VALIDATION:  Reject extra fields
-123. [ ] PHPX-VALIDATION:  Validate field types
-124. [ ] PHPX-VALIDATION:  Handle shorthand syntax
+122. [x] PHPX-VALIDATION:  Reject extra fields
+123. [x] PHPX-VALIDATION:  Validate field types
+124. [x] PHPX-VALIDATION:  Handle shorthand syntax
 125. [ ] PHPX-VALIDATION:  Valid tag names
 126. [ ] PHPX-VALIDATION:  Matching opening/closing tags
 127. [ ] PHPX-VALIDATION:  Valid attribute syntax
