@@ -318,17 +318,17 @@ $title = 'Home';
 ---
 
 ### Task 2.7: Add Import Validation
-- [ ] Extend compiler API to validate imports
-- [ ] Check PHPX module imports:
-  - [ ] Verify module exists in `php_modules/`
-  - [ ] Verify exported names exist
-  - [ ] Detect unused imports
-  - [ ] Detect circular imports
-- [ ] Check WASM imports:
-  - [ ] Verify `deka.json` exists
-  - [ ] Verify `module.wasm` exists
-  - [ ] Check for `.d.phpx` stub file
-  - [ ] Suggest running `deka wasm stubs` if missing
+- [x] Extend compiler API to validate imports
+- [x] Check PHPX module imports:
+  - [x] Verify module exists in `php_modules/`
+  - [x] Verify exported names exist
+  - [x] Detect unused imports
+  - [x] Detect circular imports
+- [x] Check WASM imports:
+  - [x] Verify `deka.json` exists
+  - [x] Verify `module.wasm` exists
+  - [x] Check for `.d.phpx` stub file
+  - [x] Suggest running `deka wasm stubs` if missing
 - [ ] Add helpful error messages with fixes
 - [ ] Test with various import scenarios
 

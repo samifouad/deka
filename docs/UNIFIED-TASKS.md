@@ -417,17 +417,17 @@ Notes:
 65. [ ] DX-TASKS:  Restart Zed
 66. [ ] DX-TASKS:  Test with PHPX files
 67. [ ] DX-TASKS:  Verify diagnostics appear in problems panel
-68. [ ] DX-TASKS:  Extend compiler API to validate imports
-69. [ ] DX-TASKS:  Check PHPX module imports:
-323:  - [ ] Verify module exists in `php_modules/`
-324:  - [ ] Verify exported names exist
-325:  - [ ] Detect unused imports
-326:  - [ ] Detect circular imports
-70. [ ] DX-TASKS:  Check WASM imports:
-328:  - [ ] Verify `deka.json` exists
-329:  - [ ] Verify `module.wasm` exists
-330:  - [ ] Check for `.d.phpx` stub file
-331:  - [ ] Suggest running `deka wasm stubs` if missing
+68. [x] DX-TASKS:  Extend compiler API to validate imports
+69. [x] DX-TASKS:  Check PHPX module imports:
+323:  - [x] Verify module exists in `php_modules/`
+324:  - [x] Verify exported names exist
+325:  - [x] Detect unused imports
+326:  - [x] Detect circular imports
+70. [x] DX-TASKS:  Check WASM imports:
+328:  - [x] Verify `deka.json` exists
+329:  - [x] Verify `module.wasm` exists
+330:  - [x] Check for `.d.phpx` stub file
+331:  - [x] Suggest running `deka wasm stubs` if missing
 71. [ ] DX-TASKS:  Add helpful error messages with fixes
 72. [ ] DX-TASKS:  Test with various import scenarios
 73. [ ] DX-TASKS:  Create `crates/phpx_lsp/README.md`
