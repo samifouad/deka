@@ -469,43 +469,43 @@ Notes:
 412:  - [x] Parameters (`@parameter.outer`)
 92. [ ] DX-TASKS:  Test in Neovim (via nvim-treesitter)
 93. [ ] DX-TASKS:  Document textobject usage
-94. [ ] DX-TASKS:  Add `hoverProvider` capability to LSP
+94. [x] DX-TASKS:  Add `hoverProvider` capability to LSP
 95. [ ] DX-TASKS:  Implement `hover` method:
-429:  - [ ] Parse PHPX to AST
-430:  - [ ] Find symbol at cursor position
-431:  - [ ] Look up type information
-432:  - [ ] Format hover contents (markdown)
-96. [ ] DX-TASKS:  Show hover info for:
-434:  - [ ] Variables (show inferred type)
-435:  - [ ] Functions (show signature)
-436:  - [ ] Imports (show module path)
-437:  - [ ] Struct fields (show type)
+429:  - [x] Parse PHPX to AST
+430:  - [x] Find symbol at cursor position
+431:  - [x] Look up type information
+432:  - [x] Format hover contents (markdown)
+96. [x] DX-TASKS:  Show hover info for:
+434:  - [x] Variables (show inferred type)
+435:  - [x] Functions (show signature)
+436:  - [x] Imports (show module path)
+437:  - [x] Struct fields (show type)
 438:  - [ ] WASM imports (show WIT signature from `.d.phpx`)
 97. [ ] DX-TASKS:  Test with various PHPX constructs
-98. [ ] DX-TASKS:  Add `completionProvider` capability to LSP
+98. [x] DX-TASKS:  Add `completionProvider` capability to LSP
 99. [ ] DX-TASKS:  Implement `completion` method:
-448:  - [ ] Parse PHPX to AST
-449:  - [ ] Determine completion context (import, variable, etc.)
-450:  - [ ] Generate completion items
-100. [ ] DX-TASKS:  Provide completions for:
-452:  - [ ] Import paths (scan `php_modules/`)
-453:  - [ ] WASM modules (scan `php_modules/@*/`)
-454:  - [ ] Exported functions from imports
-455:  - [ ] Struct fields
-456:  - [ ] Built-in types (`Option`, `Result`, `Object`)
-457:  - [ ] PHPX stdlib functions
+448:  - [x] Parse PHPX to AST
+449:  - [x] Determine completion context (import, variable, etc.)
+450:  - [x] Generate completion items
+100. [x] DX-TASKS:  Provide completions for:
+452:  - [x] Import paths (scan `php_modules/`)
+453:  - [x] WASM modules (scan `php_modules/@*/`)
+454:  - [x] Exported functions from imports
+455:  - [x] Struct fields
+456:  - [x] Built-in types (`Option`, `Result`, `Object`)
+457:  - [x] PHPX stdlib functions
 101. [ ] DX-TASKS:  Add snippets for common patterns
 102. [ ] DX-TASKS:  Test in Zed
-103. [ ] DX-TASKS:  Add `definitionProvider` capability to LSP
+103. [x] DX-TASKS:  Add `definitionProvider` capability to LSP
 104. [ ] DX-TASKS:  Implement `goto_definition` method:
-468:  - [ ] Find symbol at cursor
-469:  - [ ] Resolve import paths
-470:  - [ ] Find definition location
-471:  - [ ] Return LSP `Location`
-105. [ ] DX-TASKS:  Support go-to-definition for:
-473:  - [ ] Imported functions
-474:  - [ ] Local variables
-475:  - [ ] Struct definitions
+468:  - [x] Find symbol at cursor
+469:  - [x] Resolve import paths
+470:  - [x] Find definition location
+471:  - [x] Return LSP `Location`
+105. [x] DX-TASKS:  Support go-to-definition for:
+473:  - [x] Imported functions
+474:  - [x] Local variables
+475:  - [x] Struct definitions
 476:  - [ ] WASM imports (jump to `.d.phpx` stub)
 106. [ ] DX-TASKS:  Test with multi-file projects
 107. [ ] DX-TASKS:  Extend compiler API to load `.d.phpx` stubs
@@ -517,34 +517,34 @@ Notes:
 490:  - [ ] Go-to-definition (jump to stub)
 110. [ ] DX-TASKS:  Suggest generating stubs if missing
 111. [ ] DX-TASKS:  Test with WIT examples from `examples/wasm_hello_wit/`
-112. [ ] DX-TASKS:  Add `referencesProvider` capability to LSP
-113. [ ] DX-TASKS:  Implement `references` method:
-501:  - [ ] Find all uses of symbol
-502:  - [ ] Search across all files in workspace
-503:  - [ ] Return LSP `Location` list
-114. [ ] DX-TASKS:  Support find-references for:
-505:  - [ ] Functions
-506:  - [ ] Variables
-507:  - [ ] Imports
-508:  - [ ] Struct types
+112. [x] DX-TASKS:  Add `referencesProvider` capability to LSP
+113. [x] DX-TASKS:  Implement `references` method:
+501:  - [x] Find all uses of symbol
+502:  - [x] Search across all files in workspace
+503:  - [x] Return LSP `Location` list
+114. [x] DX-TASKS:  Support find-references for:
+505:  - [x] Functions
+506:  - [x] Variables
+507:  - [x] Imports
+508:  - [x] Struct types
 115. [ ] DX-TASKS:  Test with multi-file projects
-116. [ ] DX-TASKS:  Add `renameProvider` capability to LSP
-117. [ ] DX-TASKS:  Implement `rename` method:
-518:  - [ ] Find all references to symbol
-519:  - [ ] Generate `TextEdit` for each reference
-520:  - [ ] Return `WorkspaceEdit`
-118. [ ] DX-TASKS:  Support renaming:
-522:  - [ ] Variables
-523:  - [ ] Functions
+116. [x] DX-TASKS:  Add `renameProvider` capability to LSP
+117. [x] DX-TASKS:  Implement `rename` method:
+518:  - [x] Find all references to symbol
+519:  - [x] Generate `TextEdit` for each reference
+520:  - [x] Return `WorkspaceEdit`
+118. [x] DX-TASKS:  Support renaming:
+522:  - [x] Variables
+523:  - [x] Functions
 524:  - [ ] Imports (update import path)
-525:  - [ ] Struct fields
+525:  - [x] Struct fields
 119. [ ] DX-TASKS:  Test rename across multiple files
 120. [ ] DX-TASKS:  Verify no broken references
-121. [ ] DX-TASKS:  Add `documentSymbolProvider` capability to LSP
-122. [ ] DX-TASKS:  Implement `document_symbol` method:
-536:  - [ ] Parse PHPX to AST
-537:  - [ ] Extract functions, structs, constants
-538:  - [ ] Return LSP `DocumentSymbol` hierarchy
+121. [x] DX-TASKS:  Add `documentSymbolProvider` capability to LSP
+122. [x] DX-TASKS:  Implement `document_symbol` method:
+536:  - [x] Parse PHPX to AST
+537:  - [x] Extract functions, structs, enums, type aliases (constants TBD)
+538:  - [x] Return LSP `DocumentSymbol` hierarchy
 123. [ ] DX-TASKS:  Show symbols in editor outline/breadcrumbs
 124. [ ] DX-TASKS:  Test with large PHPX files
 125. [ ] DX-TASKS:  Create `extensions/vscode-phpx/` directory

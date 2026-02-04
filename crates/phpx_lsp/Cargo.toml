@@ -11,3 +11,4 @@ anyhow = "1"
 modules_php = { path = "../modules_php" }
 deka-validation = { path = "../../../deka-validation" }
 bumpalo = "3"
+php-rs = { path = "../php-rs" }

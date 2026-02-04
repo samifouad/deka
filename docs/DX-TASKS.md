@@ -425,17 +425,17 @@ Import Error: Missing type stubs for '@user/hello'
 **Duration**: 2-4 weeks
 
 ### Task 4.1: Implement Hover Provider
-- [ ] Add `hoverProvider` capability to LSP
+- [x] Add `hoverProvider` capability to LSP
 - [ ] Implement `hover` method:
-  - [ ] Parse PHPX to AST
-  - [ ] Find symbol at cursor position
-  - [ ] Look up type information
-  - [ ] Format hover contents (markdown)
-- [ ] Show hover info for:
-  - [ ] Variables (show inferred type)
-  - [ ] Functions (show signature)
-  - [ ] Imports (show module path)
-  - [ ] Struct fields (show type)
+  - [x] Parse PHPX to AST
+  - [x] Find symbol at cursor position
+  - [x] Look up type information
+  - [x] Format hover contents (markdown)
+- [x] Show hover info for:
+  - [x] Variables (show inferred type)
+  - [x] Functions (show signature)
+  - [x] Imports (show module path)
+  - [x] Struct fields (show type)
   - [ ] WASM imports (show WIT signature from `.d.phpx`)
 - [ ] Test with various PHPX constructs
 
@@ -444,18 +444,18 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 4.2: Implement Completion Provider
-- [ ] Add `completionProvider` capability to LSP
+- [x] Add `completionProvider` capability to LSP
 - [ ] Implement `completion` method:
-  - [ ] Parse PHPX to AST
-  - [ ] Determine completion context (import, variable, etc.)
-  - [ ] Generate completion items
-- [ ] Provide completions for:
-  - [ ] Import paths (scan `php_modules/`)
-  - [ ] WASM modules (scan `php_modules/@*/`)
-  - [ ] Exported functions from imports
-  - [ ] Struct fields
-  - [ ] Built-in types (`Option`, `Result`, `Object`)
-  - [ ] PHPX stdlib functions
+  - [x] Parse PHPX to AST
+  - [x] Determine completion context (import, variable, etc.)
+  - [x] Generate completion items
+- [x] Provide completions for:
+  - [x] Import paths (scan `php_modules/`)
+  - [x] WASM modules (scan `php_modules/@*/`)
+  - [x] Exported functions from imports
+  - [x] Struct fields
+  - [x] Built-in types (`Option`, `Result`, `Object`)
+  - [x] PHPX stdlib functions
 - [ ] Add snippets for common patterns
 - [ ] Test in Zed
 
@@ -464,16 +464,16 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 4.3: Implement Go-to-Definition
-- [ ] Add `definitionProvider` capability to LSP
+- [x] Add `definitionProvider` capability to LSP
 - [ ] Implement `goto_definition` method:
-  - [ ] Find symbol at cursor
-  - [ ] Resolve import paths
-  - [ ] Find definition location
-  - [ ] Return LSP `Location`
-- [ ] Support go-to-definition for:
-  - [ ] Imported functions
-  - [ ] Local variables
-  - [ ] Struct definitions
+  - [x] Find symbol at cursor
+  - [x] Resolve import paths
+  - [x] Find definition location
+  - [x] Return LSP `Location`
+- [x] Support go-to-definition for:
+  - [x] Imported functions
+  - [x] Local variables
+  - [x] Struct definitions
   - [ ] WASM imports (jump to `.d.phpx` stub)
 - [ ] Test with multi-file projects
 
@@ -497,16 +497,16 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 4.5: Add Find References
-- [ ] Add `referencesProvider` capability to LSP
-- [ ] Implement `references` method:
-  - [ ] Find all uses of symbol
-  - [ ] Search across all files in workspace
-  - [ ] Return LSP `Location` list
-- [ ] Support find-references for:
-  - [ ] Functions
-  - [ ] Variables
-  - [ ] Imports
-  - [ ] Struct types
+- [x] Add `referencesProvider` capability to LSP
+- [x] Implement `references` method:
+  - [x] Find all uses of symbol
+  - [x] Search across all files in workspace
+  - [x] Return LSP `Location` list
+- [x] Support find-references for:
+  - [x] Functions
+  - [x] Variables
+  - [x] Imports
+  - [x] Struct types
 - [ ] Test with multi-file projects
 
 **Acceptance**: Can find all references to a symbol
@@ -514,16 +514,16 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 4.6: Add Rename Support
-- [ ] Add `renameProvider` capability to LSP
-- [ ] Implement `rename` method:
-  - [ ] Find all references to symbol
-  - [ ] Generate `TextEdit` for each reference
-  - [ ] Return `WorkspaceEdit`
-- [ ] Support renaming:
-  - [ ] Variables
-  - [ ] Functions
+- [x] Add `renameProvider` capability to LSP
+- [x] Implement `rename` method:
+  - [x] Find all references to symbol
+  - [x] Generate `TextEdit` for each reference
+  - [x] Return `WorkspaceEdit`
+- [x] Support renaming:
+  - [x] Variables
+  - [x] Functions
   - [ ] Imports (update import path)
-  - [ ] Struct fields
+  - [x] Struct fields
 - [ ] Test rename across multiple files
 - [ ] Verify no broken references
 
@@ -532,11 +532,11 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 4.7: Add Document Symbols
-- [ ] Add `documentSymbolProvider` capability to LSP
-- [ ] Implement `document_symbol` method:
-  - [ ] Parse PHPX to AST
-  - [ ] Extract functions, structs, constants
-  - [ ] Return LSP `DocumentSymbol` hierarchy
+- [x] Add `documentSymbolProvider` capability to LSP
+- [x] Implement `document_symbol` method:
+  - [x] Parse PHPX to AST
+  - [x] Extract functions, structs, enums, type aliases (constants TBD)
+  - [x] Return LSP `DocumentSymbol` hierarchy
 - [ ] Show symbols in editor outline/breadcrumbs
 - [ ] Test with large PHPX files
 
