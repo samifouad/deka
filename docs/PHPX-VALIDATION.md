@@ -857,10 +857,10 @@ import { invalid } from '@user/hello' as wasm;
 **Goal**: Ensure all enum cases are handled
 
 **What to validate**:
-- [ ] Enum match covers all cases
-- [ ] No unreachable match arms
-- [ ] Variable binding in match arms
-- [ ] Payload destructuring correct
+- [x] Enum match covers all cases
+- [x] No unreachable match arms
+- [x] Variable binding in match arms
+- [x] Payload destructuring correct
 
 **Example errors**:
 ```phpx
@@ -893,12 +893,12 @@ function handle(Status $status): void {
 ```
 
 **Implementation**:
-- [ ] Create `crates/modules_php/src/validation/patterns.rs`
-- [ ] Implement `validate_match_exhaustiveness(ast: &Ast) -> Vec<ValidationError>`
-- [ ] Build enum case registry
-- [ ] Check match coverage
-- [ ] Validate payload destructuring
-- [ ] Detect unreachable arms
+- [x] Create `crates/modules_php/src/validation/patterns.rs`
+- [x] Implement `validate_match_exhaustiveness(program: &Program, source: &str) -> Vec<ValidationError>`
+- [x] Build enum case registry
+- [x] Check match coverage
+- [x] Validate payload destructuring
+- [x] Detect unreachable arms
 
 ---
 

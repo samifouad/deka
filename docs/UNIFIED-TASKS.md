@@ -263,16 +263,16 @@ Notes:
 184. [x] PHPX-VALIDATION:  Check deka.json, module.wasm, .d.phpx
 185. [x] PHPX-VALIDATION:  Parse .d.phpx for exported names
 186. [x] PHPX-VALIDATION:  Suggest deka wasm commands
-187. [ ] PHPX-VALIDATION:  Enum match covers all cases
-188. [ ] PHPX-VALIDATION:  No unreachable match arms
-189. [ ] PHPX-VALIDATION:  Variable binding in match arms
-190. [ ] PHPX-VALIDATION:  Payload destructuring correct
-191. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/patterns.rs`
-192. [ ] PHPX-VALIDATION:  Implement `validate_match_exhaustiveness(ast: &Ast) -> Vec<ValidationError>`
-193. [ ] PHPX-VALIDATION:  Build enum case registry
-194. [ ] PHPX-VALIDATION:  Check match coverage
-195. [ ] PHPX-VALIDATION:  Validate payload destructuring
-196. [ ] PHPX-VALIDATION:  Detect unreachable arms
+187. [x] PHPX-VALIDATION:  Enum match covers all cases
+188. [x] PHPX-VALIDATION:  No unreachable match arms
+189. [x] PHPX-VALIDATION:  Variable binding in match arms
+190. [x] PHPX-VALIDATION:  Payload destructuring correct
+191. [x] PHPX-VALIDATION:  Create `crates/modules_php/src/validation/patterns.rs`
+192. [x] PHPX-VALIDATION:  Implement `validate_match_exhaustiveness(program: &Program, source: &str) -> Vec<ValidationError>`
+193. [x] PHPX-VALIDATION:  Build enum case registry
+194. [x] PHPX-VALIDATION:  Check match coverage
+195. [x] PHPX-VALIDATION:  Validate payload destructuring
+196. [x] PHPX-VALIDATION:  Detect unreachable arms
 197. [ ] PHPX-VALIDATION:  Create `crates/modules_php/src/compiler_api.rs`
 198. [ ] PHPX-VALIDATION:  Expose `compile_phpx(source: &str, file_path: &str) -> ValidationResult`
 199. [ ] PHPX-VALIDATION:  Run all validation passes in order:
