@@ -428,8 +428,8 @@ Notes:
 329:  - [x] Verify `module.wasm` exists
 330:  - [x] Check for `.d.phpx` stub file
 331:  - [x] Suggest running `deka wasm stubs` if missing
-71. [ ] DX-TASKS:  Add helpful error messages with fixes
-72. [ ] DX-TASKS:  Test with various import scenarios
+71. [x] DX-TASKS:  Add helpful error messages with fixes
+72. [x] DX-TASKS:  Test with various import scenarios
 73. [x] DX-TASKS:  Create `crates/phpx_lsp/README.md`
 348:  - [x] Installation instructions
 349:  - [ ] Editor integration guides (Zed, VSCode, Neovim)

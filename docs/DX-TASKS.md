@@ -329,8 +329,8 @@ $title = 'Home';
   - [x] Verify `module.wasm` exists
   - [x] Check for `.d.phpx` stub file
   - [x] Suggest running `deka wasm stubs` if missing
-- [ ] Add helpful error messages with fixes
-- [ ] Test with various import scenarios
+- [x] Add helpful error messages with fixes
+- [x] Test with various import scenarios
 
 **Example error**:
 ```
