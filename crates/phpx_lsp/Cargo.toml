@@ -1,0 +1,12 @@
+[package]
+name = "phpx_lsp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tower-lsp = "0.20"
+tokio = { workspace = true }
+serde_json = { workspace = true }
+anyhow = "1"
+modules_php = { path = "../modules_php" }
+deka-validation = { path = "../../../deka-validation" }

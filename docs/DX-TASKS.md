@@ -182,31 +182,31 @@ $title = 'Home';
 **Duration**: 2-3 weeks
 
 ### Task 2.1: Create LSP Crate
-- [ ] Create `crates/phpx_lsp/` directory
-- [ ] Initialize Cargo project: `cargo new phpx_lsp --bin`
-- [ ] Add dependencies to `Cargo.toml`:
-  - [ ] `tower-lsp = "0.20"`
-  - [ ] `tokio` (workspace)
-  - [ ] `serde_json = "1"`
-  - [ ] `anyhow = "1"`
-  - [ ] `modules_php` (path dependency to existing PHPX compiler)
-  - [ ] `deka-validation` (for error formatting)
-- [ ] Add to workspace members in root `Cargo.toml`
-- [ ] Verify build: `cargo build -p phpx_lsp`
+- [x] Create `crates/phpx_lsp/` directory
+- [x] Initialize Cargo project: `cargo new phpx_lsp --bin`
+- [x] Add dependencies to `Cargo.toml`:
+  - [x] `tower-lsp = "0.20"`
+  - [x] `tokio` (workspace)
+  - [x] `serde_json = "1"`
+  - [x] `anyhow = "1"`
+  - [x] `modules_php` (path dependency to existing PHPX compiler)
+  - [x] `deka-validation` (for error formatting)
+- [x] Add to workspace members in root `Cargo.toml`
+- [x] Verify build: `cargo build -p phpx_lsp`
 
 **Acceptance**: LSP crate compiles successfully
 
 ---
 
 ### Task 2.2: Implement Basic LSP Server
-- [ ] Create `src/main.rs` with LSP boilerplate
-- [ ] Implement `initialize` method with server capabilities:
-  - [ ] `textDocumentSync`: Full sync mode
-  - [ ] `diagnosticProvider`: Report errors
+- [x] Create `src/main.rs` with LSP boilerplate
+- [x] Implement `initialize` method with server capabilities:
+  - [x] `textDocumentSync`: Full sync mode
+  - [x] `diagnosticProvider`: Report errors
   - [ ] (Others later: hover, completion, etc.)
-- [ ] Implement `initialized` method (log ready message)
-- [ ] Implement `shutdown` method
-- [ ] Implement `did_open` and `did_change` handlers (log only)
+- [x] Implement `initialized` method (log ready message)
+- [x] Implement `shutdown` method
+- [x] Implement `did_open` and `did_change` handlers (log only)
 - [ ] Test with manual stdio: `echo '{"jsonrpc":"2.0","method":"initialize",...}' | cargo run`
 
 **Acceptance**: LSP server responds to initialize and logs document events

@@ -364,25 +364,25 @@ Notes:
 34. [x] DX-TASKS:  Add examples to `test/corpus/`
 35. [x] DX-TASKS:  Document known limitations
 36. [x] DX-TASKS:  Add contributing guidelines
-37. [ ] DX-TASKS:  Create `crates/phpx_lsp/` directory
-38. [ ] DX-TASKS:  Initialize Cargo project: `cargo new phpx_lsp --bin`
-39. [ ] DX-TASKS:  Add dependencies to `Cargo.toml`:
-188:  - [ ] `tower-lsp = "0.20"`
-189:  - [ ] `tokio` (workspace)
-190:  - [ ] `serde_json = "1"`
-191:  - [ ] `anyhow = "1"`
-192:  - [ ] `modules_php` (path dependency to existing PHPX compiler)
-193:  - [ ] `deka-validation` (for error formatting)
-40. [ ] DX-TASKS:  Add to workspace members in root `Cargo.toml`
-41. [ ] DX-TASKS:  Verify build: `cargo build -p phpx_lsp`
-42. [ ] DX-TASKS:  Create `src/main.rs` with LSP boilerplate
-43. [ ] DX-TASKS:  Implement `initialize` method with server capabilities:
-204:  - [ ] `textDocumentSync`: Full sync mode
-205:  - [ ] `diagnosticProvider`: Report errors
+37. [x] DX-TASKS:  Create `crates/phpx_lsp/` directory
+38. [x] DX-TASKS:  Initialize Cargo project: `cargo new phpx_lsp --bin`
+39. [x] DX-TASKS:  Add dependencies to `Cargo.toml`:
+188:  - [x] `tower-lsp = "0.20"`
+189:  - [x] `tokio` (workspace)
+190:  - [x] `serde_json = "1"`
+191:  - [x] `anyhow = "1"`
+192:  - [x] `modules_php` (path dependency to existing PHPX compiler)
+193:  - [x] `deka-validation` (for error formatting)
+40. [x] DX-TASKS:  Add to workspace members in root `Cargo.toml`
+41. [x] DX-TASKS:  Verify build: `cargo build -p phpx_lsp`
+42. [x] DX-TASKS:  Create `src/main.rs` with LSP boilerplate
+43. [x] DX-TASKS:  Implement `initialize` method with server capabilities:
+204:  - [x] `textDocumentSync`: Full sync mode
+205:  - [x] `diagnosticProvider`: Report errors
 206:  - [ ] (Others later: hover, completion, etc.)
-44. [ ] DX-TASKS:  Implement `initialized` method (log ready message)
-45. [ ] DX-TASKS:  Implement `shutdown` method
-46. [ ] DX-TASKS:  Implement `did_open` and `did_change` handlers (log only)
+44. [x] DX-TASKS:  Implement `initialized` method (log ready message)
+45. [x] DX-TASKS:  Implement `shutdown` method
+46. [x] DX-TASKS:  Implement `did_open` and `did_change` handlers (log only)
 47. [ ] DX-TASKS:  Test with manual stdio: `echo '{"jsonrpc":"2.0","method":"initialize",...}' | cargo run`
 48. [ ] DX-TASKS:  Create `crates/modules_php/src/compiler_api.rs`
 49. [ ] DX-TASKS:  Define public structs:
@@ -393,7 +393,7 @@ Notes:
 238:  - [ ] Return structured results
 51. [ ] DX-TASKS:  Add unit tests for error collection
 52. [ ] DX-TASKS:  Export from `crates/modules_php/src/lib.rs`
-53. [ ] DX-TASKS:  Add `deka-validation` dependency to `phpx_lsp`
+53. [x] DX-TASKS:  Add `deka-validation` dependency to `phpx_lsp`
 54. [ ] DX-TASKS:  Implement error formatting in LSP:
 55. [ ] DX-TASKS:  Convert formatted errors to LSP Diagnostic messages
 56. [ ] DX-TASKS:  Test with PHPX files containing errors
