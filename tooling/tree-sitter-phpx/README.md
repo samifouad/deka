@@ -81,9 +81,10 @@ ZED_PHPX_SYMLINK=1 scripts/install-zed-extension.sh
 
 Note: Zed only loads local extensions via the “Install Dev Extension” command.
 After copying/symlinking, open Zed and run “Install Dev Extension”, then select
-`/Users/.../deka/extensions/phpx` (or the copied work dir). The install script
+the copied work dir path (the install script prints it). The install script
 rewrites the grammar repo to a local `file://` URL so Zed can compile the
-grammar without fetching a remote revision.
+grammar without fetching a remote revision. If you install from the repo path,
+Zed will try to fetch the public revision and fail.
 
 Configure the PHPX language server in Zed settings (example uses a local
 release build):

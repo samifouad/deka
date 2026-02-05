@@ -63,4 +63,8 @@ else
   fi
   echo "Copied PHPX Zed extension to $ext_dest"
 fi
-echo "Next: configure phpx-lsp in $zed_dir/settings.json"
+echo "Next: in Zed run \"Install Dev Extension\" and select:"
+echo "  $ext_dest"
+echo "Then restart Zed. (If you previously installed the dev extension from"
+echo "the repo path, remove it first.)"
+echo "Finally, configure phpx-lsp in $zed_dir/settings.json"
