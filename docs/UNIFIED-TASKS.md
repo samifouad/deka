@@ -516,7 +516,7 @@ Notes:
 489:  - [x] Type checking WASM function calls
 490:  - [x] Go-to-definition (jump to stub)
 110. [x] DX-TASKS:  Suggest generating stubs if missing
-111. [ ] DX-TASKS:  Test with WIT examples from `examples/wasm_hello_wit/`
+111. [x] DX-TASKS:  Test with WIT examples from `examples/wasm_hello_wit/`
 112. [x] DX-TASKS:  Add `referencesProvider` capability to LSP
 113. [x] DX-TASKS:  Implement `references` method:
 501:  - [x] Find all uses of symbol

@@ -147,6 +147,15 @@ fn import_default_wasm_reports_error() {
 }
 
 #[test]
+fn wasm_example_ok() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/wasm_hello_wit/app.phpx");
+    let path = path.canonicalize().expect("example path should resolve");
+    let result = compile_fixture(&path);
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+}
+
+#[test]
 fn export_ok() {
     let path = fixtures_root().join("exports/ok.phpx");
     let result = compile_fixture(&path);

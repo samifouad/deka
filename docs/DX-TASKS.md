@@ -490,7 +490,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] Type checking WASM function calls
   - [x] Go-to-definition (jump to stub)
 - [x] Suggest generating stubs if missing
-- [ ] Test with WIT examples from `examples/wasm_hello_wit/`
+- [x] Test with WIT examples from `examples/wasm_hello_wit/`
 
 **Acceptance**: LSP uses WIT stubs for WASM imports
 
