@@ -118,9 +118,12 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
     assert(size == length);
 }
 
-static inline bool scan_whitespace(TSLexer *lexer) {
+static inline bool scan_whitespace(TSLexer *lexer, bool *saw_newline) {
     for (;;) {
         while (iswspace(lexer->lookahead)) {
+            if (lexer->lookahead == '\n') {
+                *saw_newline = true;
+            }
             advance(lexer);
         }
 
@@ -470,7 +473,8 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
         return true;
     }
 
-    if (!scan_whitespace(lexer)) {
+    bool saw_newline = false;
+    if (!scan_whitespace(lexer, &saw_newline)) {
         return false;
     }
 
@@ -500,6 +504,10 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
 
     if (valid_symbols[AUTOMATIC_SEMICOLON]) {
         lexer->result_symbol = AUTOMATIC_SEMICOLON;
+
+        if (saw_newline || lexer->eof(lexer)) {
+            return true;
+        }
 
         if (lexer->lookahead != '?') {
             return false;
