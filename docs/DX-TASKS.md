@@ -726,7 +726,7 @@ For each phase, test with these PHPX files:
 - [x] `examples/php/modules-import/index.php` - Import/export
 - [x] `examples/bridge_array.phpx` - Struct literals
 - [ ] `examples/phpx-components/app.phpx` - JSX + frontmatter
-- [ ] `examples/wasm_hello_wit/` - WASM imports with WIT stubs
+- [x] `examples/wasm_hello_wit/` - WASM imports with WIT stubs
 - [ ] Create edge case files:
   - [ ] Nested JSX with PHPX expressions
   - [ ] Complex type annotations

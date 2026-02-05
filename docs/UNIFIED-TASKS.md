@@ -634,7 +634,7 @@ Notes:
 172. [x] DX-TASKS:  `examples/php/modules-import/index.php` - Import/export
 173. [x] DX-TASKS:  `examples/bridge_array.phpx` - Struct literals
 174. [ ] DX-TASKS:  `examples/phpx-components/app.phpx` - JSX + frontmatter
-175. [ ] DX-TASKS:  `examples/wasm_hello_wit/` - WASM imports with WIT stubs
+175. [x] DX-TASKS:  `examples/wasm_hello_wit/` - WASM imports with WIT stubs
 176. [ ] DX-TASKS:  Create edge case files:
 730:  - [ ] Nested JSX with PHPX expressions
 731:  - [ ] Complex type annotations
