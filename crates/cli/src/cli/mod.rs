@@ -8,6 +8,7 @@ pub mod build;
 pub mod compile;
 pub mod init;
 pub mod install;
+pub mod lsp;
 pub mod run;
 pub mod serve;
 pub mod self_cmd;

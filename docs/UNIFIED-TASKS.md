@@ -22,6 +22,8 @@ Notes:
 - Rebuild the CLI in release mode: `cargo build --release -p cli`
 - The locally wired `deka` CLI points to the release binary: `target/release/cli`
   (use this for testing after rebuilding).
+- Packaging note: ship `phpx_lsp` alongside `deka` in installers/scripts so `deka lsp`
+  can exec it (or set `PHPX_LSP_BIN`).
 
 ## Runtime + Language Hardening (from `docs/TASKS.md`)
 1. [x] Fix namespaced struct coercion (type metadata should use fully-qualified struct names).

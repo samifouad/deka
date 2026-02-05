@@ -680,6 +680,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] Build LSP binary
   - [x] Install to `~/.local/bin/` or system path
   - [ ] Set up editor configs
+- [ ] Package `phpx_lsp` alongside `deka` in installers (brew, npm, curl scripts)
 - [x] Create `scripts/install-zed-extension.sh`
 - [ ] Create `scripts/install-vscode-extension.sh`
 - [ ] Test on clean systems (Linux, macOS)
