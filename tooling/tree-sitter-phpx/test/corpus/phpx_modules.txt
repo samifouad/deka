@@ -7,6 +7,8 @@ import { foo, bar as baz } from '@user/mod' as wasm;
 import { thing } from 'core/thing';
 
 export function make($x: int): int { return $x; }
+export const VERSION = 1;
+export type Mode = string;
 export { foo, baz as qux } from 'core/thing';
 
 ---
@@ -39,6 +41,15 @@ export { foo, baz as qux } from 'core/thing';
         (return_statement
           (variable_name
             (name))))))
+  (export_statement
+    (const_declaration
+      (const_element
+        (name)
+        (integer))))
+  (export_statement
+    (type_alias_declaration
+      (name)
+      (primitive_type)))
   (export_statement
     (export_list
       (export_specifier
