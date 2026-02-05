@@ -7,7 +7,7 @@ Each feature should have at least one fixture file and corresponding `.out` expe
 - [x] Variables, literals, and expressions
 - [x] Arithmetic + boolean operators
 - [x] String interpolation + escapes
-- [ ] Arrays + destructuring
+- [x] Arrays + destructuring
 - [x] Object literals + dot access
 - [x] Functions + default args
 - [x] Arrow functions
@@ -76,12 +76,9 @@ Each feature should have at least one fixture file and corresponding `.out` expe
 | Type annotations | `tests/phpx/structs/type_annotations.phpx` | `.out` |
 | Closures + use bindings | `tests/phpx/structs/closure_use.phpx` | `.out` |
 | Panic semantics | `tests/phpx/options/error_panic.phpx` | `.err` + `.code` |
-| Closures + use bindings | `tests/phpx/structs/closure_use.phpx` | `.out` |
-| Arrays + control flow | `tests/phpx/objects/arrays_control_flow.phpx` | `.out` |
-| String interpolation | `tests/phpx/objects/string_interpolation.phpx` | `.out` |
-| Type annotations | `tests/phpx/structs/type_annotations.phpx` | `.out` |
-| Panic semantics | `tests/phpx/options/error_panic.phpx` | `.err` + `.code` |
+| Array destructuring | `tests/phpx/objects/array_destructuring.phpx` | `.out` |
+| Struct definition | `tests/phpx/structs/definition_only.phpx` | `.out` |
 
 ## Next Additions (To Do)
-- [ ] Arrays + destructuring fixture
-- [ ] Struct definition-only fixture
+- [x] Arrays + destructuring fixture
+- [x] Struct definition-only fixture
