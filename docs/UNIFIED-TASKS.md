@@ -609,7 +609,7 @@ Notes:
 679:  - [ ] Build LSP binary
 680:  - [ ] Install to `~/.local/bin/` or system path
 681:  - [ ] Set up editor configs
-161. [ ] DX-TASKS:  Create `scripts/install-zed-extension.sh`
+161. [x] DX-TASKS:  Create `scripts/install-zed-extension.sh`
 162. [ ] DX-TASKS:  Create `scripts/install-vscode-extension.sh`
 163. [ ] DX-TASKS:  Test on clean systems (Linux, macOS)
 164. [ ] DX-TASKS:  Add GitHub Actions workflow:

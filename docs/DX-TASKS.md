@@ -680,7 +680,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [ ] Build LSP binary
   - [ ] Install to `~/.local/bin/` or system path
   - [ ] Set up editor configs
-- [ ] Create `scripts/install-zed-extension.sh`
+- [x] Create `scripts/install-zed-extension.sh`
 - [ ] Create `scripts/install-vscode-extension.sh`
 - [ ] Test on clean systems (Linux, macOS)
 

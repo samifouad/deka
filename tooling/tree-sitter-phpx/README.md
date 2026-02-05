@@ -61,6 +61,31 @@ Symlink it into Zed:
 ln -s /path/to/deka/extensions/phpx ~/.config/zed/extensions/phpx
 ```
 
+Or run the helper script from the repo root:
+
+```sh
+scripts/install-zed-extension.sh
+```
+
+Configure the PHPX language server in Zed settings (example uses a local
+release build):
+
+```json
+{
+  "language_servers": {
+    "phpx-lsp": {
+      "command": "/path/to/deka/target/release/phpx_lsp",
+      "args": []
+    }
+  },
+  "languages": {
+    "PHPX": {
+      "language_servers": ["phpx-lsp"]
+    }
+  }
+}
+```
+
 ### Neovim (nvim-treesitter)
 
 Register the grammar in your `nvim-treesitter` config:
