@@ -58,6 +58,9 @@ Each feature should have at least one fixture file and corresponding `.out` expe
 | Ternary + coalesce | `tests/phpx/objects/ternary_coalesce.phpx` | `.out` |
 | Array access | `tests/phpx/objects/array_access.phpx` | `.out` |
 | Foreach key/value | `tests/phpx/objects/foreach_kv.phpx` | `.out` |
+| String edge cases | `tests/phpx/objects/string_edge_cases.phpx` | `.out` |
+| Array append + unset | `tests/phpx/objects/array_append_unset.phpx` | `.out` |
+| Switch fallthrough | `tests/phpx/objects/switch_fallthrough.phpx` | `.out` |
 | Enums + match | `tests/phpx/enums/match.phpx` | `.out` |
 | Arrow functions | `tests/phpx/functions/arrow_function.phpx` | `.out` |
 | Struct value semantics | `tests/phpx/structs/value_semantics.phpx` | `.out` |
@@ -85,6 +88,7 @@ Each feature should have at least one fixture file and corresponding `.out` expe
 | Array destructuring | `tests/phpx/objects/array_destructuring.phpx` | `.out` |
 | Struct definition | `tests/phpx/structs/definition_only.phpx` | `.out` |
 | Function defaults | `tests/phpx/functions/default_args.phpx` | `.out` |
+| Return types | `tests/phpx/functions/return_types.phpx` | `.out` |
 
 ## Next Additions (To Do)
 - [x] Arrays + destructuring fixture
