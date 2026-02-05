@@ -676,9 +676,9 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 7.2: Create Installation Scripts
-- [ ] Create `scripts/install-phpx-lsp.sh`:
-  - [ ] Build LSP binary
-  - [ ] Install to `~/.local/bin/` or system path
+- [x] Create `scripts/install-phpx-lsp.sh`:
+  - [x] Build LSP binary
+  - [x] Install to `~/.local/bin/` or system path
   - [ ] Set up editor configs
 - [x] Create `scripts/install-zed-extension.sh`
 - [ ] Create `scripts/install-vscode-extension.sh`

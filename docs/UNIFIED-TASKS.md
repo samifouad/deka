@@ -605,9 +605,9 @@ Notes:
 669:  - [ ] Known limitations
 158. [ ] DX-TASKS:  Update `CLAUDE.md` with editor support section
 159. [ ] DX-TASKS:  Add screenshots/GIFs to documentation
-160. [ ] DX-TASKS:  Create `scripts/install-phpx-lsp.sh`:
-679:  - [ ] Build LSP binary
-680:  - [ ] Install to `~/.local/bin/` or system path
+160. [x] DX-TASKS:  Create `scripts/install-phpx-lsp.sh`:
+679:  - [x] Build LSP binary
+680:  - [x] Install to `~/.local/bin/` or system path
 681:  - [ ] Set up editor configs
 161. [x] DX-TASKS:  Create `scripts/install-zed-extension.sh`
 162. [ ] DX-TASKS:  Create `scripts/install-vscode-extension.sh`
