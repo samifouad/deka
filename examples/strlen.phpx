@@ -1,0 +1,7 @@
+import { strlen } from 'string/strlen';
+
+function len($text: string): int {
+    return strlen($text);
+}
+
+echo len('hello') . "\n";

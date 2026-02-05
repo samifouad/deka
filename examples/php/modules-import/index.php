@@ -1,2 +1,5 @@
 <?php
-echo get_str_func('something'), "\n";
+import { explode } from 'string/explode';
+
+$parts = explode(',', 'a,b,c');
+echo $parts[1], "\n";

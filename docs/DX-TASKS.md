@@ -722,9 +722,9 @@ Import Error: Missing type stubs for '@user/hello'
 
 For each phase, test with these PHPX files:
 
-- [ ] `examples/strlen.phpx` - Simple type annotations
-- [ ] `examples/php/modules-import/index.php` - Import/export
-- [ ] `examples/bridge_array.phpx` - Struct literals
+- [x] `examples/strlen.phpx` - Simple type annotations
+- [x] `examples/php/modules-import/index.php` - Import/export
+- [x] `examples/bridge_array.phpx` - Struct literals
 - [ ] `examples/phpx-components/app.phpx` - JSX + frontmatter
 - [ ] `examples/wasm_hello_wit/` - WASM imports with WIT stubs
 - [ ] Create edge case files:
