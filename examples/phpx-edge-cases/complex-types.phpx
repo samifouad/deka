@@ -1,0 +1,10 @@
+type User = Object<{ id: int, name: string }>;
+type Maybe<T> = Option<T>;
+type Response<T> = Result<T, string>;
+
+struct Point {
+    $x: float;
+    $y: float;
+}
+
+function wrap($user: User, $tags: array<string>): Response<Maybe<User>> {}

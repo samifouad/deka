@@ -633,14 +633,14 @@ Notes:
 171. [x] DX-TASKS:  `examples/strlen.phpx` - Simple type annotations
 172. [x] DX-TASKS:  `examples/php/modules-import/index.php` - Import/export
 173. [x] DX-TASKS:  `examples/bridge_array.phpx` - Struct literals
-174. [ ] DX-TASKS:  `examples/phpx-components/app.phpx` - JSX + frontmatter
+174. [x] DX-TASKS:  `examples/phpx-components/app.phpx` - JSX + frontmatter
 175. [x] DX-TASKS:  `examples/wasm_hello_wit/` - WASM imports with WIT stubs
-176. [ ] DX-TASKS:  Create edge case files:
-730:  - [ ] Nested JSX with PHPX expressions
-731:  - [ ] Complex type annotations
-732:  - [ ] Syntax errors
-733:  - [ ] Type errors
-734:  - [ ] Missing imports
+176. [x] DX-TASKS:  Create edge case files:
+730:  - [x] Nested JSX with PHPX expressions
+731:  - [x] Complex type annotations
+732:  - [x] Syntax errors
+733:  - [x] Type errors
+734:  - [x] Missing imports
 177. [ ] DX-TASKS:  **Prerequisite**: PHPX Validation System (See PHPX-VALIDATION.md)
 801:  - [ ] Foundation (syntax, imports, PHPX rules)
 802:  - [ ] Type system (type checking, generics)

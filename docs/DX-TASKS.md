@@ -725,14 +725,14 @@ For each phase, test with these PHPX files:
 - [x] `examples/strlen.phpx` - Simple type annotations
 - [x] `examples/php/modules-import/index.php` - Import/export
 - [x] `examples/bridge_array.phpx` - Struct literals
-- [ ] `examples/phpx-components/app.phpx` - JSX + frontmatter
+- [x] `examples/phpx-components/app.phpx` - JSX + frontmatter
 - [x] `examples/wasm_hello_wit/` - WASM imports with WIT stubs
-- [ ] Create edge case files:
-  - [ ] Nested JSX with PHPX expressions
-  - [ ] Complex type annotations
-  - [ ] Syntax errors
-  - [ ] Type errors
-  - [ ] Missing imports
+- [x] Create edge case files:
+  - [x] Nested JSX with PHPX expressions
+  - [x] Complex type annotations
+  - [x] Syntax errors
+  - [x] Type errors
+  - [x] Missing imports
 
 ---
 
