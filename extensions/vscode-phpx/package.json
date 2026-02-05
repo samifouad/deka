@@ -1,0 +1,29 @@
+{
+  "name": "vscode-phpx",
+  "displayName": "PHPX",
+  "description": "PHPX language support (syntax highlighting)",
+  "version": "0.1.0",
+  "publisher": "deka",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "phpx",
+        "aliases": ["PHPX", "phpx"],
+        "extensions": [".phpx"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "phpx",
+        "scopeName": "source.phpx",
+        "path": "./syntaxes/phpx.tmLanguage.json"
+      }
+    ]
+  }
+}

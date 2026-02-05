@@ -549,13 +549,13 @@ Notes:
 538:  - [x] Return LSP `DocumentSymbol` hierarchy
 123. [ ] DX-TASKS:  Show symbols in editor outline/breadcrumbs
 124. [ ] DX-TASKS:  Test with large PHPX files
-125. [ ] DX-TASKS:  Create `extensions/vscode-phpx/` directory
+125. [x] DX-TASKS:  Create `extensions/vscode-phpx/` directory
 126. [ ] DX-TASKS:  Initialize extension: `npm init` or `yo code`
 127. [ ] DX-TASKS:  Update `package.json` metadata
-128. [ ] DX-TASKS:  Create `syntaxes/phpx.tmLanguage.json` (TextMate grammar)
+128. [x] DX-TASKS:  Create `syntaxes/phpx.tmLanguage.json` (TextMate grammar)
 557:  - [ ] Port from tree-sitter grammar OR
 558:  - [ ] Use tree-sitter WASM in extension
-129. [ ] DX-TASKS:  Add language configuration
+129. [x] DX-TASKS:  Add language configuration
 130. [ ] DX-TASKS:  Add file icon
 131. [ ] DX-TASKS:  Add `vscode-languageclient` dependency
 132. [ ] DX-TASKS:  Create `src/extension.ts`:
@@ -612,7 +612,7 @@ Notes:
 680:  - [x] Install to `~/.local/bin/` or system path
 681:  - [ ] Set up editor configs
 161. [x] DX-TASKS:  Create `scripts/install-zed-extension.sh`
-162. [ ] DX-TASKS:  Create `scripts/install-vscode-extension.sh`
+162. [x] DX-TASKS:  Create `scripts/install-vscode-extension.sh`
 163. [ ] DX-TASKS:  Test on clean systems (Linux, macOS)
 164. [ ] DX-TASKS:  Add GitHub Actions workflow:
 692:  - [ ] Build tree-sitter grammar

@@ -551,13 +551,13 @@ Import Error: Missing type stubs for '@user/hello'
 **Duration**: 1 week
 
 ### Task 5.1: Create VSCode Extension Scaffold
-- [ ] Create `extensions/vscode-phpx/` directory
+- [x] Create `extensions/vscode-phpx/` directory
 - [ ] Initialize extension: `npm init` or `yo code`
 - [ ] Update `package.json` metadata
-- [ ] Create `syntaxes/phpx.tmLanguage.json` (TextMate grammar)
+- [x] Create `syntaxes/phpx.tmLanguage.json` (TextMate grammar)
   - [ ] Port from tree-sitter grammar OR
   - [ ] Use tree-sitter WASM in extension
-- [ ] Add language configuration
+- [x] Add language configuration
 - [ ] Add file icon
 
 **Acceptance**: Basic VSCode extension structure exists
@@ -682,7 +682,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [ ] Set up editor configs
 - [ ] Package `phpx_lsp` alongside `deka` in installers (brew, npm, curl scripts)
 - [x] Create `scripts/install-zed-extension.sh`
-- [ ] Create `scripts/install-vscode-extension.sh`
+- [x] Create `scripts/install-vscode-extension.sh`
 - [ ] Test on clean systems (Linux, macOS)
 
 **Acceptance**: One-command installation for each editor
