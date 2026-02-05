@@ -54,6 +54,13 @@ if [ "$use_symlink" = "1" ]; then
 else
   mkdir -p "$ext_dest"
   rsync -a --delete "$ext_src/" "$ext_dest/"
+  if [ -f "$ext_dest/extension.toml" ]; then
+    repo_uri="file://$repo_root"
+    perl -0pi -e 's#(\[grammars\.phpx_only\][^\[]*?repository = ")[^"]*(")#$1'"$repo_uri"'$2#s' \
+      "$ext_dest/extension.toml"
+    perl -0pi -e 's#(\[grammars\.phpx_only\][^\[]*?rev = ")[^"]*(")#$1HEAD$2#s' \
+      "$ext_dest/extension.toml"
+  fi
   echo "Copied PHPX Zed extension to $ext_dest"
 fi
 echo "Next: configure phpx-lsp in $zed_dir/settings.json"

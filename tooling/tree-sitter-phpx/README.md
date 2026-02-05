@@ -79,6 +79,12 @@ To use a symlink instead of a copy (dev mode), set:
 ZED_PHPX_SYMLINK=1 scripts/install-zed-extension.sh
 ```
 
+Note: Zed only loads local extensions via the “Install Dev Extension” command.
+After copying/symlinking, open Zed and run “Install Dev Extension”, then select
+`/Users/.../deka/extensions/phpx` (or the copied work dir). The install script
+rewrites the grammar repo to a local `file://` URL so Zed can compile the
+grammar without fetching a remote revision.
+
 Configure the PHPX language server in Zed settings (example uses a local
 release build):
 
