@@ -3,7 +3,9 @@ PHPX import/export
 :language(phpx_only)
 =========================
 
+import DefaultThing from 'core/thing';
 import { foo, bar as baz } from '@user/mod' as wasm;
+import DefaultThing2, { thing } from 'core/thing';
 import { thing } from 'core/thing';
 
 export function make($x: int): int { return $x; }
@@ -15,6 +17,10 @@ export { foo, baz as qux } from 'core/thing';
 
 (program
   (import_statement
+    (name)
+    (string
+      (string_content)))
+  (import_statement
     (import_specifier
       (name))
     (import_specifier
@@ -23,6 +29,12 @@ export { foo, baz as qux } from 'core/thing';
     (string
       (string_content))
     (name))
+  (import_statement
+    (name)
+    (import_specifier
+      (name))
+    (string
+      (string_content)))
   (import_statement
     (import_specifier
       (name))

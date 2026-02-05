@@ -347,13 +347,13 @@ pub(crate) fn parse_export_list_line(
             ));
         }
 
-        if !is_reexport && imported != local {
+        if !is_reexport && imported != local && local != "default" {
             return Err(export_error(
                 line_number,
                 find_column(raw_line, spec),
                 spec.len().max(1),
                 format!("Unsupported export alias '{}' in {}.", spec, file_path),
-                "Aliases are only supported with `export { name } from 'module'`.",
+                "Aliases are only supported with `export { name } from 'module'` or `export { name as default }`.",
             ));
         }
 

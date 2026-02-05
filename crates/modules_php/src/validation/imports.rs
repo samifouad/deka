@@ -146,38 +146,80 @@ pub(crate) fn parse_import_line(
                 find_column(raw_line, "import"),
                 line.trim().len(),
                 format!("Invalid import syntax in {}.", file_path),
-                "Use: import { name } from 'module'.",
+                "Use: import Name from 'module' or import { name } from 'module'.",
                 Some("import { name } from 'module';"),
             )
         })?
         .trim_start();
 
-    let rest = rest
-        .strip_prefix('{')
-        .ok_or_else(|| {
+    let mut default_local: Option<String> = None;
+    let mut specifiers: Option<&str> = None;
+    let mut after: &str;
+
+    if rest.starts_with('{') {
+        let close_idx = rest.find('}').ok_or_else(|| {
             import_error_with_suggestion(
                 line_number,
                 find_column(raw_line, "import"),
                 line.trim().len(),
                 format!("Invalid import syntax in {}.", file_path),
-                "Expected '{' after import.",
+                "Missing closing '}' in import specifiers.",
                 Some("import { name } from 'module';"),
             )
         })?;
+        specifiers = Some(&rest[1..close_idx]);
+        after = rest[close_idx + 1..].trim_start();
+    } else {
+        let (name, next) = parse_identifier(rest).ok_or_else(|| {
+            import_error_with_suggestion(
+                line_number,
+                find_column(raw_line, "import"),
+                line.trim().len(),
+                format!("Invalid import syntax in {}.", file_path),
+                "Expected a default import name after `import`.",
+                Some("import Name from 'module';"),
+            )
+        })?;
+        if !is_ident(name) {
+            return Err(import_error(
+                line_number,
+                find_column(raw_line, name),
+                name.len().max(1),
+                format!("Invalid import name '{}' in {}.", name, file_path),
+                "Import names must be valid identifiers.",
+            ));
+        }
+        default_local = Some(name.to_string());
+        let mut next = next.trim_start();
+        if let Some(rest_after_comma) = next.strip_prefix(',') {
+            next = rest_after_comma.trim_start();
+            if !next.starts_with('{') {
+                return Err(import_error_with_suggestion(
+                    line_number,
+                    find_column(raw_line, ","),
+                    1,
+                    format!("Invalid import syntax in {}.", file_path),
+                    "Expected '{' after default import comma.",
+                    Some("import Name, { foo } from 'module';"),
+                ));
+            }
+            let close_idx = next.find('}').ok_or_else(|| {
+                import_error_with_suggestion(
+                    line_number,
+                    find_column(raw_line, "import"),
+                    line.trim().len(),
+                    format!("Invalid import syntax in {}.", file_path),
+                    "Missing closing '}' in import specifiers.",
+                    Some("import Name, { foo } from 'module';"),
+                )
+            })?;
+            specifiers = Some(&next[1..close_idx]);
+            after = next[close_idx + 1..].trim_start();
+        } else {
+            after = next;
+        }
+    }
 
-    let close_idx = rest.find('}').ok_or_else(|| {
-        import_error_with_suggestion(
-            line_number,
-            find_column(raw_line, "import"),
-            line.trim().len(),
-            format!("Invalid import syntax in {}.", file_path),
-            "Missing closing '}' in import specifiers.",
-            Some("import { name } from 'module';"),
-        )
-    })?;
-
-    let specifiers = &rest[..close_idx];
-    let mut after = rest[close_idx + 1..].trim_start();
     after = after
         .strip_prefix("from")
         .ok_or_else(|| {
@@ -236,59 +278,92 @@ pub(crate) fn parse_import_line(
         ));
     }
 
-    let spec_list: Vec<&str> = specifiers
-        .split(',')
-        .map(|spec| spec.trim())
-        .filter(|spec| !spec.is_empty())
-        .collect();
-
-    if spec_list.is_empty() {
-        return Err(import_error_with_suggestion(
-            line_number,
-            find_column(raw_line, "import"),
-            line.trim().len(),
-            format!("Empty import list in {}.", file_path),
-            "Add at least one import specifier.",
-            Some("import { name } from 'module';"),
-        ));
+    let mut specs = Vec::new();
+    if let Some(local) = default_local {
+        if kind == ImportKind::Wasm {
+            return Err(import_error_with_suggestion(
+                line_number,
+                find_column(raw_line, &local),
+                local.len().max(1),
+                format!("Default imports are not supported for wasm modules in {}.", file_path),
+                "Use named wasm imports: import { fn } from '@user/mod' as wasm.",
+                Some("import { fn } from '@user/mod' as wasm;"),
+            ));
+        }
+        specs.push(ImportSpec {
+            imported: "default".to_string(),
+            local: local.clone(),
+            from: from.clone(),
+            kind,
+            line: line_number,
+            column: find_column(raw_line, &local),
+            line_text: raw_line.to_string(),
+        });
     }
 
-    let mut specs = Vec::new();
-    for spec in spec_list {
-        let parts: Vec<&str> = spec.split_whitespace().collect();
-        let (imported, local) = match parts.as_slice() {
-            [name] => (*name, *name),
-            [name, as_kw, alias] if *as_kw == "as" => (*name, *alias),
-            _ => {
+    if let Some(specifiers) = specifiers {
+        let spec_list: Vec<&str> = specifiers
+            .split(',')
+            .map(|spec| spec.trim())
+            .filter(|spec| !spec.is_empty())
+            .collect();
+
+        if spec_list.is_empty() {
+            return Err(import_error_with_suggestion(
+                line_number,
+                find_column(raw_line, "import"),
+                line.trim().len(),
+                format!("Empty import list in {}.", file_path),
+                "Add at least one import specifier.",
+                Some("import { name } from 'module';"),
+            ));
+        }
+
+        for spec in spec_list {
+            let parts: Vec<&str> = spec.split_whitespace().collect();
+            let (imported, local) = match parts.as_slice() {
+                [name] => (*name, *name),
+                [name, as_kw, alias] if *as_kw == "as" => (*name, *alias),
+                _ => {
+                    return Err(import_error(
+                        line_number,
+                        find_column(raw_line, spec),
+                        spec.len().max(1),
+                        format!("Invalid import specifier '{}' in {}.", spec, file_path),
+                        "Use `name` or `name as alias` inside the import list.",
+                    ));
+                }
+            };
+
+            if !is_ident(imported) || !is_ident(local) {
                 return Err(import_error(
                     line_number,
                     find_column(raw_line, spec),
                     spec.len().max(1),
                     format!("Invalid import specifier '{}' in {}.", spec, file_path),
-                    "Use `name` or `name as alias` inside the import list.",
+                    "Import names must be valid identifiers.",
                 ));
             }
-        };
 
-        if !is_ident(imported) || !is_ident(local) {
-            return Err(import_error(
-                line_number,
-                find_column(raw_line, spec),
-                spec.len().max(1),
-                format!("Invalid import specifier '{}' in {}.", spec, file_path),
-                "Import names must be valid identifiers.",
-            ));
+            specs.push(ImportSpec {
+                imported: imported.to_string(),
+                local: local.to_string(),
+                from: from.clone(),
+                kind,
+                line: line_number,
+                column: find_column(raw_line, local),
+                line_text: raw_line.to_string(),
+            });
         }
-
-        specs.push(ImportSpec {
-            imported: imported.to_string(),
-            local: local.to_string(),
-            from: from.clone(),
-            kind,
-            line: line_number,
-            column: find_column(raw_line, local),
-            line_text: raw_line.to_string(),
-        });
+    } else if specs.is_empty() {
+        return Err(import_error_with_suggestion(
+            line_number,
+            find_column(raw_line, "import"),
+            line.trim().len(),
+            format!("Empty import list in {}.", file_path),
+            "Add a default import or a named import list.",
+            Some("import Name from 'module';"),
+        ));
     }
 
     Ok(specs)
@@ -357,6 +432,26 @@ pub(crate) fn is_ident(name: &str) -> bool {
         return false;
     }
     chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
+}
+
+fn parse_identifier(input: &str) -> Option<(&str, &str)> {
+    let mut chars = input.char_indices();
+    let (start_idx, first) = chars.next()?;
+    if start_idx != 0 {
+        return None;
+    }
+    if !(first == '_' || first.is_ascii_alphabetic()) {
+        return None;
+    }
+    let mut end = first.len_utf8();
+    for (idx, ch) in chars {
+        if ch == '_' || ch.is_ascii_alphanumeric() {
+            end = idx + ch.len_utf8();
+        } else {
+            break;
+        }
+    }
+    Some((&input[..end], &input[end..]))
 }
 
 pub(crate) fn parse_quoted_string(input: &str) -> Option<(String, &str)> {

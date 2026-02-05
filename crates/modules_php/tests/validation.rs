@@ -5,6 +5,7 @@ use bumpalo::Bump;
 
 use modules_php::compiler_api::compile_phpx;
 use modules_php::validation::{ErrorKind, ValidationResult};
+use modules_php::validation::imports::validate_imports;
 
 fn fixtures_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
@@ -95,6 +96,15 @@ fn import_ok() {
 }
 
 #[test]
+fn import_default_ok() {
+    let path = fixtures_root().join("imports/default_ok.phpx");
+    let source = load_fixture(&path);
+    let (errors, warnings) = validate_imports(&source, path.to_string_lossy().as_ref());
+    assert!(errors.is_empty(), "unexpected errors: {:?}", errors);
+    assert!(warnings.is_empty(), "unexpected warnings: {:?}", warnings);
+}
+
+#[test]
 fn import_unused_reports_warning() {
     let path = fixtures_root().join("imports/unused.phpx");
     let result = compile_fixture(&path);
@@ -125,6 +135,13 @@ fn import_relative_path_reports_error() {
 #[test]
 fn import_invalid_syntax_reports_error() {
     let path = fixtures_root().join("imports/invalid_syntax.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::ImportError);
+}
+
+#[test]
+fn import_default_wasm_reports_error() {
+    let path = fixtures_root().join("imports/default_wasm.phpx");
     let result = compile_fixture(&path);
     assert_has_error(&result, ErrorKind::ImportError);
 }

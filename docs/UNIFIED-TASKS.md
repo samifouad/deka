@@ -312,7 +312,7 @@ Notes:
 11. [x] DX-TASKS:  Add `import_statement` rule to `grammar.js`
 66:  - [x] Named imports: `import { foo, bar } from 'module'`
 67:  - [x] WASM imports: `import { fn } from '@user/mod' as wasm`
-68:  - [ ] Default import (if needed)
+68:  - [x] Default import (if needed)
 12. [x] DX-TASKS:  Add `export_statement` rule
 70:  - [x] Export functions: `export function foo() {}`
 71:  - [x] Export constants: `export const X = 1`

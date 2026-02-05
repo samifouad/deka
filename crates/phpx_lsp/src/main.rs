@@ -1389,10 +1389,12 @@ fn hover_from_import(source: &str, offset: usize) -> Option<String> {
     let imports = parse_imports(source);
     for import in imports {
         if import.span.start <= offset && offset < import.span.end {
-            return Some(format!(
-                "```php\nimport {} from '{}'\n```",
-                import.local, import.from
-            ));
+            let line = if import.imported == "default" {
+                format!("import {} from '{}'", import.local, import.from)
+            } else {
+                format!("import {{ {} }} from '{}'", import.local, import.from)
+            };
+            return Some(format!("```php\n{}\n```", line));
         }
     }
     None
@@ -1548,57 +1550,117 @@ fn parse_imports(source: &str) -> Vec<ImportInfo> {
         let line_len = line.len();
         let trimmed = line.trim_start();
         if trimmed.starts_with("import ") {
-            if let (Some(open), Some(close)) = (line.find('{'), line.find('}')) {
-                let spec_part = &line[open + 1..close];
-                let module_info = parse_module_path_with_span(line, offset);
-                let is_wasm = line.contains(" as wasm");
-                let mut cursor = open + 1;
-                for spec in spec_part.split(',') {
-                    let spec_trim = spec.trim();
-                    if spec_trim.is_empty() {
-                        cursor += spec.len() + 1;
-                        continue;
-                    }
-                    let (imported, local) = if let Some((left, right)) = spec_trim.split_once(" as ") {
-                        (left.trim(), right.trim())
-                    } else {
-                        (spec_trim, spec_trim)
-                    };
-                    let local_pos = line[cursor..]
-                        .find(local)
-                        .map(|idx| cursor + idx);
-                    if let Some(local_pos) = local_pos {
-                        let span = Span::new(
-                            offset + local_pos,
-                            offset + local_pos + local.len(),
-                        );
-                        if let Some((module, module_span)) = module_info.clone() {
-                            imports.push(ImportInfo {
-                                imported: imported.to_string(),
-                                local: local.to_string(),
-                                from: module,
-                                span,
-                                module_span: Some(module_span),
-                                is_wasm,
-                            });
-                        } else {
-                            imports.push(ImportInfo {
-                                imported: imported.to_string(),
-                                local: local.to_string(),
-                                from: imported.to_string(),
-                                span,
-                                module_span: None,
-                                is_wasm,
-                            });
+            let is_wasm = line.contains(" as wasm");
+            let module_info = parse_module_path_with_span(line, offset);
+            let mut rest = trimmed.strip_prefix("import").unwrap_or(trimmed).trim_start();
+            let mut default_name: Option<&str> = None;
+            let mut spec_part: Option<&str> = None;
+
+            if rest.starts_with('{') {
+                if let (Some(open), Some(close)) = (line.find('{'), line.find('}')) {
+                    spec_part = Some(&line[open + 1..close]);
+                    rest = &rest[rest.find('}').unwrap_or(0) + 1..];
+                }
+            } else {
+                if let Some((name, after)) = parse_ident_from_str(rest) {
+                    default_name = Some(name);
+                    rest = after.trim_start();
+                    if let Some(rest_after_comma) = rest.strip_prefix(',') {
+                        rest = rest_after_comma.trim_start();
+                        if let (Some(open), Some(close)) = (line.find('{'), line.find('}')) {
+                            spec_part = Some(&line[open + 1..close]);
+                            rest = &rest[rest.find('}').unwrap_or(0) + 1..];
                         }
                     }
-                    cursor += spec.len() + 1;
+                }
+            }
+
+            if let Some(name) = default_name {
+                if let Some(col) = line.find(name) {
+                    let span = Span::new(offset + col, offset + col + name.len());
+                    if let Some((module, module_span)) = module_info.clone() {
+                        imports.push(ImportInfo {
+                            imported: "default".to_string(),
+                            local: name.to_string(),
+                            from: module,
+                            span,
+                            module_span: Some(module_span),
+                            is_wasm,
+                        });
+                    }
+                }
+            }
+
+            if let Some(spec_part) = spec_part {
+                if let (Some(open), Some(_close)) = (line.find('{'), line.find('}')) {
+                    let mut cursor = open + 1;
+                    for spec in spec_part.split(',') {
+                        let spec_trim = spec.trim();
+                        if spec_trim.is_empty() {
+                            cursor += spec.len() + 1;
+                            continue;
+                        }
+                        let (imported, local) = if let Some((left, right)) = spec_trim.split_once(" as ") {
+                            (left.trim(), right.trim())
+                        } else {
+                            (spec_trim, spec_trim)
+                        };
+                        let local_pos = line[cursor..]
+                            .find(local)
+                            .map(|idx| cursor + idx);
+                        if let Some(local_pos) = local_pos {
+                            let span = Span::new(
+                                offset + local_pos,
+                                offset + local_pos + local.len(),
+                            );
+                            if let Some((module, module_span)) = module_info.clone() {
+                                imports.push(ImportInfo {
+                                    imported: imported.to_string(),
+                                    local: local.to_string(),
+                                    from: module,
+                                    span,
+                                    module_span: Some(module_span),
+                                    is_wasm,
+                                });
+                            } else {
+                                imports.push(ImportInfo {
+                                    imported: imported.to_string(),
+                                    local: local.to_string(),
+                                    from: imported.to_string(),
+                                    span,
+                                    module_span: None,
+                                    is_wasm,
+                                });
+                            }
+                        }
+                        cursor += spec.len() + 1;
+                    }
                 }
             }
         }
         offset += line_len + 1;
     }
     imports
+}
+
+fn parse_ident_from_str(input: &str) -> Option<(&str, &str)> {
+    let mut chars = input.char_indices();
+    let (start, first) = chars.next()?;
+    if start != 0 {
+        return None;
+    }
+    if !(first == '_' || first.is_ascii_alphabetic()) {
+        return None;
+    }
+    let mut end = first.len_utf8();
+    for (idx, ch) in chars {
+        if ch == '_' || ch.is_ascii_alphanumeric() {
+            end = idx + ch.len_utf8();
+        } else {
+            break;
+        }
+    }
+    Some((&input[..end], &input[end..]))
 }
 
 fn parse_module_path(line: &str) -> Option<String> {

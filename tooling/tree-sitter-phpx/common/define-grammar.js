@@ -447,9 +447,21 @@ module.exports = function defineGrammar(dialect) {
 
       import_statement: $ => seq(
         keyword('import'),
-        '{',
-        commaSep1($.import_specifier),
-        '}',
+        choice(
+          seq(
+            field('default', $.name),
+            ',',
+            '{',
+            commaSep1($.import_specifier),
+            '}',
+          ),
+          field('default', $.name),
+          seq(
+            '{',
+            commaSep1($.import_specifier),
+            '}',
+          ),
+        ),
         keyword('from'),
         field('source', $.string),
         optional(seq(keyword('as'), field('kind', $.name))),

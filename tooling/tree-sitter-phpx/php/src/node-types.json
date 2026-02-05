@@ -2987,6 +2987,16 @@
     "type": "import_statement",
     "named": true,
     "fields": {
+      "default": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      },
       "kind": {
         "multiple": false,
         "required": false,
@@ -3010,7 +3020,7 @@
     },
     "children": {
       "multiple": true,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "import_specifier",

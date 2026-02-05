@@ -65,7 +65,7 @@ We can leverage the existing **`deka-validation`** crate for beautiful error for
 - [x] Add `import_statement` rule to `grammar.js`
   - [x] Named imports: `import { foo, bar } from 'module'`
   - [x] WASM imports: `import { fn } from '@user/mod' as wasm`
-  - [ ] Default import (if needed)
+  - [x] Default import (if needed)
 - [x] Add `export_statement` rule
   - [x] Export functions: `export function foo() {}`
   - [x] Export constants: `export const X = 1`
