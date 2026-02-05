@@ -52,6 +52,12 @@ Each feature should have at least one fixture file and corresponding `.out` expe
 | Feature | Fixture | Expectations |
 | --- | --- | --- |
 | Object literals + dot access | `tests/phpx/objects/object_literals.phpx` | `.out` |
+| Literals basics | `tests/phpx/objects/literals_basic.phpx` | `.out` |
+| Arithmetic ops | `tests/phpx/objects/arithmetic_ops.phpx` | `.out` |
+| Boolean ops | `tests/phpx/objects/boolean_ops.phpx` | `.out` |
+| Ternary + coalesce | `tests/phpx/objects/ternary_coalesce.phpx` | `.out` |
+| Array access | `tests/phpx/objects/array_access.phpx` | `.out` |
+| Foreach key/value | `tests/phpx/objects/foreach_kv.phpx` | `.out` |
 | Enums + match | `tests/phpx/enums/match.phpx` | `.out` |
 | Arrow functions | `tests/phpx/functions/arrow_function.phpx` | `.out` |
 | Struct value semantics | `tests/phpx/structs/value_semantics.phpx` | `.out` |
@@ -78,6 +84,7 @@ Each feature should have at least one fixture file and corresponding `.out` expe
 | Panic semantics | `tests/phpx/options/error_panic.phpx` | `.err` + `.code` |
 | Array destructuring | `tests/phpx/objects/array_destructuring.phpx` | `.out` |
 | Struct definition | `tests/phpx/structs/definition_only.phpx` | `.out` |
+| Function defaults | `tests/phpx/functions/default_args.phpx` | `.out` |
 
 ## Next Additions (To Do)
 - [x] Arrays + destructuring fixture

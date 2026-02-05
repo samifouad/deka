@@ -1,0 +1,10 @@
+/*
+TEST: Ternary + coalesce
+Covers: ?: and ?? operators.
+*/
+
+$val = null;
+$yes = true;
+
+echo ($yes ? 'ok' : 'no') . "\n";
+echo ($val ?? 'fallback') . "\n";
