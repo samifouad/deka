@@ -27,6 +27,8 @@ Runtime notes:
 
 ## Module system (PHPX)
 - `import { foo } from './bar.phpx'` and `export function foo()` are supported.
+- Default imports use `import Foo from 'module'` and expect
+  `export { Foo as default }` (or any identifier aliased to `default`).
 - Exports are explicit; non-exported functions are private to the module.
 - Unused imports are rejected at runtime compile time.
 - `.php` files opt in by placing `import` at the very top of the file.
