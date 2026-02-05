@@ -1,3 +1,8 @@
+/*
+TEST: Enum payloads + match expression
+Covers: enum cases (payload + unit), match dispatch on enum, payload access.
+*/
+
 enum Msg {
     case Text(string $body);
     case Ping;

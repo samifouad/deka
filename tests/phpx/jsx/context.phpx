@@ -1,3 +1,8 @@
+/*
+TEST: JSX context provider + hook
+Covers: createContext, ContextProvider, useContext, nested component render.
+*/
+
 import { renderToString } from 'component/dom';
 import { createContext, ContextProvider, useContext } from 'component/core';
 

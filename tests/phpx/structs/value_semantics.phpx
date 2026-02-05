@@ -1,3 +1,8 @@
+/*
+TEST: Struct value semantics
+Covers: copy-on-write behavior and identity semantics for structs.
+*/
+
 struct Point {
     $x: int;
     $y: int;

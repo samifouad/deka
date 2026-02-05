@@ -1,4 +1,9 @@
 <?php
+/*
+TEST: PHP -> PHPX bridge for Result
+Covers: Ok/Err shape conversion via arrays/stdClass.
+*/
+
 import { returns_result, echo_result } from '@user/bridge_test';
 
 $val = returns_result(5);

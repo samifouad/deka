@@ -132,6 +132,33 @@ function indent(text) {
     .join("\n");
 }
 
+function validateTestHeader(source, filePath) {
+  const lines = source.split(/\r?\n/);
+  let idx = 0;
+  while (idx < lines.length && lines[idx].trim() === "") {
+    idx += 1;
+  }
+  if (idx >= lines.length) {
+    return `Missing header comment in ${filePath}`;
+  }
+  const firstLine = lines[idx].trim();
+  if (firstLine === "---") {
+    const head = lines.slice(idx + 1, Math.min(lines.length, idx + 20)).join("\n");
+    if (!head.includes("TEST:")) {
+      return `Header missing TEST: marker in ${filePath}`;
+    }
+    return null;
+  }
+  if (!firstLine.startsWith("/*") && !firstLine.startsWith("//")) {
+    return `Missing header comment in ${filePath}`;
+  }
+  const head = lines.slice(idx, Math.min(lines.length, idx + 12)).join("\n");
+  if (!head.includes("TEST:")) {
+    return `Header missing TEST: marker in ${filePath}`;
+  }
+  return null;
+}
+
 const COLOR = {
   reset: "\x1b[0m",
   green: "\x1b[32m",
@@ -201,6 +228,15 @@ async function main() {
   for (const scriptPath of files) {
     const relative = path.relative(repoRoot, scriptPath);
     process.stdout.write(`${relative} ... `);
+
+    const source = await readFile(scriptPath, "utf8");
+    const headerError = validateTestHeader(source, relative);
+    if (headerError) {
+      failures += 1;
+      console.log(`${COLOR.red}FAILED${COLOR.reset}`);
+      console.log(`  ${headerError}`);
+      continue;
+    }
 
     const res = await runBinary(phpBinaryPath, scriptPath);
     const stdout = sanitizeStream(res.stdout);

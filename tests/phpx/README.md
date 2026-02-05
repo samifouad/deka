@@ -3,6 +3,19 @@
 This folder contains runtime fixtures for PHPX-only syntax.
 Use the testrunner to execute `.phpx` scripts against the Deka PHP runtime.
 
+## Test Header Requirement
+Every PHPX fixture must start with a short comment block describing what the test covers.
+This keeps intent obvious and makes regressions easy to diagnose.
+
+Example header:
+```
+/*
+TEST: Short title
+Covers: feature list, behavior expectations, edge cases.
+*/
+```
+For frontmatter files (`---`), place the header inside the frontmatter block.
+
 ## Running
 ```
 bun tests/phpx/testrunner.js
@@ -18,6 +31,12 @@ PHPX_BIN=target/debug/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js tests/p
 For PHP <-> PHPX bridge fixtures (PHP files that import PHPX modules), run:
 ```
 PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/bridge/testrunner.js
+```
+
+## Mandatory When
+After any major runtime or parser/compiler change, run the full suite:
+```
+PHPX_BIN=target/debug/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js
 ```
 
 ## Expectations

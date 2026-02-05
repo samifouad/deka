@@ -1,4 +1,9 @@
 <?php
+/*
+TEST: PHP -> PHPX bridge for objects/structs
+Covers: array/stdClass conversion into Object/Struct, extra key handling.
+*/
+
 import { takes_object, takes_struct } from '@user/bridge_test';
 
 echo takes_object(['name' => 'Sami', 'age' => 41]) . "\n";
