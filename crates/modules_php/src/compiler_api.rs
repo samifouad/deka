@@ -40,7 +40,7 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
     let mut parser = Parser::new_with_mode(lexer, arena, ParserMode::Phpx);
     let program = parser.parse_program();
 
-    let mut errors = validate_syntax(source, &program);
+    let mut errors = validate_syntax(source, &program, file_path);
     let mut warnings = Vec::new();
     let has_parse_errors = !errors.is_empty();
 

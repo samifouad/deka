@@ -4,25 +4,33 @@ use super::{parse_errors_to_validation_errors, ValidationError};
 
 const DEFAULT_HELP_TEXT: &str = "Check syntax near the highlighted code.";
 
-pub fn validate_syntax(source: &str, program: &Program) -> Vec<ValidationError> {
+pub fn validate_syntax(source: &str, program: &Program, file_path: &str) -> Vec<ValidationError> {
     let mut errors = parse_errors_to_validation_errors(source, program.errors);
+    let is_phpx = file_path.ends_with(".phpx");
 
     for error in &mut errors {
-        improve_help_text(error);
+        improve_help_text(error, is_phpx);
     }
 
     errors
 }
 
-fn improve_help_text(error: &mut ValidationError) {
+fn improve_help_text(error: &mut ValidationError, is_phpx: bool) {
     if error.help_text != DEFAULT_HELP_TEXT {
         return;
     }
 
     let message = error.message.as_str();
     let mut updated = false;
-    if message.contains("Expected ';'") {
-        error.help_text = "Add a semicolon at the end of the statement.".to_string();
+    if message.contains("Missing semicolon") || message.contains("Expected ';'") {
+        if is_phpx {
+            error.message =
+                "Statements must be separated by a newline or semicolon in PHPX.".to_string();
+            error.help_text =
+                "Put each statement on its own line or add ';' between statements.".to_string();
+        } else {
+            error.help_text = "Add a semicolon at the end of the statement.".to_string();
+        }
         updated = true;
     } else if message.contains("Expected '}'") {
         error.help_text = "Add a closing '}' for the block.".to_string();

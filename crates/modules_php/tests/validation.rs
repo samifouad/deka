@@ -213,6 +213,18 @@ fn syntax_missing_semicolon_reports_error() {
         &result,
         &[ErrorKind::SyntaxError, ErrorKind::UnexpectedToken],
     );
+
+    let message = result
+        .errors
+        .iter()
+        .find(|err| matches!(err.kind, ErrorKind::SyntaxError | ErrorKind::UnexpectedToken))
+        .map(|err| err.message.as_str())
+        .unwrap_or("");
+
+    assert!(
+        message.contains("Statements must be separated"),
+        "expected PHPX ASI message, got: {message}"
+    );
 }
 
 #[test]
