@@ -11,10 +11,18 @@ elif [ "$(uname -s)" = "Darwin" ]; then
 else
   zed_dir="${XDG_CONFIG_HOME:-$HOME/.config}/zed"
 fi
-ext_dir="$zed_dir/extensions"
+ext_dir="$zed_dir/extensions/work"
 ext_dest="$ext_dir/phpx"
+old_dest="$zed_dir/extensions/phpx"
 
 mkdir -p "$ext_dir"
+
+if [ -L "$old_dest" ]; then
+  old_target="$(readlink "$old_dest")"
+  if [ "$old_target" = "$ext_src" ]; then
+    rm "$old_dest"
+  fi
+fi
 
 if [ -L "$ext_dest" ]; then
   existing="$(readlink "$ext_dest")"

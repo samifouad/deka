@@ -58,13 +58,13 @@ A scaffold extension lives in `extensions/phpx/`.
 Symlink it into Zed (Linux default config path):
 
 ```sh
-ln -s /path/to/deka/extensions/phpx ~/.config/zed/extensions/phpx
+ln -s /path/to/deka/extensions/phpx ~/.config/zed/extensions/work/phpx
 ```
 
 On macOS, Zed uses a different config path:
 
 ```sh
-ln -s /path/to/deka/extensions/phpx "$HOME/Library/Application Support/Zed/extensions/phpx"
+ln -s /path/to/deka/extensions/phpx "$HOME/Library/Application Support/Zed/extensions/work/phpx"
 ```
 
 Or run the helper script from the repo root:
