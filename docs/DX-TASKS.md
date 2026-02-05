@@ -482,14 +482,14 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 4.4: Implement WIT Stub Integration
-- [ ] Extend compiler API to load `.d.phpx` stubs
-- [ ] Parse stub files for type information
+- [x] Extend compiler API to load `.d.phpx` stubs
+- [x] Parse stub files for type information
 - [ ] Use stub types for:
-  - [ ] Hover info on WASM imports
-  - [ ] Autocomplete for WASM functions
-  - [ ] Type checking WASM function calls
-  - [ ] Go-to-definition (jump to stub)
-- [ ] Suggest generating stubs if missing
+  - [x] Hover info on WASM imports
+  - [x] Autocomplete for WASM functions
+  - [x] Type checking WASM function calls
+  - [x] Go-to-definition (jump to stub)
+- [x] Suggest generating stubs if missing
 - [ ] Test with WIT examples from `examples/wasm_hello_wit/`
 
 **Acceptance**: LSP uses WIT stubs for WASM imports

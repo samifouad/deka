@@ -11,6 +11,8 @@ pub mod type_checker;
 pub mod type_syntax;
 
 use php_rs::parser::ast::Program;
+use php_rs::phpx::typeck::ExternalFunctionSig;
+use std::collections::HashMap;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -96,6 +98,7 @@ pub struct ValidationResult<'a> {
     pub errors: Vec<ValidationError>,
     pub warnings: Vec<ValidationWarning>,
     pub ast: Option<Program<'a>>,
+    pub wasm_functions: HashMap<String, ExternalFunctionSig>,
 }
 
 pub fn format_validation_error(source: &str, file_path: &str, error: &ValidationError) -> String {

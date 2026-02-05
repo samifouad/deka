@@ -1,7 +1,10 @@
 use std::path::Path;
 
 use php_rs::parser::ast::Program;
-use php_rs::phpx::typeck::{check_program_with_path, TypeError as PhpTypeError};
+use php_rs::phpx::typeck::{
+    check_program_with_path, check_program_with_path_and_externals, ExternalFunctionSig,
+    TypeError as PhpTypeError,
+};
 
 use super::{ErrorKind, Severity, ValidationError};
 
@@ -10,6 +13,24 @@ pub fn check_types(program: &Program, source: &str, file_path: Option<&str>) -> 
         .filter(|path| !path.is_empty())
         .map(Path::new);
     match check_program_with_path(program, source.as_bytes(), path) {
+        Ok(()) => Vec::new(),
+        Err(errors) => errors
+            .into_iter()
+            .map(|err| to_validation_error(err, source))
+            .collect(),
+    }
+}
+
+pub fn check_types_with_externals(
+    program: &Program,
+    source: &str,
+    file_path: Option<&str>,
+    externals: &std::collections::HashMap<String, ExternalFunctionSig>,
+) -> Vec<ValidationError> {
+    let path = file_path
+        .filter(|path| !path.is_empty())
+        .map(Path::new);
+    match check_program_with_path_and_externals(program, source.as_bytes(), path, externals) {
         Ok(()) => Vec::new(),
         Err(errors) => errors
             .into_iter()

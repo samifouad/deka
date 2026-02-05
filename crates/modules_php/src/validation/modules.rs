@@ -331,7 +331,7 @@ fn is_template_module(source: &str) -> bool {
         .any(|line| !line.trim().is_empty())
 }
 
-fn resolve_modules_root(file_path: &str) -> Option<PathBuf> {
+pub(crate) fn resolve_modules_root(file_path: &str) -> Option<PathBuf> {
     let path = Path::new(file_path);
     let dir = if path.is_dir() {
         path.to_path_buf()

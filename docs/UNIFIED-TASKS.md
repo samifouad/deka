@@ -508,14 +508,14 @@ Notes:
 475:  - [x] Struct definitions
 476:  - [x] WASM imports (jump to `.d.phpx` stub)
 106. [ ] DX-TASKS:  Test with multi-file projects
-107. [ ] DX-TASKS:  Extend compiler API to load `.d.phpx` stubs
-108. [ ] DX-TASKS:  Parse stub files for type information
-109. [ ] DX-TASKS:  Use stub types for:
-487:  - [ ] Hover info on WASM imports
-488:  - [ ] Autocomplete for WASM functions
-489:  - [ ] Type checking WASM function calls
-490:  - [ ] Go-to-definition (jump to stub)
-110. [ ] DX-TASKS:  Suggest generating stubs if missing
+107. [x] DX-TASKS:  Extend compiler API to load `.d.phpx` stubs
+108. [x] DX-TASKS:  Parse stub files for type information
+109. [x] DX-TASKS:  Use stub types for:
+487:  - [x] Hover info on WASM imports
+488:  - [x] Autocomplete for WASM functions
+489:  - [x] Type checking WASM function calls
+490:  - [x] Go-to-definition (jump to stub)
+110. [x] DX-TASKS:  Suggest generating stubs if missing
 111. [ ] DX-TASKS:  Test with WIT examples from `examples/wasm_hello_wit/`
 112. [x] DX-TASKS:  Add `referencesProvider` capability to LSP
 113. [x] DX-TASKS:  Implement `references` method:
