@@ -14,6 +14,7 @@ fi
 ext_dir="$zed_dir/extensions/work"
 ext_dest="$ext_dir/phpx"
 old_dest="$zed_dir/extensions/phpx"
+use_symlink="${ZED_PHPX_SYMLINK:-0}"
 
 mkdir -p "$ext_dir"
 
@@ -26,21 +27,33 @@ fi
 
 if [ -L "$ext_dest" ]; then
   existing="$(readlink "$ext_dest")"
-  if [ "$existing" = "$ext_src" ]; then
-    echo "PHPX Zed extension already linked: $ext_dest"
-    exit 0
+  if [ "$use_symlink" = "1" ]; then
+    if [ "$existing" = "$ext_src" ]; then
+      echo "PHPX Zed extension already linked: $ext_dest"
+      exit 0
+    fi
+    echo "Existing PHPX link points to $existing"
+    echo "Remove $ext_dest and re-run to link to $ext_src"
+    exit 1
   fi
-  echo "Existing PHPX link points to $existing"
-  echo "Remove $ext_dest and re-run to link to $ext_src"
-  exit 1
+  rm "$ext_dest"
 fi
 
 if [ -e "$ext_dest" ]; then
   echo "Path exists and is not a symlink: $ext_dest"
-  echo "Move it aside or delete it, then re-run."
-  exit 1
+  if [ "$use_symlink" = "1" ]; then
+    echo "Move it aside or delete it, then re-run."
+    exit 1
+  fi
+  rm -rf "$ext_dest"
 fi
 
-ln -s "$ext_src" "$ext_dest"
-echo "Linked PHPX Zed extension to $ext_dest"
+if [ "$use_symlink" = "1" ]; then
+  ln -s "$ext_src" "$ext_dest"
+  echo "Linked PHPX Zed extension to $ext_dest"
+else
+  mkdir -p "$ext_dest"
+  rsync -a --delete "$ext_src/" "$ext_dest/"
+  echo "Copied PHPX Zed extension to $ext_dest"
+fi
 echo "Next: configure phpx-lsp in $zed_dir/settings.json"
