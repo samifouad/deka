@@ -207,7 +207,7 @@ $title = 'Home';
 - [x] Implement `initialized` method (log ready message)
 - [x] Implement `shutdown` method
 - [x] Implement `did_open` and `did_change` handlers (log only)
-- [ ] Test with manual stdio: `echo '{"jsonrpc":"2.0","method":"initialize",...}' | cargo run`
+- [x] Test with manual stdio: `echo '{"jsonrpc":"2.0","method":"initialize",...}' | cargo run`
 
 **Acceptance**: LSP server responds to initialize and logs document events
 

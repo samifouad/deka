@@ -383,7 +383,7 @@ Notes:
 44. [x] DX-TASKS:  Implement `initialized` method (log ready message)
 45. [x] DX-TASKS:  Implement `shutdown` method
 46. [x] DX-TASKS:  Implement `did_open` and `did_change` handlers (log only)
-47. [ ] DX-TASKS:  Test with manual stdio: `echo '{"jsonrpc":"2.0","method":"initialize",...}' | cargo run`
+47. [x] DX-TASKS:  Test with manual stdio: `echo '{"jsonrpc":"2.0","method":"initialize",...}' | cargo run`
 48. [x] DX-TASKS:  Create `crates/modules_php/src/compiler_api.rs`
 49. [x] DX-TASKS:  Define public structs:
 50. [x] DX-TASKS:  Implement `compile_phpx(source: &str, file_path: &str) -> ValidationResult`
