@@ -1,10 +1,11 @@
 id = "phpx"
 name = "PHPX"
-version = "0.1.0"
+version = "0.1.1"
 schema_version = 1
 authors = ["Sami Fouad"]
 description = "PHPX language support (tree-sitter)"
 repository = "https://github.com/samifouad/deka"
+languages = ["languages/phpx"]
 
 [grammars.phpx_only]
 repository = "https://github.com/samifouad/deka"
@@ -13,4 +14,4 @@ path = "tooling/tree-sitter-phpx"
 
 [language_servers.phpx-lsp]
 name = "PHPX Language Server"
-language = "phpx"
+language = "PHPX"
