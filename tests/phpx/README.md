@@ -48,3 +48,13 @@ Each `.phpx` file can have optional sidecar expectation files:
 If no expectation files exist, the test passes as long as the exit code is 0.
 
 Directories prefixed with `_` are skipped.
+
+### Regex expectations
+If an expectation file starts with `re:`, the remainder is treated as a JavaScript regex.
+Example:
+```
+re:^Exception\\(Handle\\(\\d+\\)\\)$
+```
+
+## Conformance Checklist
+See `tests/phpx/CONFORMANCE.md` for the feature-to-fixture mapping and remaining gaps.

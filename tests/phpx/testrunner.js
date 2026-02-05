@@ -208,6 +208,16 @@ function normalizeExpected(text) {
   return sanitizeStream(text ?? "");
 }
 
+function matchExpected(actual, expectedRaw) {
+  const expected = normalizeExpected(expectedRaw);
+  if (expected.startsWith("re:")) {
+    const pattern = expected.slice(3).trim();
+    const re = new RegExp(pattern, "s");
+    return re.test(actual);
+  }
+  return actual === expected;
+}
+
 async function main() {
   console.log(`Running PHPX suite in ${suiteDir}`);
   const existsSuite = await exists(suiteDir);
@@ -251,11 +261,11 @@ async function main() {
     let ok = true;
     let reason = "";
 
-    if (expectedOut !== null && stdout !== normalizeExpected(expectedOut)) {
+    if (expectedOut !== null && !matchExpected(stdout, expectedOut)) {
       ok = false;
       reason = "stdout mismatch";
     }
-    if (expectedErr !== null && stderr !== normalizeExpected(expectedErr)) {
+    if (expectedErr !== null && !matchExpected(stderr, expectedErr)) {
       ok = false;
       reason = reason || "stderr mismatch";
     }
