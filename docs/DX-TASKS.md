@@ -68,7 +68,7 @@ We can leverage the existing **`deka-validation`** crate for beautiful error for
   - [ ] Default import (if needed)
 - [x] Add `export_statement` rule
   - [x] Export functions: `export function foo() {}`
-  - [ ] Export constants: `export const X = 1`
+  - [x] Export constants: `export const X = 1`
   - [x] Re-exports: `export { foo } from './bar'`
 - [x] Add highlighting for `import`, `export`, `from`, `as` keywords
 - [x] Test with module examples from `examples/php/modules/`

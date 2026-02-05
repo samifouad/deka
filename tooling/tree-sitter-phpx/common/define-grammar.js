@@ -465,6 +465,10 @@ module.exports = function defineGrammar(dialect) {
         keyword('export'),
         choice(
           $.function_definition,
+          $.const_declaration,
+          $.type_alias_declaration,
+          $.struct_declaration,
+          $.enum_declaration,
           $.export_list,
         ),
       ),
