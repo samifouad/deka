@@ -33,6 +33,13 @@ Runtime notes:
 - Unused imports are rejected at runtime compile time.
 - `.php` files opt in by placing `import` at the very top of the file.
 
+## Semicolons (PHPX)
+- Semicolons are optional in `.phpx` (JS-style automatic semicolon insertion).
+- A line terminator ends a statement unless the expression clearly continues
+  (inside `(...)`, `[...]`, `{...}`, or after `->`, `.`, `::`, or an operator).
+- `return`, `break`, and `continue` only consume their expression/level if it
+  appears on the **same line** (JS-style rule).
+
 ## Objects + dot access
 PHPX introduces JS-style object literals and tight-dot access:
 
