@@ -61,6 +61,9 @@ Each feature should have at least one fixture file and corresponding `.out` expe
 | String edge cases | `tests/phpx/objects/string_edge_cases.phpx` | `.out` |
 | Array append + unset | `tests/phpx/objects/array_append_unset.phpx` | `.out` |
 | Switch fallthrough | `tests/phpx/objects/switch_fallthrough.phpx` | `.out` |
+| Match default | `tests/phpx/objects/match_default.phpx` | `.out` |
+| Increment/decrement | `tests/phpx/objects/inc_dec.phpx` | `.out` |
+| isset + empty | `tests/phpx/objects/isset_empty.phpx` | `.out` |
 | Enums + match | `tests/phpx/enums/match.phpx` | `.out` |
 | Arrow functions | `tests/phpx/functions/arrow_function.phpx` | `.out` |
 | Struct value semantics | `tests/phpx/structs/value_semantics.phpx` | `.out` |

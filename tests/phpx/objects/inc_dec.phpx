@@ -1,0 +1,14 @@
+/*
+TEST: Increment/decrement
+Covers: pre/post increment and decrement.
+*/
+
+$x = 1;
+
+echo (++$x) . "\n";
+echo ($x++) . "\n";
+echo $x . "\n";
+
+echo (--$x) . "\n";
+echo ($x--) . "\n";
+echo $x . "\n";
