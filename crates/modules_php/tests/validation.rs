@@ -58,6 +58,13 @@ fn module_import_ok() {
 }
 
 #[test]
+fn wasm_stub_type_error() {
+    let path = fixtures_root().join("wasm/type_error.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::TypeError);
+}
+
+#[test]
 fn module_missing_module_reports_error() {
     let path = fixtures_root().join("modules/missing_module.phpx");
     let result = compile_fixture(&path);

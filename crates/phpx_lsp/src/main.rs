@@ -7,6 +7,7 @@ use modules_php::validation::{
 use php_rs::parser::ast::{
     ClassKind, ClassMember, Expr, ExprId, Name, ObjectKey, Param, Program, Stmt, StmtId, Type,
 };
+use php_rs::phpx::typeck::{ExternalFunctionSig, Type as PhpType};
 use php_rs::parser::lexer::token::Token;
 use php_rs::parser::span::Span;
 use tower_lsp::lsp_types::{
@@ -170,17 +171,24 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
+        let arena = Bump::new();
+        let result = compile_phpx(&text, &file_path, &arena);
         let mut hover_text = None;
-        with_program(&text, &file_path, |program, source| {
-            let index = build_index(program, source);
+        if let Some(program) = result.ast.as_ref() {
+            let index = build_index(program, text.as_bytes());
             hover_text = index.hover_at(offset);
-        });
+        }
 
         if hover_text.is_none() {
-            hover_text = hover_from_import(&text, offset);
+            if let Some(word) = word_at_offset(text.as_bytes(), offset) {
+                if let Some(sig) = result.wasm_functions.get(&word) {
+                    let signature = format_external_signature(&word, sig);
+                    hover_text = Some(format!("```php\n{}\n```", signature));
+                }
+            }
         }
         if hover_text.is_none() {
-            hover_text = hover_from_wasm_import(&text, &file_path, offset);
+            hover_text = hover_from_import(&text, offset);
         }
 
         let Some(value) = hover_text else {
@@ -1390,22 +1398,6 @@ fn hover_from_import(source: &str, offset: usize) -> Option<String> {
     None
 }
 
-fn hover_from_wasm_import(source: &str, file_path: &str, offset: usize) -> Option<String> {
-    let word = word_at_offset(source.as_bytes(), offset)?;
-    let imports = parse_imports(source);
-    for import in imports {
-        if !import.is_wasm || import.local != word {
-            continue;
-        }
-        let root = find_php_modules_root(Path::new(file_path))?;
-        let path = resolve_module_file(&root, &import.from, true)?;
-        let module_source = fs::read_to_string(path).ok()?;
-        if let Some(signature) = wasm_stub_signature(&module_source, &import.imported) {
-            return Some(format!("```php\n{}\n```", signature));
-        }
-    }
-    None
-}
 
 fn definition_for_import_module(
     source: &str,
@@ -1506,20 +1498,38 @@ fn export_range_for_symbol(source: &str, symbol: &str) -> Option<Range> {
     None
 }
 
-fn wasm_stub_signature(source: &str, symbol: &str) -> Option<String> {
-    for line in source.lines() {
-        let trimmed = line.trim_start();
-        let rest = match trimmed.strip_prefix("export function ") {
-            Some(rest) => rest,
-            None => continue,
-        };
-        let sig = rest.trim_end_matches(';').trim();
-        let name = sig.split('(').next().unwrap_or("").trim();
-        if name == symbol {
-            return Some(format!("function {}", sig));
+fn format_external_signature(name: &str, sig: &ExternalFunctionSig) -> String {
+    let mut out = String::from("function ");
+    out.push_str(name);
+    out.push('(');
+    for (idx, param) in sig.params.iter().enumerate() {
+        if idx > 0 {
+            out.push_str(", ");
+        }
+        if sig.variadic && idx == sig.params.len().saturating_sub(1) {
+            out.push_str("...");
+        }
+        let ty = param
+            .ty
+            .as_ref()
+            .map(format_php_type)
+            .unwrap_or_else(|| "mixed".to_string());
+        let name = format!("$arg{}", idx + 1);
+        out.push_str(&format!("{ty} {name}"));
+        if !param.required {
+            out.push_str(" = ?");
         }
     }
-    None
+    out.push(')');
+    if let Some(ret) = &sig.return_type {
+        out.push_str(": ");
+        out.push_str(&format_php_type(ret));
+    }
+    out
+}
+
+fn format_php_type(ty: &PhpType) -> String {
+    ty.name()
 }
 
 struct ImportInfo {

@@ -8,8 +8,7 @@ use crate::validation::exports::validate_exports;
 use crate::validation::generics::validate_generics;
 use crate::validation::imports::validate_imports;
 use crate::validation::imports::{
-    consume_comment_line, frontmatter_bounds, parse_import_line, strip_php_tags_inline, ImportKind,
-    ImportSpec,
+    consume_comment_line, frontmatter_bounds, strip_php_tags_inline, ImportKind, ImportSpec,
 };
 use crate::validation::jsx::{
     validate_components, validate_frontmatter, validate_jsx_expressions, validate_jsx_syntax,
@@ -200,7 +199,8 @@ fn collect_wasm_stub_signatures(
                     continue;
                 }
             };
-            let program = parse_stub_program(&stub_source, arena);
+            let processed = preprocess_stub_source(&stub_source);
+            let program = parse_stub_program(&processed, arena);
             if !program.errors.is_empty() {
                 let mut parse_errors =
                     crate::validation::parse_errors_to_validation_errors(&stub_source, program.errors);
@@ -212,7 +212,7 @@ fn collect_wasm_stub_signatures(
                 errors.extend(parse_errors);
                 continue;
             }
-            let sigs = external_functions_from_stub(&program, stub_source.as_bytes());
+            let sigs = external_functions_from_stub(&program, processed.as_bytes());
             stub_cache.insert(stub_path.clone(), sigs);
             stub_cache.get(&stub_path)
         };
@@ -246,7 +246,7 @@ fn wasm_stub_error(
     }
 }
 
-fn collect_wasm_import_specs(source: &str, file_path: &str) -> Vec<ImportSpec> {
+fn collect_wasm_import_specs(source: &str, _file_path: &str) -> Vec<ImportSpec> {
     let lines: Vec<&str> = source.lines().collect();
     let bounds = frontmatter_bounds(&lines);
     let scan_end = bounds.map(|(_, end)| end).unwrap_or(lines.len());
@@ -267,17 +267,62 @@ fn collect_wasm_import_specs(source: &str, file_path: &str) -> Vec<ImportSpec> {
         if consume_comment_line(trimmed, &mut in_block_comment) {
             continue;
         }
-        if trimmed.starts_with("import ") {
-            if let Ok(mut parsed) = parse_import_line(trimmed, line, idx + 1, file_path) {
-                specs.append(&mut parsed);
+        if !trimmed.starts_with("import ") || !trimmed.contains(" as wasm") {
+            continue;
+        }
+
+        let (open, close) = match (trimmed.find('{'), trimmed.find('}')) {
+            (Some(open), Some(close)) if close > open => (open, close),
+            _ => continue,
+        };
+        let spec_part = &trimmed[open + 1..close];
+        let from_idx = match trimmed.find("from") {
+            Some(idx) => idx,
+            None => continue,
+        };
+        let after_from = &trimmed[from_idx + 4..];
+        let (from, _) = match parse_module_spec(after_from) {
+            Some(value) => value,
+            None => continue,
+        };
+
+        for spec in spec_part.split(',') {
+            let spec_trim = spec.trim();
+            if spec_trim.is_empty() {
+                continue;
             }
+            let (imported, local) = if let Some((left, right)) = spec_trim.split_once(" as ") {
+                (left.trim(), right.trim())
+            } else {
+                (spec_trim, spec_trim)
+            };
+            if imported.is_empty() || local.is_empty() {
+                continue;
+            }
+            let column = line.find(local).map(|idx| idx + 1).unwrap_or(1);
+            specs.push(ImportSpec {
+                imported: imported.to_string(),
+                local: local.to_string(),
+                from: from.to_string(),
+                kind: ImportKind::Wasm,
+                line: idx + 1,
+                column,
+                line_text: line.to_string(),
+            });
         }
     }
 
     specs
-        .into_iter()
-        .filter(|spec| spec.kind == ImportKind::Wasm)
-        .collect()
+}
+
+fn parse_module_spec(input: &str) -> Option<(String, &str)> {
+    let trimmed = input.trim_start();
+    let quote_idx = trimmed.find(&['\'', '"'][..])?;
+    let quote_char = trimmed.chars().nth(quote_idx)?;
+    let after_quote = &trimmed[quote_idx + 1..];
+    let end_idx = after_quote.find(quote_char)?;
+    let module = &after_quote[..end_idx];
+    Some((module.to_string(), &after_quote[end_idx + 1..]))
 }
 
 fn resolve_wasm_stub_path(file_path: &str, spec: &ImportSpec) -> Option<PathBuf> {
@@ -307,8 +352,7 @@ fn resolve_wasm_stub_path(file_path: &str, spec: &ImportSpec) -> Option<PathBuf>
 }
 
 fn parse_stub_program<'a>(source: &str, arena: &'a Bump) -> php_rs::parser::ast::Program<'a> {
-    let processed = preprocess_stub_source(source);
-    let lexer = Lexer::new(processed.as_bytes());
+    let lexer = Lexer::new(source.as_bytes());
     let mut parser = Parser::new_with_mode(lexer, arena, ParserMode::Phpx);
     parser.parse_program()
 }
@@ -318,19 +362,33 @@ fn preprocess_stub_source(source: &str) -> String {
     for segment in source.split_inclusive('\n') {
         let clean = strip_php_tags_inline(segment);
         let trimmed = clean.trim_start();
-        if trimmed.starts_with("export ") {
+        let mut line = if trimmed.starts_with("export ") {
             if let Some(idx) = clean.find("export") {
                 let mut out = String::with_capacity(clean.len());
                 out.push_str(&clean[..idx]);
                 out.push_str("      ");
                 out.push_str(&clean[idx + 6..]);
-                output.push_str(&out);
+                out
             } else {
-                output.push_str(&clean);
+                clean
             }
         } else {
-            output.push_str(&clean);
+            clean
+        };
+
+        let has_newline = line.ends_with('\n');
+        let line_trimmed_end = line.trim_end_matches('\n');
+        let trimmed_no_ws = line_trimmed_end.trim_start();
+        if trimmed_no_ws.starts_with("function ") && line_trimmed_end.trim_end().ends_with(';') {
+            let mut replaced = line_trimmed_end.trim_end().trim_end_matches(';').to_string();
+            replaced.push_str(" {}");
+            line = replaced;
+            if has_newline {
+                line.push('\n');
+            }
         }
+
+        output.push_str(&line);
     }
     output
 }
