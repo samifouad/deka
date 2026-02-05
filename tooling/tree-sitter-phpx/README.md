@@ -55,10 +55,16 @@ tree-sitter test -u --file-name phpx_jsx.txt
 
 A scaffold extension lives in `extensions/phpx/`.
 
-Symlink it into Zed:
+Symlink it into Zed (Linux default config path):
 
 ```sh
 ln -s /path/to/deka/extensions/phpx ~/.config/zed/extensions/phpx
+```
+
+On macOS, Zed uses a different config path:
+
+```sh
+ln -s /path/to/deka/extensions/phpx "$HOME/Library/Application Support/Zed/extensions/phpx"
 ```
 
 Or run the helper script from the repo root:

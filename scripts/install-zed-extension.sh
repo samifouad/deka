@@ -4,7 +4,13 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ext_src="$repo_root/extensions/phpx"
 
-zed_dir="${ZED_CONFIG_DIR:-$HOME/.config/zed}"
+if [ -n "${ZED_CONFIG_DIR:-}" ]; then
+  zed_dir="$ZED_CONFIG_DIR"
+elif [ "$(uname -s)" = "Darwin" ]; then
+  zed_dir="$HOME/Library/Application Support/Zed"
+else
+  zed_dir="${XDG_CONFIG_HOME:-$HOME/.config}/zed"
+fi
 ext_dir="$zed_dir/extensions"
 ext_dest="$ext_dir/phpx"
 
