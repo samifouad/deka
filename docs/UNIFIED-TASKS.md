@@ -396,7 +396,7 @@ Notes:
 53. [x] DX-TASKS:  Add `deka-validation` dependency to `phpx_lsp`
 54. [x] DX-TASKS:  Implement error formatting in LSP:
 55. [x] DX-TASKS:  Convert formatted errors to LSP Diagnostic messages
-56. [ ] DX-TASKS:  Test with PHPX files containing errors
+56. [x] DX-TASKS:  Test with PHPX files containing errors
 57. [ ] DX-TASKS:  Verify beautiful error output in editor
 58. [x] DX-TASKS:  Implement `validate_document` method in LSP server:
 275:  - [x] Call `compile_phpx` API
@@ -406,10 +406,10 @@ Notes:
 279:  - [x] Include formatted message
 59. [x] DX-TASKS:  Call `client.publish_diagnostics` on document open/change
 60. [ ] DX-TASKS:  Test with PHPX files containing:
-282:  - [ ] Syntax errors
-283:  - [ ] Type errors
-284:  - [ ] Import errors
-285:  - [ ] WIT import errors (missing stubs)
+282:  - [x] Syntax errors
+283:  - [x] Type errors
+284:  - [x] Import errors
+285:  - [x] WIT import errors (missing stubs)
 61. [ ] DX-TASKS:  Verify errors appear in editor as red squiggles
 62. [x] DX-TASKS:  Update `extensions/phpx/extension.toml` with LSP config:
 63. [ ] DX-TASKS:  Add LSP binary path to Zed settings:

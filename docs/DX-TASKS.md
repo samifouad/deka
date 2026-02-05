@@ -263,7 +263,7 @@ $title = 'Home';
   }
   ```
 - [x] Convert formatted errors to LSP Diagnostic messages
-- [ ] Test with PHPX files containing errors
+- [x] Test with PHPX files containing errors
 - [ ] Verify beautiful error output in editor
 
 **Acceptance**: LSP diagnostics show formatted errors with help text
@@ -278,11 +278,11 @@ $title = 'Home';
   - [x] Set severity (Error vs Warning)
   - [x] Include formatted message
 - [x] Call `client.publish_diagnostics` on document open/change
-- [ ] Test with PHPX files containing:
-  - [ ] Syntax errors
-  - [ ] Type errors
-  - [ ] Import errors
-  - [ ] WIT import errors (missing stubs)
+- [x] Test with PHPX files containing:
+  - [x] Syntax errors
+  - [x] Type errors
+  - [x] Import errors
+  - [x] WIT import errors (missing stubs)
 - [ ] Verify errors appear in editor as red squiggles
 
 **Acceptance**: Editor shows red squiggles on PHPX errors
