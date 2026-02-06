@@ -540,8 +540,8 @@ Notes:
 523:  - [x] Functions
 524:  - [x] Imports (update import path)
 525:  - [x] Struct fields
-119. [ ] DX-TASKS:  Test rename across multiple files
-120. [ ] DX-TASKS:  Verify no broken references
+119. [x] DX-TASKS:  Test rename across multiple files
+120. [x] DX-TASKS:  Verify no broken references
 121. [x] DX-TASKS:  Add `documentSymbolProvider` capability to LSP
 122. [x] DX-TASKS:  Implement `document_symbol` method:
 536:  - [x] Parse PHPX to AST

@@ -404,31 +404,8 @@ impl LanguageServer for Backend {
         }
 
         if let Some(module_spec) = import_module_at_offset(&text, offset) {
-            let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
-            for root in &roots {
-                for file in collect_phpx_files(root) {
-                    let file_uri = match Url::from_file_path(&file) {
-                        Ok(uri) => uri,
-                        Err(_) => continue,
-                    };
-                    let content = if file_uri == uri {
-                        text.clone()
-                    } else {
-                        fs::read_to_string(&file).unwrap_or_default()
-                    };
-                    let line_index = LineIndex::new(&content);
-                    let mut edits = Vec::new();
-                    for span in import_module_spans(&content, &module_spec) {
-                        edits.push(TextEdit {
-                            range: span_to_range(span, &line_index),
-                            new_text: new_name.clone(),
-                        });
-                    }
-                    if !edits.is_empty() {
-                        changes.insert(file_uri, edits);
-                    }
-                }
-            }
+            let changes =
+                collect_module_rename_edits(&roots, &uri, &text, &module_spec, &new_name);
             if !changes.is_empty() {
                 return Ok(Some(WorkspaceEdit {
                     changes: Some(changes),
@@ -442,31 +419,7 @@ impl LanguageServer for Backend {
             return Ok(None);
         };
 
-        let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
-        for root in roots {
-            for file in collect_phpx_files(&root) {
-                let file_uri = match Url::from_file_path(&file) {
-                    Ok(uri) => uri,
-                    Err(_) => continue,
-                };
-                let content = if file_uri == uri {
-                    text.clone()
-                } else {
-                    fs::read_to_string(&file).unwrap_or_default()
-                };
-                let line_index = LineIndex::new(&content);
-                let mut edits = Vec::new();
-                for span in find_word_occurrences(content.as_bytes(), &word) {
-                    edits.push(TextEdit {
-                        range: span_to_range(span, &line_index),
-                        new_text: new_name.clone(),
-                    });
-                }
-                if !edits.is_empty() {
-                    changes.insert(file_uri, edits);
-                }
-            }
-        }
+        let changes = collect_symbol_rename_edits(&roots, &uri, &text, &word, &new_name);
 
         if changes.is_empty() {
             return Ok(None);
@@ -2101,6 +2054,76 @@ fn resolve_module_file(root: &Path, module_spec: &str, is_wasm: bool) -> Option<
     None
 }
 
+fn collect_module_rename_edits(
+    roots: &[PathBuf],
+    active_uri: &Url,
+    active_text: &str,
+    old_module: &str,
+    new_module: &str,
+) -> HashMap<Url, Vec<TextEdit>> {
+    let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+    for root in roots {
+        for file in collect_phpx_files(root) {
+            let file_uri = match Url::from_file_path(&file) {
+                Ok(uri) => uri,
+                Err(_) => continue,
+            };
+            let content = if &file_uri == active_uri {
+                active_text.to_string()
+            } else {
+                fs::read_to_string(&file).unwrap_or_default()
+            };
+            let line_index = LineIndex::new(&content);
+            let mut edits = Vec::new();
+            for span in import_module_spans(&content, old_module) {
+                edits.push(TextEdit {
+                    range: span_to_range(span, &line_index),
+                    new_text: new_module.to_string(),
+                });
+            }
+            if !edits.is_empty() {
+                changes.insert(file_uri, edits);
+            }
+        }
+    }
+    changes
+}
+
+fn collect_symbol_rename_edits(
+    roots: &[PathBuf],
+    active_uri: &Url,
+    active_text: &str,
+    old_symbol: &str,
+    new_symbol: &str,
+) -> HashMap<Url, Vec<TextEdit>> {
+    let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+    for root in roots {
+        for file in collect_phpx_files(root) {
+            let file_uri = match Url::from_file_path(&file) {
+                Ok(uri) => uri,
+                Err(_) => continue,
+            };
+            let content = if &file_uri == active_uri {
+                active_text.to_string()
+            } else {
+                fs::read_to_string(&file).unwrap_or_default()
+            };
+            let line_index = LineIndex::new(&content);
+            let mut edits = Vec::new();
+            for span in find_word_occurrences(content.as_bytes(), old_symbol) {
+                edits.push(TextEdit {
+                    range: span_to_range(span, &line_index),
+                    new_text: new_symbol.to_string(),
+                });
+            }
+            if !edits.is_empty() {
+                changes.insert(file_uri, edits);
+            }
+        }
+    }
+    changes
+}
+
 fn collect_phpx_files(root: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
     let mut stack = vec![root.to_path_buf()];
@@ -2166,6 +2189,19 @@ fn find_word_occurrences(source: &[u8], word: &str) -> Vec<Span> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(prefix: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("{}_{}", prefix, nonce));
+        fs::create_dir_all(&dir).expect("mkdir");
+        dir
+    }
 
     #[test]
     fn parses_import_module_path_with_span() {
@@ -2200,5 +2236,52 @@ mod tests {
         let spans = find_word_occurrences(src, "foo");
         let ranges: Vec<(usize, usize)> = spans.into_iter().map(|s| (s.start, s.end)).collect();
         assert_eq!(ranges, vec![(0, 3), (9, 12), (21, 24)]);
+    }
+
+    #[test]
+    fn collects_module_rename_edits_across_workspace_files() {
+        let dir = temp_dir("phpx_lsp_module_rename");
+        let file_a = dir.join("a.phpx");
+        let file_b = dir.join("b.phpx");
+        let src_a = "import { query } from 'db/postgres'\n";
+        let src_b = "import { exec } from 'db/postgres'\n";
+        fs::write(&file_a, src_a).expect("write a");
+        fs::write(&file_b, src_b).expect("write b");
+
+        let uri_a = Url::from_file_path(&file_a).expect("uri a");
+        let edits = collect_module_rename_edits(
+            std::slice::from_ref(&dir),
+            &uri_a,
+            src_a,
+            "db/postgres",
+            "db/mysql",
+        );
+        assert_eq!(edits.len(), 2);
+        let uri_b = Url::from_file_path(&file_b).expect("uri b");
+        assert_eq!(edits.get(&uri_a).map(|v| v.len()), Some(1));
+        assert_eq!(edits.get(&uri_b).map(|v| v.len()), Some(1));
+    }
+
+    #[test]
+    fn collects_symbol_rename_edits_with_word_boundaries_across_files() {
+        let dir = temp_dir("phpx_lsp_symbol_rename");
+        let file_a = dir.join("a.phpx");
+        let file_b = dir.join("b.phpx");
+        let src_a = "$foo = 1\n$food = 2\n";
+        let src_b = "function run($foo) { return $foo }\n";
+        fs::write(&file_a, src_a).expect("write a");
+        fs::write(&file_b, src_b).expect("write b");
+
+        let uri_a = Url::from_file_path(&file_a).expect("uri a");
+        let edits = collect_symbol_rename_edits(
+            std::slice::from_ref(&dir),
+            &uri_a,
+            src_a,
+            "$foo",
+            "$bar",
+        );
+        let uri_b = Url::from_file_path(&file_b).expect("uri b");
+        assert_eq!(edits.get(&uri_a).map(|v| v.len()), Some(1));
+        assert_eq!(edits.get(&uri_b).map(|v| v.len()), Some(2));
     }
 }

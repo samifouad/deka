@@ -524,8 +524,8 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] Functions
   - [ ] Imports (update import path)
   - [x] Struct fields
-- [ ] Test rename across multiple files
-- [ ] Verify no broken references
+- [x] Test rename across multiple files
+- [x] Verify no broken references
 
 **Acceptance**: Rename updates all references correctly
 
