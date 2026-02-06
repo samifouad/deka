@@ -538,7 +538,7 @@ Notes:
 118. [x] DX-TASKS:  Support renaming:
 522:  - [x] Variables
 523:  - [x] Functions
-524:  - [ ] Imports (update import path)
+524:  - [x] Imports (update import path)
 525:  - [x] Struct fields
 119. [ ] DX-TASKS:  Test rename across multiple files
 120. [ ] DX-TASKS:  Verify no broken references

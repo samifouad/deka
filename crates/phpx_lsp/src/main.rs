@@ -333,9 +333,6 @@ impl LanguageServer for Backend {
             Some(offset) => offset,
             None => return Ok(None),
         };
-        let Some(word) = word_at_offset(text.as_bytes(), offset) else {
-            return Ok(None);
-        };
 
         let mut roots = self.workspace_roots.read().await.clone();
         if roots.is_empty() {
@@ -345,6 +342,10 @@ impl LanguageServer for Backend {
                 }
             }
         }
+
+        let Some(word) = word_at_offset(text.as_bytes(), offset) else {
+            return Ok(None);
+        };
 
         let mut locations = Vec::new();
         for root in roots {
@@ -392,9 +393,6 @@ impl LanguageServer for Backend {
             Some(offset) => offset,
             None => return Ok(None),
         };
-        let Some(word) = word_at_offset(text.as_bytes(), offset) else {
-            return Ok(None);
-        };
 
         let mut roots = self.workspace_roots.read().await.clone();
         if roots.is_empty() {
@@ -404,6 +402,45 @@ impl LanguageServer for Backend {
                 }
             }
         }
+
+        if let Some(module_spec) = import_module_at_offset(&text, offset) {
+            let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+            for root in &roots {
+                for file in collect_phpx_files(root) {
+                    let file_uri = match Url::from_file_path(&file) {
+                        Ok(uri) => uri,
+                        Err(_) => continue,
+                    };
+                    let content = if file_uri == uri {
+                        text.clone()
+                    } else {
+                        fs::read_to_string(&file).unwrap_or_default()
+                    };
+                    let line_index = LineIndex::new(&content);
+                    let mut edits = Vec::new();
+                    for span in import_module_spans(&content, &module_spec) {
+                        edits.push(TextEdit {
+                            range: span_to_range(span, &line_index),
+                            new_text: new_name.clone(),
+                        });
+                    }
+                    if !edits.is_empty() {
+                        changes.insert(file_uri, edits);
+                    }
+                }
+            }
+            if !changes.is_empty() {
+                return Ok(Some(WorkspaceEdit {
+                    changes: Some(changes),
+                    document_changes: None,
+                    change_annotations: None,
+                }));
+            }
+        }
+
+        let Some(word) = word_at_offset(text.as_bytes(), offset) else {
+            return Ok(None);
+        };
 
         let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
         for root in roots {
@@ -1684,6 +1721,49 @@ fn parse_module_path_with_span(line: &str, line_offset: usize) -> Option<(String
     let start = line_offset + from_idx + 4 + quote + 1;
     let end_pos = start + end;
     Some((after[..end].to_string(), Span::new(start, end_pos)))
+}
+
+fn import_module_at_offset(source: &str, offset: usize) -> Option<String> {
+    for (line, line_offset) in line_with_offsets(source) {
+        let line_end = line_offset + line.len();
+        if offset < line_offset || offset > line_end {
+            continue;
+        }
+        if !line.contains("import") || !line.contains("from") {
+            return None;
+        }
+        let (module_spec, span) = parse_module_path_with_span(line, line_offset)?;
+        if offset >= span.start && offset <= span.end {
+            return Some(module_spec);
+        }
+        return None;
+    }
+    None
+}
+
+fn import_module_spans(source: &str, module_spec: &str) -> Vec<Span> {
+    let mut spans = Vec::new();
+    for (line, line_offset) in line_with_offsets(source) {
+        if !line.contains("import") || !line.contains("from") {
+            continue;
+        }
+        if let Some((found, span)) = parse_module_path_with_span(line, line_offset) {
+            if found == module_spec {
+                spans.push(span);
+            }
+        }
+    }
+    spans
+}
+
+fn line_with_offsets(source: &str) -> Vec<(&str, usize)> {
+    let mut out = Vec::new();
+    let mut offset = 0usize;
+    for line in source.split('\n') {
+        out.push((line, offset));
+        offset += line.len() + 1;
+    }
+    out
 }
 
 struct ExportInfo {
