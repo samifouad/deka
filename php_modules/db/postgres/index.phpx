@@ -125,21 +125,175 @@ function __pg_md5_password($user, $password, $salt4) {
     return 'md5' . $second
 }
 
-function __pg_auth_step($conn, $payload, $user, $password) {
+function __pg_xor_bytes($a, $b) {
+    $n = min(strlen($a), strlen($b))
+    $out = ''
+    for ($i = 0; $i < $n; $i += 1) {
+        $out .= chr(bytes_get($a, $i) ^ bytes_get($b, $i))
+    }
+    return $out
+}
+
+function __pg_scram_username($user) {
+    $u = '' . $user
+    $u = str_replace('=', '=3D', $u)
+    $u = str_replace(',', '=2C', $u)
+    return $u
+}
+
+function __pg_scram_nonce($user, $database) {
+    $seed = '' . $user . ':' . $database . ':' . microtime(true) . ':' . uniqid('', true)
+    return rtrim(base64_encode(hash('sha256', $seed, true)), '=')
+}
+
+function __pg_scram_attrs($text) {
+    $attrs = []
+    $parts = explode(',', '' . $text)
+    foreach ($parts as $part) {
+        if ($part === '') {
+            continue
+        }
+        $eq = strpos($part, '=')
+        if ($eq === false) {
+            continue
+        }
+        $k = substr($part, 0, $eq)
+        $v = substr($part, $eq + 1)
+        $attrs[$k] = $v
+    }
+    return $attrs
+}
+
+function __pg_scram_hi($password, $salt_raw, $iterations) {
+    $u = hash_hmac('sha256', $salt_raw . __pg_i32(1), '' . $password, true)
+    $out = $u
+    for ($i = 1; $i < (int) $iterations; $i += 1) {
+        $u = hash_hmac('sha256', $u, '' . $password, true)
+        $out = __pg_xor_bytes($out, $u)
+    }
+    return $out
+}
+
+function __pg_scram_send_client_first($conn, $state, $user) {
+    $nonce = __pg_scram_nonce($user, $conn.database)
+    $first_bare = 'n=' . __pg_scram_username($user) . ',r=' . $nonce
+    $first = 'n,,' . $first_bare
+    $payload = 'SCRAM-SHA-256' . "\0" . __pg_i32(strlen($first)) . $first
+    $packet = 'p' . __pg_i32(strlen($payload) + 4) . $payload
+    $sent = __pg_send($conn, $packet)
+    if (!result_is_ok($sent)) {
+        return result_err($sent.error)
+    }
+    $state['scram'] = {
+        nonce: $nonce,
+        first_bare: $first_bare
+    }
+    return result_ok($state)
+}
+
+function __pg_scram_send_client_final($conn, $state, $password, $payload) {
+    if (!is_array($state) || !array_key_exists('scram', $state) || !is_array($state['scram'])) {
+        return result_err('wire scram missing state')
+    }
+    if (strlen($payload) < 4) {
+        return result_err('wire scram invalid continue payload')
+    }
+
+    $server_first = substr($payload, 4)
+    $attrs = __pg_scram_attrs($server_first)
+    if (!array_key_exists('r', $attrs) || !array_key_exists('s', $attrs) || !array_key_exists('i', $attrs)) {
+        return result_err('wire scram invalid server-first message')
+    }
+
+    $nonce = $state['scram']['nonce']
+    if (substr($attrs['r'], 0, strlen($nonce)) !== $nonce) {
+        return result_err('wire scram nonce mismatch')
+    }
+
+    $salt_raw = base64_decode($attrs['s'])
+    if (!is_string($salt_raw) || $salt_raw === '') {
+        return result_err('wire scram invalid salt')
+    }
+
+    $iters = (int) $attrs['i']
+    if ($iters <= 0) {
+        return result_err('wire scram invalid iteration count')
+    }
+
+    $client_final_no_proof = 'c=biws,r=' . $attrs['r']
+    $salted_password = __pg_scram_hi($password, $salt_raw, $iters)
+    $client_key = hash_hmac('sha256', 'Client Key', $salted_password, true)
+    $stored_key = hash('sha256', $client_key, true)
+    $auth_message = $state['scram']['first_bare'] . ',' . $server_first . ',' . $client_final_no_proof
+    $client_signature = hash_hmac('sha256', $auth_message, $stored_key, true)
+    $client_proof = base64_encode(__pg_xor_bytes($client_key, $client_signature))
+    $server_key = hash_hmac('sha256', 'Server Key', $salted_password, true)
+    $state['scram_server_sig'] = base64_encode(hash_hmac('sha256', $auth_message, $server_key, true))
+
+    $client_final = $client_final_no_proof . ',p=' . $client_proof
+    $packet = 'p' . __pg_i32(strlen($client_final) + 4) . $client_final
+    $sent = __pg_send($conn, $packet)
+    if (!result_is_ok($sent)) {
+        return result_err($sent.error)
+    }
+
+    return result_ok($state)
+}
+
+function __pg_scram_verify_server_final($state, $payload) {
+    if (strlen($payload) < 4) {
+        return result_err('wire scram invalid final payload')
+    }
+    $server_final = substr($payload, 4)
+    $attrs = __pg_scram_attrs($server_final)
+    if (array_key_exists('e', $attrs)) {
+        return result_err('wire scram server error: ' . $attrs['e'])
+    }
+    if (array_key_exists('v', $attrs) && is_array($state) && array_key_exists('scram_server_sig', $state)) {
+        if ($attrs['v'] !== $state['scram_server_sig']) {
+            return result_err('wire scram server signature mismatch')
+        }
+    }
+    return result_ok('ok')
+}
+
+function __pg_auth_step($conn, $payload, $user, $password, $state) {
     $code = __pg_u32_at($payload, 0)
     if ($code === 0) {
-        return result_ok('ok')
+        return result_ok($state)
     }
     if ($code === 3) {
-        return __pg_send_password($conn, $password)
+        $sent = __pg_send_password($conn, $password)
+        if (!result_is_ok($sent)) {
+            return result_err($sent.error)
+        }
+        return result_ok($state)
     }
     if ($code === 5) {
         $salt4 = substr($payload, 4, 4)
         $pass = __pg_md5_password($user, $password, $salt4)
-        return __pg_send_password($conn, $pass)
+        $sent = __pg_send_password($conn, $pass)
+        if (!result_is_ok($sent)) {
+            return result_err($sent.error)
+        }
+        return result_ok($state)
     }
     if ($code === 10) {
-        return result_err('wire_unsupported_auth:sasl')
+        $mechs = substr($payload, 4)
+        if (strpos($mechs, 'SCRAM-SHA-256') === false) {
+            return result_err('wire_unsupported_auth:sasl')
+        }
+        return __pg_scram_send_client_first($conn, $state, $user)
+    }
+    if ($code === 11) {
+        return __pg_scram_send_client_final($conn, $state, $password, $payload)
+    }
+    if ($code === 12) {
+        $ok = __pg_scram_verify_server_final($state, $payload)
+        if (!result_is_ok($ok)) {
+            return result_err($ok.error)
+        }
+        return result_ok($state)
     }
     return result_err('wire_unsupported_auth:' . $code)
 }
@@ -264,6 +418,7 @@ function __pg_connect_wire($config) {
         return result_err('wire startup send failed: ' . $sent.error)
     }
 
+    $auth_state = []
     while (true) {
         $msg = __pg_read_message($conn)
         if (!result_is_ok($msg)) {
@@ -272,11 +427,12 @@ function __pg_connect_wire($config) {
         }
 
         if ($msg.value.type === 'R') {
-            $auth = __pg_auth_step($conn, $msg.value.payload, $user, $password)
+            $auth = __pg_auth_step($conn, $msg.value.payload, $user, $password, $auth_state)
             if (!result_is_ok($auth)) {
                 __pg_close_conn($conn)
                 return result_err($auth.error)
             }
+            $auth_state = $auth.value
             continue
         }
 
