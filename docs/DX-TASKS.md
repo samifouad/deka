@@ -553,7 +553,7 @@ Import Error: Missing type stubs for '@user/hello'
 ### Task 5.1: Create VSCode Extension Scaffold
 - [x] Create `extensions/vscode-phpx/` directory
 - [ ] Initialize extension: `npm init` or `yo code`
-- [ ] Update `package.json` metadata
+- [x] Update `package.json` metadata
 - [x] Create `syntaxes/phpx.tmLanguage.json` (TextMate grammar)
   - [ ] Port from tree-sitter grammar OR
   - [ ] Use tree-sitter WASM in extension
@@ -565,11 +565,11 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 5.2: Integrate LSP Client
-- [ ] Add `vscode-languageclient` dependency
-- [ ] Create `src/extension.ts`:
-  - [ ] Start LSP server on activation
-  - [ ] Configure server options
-  - [ ] Handle server lifecycle
+- [x] Add `vscode-languageclient` dependency
+- [x] Create `src/extension.ts`:
+  - [x] Start LSP server on activation
+  - [x] Configure server options
+  - [x] Handle server lifecycle
 - [ ] Bundle LSP binary with extension OR
 - [ ] Download binary on activation (GitHub releases)
 - [ ] Test extension locally: `code --extensionDevelopmentPath=.`
@@ -579,7 +579,7 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 5.3: Add Syntax Highlighting
-- [ ] Option A: TextMate grammar in `syntaxes/`
+- [x] Option A: TextMate grammar in `syntaxes/`
 - [ ] Option B: tree-sitter WASM bundle
   - [ ] Compile tree-sitter grammar to WASM
   - [ ] Bundle in extension
@@ -592,10 +592,10 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 5.4: Package and Publish
-- [ ] Create `.vsix` package: `vsce package`
-- [ ] Test installation: `code --install-extension phpx-0.1.0.vsix`
+- [x] Create `.vsix` package: `vsce package`
+- [x] Test installation: `code --install-extension phpx-0.1.0.vsix`
 - [ ] Create GitHub repository for extension
-- [ ] Write `README.md` with features and screenshots
+- [x] Write `README.md` with features and screenshots
 - [ ] Publish to VSCode Marketplace (optional):
   - [ ] Create publisher account
   - [ ] Run `vsce publish`

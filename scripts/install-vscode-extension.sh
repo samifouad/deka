@@ -11,14 +11,15 @@ if ! command -v code >/dev/null 2>&1; then
 fi
 
 if ! command -v vsce >/dev/null 2>&1; then
-  echo "vsce not found; installing locally with npm..."
+  echo "vsce not found; installing with npm..."
   npm install -g @vscode/vsce
 fi
 
 pushd "$ext_dir" >/dev/null
+npm install
 vsce package
 vsix=$(ls -t *.vsix | head -n 1)
-code --install-extension "$vsix"
+code --install-extension "$vsix" --force
 popd >/dev/null
 
 echo "Installed PHPX VS Code extension: $vsix"

@@ -1,22 +1,42 @@
-# PHPX VS Code Extension (Local)
+# PHPX VS Code Extension
 
-This provides basic PHPX syntax highlighting via a TextMate grammar.
+This extension provides:
 
-## Local install
+- PHPX syntax highlighting (`.phpx`)
+- PHPX language server integration (`phpx_lsp`) for diagnostics, go-to-definition, references, rename, and more
 
-Option A (development host):
+## Install
 
-1. Open `extensions/vscode-phpx` in VS Code.
-2. Press `F5` to run the Extension Development Host.
-3. Open a `.phpx` file to verify highlighting.
+Use the helper script from repo root:
 
-Option B (vsix):
+```sh
+scripts/install-vscode-extension.sh
+```
 
-1. Install vsce: `npm install -g @vscode/vsce`
-2. From `extensions/vscode-phpx/`, run: `vsce package`
-3. Install the generated `.vsix` via `code --install-extension`.
+## LSP startup behavior
 
-## LSP
+Default startup command:
 
-This extension only provides highlighting. Once `phpx_lsp` is packaged we can
-add the language client to provide diagnostics and navigation.
+```sh
+deka lsp
+```
+
+Override in VS Code settings if needed:
+
+```json
+{
+  "phpx.lsp.path": "/absolute/path/to/phpx_lsp",
+  "phpx.lsp.args": []
+}
+```
+
+## Commands
+
+- `PHPX: Restart Language Server`
+
+## Development
+
+1. Open `extensions/vscode-phpx` in VS Code
+2. Run `npm install`
+3. Press `F5` to launch Extension Development Host
+4. Open a `.phpx` file

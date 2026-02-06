@@ -551,31 +551,31 @@ Notes:
 124. [ ] DX-TASKS:  Test with large PHPX files
 125. [x] DX-TASKS:  Create `extensions/vscode-phpx/` directory
 126. [ ] DX-TASKS:  Initialize extension: `npm init` or `yo code`
-127. [ ] DX-TASKS:  Update `package.json` metadata
+127. [x] DX-TASKS:  Update `package.json` metadata
 128. [x] DX-TASKS:  Create `syntaxes/phpx.tmLanguage.json` (TextMate grammar)
 557:  - [ ] Port from tree-sitter grammar OR
 558:  - [ ] Use tree-sitter WASM in extension
 129. [x] DX-TASKS:  Add language configuration
 130. [ ] DX-TASKS:  Add file icon
-131. [ ] DX-TASKS:  Add `vscode-languageclient` dependency
-132. [ ] DX-TASKS:  Create `src/extension.ts`:
-569:  - [ ] Start LSP server on activation
-570:  - [ ] Configure server options
-571:  - [ ] Handle server lifecycle
+131. [x] DX-TASKS:  Add `vscode-languageclient` dependency
+132. [x] DX-TASKS:  Create `src/extension.ts`:
+569:  - [x] Start LSP server on activation
+570:  - [x] Configure server options
+571:  - [x] Handle server lifecycle
 133. [ ] DX-TASKS:  Bundle LSP binary with extension OR
 134. [ ] DX-TASKS:  Download binary on activation (GitHub releases)
 135. [ ] DX-TASKS:  Test extension locally: `code --extensionDevelopmentPath=.`
-136. [ ] DX-TASKS:  Option A: TextMate grammar in `syntaxes/`
+136. [x] DX-TASKS:  Option A: TextMate grammar in `syntaxes/`
 137. [ ] DX-TASKS:  Option B: tree-sitter WASM bundle
 583:  - [ ] Compile tree-sitter grammar to WASM
 584:  - [ ] Bundle in extension
 585:  - [ ] Use `vscode-textmate` or `web-tree-sitter`
 138. [ ] DX-TASKS:  Test highlighting with PHPX files
 139. [ ] DX-TASKS:  Verify matches Zed highlighting
-140. [ ] DX-TASKS:  Create `.vsix` package: `vsce package`
-141. [ ] DX-TASKS:  Test installation: `code --install-extension phpx-0.1.0.vsix`
+140. [x] DX-TASKS:  Create `.vsix` package: `vsce package`
+141. [x] DX-TASKS:  Test installation: `code --install-extension phpx-0.1.0.vsix`
 142. [ ] DX-TASKS:  Create GitHub repository for extension
-143. [ ] DX-TASKS:  Write `README.md` with features and screenshots
+143. [x] DX-TASKS:  Write `README.md` with features and screenshots
 144. [ ] DX-TASKS:  Publish to VSCode Marketplace (optional):
 599:  - [ ] Create publisher account
 600:  - [ ] Run `vsce publish`
