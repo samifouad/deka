@@ -1,0 +1,28 @@
+/*
+TEST: canonical db/sqlite module path resolves and behaves like legacy sqlite module
+*/
+import { connect, query_one, close } from 'db/sqlite'
+import { result_is_ok } from 'core/result'
+
+if (getenv('PHPX_DB_SMOKE') !== '1') {
+    echo "SKIP\n"
+    return
+}
+
+$path = getenv('SQLITE_PATH') ?: '/tmp/deka_phpx_namespace.sqlite'
+$conn = connect({ path: $path })
+if (!result_is_ok($conn)) {
+    echo "ERR connect\n"
+    return
+}
+
+$h = $conn->value
+$row = query_one($h, 'select 1 as c', [])
+close($h)
+
+if (!result_is_ok($row)) {
+    echo "ERR query\n"
+    return
+}
+
+echo "OK " . $row->value['c'] . "\n"

@@ -94,13 +94,13 @@ This is the execution tracker for replacing patchwork internals with first-class
 ### Phase 4: Driver Refactor to Foundation
 1. [ ] Implement `db/postgres` on top of `tcp` + `buffer` (+ `tls`).
 2. [ ] Implement `db/mysql` on top of `tcp` + `buffer` (+ `tls`).
-3. [ ] Keep `db/sqlite` file-backed with same facade contract.
-4. [ ] Maintain optional native acceleration paths behind same public API.
-5. [ ] Add driver compliance tests and perf baseline tests.
+3. [x] Keep `db/sqlite` file-backed with same facade contract.
+4. [x] Maintain optional native acceleration paths behind same public API.
+5. [x] Add driver compliance tests and perf baseline tests.
 
 ### Phase 5: Legacy Bridge Retirement
-1. [ ] Remove userland-facing dependency on bridge-specific packages.
-2. [ ] Keep internal fallback paths only where strictly needed.
+1. [x] Remove userland-facing dependency on bridge-specific packages.
+2. [x] Keep internal fallback paths only where strictly needed.
 3. [ ] Remove dead bridge wrappers once parity confirmed.
 4. [ ] Freeze public API contracts and publish migration guide.
 
@@ -114,6 +114,8 @@ This is the execution tracker for replacing patchwork internals with first-class
 7. [x] `db` facade now exposes shared `open_handle/query_one/rows/affected_rows` helpers.
 8. [x] DB contract tests added for postgres/mysql/sqlite wrappers.
 9. [x] Internal bridge hook restrictions enforced (typecheck + runtime).
+10. [x] Canonical driver module paths now available under `db/postgres`, `db/mysql`, `db/sqlite`.
+11. [x] Legacy top-level `postgres`/`mysql`/`sqlite` are compatibility proxy modules.
 
 ## Validation Requirements Per Phase
 1. Unit tests for module APIs.

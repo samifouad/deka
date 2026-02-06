@@ -1,65 +1,17 @@
-import { db_open_handle, db_query, db_query_one, db_exec, db_begin, db_commit, db_rollback, db_close } from 'db'
+export { connect } from 'db/postgres'
+export { query } from 'db/postgres'
+export { query_one } from 'db/postgres'
+export { exec } from 'db/postgres'
+export { begin } from 'db/postgres'
+export { commit } from 'db/postgres'
+export { rollback } from 'db/postgres'
+export { close } from 'db/postgres'
 
-export function connect($config) {
-    return db_open_handle('postgres', $config)
-}
-
-export function pg_connect($config) {
-    return connect($config)
-}
-
-export function query($handle, $sql, $params = []) {
-    return db_query($handle, $sql, $params)
-}
-
-export function pg_query($handle, $sql, $params = []) {
-    return query($handle, $sql, $params)
-}
-
-export function query_one($handle, $sql, $params = []) {
-    return db_query_one($handle, $sql, $params)
-}
-
-export function pg_query_one($handle, $sql, $params = []) {
-    return query_one($handle, $sql, $params)
-}
-
-export function exec($handle, $sql, $params = []) {
-    return db_exec($handle, $sql, $params)
-}
-
-export function pg_exec($handle, $sql, $params = []) {
-    return exec($handle, $sql, $params)
-}
-
-export function begin($handle) {
-    return db_begin($handle)
-}
-
-export function pg_begin($handle) {
-    return begin($handle)
-}
-
-export function commit($handle) {
-    return db_commit($handle)
-}
-
-export function pg_commit($handle) {
-    return commit($handle)
-}
-
-export function rollback($handle) {
-    return db_rollback($handle)
-}
-
-export function pg_rollback($handle) {
-    return rollback($handle)
-}
-
-export function close($handle) {
-    return db_close($handle)
-}
-
-export function pg_close($handle) {
-    return close($handle)
-}
+export { connect as pg_connect } from 'db/postgres'
+export { query as pg_query } from 'db/postgres'
+export { query_one as pg_query_one } from 'db/postgres'
+export { exec as pg_exec } from 'db/postgres'
+export { begin as pg_begin } from 'db/postgres'
+export { commit as pg_commit } from 'db/postgres'
+export { rollback as pg_rollback } from 'db/postgres'
+export { close as pg_close } from 'db/postgres'

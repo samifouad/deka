@@ -45,6 +45,11 @@ Runtime notes:
 - `tcp`: low-level socket operations (`connect`, `read`, `read_exact`, `write`, `set_deadline`, `close`).
 - `tls`: upgrades a tcp handle (`upgrade`) and provides `read`/`write`/`close`.
 
+## Database modules
+- Canonical driver paths are `db/postgres`, `db/mysql`, and `db/sqlite`.
+- Legacy top-level paths `postgres`, `mysql`, and `sqlite` remain as compatibility proxies.
+- Shared contract helpers live in `db` (`open_handle`, `rows`, `query_one`, `affected_rows`).
+
 ## Semicolons (PHPX)
 - Semicolons are optional in `.phpx` (JS-style automatic semicolon insertion).
 - A line terminator ends a statement unless the expression clearly continues

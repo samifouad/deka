@@ -1,65 +1,17 @@
-import { db_open_handle, db_query, db_query_one, db_exec, db_begin, db_commit, db_rollback, db_close } from 'db'
+export { connect } from 'db/sqlite'
+export { query } from 'db/sqlite'
+export { query_one } from 'db/sqlite'
+export { exec } from 'db/sqlite'
+export { begin } from 'db/sqlite'
+export { commit } from 'db/sqlite'
+export { rollback } from 'db/sqlite'
+export { close } from 'db/sqlite'
 
-export function connect($config) {
-    return db_open_handle('sqlite', $config)
-}
-
-export function sqlite_connect($config) {
-    return connect($config)
-}
-
-export function query($handle, $sql, $params = []) {
-    return db_query($handle, $sql, $params)
-}
-
-export function sqlite_query($handle, $sql, $params = []) {
-    return query($handle, $sql, $params)
-}
-
-export function query_one($handle, $sql, $params = []) {
-    return db_query_one($handle, $sql, $params)
-}
-
-export function sqlite_query_one($handle, $sql, $params = []) {
-    return query_one($handle, $sql, $params)
-}
-
-export function exec($handle, $sql, $params = []) {
-    return db_exec($handle, $sql, $params)
-}
-
-export function sqlite_exec($handle, $sql, $params = []) {
-    return exec($handle, $sql, $params)
-}
-
-export function begin($handle) {
-    return db_begin($handle)
-}
-
-export function sqlite_begin($handle) {
-    return begin($handle)
-}
-
-export function commit($handle) {
-    return db_commit($handle)
-}
-
-export function sqlite_commit($handle) {
-    return commit($handle)
-}
-
-export function rollback($handle) {
-    return db_rollback($handle)
-}
-
-export function sqlite_rollback($handle) {
-    return rollback($handle)
-}
-
-export function close($handle) {
-    return db_close($handle)
-}
-
-export function sqlite_close($handle) {
-    return close($handle)
-}
+export { connect as sqlite_connect } from 'db/sqlite'
+export { query as sqlite_query } from 'db/sqlite'
+export { query_one as sqlite_query_one } from 'db/sqlite'
+export { exec as sqlite_exec } from 'db/sqlite'
+export { begin as sqlite_begin } from 'db/sqlite'
+export { commit as sqlite_commit } from 'db/sqlite'
+export { rollback as sqlite_rollback } from 'db/sqlite'
+export { close as sqlite_close } from 'db/sqlite'

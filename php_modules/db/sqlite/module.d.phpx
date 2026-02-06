@@ -1,0 +1,10 @@
+import { Result } from 'core/result'
+
+export function connect($config: Object): Result<int, string>
+export function query($handle: int, $sql: string, $params: array = []): Result<Object<{ rows: array<Object> }>, string>
+export function query_one($handle: int, $sql: string, $params: array = []): Result<Object, string>
+export function exec($handle: int, $sql: string, $params: array = []): Result<Object<{ affected_rows: int }>, string>
+export function begin($handle: int): Result<Object, string>
+export function commit($handle: int): Result<Object, string>
+export function rollback($handle: int): Result<Object, string>
+export function close($handle: int): Result<Object, string>

@@ -1,65 +1,17 @@
-import { db_open_handle, db_query, db_query_one, db_exec, db_begin, db_commit, db_rollback, db_close } from 'db'
+export { connect } from 'db/mysql'
+export { query } from 'db/mysql'
+export { query_one } from 'db/mysql'
+export { exec } from 'db/mysql'
+export { begin } from 'db/mysql'
+export { commit } from 'db/mysql'
+export { rollback } from 'db/mysql'
+export { close } from 'db/mysql'
 
-export function connect($config) {
-    return db_open_handle('mysql', $config)
-}
-
-export function mysql_connect($config) {
-    return connect($config)
-}
-
-export function query($handle, $sql, $params = []) {
-    return db_query($handle, $sql, $params)
-}
-
-export function mysql_query($handle, $sql, $params = []) {
-    return query($handle, $sql, $params)
-}
-
-export function query_one($handle, $sql, $params = []) {
-    return db_query_one($handle, $sql, $params)
-}
-
-export function mysql_query_one($handle, $sql, $params = []) {
-    return query_one($handle, $sql, $params)
-}
-
-export function exec($handle, $sql, $params = []) {
-    return db_exec($handle, $sql, $params)
-}
-
-export function mysql_exec($handle, $sql, $params = []) {
-    return exec($handle, $sql, $params)
-}
-
-export function begin($handle) {
-    return db_begin($handle)
-}
-
-export function mysql_begin($handle) {
-    return begin($handle)
-}
-
-export function commit($handle) {
-    return db_commit($handle)
-}
-
-export function mysql_commit($handle) {
-    return commit($handle)
-}
-
-export function rollback($handle) {
-    return db_rollback($handle)
-}
-
-export function mysql_rollback($handle) {
-    return rollback($handle)
-}
-
-export function close($handle) {
-    return db_close($handle)
-}
-
-export function mysql_close($handle) {
-    return close($handle)
-}
+export { connect as mysql_connect } from 'db/mysql'
+export { query as mysql_query } from 'db/mysql'
+export { query_one as mysql_query_one } from 'db/mysql'
+export { exec as mysql_exec } from 'db/mysql'
+export { begin as mysql_begin } from 'db/mysql'
+export { commit as mysql_commit } from 'db/mysql'
+export { rollback as mysql_rollback } from 'db/mysql'
+export { close as mysql_close } from 'db/mysql'
