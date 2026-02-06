@@ -667,34 +667,34 @@ function __my_binary_read_cell($bytes, &$offset, $typ) {
     if ($typ === 1) {
         $v = bytes_get($bytes, $offset)
         $offset += 1
-        return $v
+        return '' . $v
     }
     if ($typ === 2) {
         $v = __my_u16le_at($bytes, $offset)
         $offset += 2
-        return $v
+        return '' . $v
     }
     if ($typ === 3) {
         $v = __my_u32le_at($bytes, $offset)
         $offset += 4
-        return $v
+        return '' . $v
     }
     if ($typ === 8) {
         $v = __my_u64le_at($bytes, $offset)
         $offset += 8
-        return $v
+        return '' . $v
     }
     if ($typ === 4) {
         $raw = substr($bytes, $offset, 4)
         $offset += 4
         $u = unpack('f', $raw)
-        return is_array($u) ? $u[1] : 0
+        return '' . (is_array($u) ? $u[1] : 0)
     }
     if ($typ === 5) {
         $raw = substr($bytes, $offset, 8)
         $offset += 8
         $u = unpack('d', $raw)
-        return is_array($u) ? $u[1] : 0
+        return '' . (is_array($u) ? $u[1] : 0)
     }
     return __my_read_lenenc_str($bytes, $offset)
 }
