@@ -4202,7 +4202,9 @@ function routeHostCall(kind, action, payload) {
         if (typeof op_php_fs_call_proto === 'function' && typeof op_php_fs_proto_encode === 'function' && typeof op_php_fs_proto_decode === 'function') {
             const request = op_php_fs_proto_encode(String(action || ''), payload || {});
             const response = op_php_fs_call_proto(request);
-            return op_php_fs_proto_decode(response);
+            const decoded = op_php_fs_proto_decode(response);
+            // Return entries to avoid host object-wrapper conversion on PHPX side.
+            return Object.entries(decoded || {});
         }
         return { ok: false, error: 'fs protobuf bridge ops unavailable' };
     }

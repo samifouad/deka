@@ -122,6 +122,8 @@ This is the execution tracker for replacing patchwork internals with first-class
 13. [x] Wire-only smoke tests added (`fallback_native=false`) for postgres and mysql parameterized paths.
 14. [x] Wire strictness tests added for unsupported parameter types (postgres + mysql hard-error paths).
 15. [x] DB stats introspection added (`db.stats()` => active handles + per-driver query/exec timing counters).
+16. [x] `fs` bridge payload normalization fixed so `fs` module consistently receives associative arrays across protobuf boundary.
+17. [x] `fs` module byte API validated end-to-end (`write_file/read_file` roundtrip on binary bytes).
 
 ## Validation Requirements Per Phase
 1. Unit tests for module APIs.

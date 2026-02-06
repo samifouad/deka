@@ -11,6 +11,25 @@ function __bridge_call($kind, $action, $payload = {}) {
     return { ok: false, error: 'unknown bridge kind: ' . $kind }
 }
 
+function __fs_entries_to_assoc($value) {
+    if (!is_array($value)) {
+        return $value
+    }
+    $out = []
+    $is_entries = true
+    foreach ($value as $entry) {
+        if (!is_array($entry) || count($entry) !== 2 || !is_string($entry[0])) {
+            $is_entries = false
+            break
+        }
+        $out[$entry[0]] = $entry[1]
+    }
+    if ($is_entries) {
+        return $out
+    }
+    return $value
+}
+
 export function __deka_db_call($op, $payload = {}) {
     return __bridge_call('db', $op, $payload)
 }
@@ -20,5 +39,6 @@ export function __deka_net_call($op, $payload = {}) {
 }
 
 export function __deka_fs_call($op, $payload = {}) {
-    return __bridge_call('fs', $op, $payload)
+    $raw = __bridge_call('fs', $op, $payload)
+    return __fs_entries_to_assoc($raw)
 }
