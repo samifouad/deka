@@ -2272,11 +2272,9 @@ fn op_php_net_call(
     }
 }
 
-#[op2]
-#[serde]
-fn op_php_fs_call(
-    #[string] action: String,
-    #[serde] args: serde_json::Value,
+fn fs_call_impl(
+    action: String,
+    args: serde_json::Value,
 ) -> Result<serde_json::Value, deno_core::error::CoreError> {
     let err = |msg: String| {
         deno_core::error::CoreError::from(std::io::Error::new(
@@ -2469,6 +2467,285 @@ fn op_php_fs_call(
     }
 }
 
+#[derive(Clone, Copy)]
+enum FsProtoActionKind {
+    Open,
+    Read,
+    Write,
+    Close,
+    ReadFile,
+    WriteFile,
+}
+
+fn fs_action_payload_to_proto_request(
+    action: &str,
+    payload: &serde_json::Value,
+) -> Result<proto::bridge_v1::FsRequest, deno_core::error::CoreError> {
+    use proto::bridge_v1::fs_request::Action;
+    let args = payload.as_object().cloned().unwrap_or_default();
+    let action = match action {
+        "open" => Action::Open(proto::bridge_v1::FsOpenRequest {
+            path: args
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            mode: args
+                .get("mode")
+                .and_then(|v| v.as_str())
+                .unwrap_or("r")
+                .to_string(),
+        }),
+        "read" => Action::Read(proto::bridge_v1::FsReadRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+            max_bytes: args.get("max_bytes").and_then(|v| v.as_u64()).unwrap_or(65536),
+        }),
+        "write" => {
+            let data = args
+                .get("data")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .map(|x| x.as_u64().unwrap_or(0).min(255) as u8)
+                        .collect::<Vec<u8>>()
+                })
+                .or_else(|| args.get("data").and_then(|v| v.as_str()).map(|s| s.as_bytes().to_vec()))
+                .unwrap_or_default();
+            Action::Write(proto::bridge_v1::FsWriteRequest {
+                handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+                data,
+            })
+        }
+        "close" => Action::Close(proto::bridge_v1::FsCloseRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+        }),
+        "read_file" => Action::ReadFile(proto::bridge_v1::FsReadFileRequest {
+            path: args
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+        }),
+        "write_file" => {
+            let data = args
+                .get("data")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .map(|x| x.as_u64().unwrap_or(0).min(255) as u8)
+                        .collect::<Vec<u8>>()
+                })
+                .or_else(|| args.get("data").and_then(|v| v.as_str()).map(|s| s.as_bytes().to_vec()))
+                .unwrap_or_default();
+            Action::WriteFile(proto::bridge_v1::FsWriteFileRequest {
+                path: args
+                    .get("path")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                data,
+            })
+        }
+        other => return Err(core_err(format!("unsupported fs proto action '{}'", other))),
+    };
+    Ok(proto::bridge_v1::FsRequest {
+        schema_version: 1,
+        action: Some(action),
+    })
+}
+
+fn fs_proto_request_to_action_payload(
+    req: &proto::bridge_v1::FsRequest,
+) -> Result<(String, serde_json::Value, FsProtoActionKind), deno_core::error::CoreError> {
+    use proto::bridge_v1::fs_request::Action;
+    let Some(action) = req.action.as_ref() else {
+        return Err(core_err("fs proto request missing action"));
+    };
+    match action {
+        Action::Open(open) => Ok((
+            "open".to_string(),
+            serde_json::json!({ "path": open.path, "mode": open.mode }),
+            FsProtoActionKind::Open,
+        )),
+        Action::Read(read) => Ok((
+            "read".to_string(),
+            serde_json::json!({ "handle": read.handle, "max_bytes": read.max_bytes }),
+            FsProtoActionKind::Read,
+        )),
+        Action::Write(write) => Ok((
+            "write".to_string(),
+            serde_json::json!({
+                "handle": write.handle,
+                "data": write.data.iter().map(|b| serde_json::Value::Number((*b as u64).into())).collect::<Vec<_>>()
+            }),
+            FsProtoActionKind::Write,
+        )),
+        Action::Close(close) => Ok((
+            "close".to_string(),
+            serde_json::json!({ "handle": close.handle }),
+            FsProtoActionKind::Close,
+        )),
+        Action::ReadFile(read_file) => Ok((
+            "read_file".to_string(),
+            serde_json::json!({ "path": read_file.path }),
+            FsProtoActionKind::ReadFile,
+        )),
+        Action::WriteFile(write_file) => Ok((
+            "write_file".to_string(),
+            serde_json::json!({
+                "path": write_file.path,
+                "data": write_file.data.iter().map(|b| serde_json::Value::Number((*b as u64).into())).collect::<Vec<_>>()
+            }),
+            FsProtoActionKind::WriteFile,
+        )),
+    }
+}
+
+fn fs_json_response_to_proto(
+    resp: &serde_json::Value,
+    kind: FsProtoActionKind,
+) -> proto::bridge_v1::FsResponse {
+    use proto::bridge_v1::fs_response::Action;
+    let ok = resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+    let error = resp
+        .get("error")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let action = match kind {
+        FsProtoActionKind::Open => Some(Action::Open(proto::bridge_v1::FsOpenResponse {
+            handle: resp.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+        })),
+        FsProtoActionKind::Read => {
+            let data = resp
+                .get("data")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .map(|x| x.as_u64().unwrap_or(0).min(255) as u8)
+                        .collect::<Vec<u8>>()
+                })
+                .unwrap_or_default();
+            Some(Action::Read(proto::bridge_v1::FsReadResponse {
+                data,
+                eof: resp.get("eof").and_then(|v| v.as_bool()).unwrap_or(false),
+            }))
+        }
+        FsProtoActionKind::Write => Some(Action::Write(proto::bridge_v1::FsWriteResponse {
+            written: resp.get("written").and_then(|v| v.as_u64()).unwrap_or(0),
+        })),
+        FsProtoActionKind::Close => Some(Action::Close(proto::bridge_v1::FsUnitResponse { ok })),
+        FsProtoActionKind::ReadFile => {
+            let data = resp
+                .get("data")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .map(|x| x.as_u64().unwrap_or(0).min(255) as u8)
+                        .collect::<Vec<u8>>()
+                })
+                .unwrap_or_default();
+            Some(Action::ReadFile(proto::bridge_v1::FsReadResponse { data, eof: true }))
+        }
+        FsProtoActionKind::WriteFile => {
+            Some(Action::WriteFile(proto::bridge_v1::FsWriteResponse {
+                written: resp.get("written").and_then(|v| v.as_u64()).unwrap_or(0),
+            }))
+        }
+    };
+    proto::bridge_v1::FsResponse {
+        schema_version: 1,
+        ok,
+        error,
+        action,
+    }
+}
+
+fn fs_proto_response_to_json(resp: &proto::bridge_v1::FsResponse) -> serde_json::Value {
+    use proto::bridge_v1::fs_response::Action;
+    let mut out = serde_json::Map::new();
+    out.insert("ok".to_string(), serde_json::Value::Bool(resp.ok));
+    if !resp.error.is_empty() {
+        out.insert("error".to_string(), serde_json::Value::String(resp.error.clone()));
+    }
+    if let Some(action) = resp.action.as_ref() {
+        match action {
+            Action::Open(open) => {
+                out.insert("handle".to_string(), serde_json::Value::Number(open.handle.into()));
+            }
+            Action::Read(read) | Action::ReadFile(read) => {
+                out.insert(
+                    "data".to_string(),
+                    serde_json::Value::Array(
+                        read.data
+                            .iter()
+                            .map(|b| serde_json::Value::Number((*b as u64).into()))
+                            .collect(),
+                    ),
+                );
+                out.insert("eof".to_string(), serde_json::Value::Bool(read.eof));
+            }
+            Action::Write(write) | Action::WriteFile(write) => {
+                out.insert(
+                    "written".to_string(),
+                    serde_json::Value::Number(write.written.into()),
+                );
+            }
+            Action::Close(unit) => {
+                out.insert("ok".to_string(), serde_json::Value::Bool(unit.ok));
+            }
+        }
+    }
+    serde_json::Value::Object(out)
+}
+
+fn fs_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    let req = proto::bridge_v1::FsRequest::decode(request)
+        .map_err(|e| core_err(format!("fs proto decode failed: {}", e)))?;
+    let (action, payload, kind) = fs_proto_request_to_action_payload(&req)?;
+    let response_json = fs_call_impl(action, payload)?;
+    let response = fs_json_response_to_proto(&response_json, kind);
+    Ok(response.encode_to_vec())
+}
+
+#[op2]
+#[serde]
+fn op_php_fs_call(
+    #[string] action: String,
+    #[serde] args: serde_json::Value,
+) -> Result<serde_json::Value, deno_core::error::CoreError> {
+    fs_call_impl(action, args)
+}
+
+#[op2]
+#[buffer]
+fn op_php_fs_call_proto(
+    #[buffer] request: &[u8],
+) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    fs_call_proto_impl(request)
+}
+
+#[op2]
+#[buffer]
+fn op_php_fs_proto_encode(
+    #[string] action: String,
+    #[serde] payload: serde_json::Value,
+) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    let request = fs_action_payload_to_proto_request(&action, &payload)?;
+    Ok(request.encode_to_vec())
+}
+
+#[op2]
+#[serde]
+fn op_php_fs_proto_decode(
+    #[buffer] response: &[u8],
+) -> Result<serde_json::Value, deno_core::error::CoreError> {
+    let decoded = proto::bridge_v1::FsResponse::decode(response)
+        .map_err(|e| core_err(format!("fs proto decode response failed: {}", e)))?;
+    Ok(fs_proto_response_to_json(&decoded))
+}
+
 #[op2]
 #[string]
 fn op_php_cwd() -> Result<String, deno_core::error::CoreError> {
@@ -2620,6 +2897,9 @@ deno_core::extension!(
         op_php_db_proto_decode,
         op_php_net_call,
         op_php_fs_call,
+        op_php_fs_call_proto,
+        op_php_fs_proto_encode,
+        op_php_fs_proto_decode,
         op_php_cwd,
         op_php_file_exists,
         op_php_path_resolve,
@@ -2798,6 +3078,50 @@ mod tests {
             db_call_impl("close".to_string(), serde_json::json!({ "handle": handle }))
                 .expect("close failed");
         assert_ok(&close_res);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn fs_proto_binary_roundtrip_integrity() {
+        let suffix = unique_suffix();
+        let path = format!("/tmp/fs_proto_roundtrip_{}.bin", suffix);
+        let payload = serde_json::json!({
+            "path": path,
+            "data": [0, 1, 2, 10, 127, 128, 200, 255]
+        });
+
+        let json_write = fs_call_impl("write_file".to_string(), payload.clone()).expect("json write_file failed");
+        assert_ok(&json_write);
+
+        let proto_write_req = fs_action_payload_to_proto_request("write_file", &payload)
+            .expect("fs proto write request build failed");
+        let proto_write_resp =
+            fs_call_proto_impl(&proto_write_req.encode_to_vec()).expect("fs proto write_file dispatch failed");
+        let proto_write_decoded =
+            proto::bridge_v1::FsResponse::decode(proto_write_resp.as_slice()).expect("fs decode write response failed");
+        let proto_write_json = fs_proto_response_to_json(&proto_write_decoded);
+        assert_ok(&proto_write_json);
+
+        let json_read = fs_call_impl(
+            "read_file".to_string(),
+            serde_json::json!({ "path": path }),
+        )
+        .expect("json read_file failed");
+        assert_ok(&json_read);
+
+        let proto_read_req = fs_action_payload_to_proto_request(
+            "read_file",
+            &serde_json::json!({ "path": path }),
+        )
+        .expect("fs proto read request build failed");
+        let proto_read_resp =
+            fs_call_proto_impl(&proto_read_req.encode_to_vec()).expect("fs proto read_file dispatch failed");
+        let proto_read_decoded =
+            proto::bridge_v1::FsResponse::decode(proto_read_resp.as_slice()).expect("fs decode read response failed");
+        let proto_read_json = fs_proto_response_to_json(&proto_read_decoded);
+        assert_ok(&proto_read_json);
+
+        assert_eq!(json_read.get("data"), proto_read_json.get("data"));
         let _ = std::fs::remove_file(path);
     }
 }

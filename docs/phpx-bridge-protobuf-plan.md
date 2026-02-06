@@ -40,9 +40,9 @@
 - [x] 8. Add parity tests (`json` vs `protobuf`) for `postgres/mysql/sqlite`.
 
 ### Phase 3: FS Bridge Migration
-- [ ] 9. Add `fs` schema messages (`open/read/write/close/read_file/write_file`).
-- [ ] 10. Migrate `op_php_fs_call` to Protobuf transport.
-- [ ] 11. Add binary integrity tests for file bytes round-trip.
+- [x] 9. Add `fs` schema messages (`open/read/write/close/read_file/write_file`).
+- [x] 10. Migrate `op_php_fs_call` to Protobuf transport.
+- [x] 11. Add binary integrity tests for file bytes round-trip.
 
 ### Phase 4: Net Bridge Migration
 - [ ] 12. Add `net` schema messages (`connect/read/write/tls_upgrade/close/deadline`).
