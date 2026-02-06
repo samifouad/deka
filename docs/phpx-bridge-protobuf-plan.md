@@ -37,7 +37,7 @@
 - [x] 5. Implement Protobuf decode/dispatch in `op_php_db_call`.
 - [x] 6. Implement Protobuf encode responses for `open/query/query_one/exec/tx/close/stats`.
 - [x] 7. Keep temporary JSON fallback path behind runtime feature flag.
-- [ ] 8. Add parity tests (`json` vs `protobuf`) for `postgres/mysql/sqlite`.
+- [x] 8. Add parity tests (`json` vs `protobuf`) for `postgres/mysql/sqlite`.
 
 ### Phase 3: FS Bridge Migration
 - [ ] 9. Add `fs` schema messages (`open/read/write/close/read_file/write_file`).

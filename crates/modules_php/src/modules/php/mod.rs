@@ -2038,17 +2038,21 @@ fn op_php_db_call(
     db_call_impl(action, args)
 }
 
-#[op2]
-#[buffer]
-fn op_php_db_call_proto(
-    #[buffer] request: &[u8],
-) -> Result<Vec<u8>, deno_core::error::CoreError> {
+fn db_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
     let req = proto::bridge_v1::DbRequest::decode(request)
         .map_err(|e| core_err(format!("db proto decode failed: {}", e)))?;
     let (action, payload, kind) = db_proto_request_to_action_payload(&req)?;
     let response_json = db_call_impl(action, payload)?;
     let response = db_json_response_to_proto(&response_json, kind);
     Ok(response.encode_to_vec())
+}
+
+#[op2]
+#[buffer]
+fn op_php_db_call_proto(
+    #[buffer] request: &[u8],
+) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    db_call_proto_impl(request)
 }
 
 #[op2]
@@ -2628,6 +2632,174 @@ deno_core::extension!(
 
 pub fn init() -> deno_core::Extension {
     php_core::init_ops_and_esm()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use prost::Message;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_suffix() -> String {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        format!("{}_{}", std::process::id(), nanos)
+    }
+
+    fn assert_ok(value: &serde_json::Value) {
+        assert_eq!(
+            value.get("ok").and_then(|v| v.as_bool()),
+            Some(true),
+            "expected ok response, got: {}",
+            value
+        );
+    }
+
+    #[test]
+    fn db_proto_open_parity_postgres_mysql_sqlite() {
+        let suffix = unique_suffix();
+        let cases = vec![
+            (
+                "postgres",
+                serde_json::json!({
+                    "host": "127.0.0.1",
+                    "port": 5432,
+                    "database": format!("db_proto_pg_{}", suffix),
+                    "user": "u",
+                    "password": "p",
+                }),
+            ),
+            (
+                "mysql",
+                serde_json::json!({
+                    "host": "127.0.0.1",
+                    "port": 3306,
+                    "database": format!("db_proto_my_{}", suffix),
+                    "user": "u",
+                    "password": "p",
+                }),
+            ),
+            (
+                "sqlite",
+                serde_json::json!({
+                    "path": format!("/tmp/db_proto_open_{}.sqlite", suffix),
+                }),
+            ),
+        ];
+
+        for (driver, config) in cases {
+            let payload = serde_json::json!({
+                "driver": driver,
+                "config": config
+            });
+
+            let json_res = db_call_impl("open".to_string(), payload.clone()).expect("json open failed");
+            assert_ok(&json_res);
+            let json_handle = json_res
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .expect("json open missing handle");
+
+            let proto_req = db_action_payload_to_proto_request("open", &payload)
+                .expect("proto request build failed");
+            let proto_bytes = proto_req.encode_to_vec();
+            let proto_resp_bytes =
+                db_call_proto_impl(&proto_bytes).expect("proto open dispatch failed");
+            let proto_resp =
+                proto::bridge_v1::DbResponse::decode(proto_resp_bytes.as_slice()).expect("decode failed");
+            let proto_json = db_proto_response_to_json(&proto_resp);
+            assert_ok(&proto_json);
+            let proto_handle = proto_json
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .expect("proto open missing handle");
+
+            let close_json = db_call_impl(
+                "close".to_string(),
+                serde_json::json!({ "handle": json_handle }),
+            )
+            .expect("json close failed");
+            assert_ok(&close_json);
+            if proto_handle != json_handle {
+                let close_proto = db_call_impl(
+                    "close".to_string(),
+                    serde_json::json!({ "handle": proto_handle }),
+                )
+                .expect("proto handle close failed");
+                assert_ok(&close_proto);
+            }
+        }
+    }
+
+    #[test]
+    fn db_proto_sqlite_exec_query_parity() {
+        let suffix = unique_suffix();
+        let path = format!("/tmp/db_proto_query_{}.sqlite", suffix);
+        let open_payload = serde_json::json!({
+            "driver": "sqlite",
+            "config": { "path": path }
+        });
+        let open_res = db_call_impl("open".to_string(), open_payload).expect("open failed");
+        assert_ok(&open_res);
+        let handle = open_res
+            .get("handle")
+            .and_then(|v| v.as_u64())
+            .expect("missing handle");
+
+        let setup_sql = vec![
+            "create table if not exists packages (name text, downloads integer)",
+            "delete from packages",
+            "insert into packages(name, downloads) values ('db', 10), ('component', 20)",
+        ];
+        for sql in setup_sql {
+            let exec_res = db_call_impl(
+                "exec".to_string(),
+                serde_json::json!({
+                    "handle": handle,
+                    "sql": sql,
+                    "params": []
+                }),
+            )
+            .expect("exec failed");
+            assert_ok(&exec_res);
+        }
+
+        let json_query = db_call_impl(
+            "query".to_string(),
+            serde_json::json!({
+                "handle": handle,
+                "sql": "select name, downloads from packages order by downloads asc",
+                "params": []
+            }),
+        )
+        .expect("json query failed");
+        assert_ok(&json_query);
+
+        let proto_req = db_action_payload_to_proto_request(
+            "query",
+            &serde_json::json!({
+                "handle": handle,
+                "sql": "select name, downloads from packages order by downloads asc",
+                "params": []
+            }),
+        )
+        .expect("proto query request build failed");
+        let proto_resp = db_call_proto_impl(&proto_req.encode_to_vec()).expect("proto query failed");
+        let proto_decoded =
+            proto::bridge_v1::DbResponse::decode(proto_resp.as_slice()).expect("decode failed");
+        let proto_json = db_proto_response_to_json(&proto_decoded);
+        assert_ok(&proto_json);
+
+        assert_eq!(json_query.get("rows"), proto_json.get("rows"));
+
+        let close_res =
+            db_call_impl("close".to_string(), serde_json::json!({ "handle": handle }))
+                .expect("close failed");
+        assert_ok(&close_res);
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 fn world_key_name(key: &WorldKey) -> String {
