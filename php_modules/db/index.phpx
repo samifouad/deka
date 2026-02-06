@@ -1,94 +1,95 @@
-import { result_ok, result_err } from 'core/result';
+import { result_ok, result_err } from 'core/result'
+import { __deka_db_call } from 'internals/wasm'
 
 function normalize_result($raw) {
     if (is_array($raw) && array_key_exists('ok', $raw)) {
         if ($raw['ok']) {
-            return result_ok($raw);
+            return result_ok($raw)
         }
-        $msg = array_key_exists('error', $raw) ? $raw['error'] : 'db error';
-        return result_err($msg);
+        $msg = array_key_exists('error', $raw) ? $raw['error'] : 'db error'
+        return result_err($msg)
     }
     if (is_object($raw) && isset($raw->ok)) {
         if ($raw->ok) {
-            return result_ok($raw);
+            return result_ok($raw)
         }
-        $msg = isset($raw->error) ? $raw->error : 'db error';
-        return result_err($msg);
+        $msg = isset($raw->error) ? $raw->error : 'db error'
+        return result_err($msg)
     }
-    return result_err('invalid db response');
+    return result_err('invalid db response')
 }
 
 export function open($driver, $config) {
-    $raw = __deka_wasm_call('__deka_db', 'open', {
+    $raw = __deka_db_call('open', {
         driver: $driver,
         config: $config
-    });
-    return normalize_result($raw);
+    })
+    return normalize_result($raw)
 }
 
 // Parser-safe prefixed exports for wrappers that avoid import alias syntax.
 export function db_open($driver, $config) {
-    return open($driver, $config);
+    return open($driver, $config)
 }
 
 export function query($handle, $sql, $params = []) {
-    $raw = __deka_wasm_call('__deka_db', 'query', {
+    $raw = __deka_db_call('query', {
         handle: $handle,
         sql: $sql,
         params: $params
-    });
-    return normalize_result($raw);
+    })
+    return normalize_result($raw)
 }
 
 export function db_query($handle, $sql, $params = []) {
-    return query($handle, $sql, $params);
+    return query($handle, $sql, $params)
 }
 
 export function exec($handle, $sql, $params = []) {
-    $raw = __deka_wasm_call('__deka_db', 'exec', {
+    $raw = __deka_db_call('exec', {
         handle: $handle,
         sql: $sql,
         params: $params
-    });
-    return normalize_result($raw);
+    })
+    return normalize_result($raw)
 }
 
 export function db_exec($handle, $sql, $params = []) {
-    return exec($handle, $sql, $params);
+    return exec($handle, $sql, $params)
 }
 
 export function begin($handle) {
-    $raw = __deka_wasm_call('__deka_db', 'begin', { handle: $handle });
-    return normalize_result($raw);
+    $raw = __deka_db_call('begin', { handle: $handle })
+    return normalize_result($raw)
 }
 
 export function db_begin($handle) {
-    return begin($handle);
+    return begin($handle)
 }
 
 export function commit($handle) {
-    $raw = __deka_wasm_call('__deka_db', 'commit', { handle: $handle });
-    return normalize_result($raw);
+    $raw = __deka_db_call('commit', { handle: $handle })
+    return normalize_result($raw)
 }
 
 export function db_commit($handle) {
-    return commit($handle);
+    return commit($handle)
 }
 
 export function rollback($handle) {
-    $raw = __deka_wasm_call('__deka_db', 'rollback', { handle: $handle });
-    return normalize_result($raw);
+    $raw = __deka_db_call('rollback', { handle: $handle })
+    return normalize_result($raw)
 }
 
 export function db_rollback($handle) {
-    return rollback($handle);
+    return rollback($handle)
 }
 
 export function close($handle) {
-    $raw = __deka_wasm_call('__deka_db', 'close', { handle: $handle });
-    return normalize_result($raw);
+    $raw = __deka_db_call('close', { handle: $handle })
+    return normalize_result($raw)
 }
 
 export function db_close($handle) {
-    return close($handle);
+    return close($handle)
 }

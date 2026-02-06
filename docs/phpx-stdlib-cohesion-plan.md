@@ -1,0 +1,126 @@
+# PHPX Cohesive Stdlib Plan
+
+## Purpose
+This plan defines a cohesive PHPX standard library architecture modeled after Go-style module layering:
+- explicit low-level primitives
+- stable high-level contracts
+- internal runtime internals hidden from userland
+
+This is the execution tracker for replacing patchwork internals with first-class user-facing modules.
+
+## Design Goals
+- Remove userland dependency on `__deka_wasm_call`.
+- Keep runtime internals private/undocumented/internal-only.
+- Provide explicit low-level networking and binary building blocks.
+- Build database drivers on those building blocks.
+- Keep API surface consistent, typed, and composable.
+
+## Target Layering
+1. Foundation:
+- `bytes`
+- `buffer`
+- `tcp`
+- `tls`
+- `encoding/*` (`encoding/json`, `encoding/binary`, future `encoding/toml`, `encoding/cbor`)
+
+2. Database facade:
+- `db` contract (`Open`, `Query`, `Exec`, `Begin`, `Commit`, `Rollback`, `Close`)
+
+3. Driver packages:
+- `db/postgres`
+- `db/mysql`
+- `db/sqlite`
+
+4. Runtime internals:
+- internal ops and transport primitives only
+- no direct userland access to internal bridge hooks
+
+## Required Runtime Ops (Minimum)
+1. `tcp_connect(host, port, options) -> socket_id`
+2. `tcp_read(socket_id, max_bytes?) -> bytes`
+3. `tcp_read_exact(socket_id, n) -> bytes`
+4. `tcp_write(socket_id, bytes) -> written`
+5. `tcp_close(socket_id)`
+6. `tcp_set_deadline(socket_id, millis)`
+7. `tls_upgrade(socket_id, options) -> tls_socket_id`
+8. `tls_read(tls_socket_id, max_bytes?) -> bytes`
+9. `tls_write(tls_socket_id, bytes) -> written`
+10. `tls_close(tls_socket_id)`
+11. `random_bytes(n) -> bytes`
+12. `time_now_millis() -> int`
+
+## Phases
+
+### Phase 0: Guardrails (Security + DX)
+1. [x] Make `__deka_wasm_call` inaccessible from non-internal userland modules.
+2. [x] Add parser/typechecker hard error for direct use outside internal module roots.
+3. [x] Add runtime enforcement guard (defense in depth).
+4. [ ] Remove/avoid documentation of internal bridge hook.
+5. [x] Add tests proving external modules cannot call internal bridge hook.
+
+### Phase 1: Foundation Modules
+1. [ ] Finalize `bytes` API (read/write primitives, conversion helpers).
+2. [ ] Implement `buffer` module over `bytes` with cursor/framing helpers.
+3. [ ] Implement `tcp` module with `Connect` and `TcpSocket` methods.
+4. [ ] Implement `tls` module with socket upgrade and shared IO API.
+5. [ ] Add runtime smoke tests for tcp/tls/bytes/buffer.
+
+### Phase 2: Encoding Namespace
+1. [ ] Add `encoding/json` package (move current `json` surface).
+2. [ ] Keep temporary compatibility re-export from root `json`.
+3. [ ] Add `encoding/binary` for endian and framing helpers.
+4. [ ] Update internal modules to prefer `encoding/json`.
+5. [ ] Add migration note and deprecation window for root `json`.
+
+### Phase 2A: JSON Migration (Explicit Tracker)
+1. [ ] Create `php_modules/encoding/json/index.phpx` as canonical JSON API location.
+2. [ ] Create `php_modules/encoding/json/module.d.phpx` with canonical type declarations.
+3. [ ] Keep `php_modules/json/index.phpx` as compatibility proxy re-exporting `encoding/json`.
+4. [ ] Keep `php_modules/json/module.d.phpx` as compatibility proxy declarations.
+5. [ ] Update runtime-owned modules to import from `encoding/json` only.
+6. [ ] Update Linkhash and example apps to import from `encoding/json`.
+7. [ ] Add tests covering both import paths during transition:
+- `import { ... } from 'encoding/json'`
+- `import { ... } from 'json'`
+8. [ ] Add warning/deprecation note in docs for root `json`.
+9. [ ] Define removal milestone for root `json` compatibility module (post-MVP window).
+
+### Phase 3: DB Facade Standardization
+1. [ ] Define stable `db` facade API and type declarations.
+2. [ ] Implement shared row/result/tx abstractions.
+3. [ ] Normalize parameter and row decode behavior across drivers.
+4. [ ] Add contract tests shared by postgres/mysql/sqlite.
+
+### Phase 4: Driver Refactor to Foundation
+1. [ ] Implement `db/postgres` on top of `tcp` + `buffer` (+ `tls`).
+2. [ ] Implement `db/mysql` on top of `tcp` + `buffer` (+ `tls`).
+3. [ ] Keep `db/sqlite` file-backed with same facade contract.
+4. [ ] Maintain optional native acceleration paths behind same public API.
+5. [ ] Add driver compliance tests and perf baseline tests.
+
+### Phase 5: Legacy Bridge Retirement
+1. [ ] Remove userland-facing dependency on bridge-specific packages.
+2. [ ] Keep internal fallback paths only where strictly needed.
+3. [ ] Remove dead bridge wrappers once parity confirmed.
+4. [ ] Freeze public API contracts and publish migration guide.
+
+## Current State (Snapshot)
+1. [x] Generic `db` bridge exists with `postgres/sqlite/mysql` host routes.
+2. [x] `postgres`, `sqlite`, `mysql` PHPX wrappers exist.
+3. [x] Linkhash uses Postgres package and live data is visible on homepage/API.
+4. [ ] `tcp`/`tls`/`buffer` userland-first foundation not yet implemented.
+5. [ ] `encoding/json` namespace migration not started.
+6. [x] Internal bridge hook restrictions enforced (typecheck + runtime).
+
+## Validation Requirements Per Phase
+1. Unit tests for module APIs.
+2. Runtime smoke tests in `tests/phpx`.
+3. End-to-end app check (Linkhash route + DB query path).
+4. Release build check (`cargo build --release`).
+5. Commit only focused files per phase.
+
+## Related Docs
+- `docs/phpx-db-plan.md`
+- `docs/phpx-upgrade-plan.md`
+- `docs/TASKS.md`
+- `docs/UNIFIED-TASKS.md`
