@@ -509,7 +509,7 @@ Notes:
 474:  - [x] Local variables
 475:  - [x] Struct definitions
 476:  - [x] WASM imports (jump to `.d.phpx` stub)
-106. [ ] DX-TASKS:  Test with multi-file projects
+106. [x] DX-TASKS:  Test with multi-file projects
 107. [x] DX-TASKS:  Extend compiler API to load `.d.phpx` stubs
 108. [x] DX-TASKS:  Parse stub files for type information
 109. [x] DX-TASKS:  Use stub types for:
