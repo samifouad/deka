@@ -8,11 +8,15 @@ use php_rs::parser::lexer::token::Token;
 use bumpalo::Bump;
 use mysql::prelude::Queryable;
 use mysql::{OptsBuilder, Params as MyParams, Pool as MyPool, Value as MyValue};
+use native_tls::{TlsConnector, TlsStream};
 use postgres::{Client, NoTls, types::ToSql};
 use rusqlite::types::ValueRef as SqliteValueRef;
 use rusqlite::{Connection as SqliteConnection, params_from_iter as sqlite_params_from_iter};
 use std::collections::{HashMap, HashSet};
+use std::io::{Read, Write};
+use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 use wit_parser::{Resolve, Results, Type, TypeDefKind, TypeId, WorldItem, WorldKey};
 
 /// Embedded PHP WASM binary produced by the `php-rs` crate.
@@ -202,6 +206,31 @@ static DB_STATE: OnceLock<Mutex<DbState>> = OnceLock::new();
 
 fn db_state() -> &'static Mutex<DbState> {
     DB_STATE.get_or_init(|| Mutex::new(DbState::new()))
+}
+
+enum NetConn {
+    Tcp(TcpStream),
+    Tls(TlsStream<TcpStream>),
+}
+
+struct NetState {
+    next_handle: u64,
+    handles: HashMap<u64, NetConn>,
+}
+
+impl NetState {
+    fn new() -> Self {
+        Self {
+            next_handle: 1,
+            handles: HashMap::new(),
+        }
+    }
+}
+
+static NET_STATE: OnceLock<Mutex<NetState>> = OnceLock::new();
+
+fn net_state() -> &'static Mutex<NetState> {
+    NET_STATE.get_or_init(|| Mutex::new(NetState::new()))
 }
 
 fn sanitize_conn_value(value: &str) -> String {
@@ -1336,6 +1365,203 @@ fn op_php_db_call(
 }
 
 #[op2]
+#[serde]
+fn op_php_net_call(
+    #[string] action: String,
+    #[serde] args: serde_json::Value,
+) -> Result<serde_json::Value, deno_core::error::CoreError> {
+    let err = |msg: String| {
+        deno_core::error::CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            msg,
+        ))
+    };
+
+    let args_obj = args.as_object().cloned().unwrap_or_default();
+    match action.as_str() {
+        "connect" => {
+            let host = args_obj
+                .get("host")
+                .and_then(|v| v.as_str())
+                .unwrap_or("127.0.0.1")
+                .trim_matches('\0')
+                .to_string();
+            let port = args_obj
+                .get("port")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as u16;
+            if port == 0 {
+                return Ok(serde_json::json!({ "ok": false, "error": "connect: missing or invalid port" }));
+            }
+            let timeout_ms = args_obj
+                .get("timeout_ms")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(5000);
+            let addr = format!("{}:{}", host, port);
+            let mut addrs = addr
+                .to_socket_addrs()
+                .map_err(|e| err(format!("connect: resolve failed: {}", e)))?;
+            let target = addrs
+                .next()
+                .ok_or_else(|| err("connect: no resolved address".to_string()))?;
+            let stream = TcpStream::connect_timeout(&target, Duration::from_millis(timeout_ms))
+                .map_err(|e| err(format!("connect: {}", e)))?;
+            let mut state = net_state()
+                .lock()
+                .map_err(|_| err("net lock poisoned".to_string()))?;
+            let handle = state.next_handle;
+            state.next_handle += 1;
+            state.handles.insert(handle, NetConn::Tcp(stream));
+            Ok(serde_json::json!({ "ok": true, "handle": handle }))
+        }
+        "set_deadline" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("set_deadline: missing handle".to_string()))?;
+            let millis = args_obj
+                .get("millis")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let timeout = if millis == 0 {
+                None
+            } else {
+                Some(Duration::from_millis(millis))
+            };
+            let mut state = net_state()
+                .lock()
+                .map_err(|_| err("net lock poisoned".to_string()))?;
+            let Some(conn) = state.handles.get_mut(&handle) else {
+                return Ok(serde_json::json!({ "ok": false, "error": format!("set_deadline: unknown handle {}", handle) }));
+            };
+            let result = match conn {
+                NetConn::Tcp(stream) => stream
+                    .set_read_timeout(timeout)
+                    .and_then(|_| stream.set_write_timeout(timeout)),
+                NetConn::Tls(stream) => stream
+                    .get_ref()
+                    .set_read_timeout(timeout)
+                    .and_then(|_| stream.get_ref().set_write_timeout(timeout)),
+            };
+            match result {
+                Ok(()) => Ok(serde_json::json!({ "ok": true })),
+                Err(e) => Ok(serde_json::json!({ "ok": false, "error": format!("set_deadline: {}", e) })),
+            }
+        }
+        "read" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("read: missing handle".to_string()))?;
+            let max_bytes = args_obj
+                .get("max_bytes")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(4096) as usize;
+            let mut buf = vec![0_u8; max_bytes.max(1)];
+            let mut state = net_state()
+                .lock()
+                .map_err(|_| err("net lock poisoned".to_string()))?;
+            let Some(conn) = state.handles.get_mut(&handle) else {
+                return Ok(serde_json::json!({ "ok": false, "error": format!("read: unknown handle {}", handle) }));
+            };
+            let n = match conn {
+                NetConn::Tcp(stream) => stream.read(&mut buf),
+                NetConn::Tls(stream) => stream.read(&mut buf),
+            };
+            match n {
+                Ok(n) => {
+                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                    Ok(serde_json::json!({ "ok": true, "data": data, "eof": n == 0 }))
+                }
+                Err(e) => Ok(serde_json::json!({ "ok": false, "error": format!("read: {}", e) })),
+            }
+        }
+        "write" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("write: missing handle".to_string()))?;
+            let data = args_obj
+                .get("data")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .as_bytes()
+                .to_vec();
+            let mut state = net_state()
+                .lock()
+                .map_err(|_| err("net lock poisoned".to_string()))?;
+            let Some(conn) = state.handles.get_mut(&handle) else {
+                return Ok(serde_json::json!({ "ok": false, "error": format!("write: unknown handle {}", handle) }));
+            };
+            let result = match conn {
+                NetConn::Tcp(stream) => stream.write_all(&data),
+                NetConn::Tls(stream) => stream.write_all(&data),
+            };
+            match result {
+                Ok(()) => Ok(serde_json::json!({ "ok": true, "written": data.len() })),
+                Err(e) => Ok(serde_json::json!({ "ok": false, "error": format!("write: {}", e) })),
+            }
+        }
+        "tls_upgrade" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("tls_upgrade: missing handle".to_string()))?;
+            let server_name = args_obj
+                .get("server_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim_matches('\0')
+                .to_string();
+            if server_name.is_empty() {
+                return Ok(serde_json::json!({ "ok": false, "error": "tls_upgrade: missing server_name" }));
+            }
+            let mut state = net_state()
+                .lock()
+                .map_err(|_| err("net lock poisoned".to_string()))?;
+            let Some(conn) = state.handles.remove(&handle) else {
+                return Ok(serde_json::json!({ "ok": false, "error": format!("tls_upgrade: unknown handle {}", handle) }));
+            };
+            let tcp = match conn {
+                NetConn::Tcp(stream) => stream,
+                NetConn::Tls(stream) => {
+                    let new_handle = state.next_handle;
+                    state.next_handle += 1;
+                    state.handles.insert(new_handle, NetConn::Tls(stream));
+                    return Ok(serde_json::json!({ "ok": true, "handle": new_handle, "reused": true }));
+                }
+            };
+            let connector = TlsConnector::new()
+                .map_err(|e| err(format!("tls_upgrade: connector init failed: {}", e)))?;
+            match connector.connect(&server_name, tcp) {
+                Ok(stream) => {
+                    let new_handle = state.next_handle;
+                    state.next_handle += 1;
+                    state.handles.insert(new_handle, NetConn::Tls(stream));
+                    Ok(serde_json::json!({ "ok": true, "handle": new_handle }))
+                }
+                Err(e) => Ok(serde_json::json!({ "ok": false, "error": format!("tls_upgrade: {}", e) })),
+            }
+        }
+        "close" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("close: missing handle".to_string()))?;
+            let mut state = net_state()
+                .lock()
+                .map_err(|_| err("net lock poisoned".to_string()))?;
+            state.handles.remove(&handle);
+            Ok(serde_json::json!({ "ok": true }))
+        }
+        _ => Ok(serde_json::json!({
+            "ok": false,
+            "error": format!("unknown net action '{}'", action)
+        })),
+    }
+}
+
+#[op2]
 #[string]
 fn op_php_cwd() -> Result<String, deno_core::error::CoreError> {
     std::env::current_dir()
@@ -1481,6 +1707,7 @@ deno_core::extension!(
         op_php_sha256,
         op_php_read_env,
         op_php_db_call,
+        op_php_net_call,
         op_php_cwd,
         op_php_file_exists,
         op_php_path_resolve,

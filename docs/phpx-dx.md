@@ -39,6 +39,12 @@ Runtime notes:
 - New code should import from `encoding/json`.
 - Compatibility removal target: first post-MVP breaking release (Phase 5 cleanup window).
 
+## Foundation IO modules
+- `bytes`: canonical byte-string helpers (`from_string`, `to_string`, `len`, `get`, `set`, `slice`, `concat`).
+- `buffer`: cursor/framing helpers over `bytes` (`buffer_new`, `read`, `read_exact`, `write_u16_be`, `read_u16_be`).
+- `tcp`: low-level socket operations (`connect`, `read`, `read_exact`, `write`, `set_deadline`, `close`).
+- `tls`: upgrades a tcp handle (`upgrade`) and provides `read`/`write`/`close`.
+
 ## Semicolons (PHPX)
 - Semicolons are optional in `.phpx` (JS-style automatic semicolon insertion).
 - A line terminator ends a statement unless the expression clearly continues

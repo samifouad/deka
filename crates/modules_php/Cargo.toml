@@ -16,3 +16,4 @@ mysql = "26"
 rusqlite = { version = "0.32", features = ["bundled"] }
 wit-parser = "0.219.2"
 deka-validation = { path = "../../../deka-validation" }
+native-tls = "0.2"

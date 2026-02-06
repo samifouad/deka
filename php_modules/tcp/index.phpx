@@ -1,0 +1,91 @@
+import { result_ok, result_err, result_is_ok } from 'core/result'
+import { __deka_net_call } from 'internals/net'
+
+function normalize_result($raw) {
+    if (is_array($raw) && array_key_exists('ok', $raw)) {
+        if ($raw['ok']) {
+            return result_ok($raw)
+        }
+        $msg = array_key_exists('error', $raw) ? $raw['error'] : 'tcp error'
+        return result_err($msg)
+    }
+    if (is_object($raw) && isset($raw->ok)) {
+        if ($raw->ok) {
+            return result_ok($raw)
+        }
+        $msg = isset($raw->error) ? $raw->error : 'tcp error'
+        return result_err($msg)
+    }
+    return result_err('invalid tcp response')
+}
+
+export function connect($host, $port, $options = {}) {
+    $payload = {
+        host: '' . $host,
+        port: (int) $port,
+        timeout_ms: is_array($options) && array_key_exists('timeout_ms', $options) ? (int) $options['timeout_ms'] : 5000
+    }
+    $res = normalize_result(__deka_net_call('connect', $payload))
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+    if (!is_array($res->value) || !array_key_exists('handle', $res->value)) {
+        return result_err('connect succeeded without handle')
+    }
+    return result_ok((int) $res->value['handle'])
+}
+
+export function read($handle, $max_bytes = 4096) {
+    $res = normalize_result(__deka_net_call('read', {
+        handle: (int) $handle,
+        max_bytes: (int) $max_bytes
+    }))
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+    if (!is_array($res->value) || !array_key_exists('data', $res->value)) {
+        return result_err('read succeeded without data')
+    }
+    return result_ok($res->value['data'])
+}
+
+export function read_exact($handle, $count) {
+    $target = (int) $count
+    $out = ''
+    while (strlen($out) < $target) {
+        $chunk = read($handle, $target - strlen($out))
+        if (!result_is_ok($chunk)) {
+            return result_err($chunk->error)
+        }
+        if ($chunk->value === '') {
+            return result_err('short read')
+        }
+        $out = $out . $chunk->value
+    }
+    return result_ok($out)
+}
+
+export function write($handle, $data) {
+    $res = normalize_result(__deka_net_call('write', {
+        handle: (int) $handle,
+        data: '' . $data
+    }))
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+    if (!is_array($res->value) || !array_key_exists('written', $res->value)) {
+        return result_err('write succeeded without written count')
+    }
+    return result_ok((int) $res->value['written'])
+}
+
+export function set_deadline($handle, $millis) {
+    return normalize_result(__deka_net_call('set_deadline', {
+        handle: (int) $handle,
+        millis: (int) $millis
+    }))
+}
+
+export function close($handle) {
+    return normalize_result(__deka_net_call('close', { handle: (int) $handle }))
+}

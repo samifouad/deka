@@ -1,0 +1,6 @@
+import { Result } from 'core/result'
+
+export function upgrade($tcp_handle: int, $server_name: string): Result<int, string>
+export function read($handle: int, $max_bytes: int = 4096): Result<string, string>
+export function write($handle: int, $data: string): Result<int, string>
+export function close($handle: int): Result<Object, string>

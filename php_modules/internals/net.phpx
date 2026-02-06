@@ -1,0 +1,3 @@
+export function __deka_net_call($op, $payload = {}) {
+    return __deka_wasm_call('__deka_net', $op, $payload)
+}

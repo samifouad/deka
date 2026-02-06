@@ -61,10 +61,9 @@ This is the execution tracker for replacing patchwork internals with first-class
 ### Phase 1: Foundation Modules
 1. [x] Finalize `bytes` API (read/write primitives, conversion helpers).
 2. [x] Implement `buffer` module over `bytes` with cursor/framing helpers.
-3. [ ] Implement `tcp` module with `Connect` and `TcpSocket` methods.
-4. [ ] Implement `tls` module with socket upgrade and shared IO API.
-5. [ ] Add runtime smoke tests for tcp/tls/bytes/buffer.
-: `bytes`/`buffer` smoke tests are now in `tests/phpx/foundation`; tcp/tls tests pending tcp/tls modules.
+3. [x] Implement `tcp` module with `Connect` and `TcpSocket` methods.
+4. [x] Implement `tls` module with socket upgrade and shared IO API.
+5. [x] Add runtime smoke tests for tcp/tls/bytes/buffer.
 
 ### Phase 2: Encoding Namespace
 1. [x] Add `encoding/json` package (move current `json` surface).
@@ -109,7 +108,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 1. [x] Generic `db` bridge exists with `postgres/sqlite/mysql` host routes.
 2. [x] `postgres`, `sqlite`, `mysql` PHPX wrappers exist.
 3. [x] Linkhash uses Postgres package and live data is visible on homepage/API.
-4. [ ] `tcp`/`tls` foundation modules not yet implemented.
+4. [x] `tcp`/`tls` foundation modules implemented via internal `__deka_net` host bridge.
 5. [x] `buffer` and `bytes` userland foundation modules implemented with smoke tests.
 6. [x] `encoding/json` namespace migration completed (compat proxy kept at `json`).
 7. [x] `db` facade now exposes shared `open_handle/query_one/rows/affected_rows` helpers.
