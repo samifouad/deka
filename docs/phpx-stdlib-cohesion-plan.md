@@ -89,6 +89,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 1. [x] Define stable `db` facade API and type declarations.
 2. [x] Implement shared row/result abstractions.
 3. [ ] Normalize parameter and row decode behavior across drivers.
+: `db` and postgres wire now normalize params (`null|array|object|scalar` -> positional list). mysql wire parameter parity remains pending.
 4. [x] Add contract tests shared by postgres/mysql/sqlite.
 
 ### Phase 4: Driver Refactor to Foundation

@@ -43,6 +43,26 @@ function extract_rows($res) {
     return result_ok($res->value['rows'])
 }
 
+function normalize_params($params) {
+    if ($params === null) {
+        return []
+    }
+
+    if (is_array($params)) {
+        return array_values($params)
+    }
+
+    if (is_object($params)) {
+        $vals = []
+        foreach ($params as $v) {
+            $vals[] = $v
+        }
+        return $vals
+    }
+
+    return [$params]
+}
+
 export function open($driver, $config) {
     $raw = __deka_db_call('open', {
         driver: $driver,
@@ -64,10 +84,11 @@ export function db_open_handle($driver, $config) {
 }
 
 export function query($handle, $sql, $params = []) {
+    $safe_params = normalize_params($params)
     $raw = __deka_db_call('query', {
         handle: $handle,
         sql: $sql,
-        params: $params
+        params: $safe_params
     })
     return normalize_result($raw)
 }
@@ -85,7 +106,7 @@ export function db_rows($res) {
 }
 
 export function query_one($handle, $sql, $params = []) {
-    $rows = rows(query($handle, $sql, $params))
+    $rows = rows(query($handle, $sql, normalize_params($params)))
     if (!result_is_ok($rows)) {
         return result_err($rows->error)
     }
@@ -100,10 +121,11 @@ export function db_query_one($handle, $sql, $params = []) {
 }
 
 export function exec($handle, $sql, $params = []) {
+    $safe_params = normalize_params($params)
     $raw = __deka_db_call('exec', {
         handle: $handle,
         sql: $sql,
-        params: $params
+        params: $safe_params
     })
     return normalize_result($raw)
 }

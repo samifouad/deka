@@ -358,6 +358,23 @@ function __pg_param_value($value, $idx) {
     return result_err('wire unsupported param type at index ' . $idx)
 }
 
+function __pg_params_list($params) {
+    if ($params === null) {
+        return []
+    }
+    if (is_array($params)) {
+        return array_values($params)
+    }
+    if (is_object($params)) {
+        $vals = []
+        foreach ($params as $v) {
+            $vals[] = $v
+        }
+        return $vals
+    }
+    return [$params]
+}
+
 function __pg_collect_query_result($conn) {
     $cols = []
     $rows = []
@@ -416,11 +433,7 @@ function __pg_query_wire_simple($conn, $sql) {
 }
 
 function __pg_query_wire_extended($conn, $sql, $params) {
-    if (!is_array($params)) {
-        return result_err('wire params must be an array')
-    }
-
-    $values = array_values($params)
+    $values = __pg_params_list($params)
     $param_count = count($values)
 
     $parse_payload = "\0" . $sql . "\0" . __pg_i16($param_count)
@@ -463,8 +476,9 @@ function __pg_query_wire_extended($conn, $sql, $params) {
 }
 
 function __pg_query_wire($conn, $sql, $params = []) {
-    if (is_array($params) && count($params) > 0) {
-        return __pg_query_wire_extended($conn, $sql, $params)
+    $values = __pg_params_list($params)
+    if (count($values) > 0) {
+        return __pg_query_wire_extended($conn, $sql, $values)
     }
     return __pg_query_wire_simple($conn, $sql)
 }
@@ -489,19 +503,21 @@ export function connect($config) {
 }
 
 export function query($handle, $sql, $params = []) {
+    $safe_params = __pg_params_list($params)
     if (__pg_is_wire_handle($handle)) {
-        $res = __pg_query_wire($handle, $sql, $params)
+        $res = __pg_query_wire($handle, $sql, $safe_params)
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }
         return result_ok({ rows: $res.value.rows })
     }
-    return db_query($handle, $sql, $params)
+    return db_query($handle, $sql, $safe_params)
 }
 
 export function query_one($handle, $sql, $params = []) {
+    $safe_params = __pg_params_list($params)
     if (__pg_is_wire_handle($handle)) {
-        $res = __pg_query_wire($handle, $sql, $params)
+        $res = __pg_query_wire($handle, $sql, $safe_params)
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }
@@ -510,18 +526,19 @@ export function query_one($handle, $sql, $params = []) {
         }
         return result_ok($res.value.rows[0])
     }
-    return db_query_one($handle, $sql, $params)
+    return db_query_one($handle, $sql, $safe_params)
 }
 
 export function exec($handle, $sql, $params = []) {
+    $safe_params = __pg_params_list($params)
     if (__pg_is_wire_handle($handle)) {
-        $res = __pg_query_wire($handle, $sql, $params)
+        $res = __pg_query_wire($handle, $sql, $safe_params)
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }
         return result_ok({ affected_rows: $res.value.affected_rows })
     }
-    return db_exec($handle, $sql, $params)
+    return db_exec($handle, $sql, $safe_params)
 }
 
 export function begin($handle) {

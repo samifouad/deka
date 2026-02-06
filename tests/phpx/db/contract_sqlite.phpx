@@ -36,9 +36,10 @@ if (!result_is_ok($insert) || !result_is_ok($affected)) {
 
 $many = query($h, 'select count(*) as c from contract_items', [])
 $one = query_one($h, 'select count(*) as c from contract_items', [])
+$lookup = query_one($h, 'select name from contract_items where name = ?', 'item')
 close($h)
 
-if (!result_is_ok($many) || !result_is_ok($one)) {
+if (!result_is_ok($many) || !result_is_ok($one) || !result_is_ok($lookup)) {
     echo "ERR query\n"
     return
 }
