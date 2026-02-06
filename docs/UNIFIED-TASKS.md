@@ -583,7 +583,7 @@ Notes:
 146. [x] DX-TASKS:  Create Neovim plugin structure: `nvim-phpx/`
 147. [ ] DX-TASKS:  Add tree-sitter grammar to nvim-treesitter:
 616:  - [ ] Fork `nvim-treesitter`
-617:  - [ ] Add parser config for PHPX
+617:  - [x] Add parser config for PHPX
 618:  - [ ] Submit PR to nvim-treesitter
 148. [x] DX-TASKS:  Document installation (Lazy.nvim, Packer, etc.)
 149. [ ] DX-TASKS:  Test in Neovim

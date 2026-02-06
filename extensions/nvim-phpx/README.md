@@ -6,6 +6,7 @@ Neovim support files for PHPX.
 - `lsp.lua`: `nvim-lspconfig` setup for `phpx_lsp`
 - `snippets/phpx.lua`: LuaSnip snippets for PHPX
 - `ftdetect/phpx.lua`: filetype detection for `.phpx`
+- `nvim-treesitter.lua`: parser config snippet for `nvim-treesitter`
 
 ## Install (Lazy.nvim)
 ```lua

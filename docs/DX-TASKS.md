@@ -615,7 +615,7 @@ Import Error: Missing type stubs for '@user/hello'
 - [x] Create Neovim plugin structure: `nvim-phpx/`
 - [ ] Add tree-sitter grammar to nvim-treesitter:
   - [ ] Fork `nvim-treesitter`
-  - [ ] Add parser config for PHPX
+  - [x] Add parser config for PHPX
   - [ ] Submit PR to nvim-treesitter
   - OR create standalone plugin
 - [x] Document installation (Lazy.nvim, Packer, etc.)
