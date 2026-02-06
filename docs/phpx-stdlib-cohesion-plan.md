@@ -68,7 +68,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 ### Phase 2: Encoding Namespace
 1. [x] Add `encoding/json` package (move current `json` surface).
 2. [x] Keep temporary compatibility re-export from root `json`.
-3. [ ] Add `encoding/binary` for endian and framing helpers.
+3. [x] Add `encoding/binary` for endian and framing helpers.
 4. [x] Update internal modules to prefer `encoding/json`.
 5. [x] Add migration note and deprecation window for root `json`.
 
@@ -119,6 +119,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 9. [x] Internal bridge hook restrictions enforced (typecheck + runtime).
 10. [x] Canonical driver module paths now available under `db/postgres`, `db/mysql`, `db/sqlite`.
 11. [x] Legacy top-level `postgres`/`mysql`/`sqlite` are compatibility proxy modules.
+12. [x] `encoding/binary` now available for endian encode/decode + append/read helpers.
 
 ## Validation Requirements Per Phase
 1. Unit tests for module APIs.

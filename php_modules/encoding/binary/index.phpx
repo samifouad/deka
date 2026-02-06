@@ -1,0 +1,125 @@
+import { bytes_from_string, bytes_get, bytes_concat } from 'core/bytes'
+
+function __i16_be($value) {
+    $v = (int) $value
+    return chr(($v >> 8) & 255) . chr($v & 255)
+}
+
+function __i16_le($value) {
+    $v = (int) $value
+    return chr($v & 255) . chr(($v >> 8) & 255)
+}
+
+function __i32_be($value) {
+    $v = (int) $value
+    return chr(($v >> 24) & 255) . chr(($v >> 16) & 255) . chr(($v >> 8) & 255) . chr($v & 255)
+}
+
+function __i32_le($value) {
+    $v = (int) $value
+    return chr($v & 255) . chr(($v >> 8) & 255) . chr(($v >> 16) & 255) . chr(($v >> 24) & 255)
+}
+
+function __u16_be_at($bytes, $offset) {
+    $b0 = bytes_get($bytes, $offset)
+    $b1 = bytes_get($bytes, $offset + 1)
+    if ($b0 === null || $b1 === null) {
+        return null
+    }
+    return (($b0 << 8) | $b1)
+}
+
+function __u16_le_at($bytes, $offset) {
+    $b0 = bytes_get($bytes, $offset)
+    $b1 = bytes_get($bytes, $offset + 1)
+    if ($b0 === null || $b1 === null) {
+        return null
+    }
+    return ($b0 | ($b1 << 8))
+}
+
+function __u32_be_at($bytes, $offset) {
+    $b0 = bytes_get($bytes, $offset)
+    $b1 = bytes_get($bytes, $offset + 1)
+    $b2 = bytes_get($bytes, $offset + 2)
+    $b3 = bytes_get($bytes, $offset + 3)
+    if ($b0 === null || $b1 === null || $b2 === null || $b3 === null) {
+        return null
+    }
+    return (($b0 << 24) | ($b1 << 16) | ($b2 << 8) | $b3)
+}
+
+function __u32_le_at($bytes, $offset) {
+    $b0 = bytes_get($bytes, $offset)
+    $b1 = bytes_get($bytes, $offset + 1)
+    $b2 = bytes_get($bytes, $offset + 2)
+    $b3 = bytes_get($bytes, $offset + 3)
+    if ($b0 === null || $b1 === null || $b2 === null || $b3 === null) {
+        return null
+    }
+    return ($b0 | ($b1 << 8) | ($b2 << 16) | ($b3 << 24))
+}
+
+export function u16_be($value) {
+    return bytes_from_string(__i16_be($value))
+}
+
+export function u16_le($value) {
+    return bytes_from_string(__i16_le($value))
+}
+
+export function u32_be($value) {
+    return bytes_from_string(__i32_be($value))
+}
+
+export function u32_le($value) {
+    return bytes_from_string(__i32_le($value))
+}
+
+export function read_u16_be($bytes, $offset = 0) {
+    $value = __u16_be_at($bytes, (int) $offset)
+    if ($value === null) {
+        return { ok: false, error: 'short read' }
+    }
+    return { ok: true, value: $value, next: (int) $offset + 2 }
+}
+
+export function read_u16_le($bytes, $offset = 0) {
+    $value = __u16_le_at($bytes, (int) $offset)
+    if ($value === null) {
+        return { ok: false, error: 'short read' }
+    }
+    return { ok: true, value: $value, next: (int) $offset + 2 }
+}
+
+export function read_u32_be($bytes, $offset = 0) {
+    $value = __u32_be_at($bytes, (int) $offset)
+    if ($value === null) {
+        return { ok: false, error: 'short read' }
+    }
+    return { ok: true, value: $value, next: (int) $offset + 4 }
+}
+
+export function read_u32_le($bytes, $offset = 0) {
+    $value = __u32_le_at($bytes, (int) $offset)
+    if ($value === null) {
+        return { ok: false, error: 'short read' }
+    }
+    return { ok: true, value: $value, next: (int) $offset + 4 }
+}
+
+export function append_u16_be($bytes, $value) {
+    return bytes_concat($bytes, u16_be($value))
+}
+
+export function append_u16_le($bytes, $value) {
+    return bytes_concat($bytes, u16_le($value))
+}
+
+export function append_u32_be($bytes, $value) {
+    return bytes_concat($bytes, u32_be($value))
+}
+
+export function append_u32_le($bytes, $value) {
+    return bytes_concat($bytes, u32_le($value))
+}
