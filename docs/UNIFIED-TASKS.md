@@ -529,7 +529,7 @@ Notes:
 506:  - [x] Variables
 507:  - [x] Imports
 508:  - [x] Struct types
-115. [ ] DX-TASKS:  Test with multi-file projects
+115. [x] DX-TASKS:  Test with multi-file projects
 116. [x] DX-TASKS:  Add `renameProvider` capability to LSP
 117. [x] DX-TASKS:  Implement `rename` method:
 518:  - [x] Find all references to symbol

@@ -475,7 +475,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] Local variables
   - [x] Struct definitions
   - [x] WASM imports (jump to `.d.phpx` stub)
-- [ ] Test with multi-file projects
+- [x] Test with multi-file projects
 
 **Acceptance**: Can jump to definitions across files
 
@@ -484,7 +484,7 @@ Import Error: Missing type stubs for '@user/hello'
 ### Task 4.4: Implement WIT Stub Integration
 - [x] Extend compiler API to load `.d.phpx` stubs
 - [x] Parse stub files for type information
-- [ ] Use stub types for:
+- [x] Use stub types for:
   - [x] Hover info on WASM imports
   - [x] Autocomplete for WASM functions
   - [x] Type checking WASM function calls
@@ -507,7 +507,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] Variables
   - [x] Imports
   - [x] Struct types
-- [ ] Test with multi-file projects
+- [x] Test with multi-file projects
 
 **Acceptance**: Can find all references to a symbol
 

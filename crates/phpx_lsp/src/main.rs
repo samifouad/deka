@@ -347,27 +347,7 @@ impl LanguageServer for Backend {
             return Ok(None);
         };
 
-        let mut locations = Vec::new();
-        for root in roots {
-            for file in collect_phpx_files(&root) {
-                let file_uri = match Url::from_file_path(&file) {
-                    Ok(uri) => uri,
-                    Err(_) => continue,
-                };
-                let content = if file_uri == uri {
-                    text.clone()
-                } else {
-                    fs::read_to_string(&file).unwrap_or_default()
-                };
-                let line_index = LineIndex::new(&content);
-                for span in find_word_occurrences(content.as_bytes(), &word) {
-                    locations.push(Location {
-                        uri: file_uri.clone(),
-                        range: span_to_range(span, &line_index),
-                    });
-                }
-            }
-        }
+        let locations = collect_reference_locations(&roots, &uri, &text, &word);
 
         Ok(Some(locations))
     }
@@ -2089,6 +2069,36 @@ fn collect_module_rename_edits(
     changes
 }
 
+fn collect_reference_locations(
+    roots: &[PathBuf],
+    active_uri: &Url,
+    active_text: &str,
+    symbol: &str,
+) -> Vec<Location> {
+    let mut locations = Vec::new();
+    for root in roots {
+        for file in collect_phpx_files(root) {
+            let file_uri = match Url::from_file_path(&file) {
+                Ok(uri) => uri,
+                Err(_) => continue,
+            };
+            let content = if &file_uri == active_uri {
+                active_text.to_string()
+            } else {
+                fs::read_to_string(&file).unwrap_or_default()
+            };
+            let line_index = LineIndex::new(&content);
+            for span in find_word_occurrences(content.as_bytes(), symbol) {
+                locations.push(Location {
+                    uri: file_uri.clone(),
+                    range: span_to_range(span, &line_index),
+                });
+            }
+        }
+    }
+    locations
+}
+
 fn collect_symbol_rename_edits(
     roots: &[PathBuf],
     active_uri: &Url,
@@ -2283,5 +2293,25 @@ mod tests {
         let uri_b = Url::from_file_path(&file_b).expect("uri b");
         assert_eq!(edits.get(&uri_a).map(|v| v.len()), Some(1));
         assert_eq!(edits.get(&uri_b).map(|v| v.len()), Some(2));
+    }
+
+    #[test]
+    fn collects_references_across_workspace_files() {
+        let dir = temp_dir("phpx_lsp_refs");
+        let file_a = dir.join("a.phpx");
+        let file_b = dir.join("b.phpx");
+        let src_a = "function run($user) { return $user }\n";
+        let src_b = "$user = 'sami'\n";
+        fs::write(&file_a, src_a).expect("write a");
+        fs::write(&file_b, src_b).expect("write b");
+
+        let uri_a = Url::from_file_path(&file_a).expect("uri a");
+        let refs = collect_reference_locations(
+            std::slice::from_ref(&dir),
+            &uri_a,
+            src_a,
+            "$user",
+        );
+        assert_eq!(refs.len(), 3);
     }
 }
