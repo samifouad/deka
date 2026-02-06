@@ -6,10 +6,9 @@ use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
 use php_rs::parser::lexer::token::Token;
 use bumpalo::Bump;
+use postgres::{Client, NoTls, types::ToSql};
 use std::collections::{HashMap, HashSet};
-use std::future::Future;
 use std::sync::{Mutex, OnceLock};
-use tokio_postgres::{Client, NoTls, types::ToSql};
 use wit_parser::{Resolve, Results, Type, TypeDefKind, TypeId, WorldItem, WorldKey};
 
 /// Embedded PHP WASM binary produced by the `php-rs` crate.
@@ -180,43 +179,54 @@ fn db_state() -> &'static Mutex<DbState> {
     DB_STATE.get_or_init(|| Mutex::new(DbState::new()))
 }
 
-fn with_pg_client<T, F>(
+fn sanitize_conn_value(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| !ch.is_control())
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
+fn with_pg_client<T>(
     cfg: PgConnConfig,
-    f: impl FnOnce(Client) -> F + Send + 'static,
+    f: impl FnOnce(&mut Client) -> Result<T, deno_core::error::CoreError> + Send + 'static,
 ) -> Result<T, deno_core::error::CoreError>
 where
-    F: Future<Output = Result<T, deno_core::error::CoreError>> + 'static,
     T: Send + 'static,
 {
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("db runtime init failed: {e}"))))?;
+        let host = sanitize_conn_value(&cfg.host);
+        let user = sanitize_conn_value(&cfg.user);
+        let database = sanitize_conn_value(&cfg.database);
+        let password = sanitize_conn_value(&cfg.password);
 
-        rt.block_on(async move {
-            let mut config = tokio_postgres::Config::new();
-            config.host(&cfg.host);
-            config.port(cfg.port);
-            if !cfg.database.is_empty() {
-                config.dbname(&cfg.database);
-            }
-            if !cfg.user.is_empty() {
-                config.user(&cfg.user);
-            }
-            if !cfg.password.is_empty() {
-                config.password(&cfg.password);
-            }
+        let mut dsn = format!(
+            "host={} port={} user={} dbname={}",
+            host, cfg.port, user, database
+        );
+        if !password.is_empty() {
+            dsn.push_str(" password=");
+            dsn.push_str(&password);
+        }
 
-            let (client, connection) = config
-                .connect(NoTls)
-                .await
-                .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("postgres connect failed: {e}"))))?;
-            tokio::spawn(async move {
-                let _ = connection.await;
-            });
-            f(client).await
-        })
+        let url = if password.is_empty() {
+            format!("postgres://{}@{}:{}/{}", user, host, cfg.port, database)
+        } else {
+            format!("postgres://{}:{}@{}:{}/{}", user, password, host, cfg.port, database)
+        };
+
+        let mut client = match Client::connect(&dsn, NoTls) {
+            Ok(client) => client,
+            Err(err_dsn) => Client::connect(&url, NoTls).map_err(|err_url| {
+                deno_core::error::CoreError::from(std::io::Error::other(format!(
+                    "postgres connect failed: {} (dsn={}); fallback failed: {} (url={})",
+                    err_dsn, dsn, err_url, url
+                )))
+            })?,
+        };
+
+        f(&mut client)
     })
     .join()
     .map_err(|_| deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked")))?
@@ -246,7 +256,7 @@ fn json_to_pg_param(value: &serde_json::Value) -> Box<dyn ToSql + Sync> {
     }
 }
 
-fn pg_cell_to_json(row: &tokio_postgres::Row, idx: usize) -> serde_json::Value {
+fn pg_cell_to_json(row: &postgres::Row, idx: usize) -> serde_json::Value {
     let col = &row.columns()[idx];
     match col.type_().name() {
         "bool" => row
@@ -793,15 +803,32 @@ fn op_php_db_call(
                 .and_then(|v| v.as_object())
                 .cloned()
                 .unwrap_or_default();
-            let host = cfg.get("host").and_then(|v| v.as_str()).unwrap_or("127.0.0.1");
+            let host = cfg
+                .get("host")
+                .and_then(|v| v.as_str())
+                .unwrap_or("127.0.0.1")
+                .trim_matches('\0')
+                .to_string();
             let port = cfg.get("port").and_then(|v| v.as_u64()).unwrap_or(5432);
-            let user = cfg.get("user").and_then(|v| v.as_str()).unwrap_or("");
-            let password = cfg.get("password").and_then(|v| v.as_str()).unwrap_or("");
+            let user = cfg
+                .get("user")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim_matches('\0')
+                .to_string();
+            let password = cfg
+                .get("password")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim_matches('\0')
+                .to_string();
             let database = cfg
                 .get("database")
                 .and_then(|v| v.as_str())
                 .or_else(|| cfg.get("dbname").and_then(|v| v.as_str()))
-                .unwrap_or("");
+                .unwrap_or("")
+                .trim_matches('\0')
+                .to_string();
             let key = format!(
                 "postgres://{}:{}@{}:{}/{}",
                 user, password, host, port, database
@@ -837,11 +864,11 @@ fn op_php_db_call(
                 DbConn {
                     key: key.clone(),
                     config: PgConnConfig {
-                        host: host.to_string(),
+                        host,
                         port: port as u16,
-                        database: database.to_string(),
-                        user: user.to_string(),
-                        password: password.to_string(),
+                        database,
+                        user,
+                        password,
                     },
                 },
             );
@@ -878,12 +905,11 @@ fn op_php_db_call(
                 conn.config.clone()
             };
             let sql = sql.to_string();
-            let out_rows = with_pg_client(cfg, move |client| async move {
+            let out_rows = with_pg_client(cfg, move |client| {
                 let boxed: Vec<Box<dyn ToSql + Sync>> = params.iter().map(json_to_pg_param).collect();
                 let refs: Vec<&(dyn ToSql + Sync)> = boxed.iter().map(|v| v.as_ref()).collect();
                 let rows = client
                     .query(&sql, &refs)
-                    .await
                     .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("postgres query failed: {}", e))))?;
 
                 let mut out_rows = Vec::with_capacity(rows.len());
@@ -929,12 +955,11 @@ fn op_php_db_call(
                 conn.config.clone()
             };
             let sql = sql.to_string();
-            let affected = with_pg_client(cfg, move |client| async move {
+            let affected = with_pg_client(cfg, move |client| {
                 let boxed: Vec<Box<dyn ToSql + Sync>> = params.iter().map(json_to_pg_param).collect();
                 let refs: Vec<&(dyn ToSql + Sync)> = boxed.iter().map(|v| v.as_ref()).collect();
                 client
                     .execute(&sql, &refs)
-                    .await
                     .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("postgres exec failed: {}", e))))
             })?;
 

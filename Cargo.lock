@@ -4491,9 +4491,12 @@ dependencies = [
  "deka-validation",
  "deno_core",
  "php-rs",
+ "postgres",
  "serde",
  "serde_json",
  "sha2",
+ "tokio",
+ "tokio-postgres",
  "wit-parser",
 ]
 
@@ -5779,6 +5782,7 @@ dependencies = [
  "bumpalo",
  "deka-validation",
  "modules_php",
+ "php-rs",
  "serde_json",
  "tokio",
  "tower-lsp",
