@@ -579,7 +579,7 @@ Notes:
 144. [ ] DX-TASKS:  Publish to VSCode Marketplace (optional):
 599:  - [ ] Create publisher account
 600:  - [ ] Run `vsce publish`
-145. [ ] DX-TASKS:  Add to Deka documentation
+145. [x] DX-TASKS:  Add to Deka documentation
 146. [ ] DX-TASKS:  Create Neovim plugin structure: `nvim-phpx/`
 147. [ ] DX-TASKS:  Add tree-sitter grammar to nvim-treesitter:
 616:  - [ ] Fork `nvim-treesitter`
@@ -599,12 +599,12 @@ Notes:
 649:  - [ ] JSX component
 650:  - [ ] Frontmatter template
 156. [ ] DX-TASKS:  Document snippet usage
-157. [ ] DX-TASKS:  Create `docs/editor-support.md`:
-665:  - [ ] Overview of tree-sitter and LSP
-666:  - [ ] Installation for each editor (Zed, VSCode, Neovim, Helix)
-667:  - [ ] Feature comparison matrix
-668:  - [ ] Troubleshooting guide
-669:  - [ ] Known limitations
+157. [x] DX-TASKS:  Create `docs/editor-support.md`:
+665:  - [x] Overview of tree-sitter and LSP
+666:  - [x] Installation for each editor (Zed, VSCode, Neovim, Helix)
+667:  - [x] Feature comparison matrix
+668:  - [x] Troubleshooting guide
+669:  - [x] Known limitations
 158. [ ] DX-TASKS:  Update `CLAUDE.md` with editor support section
 159. [ ] DX-TASKS:  Add screenshots/GIFs to documentation
 160. [x] DX-TASKS:  Create `scripts/install-phpx-lsp.sh`:

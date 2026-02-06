@@ -599,7 +599,7 @@ Import Error: Missing type stubs for '@user/hello'
 - [ ] Publish to VSCode Marketplace (optional):
   - [ ] Create publisher account
   - [ ] Run `vsce publish`
-- [ ] Add to Deka documentation
+- [x] Add to Deka documentation
 
 **Acceptance**: VSCode extension is installable and functional
 
@@ -662,12 +662,12 @@ Import Error: Missing type stubs for '@user/hello'
 **Duration**: 3-5 days
 
 ### Task 7.1: Write Comprehensive Documentation
-- [ ] Create `docs/editor-support.md`:
-  - [ ] Overview of tree-sitter and LSP
-  - [ ] Installation for each editor (Zed, VSCode, Neovim, Helix)
-  - [ ] Feature comparison matrix
-  - [ ] Troubleshooting guide
-  - [ ] Known limitations
+- [x] Create `docs/editor-support.md`:
+  - [x] Overview of tree-sitter and LSP
+  - [x] Installation for each editor (Zed, VSCode, Neovim, Helix)
+  - [x] Feature comparison matrix
+  - [x] Troubleshooting guide
+  - [x] Known limitations
 - [ ] Update `CLAUDE.md` with editor support section
 - [ ] Add screenshots/GIFs to documentation
 
