@@ -1,8 +1,14 @@
 import { Result } from 'core/result'
 
 export function connect($host: string, $port: int, $options: Object = {}): Result<int, string>
+export function tcp_connect($host: string, $port: int, $options: Object = {}): Result<int, string>
 export function read($handle: int, $max_bytes: int = 4096): Result<string, string>
+export function tcp_read($handle: int, $max_bytes: int = 4096): Result<string, string>
 export function read_exact($handle: int, $count: int): Result<string, string>
+export function tcp_read_exact($handle: int, $count: int): Result<string, string>
 export function write($handle: int, $data: string): Result<int, string>
+export function tcp_write($handle: int, $data: string): Result<int, string>
 export function set_deadline($handle: int, $millis: int): Result<Object, string>
+export function tcp_set_deadline($handle: int, $millis: int): Result<Object, string>
 export function close($handle: int): Result<Object, string>
+export function tcp_close($handle: int): Result<Object, string>

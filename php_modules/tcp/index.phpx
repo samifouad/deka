@@ -35,6 +35,10 @@ export function connect($host, $port, $options = {}) {
     return result_ok((int) $res->value['handle'])
 }
 
+export function tcp_connect($host, $port, $options = {}) {
+    return connect($host, $port, $options)
+}
+
 export function read($handle, $max_bytes = 4096) {
     $res = normalize_result(__deka_net_call('read', {
         handle: (int) $handle,
@@ -47,6 +51,10 @@ export function read($handle, $max_bytes = 4096) {
         return result_err('read succeeded without data')
     }
     return result_ok($res->value['data'])
+}
+
+export function tcp_read($handle, $max_bytes = 4096) {
+    return read($handle, $max_bytes)
 }
 
 export function read_exact($handle, $count) {
@@ -65,6 +73,10 @@ export function read_exact($handle, $count) {
     return result_ok($out)
 }
 
+export function tcp_read_exact($handle, $count) {
+    return read_exact($handle, $count)
+}
+
 export function write($handle, $data) {
     $res = normalize_result(__deka_net_call('write', {
         handle: (int) $handle,
@@ -79,6 +91,10 @@ export function write($handle, $data) {
     return result_ok((int) $res->value['written'])
 }
 
+export function tcp_write($handle, $data) {
+    return write($handle, $data)
+}
+
 export function set_deadline($handle, $millis) {
     return normalize_result(__deka_net_call('set_deadline', {
         handle: (int) $handle,
@@ -86,6 +102,14 @@ export function set_deadline($handle, $millis) {
     }))
 }
 
+export function tcp_set_deadline($handle, $millis) {
+    return set_deadline($handle, $millis)
+}
+
 export function close($handle) {
     return normalize_result(__deka_net_call('close', { handle: (int) $handle }))
+}
+
+export function tcp_close($handle) {
+    return close($handle)
 }

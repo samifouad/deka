@@ -33,6 +33,10 @@ export function upgrade($tcp_handle, $server_name) {
     return result_ok((int) $res->value['handle'])
 }
 
+export function tls_upgrade($tcp_handle, $server_name) {
+    return upgrade($tcp_handle, $server_name)
+}
+
 export function read($handle, $max_bytes = 4096) {
     $res = normalize_result(__deka_net_call('read', {
         handle: (int) $handle,
@@ -45,6 +49,30 @@ export function read($handle, $max_bytes = 4096) {
         return result_err('read succeeded without data')
     }
     return result_ok($res->value['data'])
+}
+
+export function tls_read($handle, $max_bytes = 4096) {
+    return read($handle, $max_bytes)
+}
+
+export function read_exact($handle, $count) {
+    $target = (int) $count
+    $out = ''
+    while (strlen($out) < $target) {
+        $chunk = read($handle, $target - strlen($out))
+        if (!result_is_ok($chunk)) {
+            return result_err($chunk->error)
+        }
+        if ($chunk->value === '') {
+            return result_err('short read')
+        }
+        $out = $out . $chunk->value
+    }
+    return result_ok($out)
+}
+
+export function tls_read_exact($handle, $count) {
+    return read_exact($handle, $count)
 }
 
 export function write($handle, $data) {
@@ -61,6 +89,14 @@ export function write($handle, $data) {
     return result_ok((int) $res->value['written'])
 }
 
+export function tls_write($handle, $data) {
+    return write($handle, $data)
+}
+
 export function close($handle) {
     return normalize_result(__deka_net_call('close', { handle: (int) $handle }))
+}
+
+export function tls_close($handle) {
+    return close($handle)
 }

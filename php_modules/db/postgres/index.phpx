@@ -1,33 +1,498 @@
+import { result_ok, result_err, result_is_ok } from 'core/result'
 import { db_open_handle, db_query, db_query_one, db_exec, db_begin, db_commit, db_rollback, db_close } from 'db'
+import { tcp_connect, tcp_read_exact, tcp_write, tcp_close, tcp_set_deadline } from 'tcp'
+import { tls_upgrade, tls_read_exact, tls_write, tls_close } from 'tls'
+import { bytes_get } from 'core/bytes'
+
+function __pg_i32($value) {
+    $v = (int) $value
+    return chr(($v >> 24) & 255) . chr(($v >> 16) & 255) . chr(($v >> 8) & 255) . chr($v & 255)
+}
+
+function __pg_i16($value) {
+    $v = (int) $value
+    return chr(($v >> 8) & 255) . chr($v & 255)
+}
+
+function __pg_u32_at($bytes, $offset) {
+    $b0 = bytes_get($bytes, $offset)
+    $b1 = bytes_get($bytes, $offset + 1)
+    $b2 = bytes_get($bytes, $offset + 2)
+    $b3 = bytes_get($bytes, $offset + 3)
+    if ($b0 === null || $b1 === null || $b2 === null || $b3 === null) {
+        return 0
+    }
+    return (($b0 << 24) | ($b1 << 16) | ($b2 << 8) | $b3)
+}
+
+function __pg_u16_at($bytes, $offset) {
+    $b0 = bytes_get($bytes, $offset)
+    $b1 = bytes_get($bytes, $offset + 1)
+    if ($b0 === null || $b1 === null) {
+        return 0
+    }
+    return (($b0 << 8) | $b1)
+}
+
+function __pg_cstring_at($bytes, &$offset) {
+    $start = $offset
+    $len = strlen($bytes)
+    while ($offset < $len) {
+        $byte = bytes_get($bytes, $offset)
+        if ($byte === 0) {
+            $str = substr($bytes, $start, $offset - $start)
+            $offset += 1
+            return $str
+        }
+        $offset += 1
+    }
+    return ''
+}
+
+function __pg_send($conn, $payload) {
+    if ($conn.transport === 'tls') {
+        return tls_write($conn.handle, $payload)
+    }
+    return tcp_write($conn.handle, $payload)
+}
+
+function __pg_read_exact($conn, $n) {
+    if ($conn.transport === 'tls') {
+        return tls_read_exact($conn.handle, $n)
+    }
+    return tcp_read_exact($conn.handle, $n)
+}
+
+function __pg_close_conn($conn) {
+    if (!is_object($conn) || !isset($conn.transport) || !isset($conn.handle)) {
+        return result_ok({ ok: true })
+    }
+    if ($conn.transport === 'tls') {
+        return tls_close($conn.handle)
+    }
+    return tcp_close($conn.handle)
+}
+
+function __pg_error_from_payload($payload) {
+    $offset = 0
+    $parts = []
+    while ($offset < strlen($payload)) {
+        $kind = bytes_get($payload, $offset)
+        $offset += 1
+        if ($kind === null || $kind === 0) {
+            break
+        }
+        $text = __pg_cstring_at($payload, $offset)
+        $parts[] = $text
+    }
+    if (count($parts) === 0) {
+        return 'postgres error'
+    }
+    return implode(' | ', $parts)
+}
+
+function __pg_read_message($conn) {
+    $head = __pg_read_exact($conn, 5)
+    if (!result_is_ok($head)) {
+        return result_err($head.error)
+    }
+    $type = $head.value[0]
+    $len = __pg_u32_at(substr($head.value, 1), 0)
+    if ($len < 4) {
+        return result_err('wire invalid message length')
+    }
+    $payload_len = $len - 4
+    $payload = ''
+    if ($payload_len > 0) {
+        $body = __pg_read_exact($conn, $payload_len)
+        if (!result_is_ok($body)) {
+            return result_err($body.error)
+        }
+        $payload = $body.value
+    }
+    return result_ok({ type: $type, payload: $payload })
+}
+
+function __pg_send_password($conn, $password) {
+    $payload = '' . $password . "\0"
+    $packet = 'p' . __pg_i32(strlen($payload) + 4) . $payload
+    return __pg_send($conn, $packet)
+}
+
+function __pg_md5_password($user, $password, $salt4) {
+    $first = md5('' . $password . '' . $user)
+    $second = md5($first . $salt4)
+    return 'md5' . $second
+}
+
+function __pg_auth_step($conn, $payload, $user, $password) {
+    $code = __pg_u32_at($payload, 0)
+    if ($code === 0) {
+        return result_ok('ok')
+    }
+    if ($code === 3) {
+        return __pg_send_password($conn, $password)
+    }
+    if ($code === 5) {
+        $salt4 = substr($payload, 4, 4)
+        $pass = __pg_md5_password($user, $password, $salt4)
+        return __pg_send_password($conn, $pass)
+    }
+    if ($code === 10) {
+        return result_err('wire_unsupported_auth:sasl')
+    }
+    return result_err('wire_unsupported_auth:' . $code)
+}
+
+function __pg_ssl_upgrade($conn, $host) {
+    $sslreq = __pg_i32(8) . __pg_i32(80877103)
+    $sent = __pg_send($conn, $sslreq)
+    if (!result_is_ok($sent)) {
+        return result_err($sent.error)
+    }
+    $resp = __pg_read_exact($conn, 1)
+    if (!result_is_ok($resp)) {
+        return result_err($resp.error)
+    }
+    if ($resp.value !== 'S') {
+        return result_err('server refused ssl')
+    }
+    $up = tls_upgrade($conn.handle, $host)
+    if (!result_is_ok($up)) {
+        return result_err($up.error)
+    }
+    return result_ok({ transport: 'tls', handle: $up.value })
+}
+
+function __pg_connect_wire($config) {
+    $host = '127.0.0.1'
+    $port = 5432
+    $user = 'postgres'
+    $password = ''
+    $database = 'postgres'
+    $timeout_ms = 5000
+    $use_ssl = false
+
+    if (is_array($config)) {
+        if (array_key_exists('host', $config)) {
+            $host = '' . $config['host']
+        }
+        if (array_key_exists('port', $config)) {
+            $port = (int) $config['port']
+        }
+        if (array_key_exists('user', $config)) {
+            $user = '' . $config['user']
+        }
+        if (array_key_exists('password', $config)) {
+            $password = '' . $config['password']
+        }
+        if (array_key_exists('database', $config)) {
+            $database = '' . $config['database']
+        }
+        if (array_key_exists('dbname', $config)) {
+            $database = '' . $config['dbname']
+        }
+        if (array_key_exists('timeout_ms', $config)) {
+            $timeout_ms = (int) $config['timeout_ms']
+        }
+        if (array_key_exists('ssl', $config)) {
+            $use_ssl = !!$config['ssl']
+        }
+    } else if (is_object($config)) {
+        if (isset($config.host)) {
+            $host = '' . $config.host
+        }
+        if (isset($config.port)) {
+            $port = (int) $config.port
+        }
+        if (isset($config.user)) {
+            $user = '' . $config.user
+        }
+        if (isset($config.password)) {
+            $password = '' . $config.password
+        }
+        if (isset($config.database)) {
+            $database = '' . $config.database
+        }
+        if (isset($config.dbname)) {
+            $database = '' . $config.dbname
+        }
+        if (isset($config.timeout_ms)) {
+            $timeout_ms = (int) $config.timeout_ms
+        }
+        if (isset($config.ssl)) {
+            $use_ssl = !!$config.ssl
+        }
+    }
+
+    $open = tcp_connect($host, $port, { timeout_ms: $timeout_ms })
+    if (!result_is_ok($open)) {
+        return result_err('wire connect failed: ' . $open.error)
+    }
+
+    $conn = {
+        kind: 'wire',
+        transport: 'tcp',
+        handle: $open.value,
+        host: $host,
+        user: $user,
+        database: $database
+    }
+
+    $deadline = tcp_set_deadline($conn.handle, $timeout_ms)
+    if (!result_is_ok($deadline)) {
+        __pg_close_conn($conn)
+        return result_err('wire deadline failed: ' . $deadline.error)
+    }
+
+    if ($use_ssl) {
+        $up = __pg_ssl_upgrade($conn, $host)
+        if (!result_is_ok($up)) {
+            __pg_close_conn($conn)
+            return result_err('wire ssl failed: ' . $up.error)
+        }
+        $conn.transport = $up.value.transport
+        $conn.handle = $up.value.handle
+    }
+
+    $startup_payload = __pg_i32(196608) . 'user' . "\0" . $user . "\0" . 'database' . "\0" . $database . "\0" . 'client_encoding' . "\0" . 'UTF8' . "\0\0"
+    $startup = __pg_i32(strlen($startup_payload) + 4) . $startup_payload
+
+    $sent = __pg_send($conn, $startup)
+    if (!result_is_ok($sent)) {
+        __pg_close_conn($conn)
+        return result_err('wire startup send failed: ' . $sent.error)
+    }
+
+    while (true) {
+        $msg = __pg_read_message($conn)
+        if (!result_is_ok($msg)) {
+            __pg_close_conn($conn)
+            return result_err('wire startup read failed: ' . $msg.error)
+        }
+
+        if ($msg.value.type === 'R') {
+            $auth = __pg_auth_step($conn, $msg.value.payload, $user, $password)
+            if (!result_is_ok($auth)) {
+                __pg_close_conn($conn)
+                return result_err($auth.error)
+            }
+            continue
+        }
+
+        if ($msg.value.type === 'S' || $msg.value.type === 'K' || $msg.value.type === 'N') {
+            continue
+        }
+
+        if ($msg.value.type === 'E') {
+            $err = __pg_error_from_payload($msg.value.payload)
+            __pg_close_conn($conn)
+            return result_err('wire startup error: ' . $err)
+        }
+
+        if ($msg.value.type === 'Z') {
+            return result_ok($conn)
+        }
+    }
+}
+
+function __pg_is_wire_handle($handle) {
+    return is_object($handle) && isset($handle.kind) && $handle.kind === 'wire' && isset($handle.transport) && isset($handle.handle)
+}
+
+function __pg_parse_row_desc($payload) {
+    $offset = 0
+    $count = __pg_u16_at($payload, $offset)
+    $offset += 2
+    $cols = []
+    for ($i = 0; $i < $count; $i += 1) {
+        $name = __pg_cstring_at($payload, $offset)
+        $offset += 18
+        $cols[] = $name
+    }
+    return $cols
+}
+
+function __pg_parse_data_row($payload, $cols) {
+    $offset = 0
+    $count = __pg_u16_at($payload, $offset)
+    $offset += 2
+    $row = []
+    for ($i = 0; $i < $count; $i += 1) {
+        $len = __pg_u32_at($payload, $offset)
+        $offset += 4
+        $name = $i < count($cols) ? $cols[$i] : ('col_' . $i)
+        if ($len === 4294967295) {
+            $row[$name] = null
+            continue
+        }
+        $val = substr($payload, $offset, $len)
+        $offset += $len
+        $row[$name] = $val
+    }
+    return $row
+}
+
+function __pg_command_affected_rows($cmd) {
+    $parts = explode(' ', trim($cmd))
+    if (count($parts) === 0) {
+        return 0
+    }
+    $last = $parts[count($parts) - 1]
+    if (is_numeric($last)) {
+        return (int) $last
+    }
+    return 0
+}
+
+function __pg_query_wire($conn, $sql) {
+    $payload = '' . $sql . "\0"
+    $packet = 'Q' . __pg_i32(strlen($payload) + 4) . $payload
+    $sent = __pg_send($conn, $packet)
+    if (!result_is_ok($sent)) {
+        return result_err('wire query send failed: ' . $sent.error)
+    }
+
+    $cols = []
+    $rows = []
+    $command = ''
+    $affected = 0
+
+    while (true) {
+        $msg = __pg_read_message($conn)
+        if (!result_is_ok($msg)) {
+            return result_err('wire query read failed: ' . $msg.error)
+        }
+
+        if ($msg.value.type === 'T') {
+            $cols = __pg_parse_row_desc($msg.value.payload)
+            continue
+        }
+
+        if ($msg.value.type === 'D') {
+            $rows[] = __pg_parse_data_row($msg.value.payload, $cols)
+            continue
+        }
+
+        if ($msg.value.type === 'C') {
+            $tmp = 0
+            $command = __pg_cstring_at($msg.value.payload, $tmp)
+            $affected = __pg_command_affected_rows($command)
+            continue
+        }
+
+        if ($msg.value.type === 'E') {
+            return result_err('wire query error: ' . __pg_error_from_payload($msg.value.payload))
+        }
+
+        if ($msg.value.type === 'Z') {
+            return result_ok({ rows: $rows, command: $command, affected_rows: $affected })
+        }
+    }
+}
 
 export function connect($config) {
+    $wire = __pg_connect_wire($config)
+    if (result_is_ok($wire)) {
+        return $wire
+    }
+
+    $fallback_native = true
+    if (is_array($config) && array_key_exists('fallback_native', $config)) {
+        $fallback_native = !!$config['fallback_native']
+    } else if (is_object($config) && isset($config.fallback_native)) {
+        $fallback_native = !!$config.fallback_native
+    }
+    if (!$fallback_native) {
+        return $wire
+    }
+
     return db_open_handle('postgres', $config)
 }
 
 export function query($handle, $sql, $params = []) {
+    if (__pg_is_wire_handle($handle)) {
+        if (count($params) > 0) {
+            return result_err('wire query params are not implemented yet')
+        }
+        $res = __pg_query_wire($handle, $sql)
+        if (!result_is_ok($res)) {
+            return result_err($res.error)
+        }
+        return result_ok({ rows: $res.value.rows })
+    }
     return db_query($handle, $sql, $params)
 }
 
 export function query_one($handle, $sql, $params = []) {
+    if (__pg_is_wire_handle($handle)) {
+        if (count($params) > 0) {
+            return result_err('wire query params are not implemented yet')
+        }
+        $res = __pg_query_wire($handle, $sql)
+        if (!result_is_ok($res)) {
+            return result_err($res.error)
+        }
+        if (count($res.value.rows) === 0) {
+            return result_err('no rows')
+        }
+        return result_ok($res.value.rows[0])
+    }
     return db_query_one($handle, $sql, $params)
 }
 
 export function exec($handle, $sql, $params = []) {
+    if (__pg_is_wire_handle($handle)) {
+        if (count($params) > 0) {
+            return result_err('wire exec params are not implemented yet')
+        }
+        $res = __pg_query_wire($handle, $sql)
+        if (!result_is_ok($res)) {
+            return result_err($res.error)
+        }
+        return result_ok({ affected_rows: $res.value.affected_rows })
+    }
     return db_exec($handle, $sql, $params)
 }
 
 export function begin($handle) {
+    if (__pg_is_wire_handle($handle)) {
+        $res = exec($handle, 'BEGIN', [])
+        if (!result_is_ok($res)) {
+            return result_err($res.error)
+        }
+        return result_ok({ ok: true })
+    }
     return db_begin($handle)
 }
 
 export function commit($handle) {
+    if (__pg_is_wire_handle($handle)) {
+        $res = exec($handle, 'COMMIT', [])
+        if (!result_is_ok($res)) {
+            return result_err($res.error)
+        }
+        return result_ok({ ok: true })
+    }
     return db_commit($handle)
 }
 
 export function rollback($handle) {
+    if (__pg_is_wire_handle($handle)) {
+        $res = exec($handle, 'ROLLBACK', [])
+        if (!result_is_ok($res)) {
+            return result_err($res.error)
+        }
+        return result_ok({ ok: true })
+    }
     return db_rollback($handle)
 }
 
 export function close($handle) {
+    if (__pg_is_wire_handle($handle)) {
+        $term = 'X' . __pg_i32(4)
+        __pg_send($handle, $term)
+        return __pg_close_conn($handle)
+    }
     return db_close($handle)
 }
