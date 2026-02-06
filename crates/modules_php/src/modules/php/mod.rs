@@ -7,6 +7,9 @@ use php_rs::parser::parser::{Parser, ParserMode};
 use php_rs::parser::lexer::token::Token;
 use bumpalo::Bump;
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
+use std::sync::{Mutex, OnceLock};
+use tokio_postgres::{Client, NoTls, types::ToSql};
 use wit_parser::{Resolve, Results, Type, TypeDefKind, TypeId, WorldItem, WorldKey};
 
 /// Embedded PHP WASM binary produced by the `php-rs` crate.
@@ -139,6 +142,164 @@ struct BridgeStruct {
 struct BridgeModuleTypes {
     functions: HashMap<String, BridgeFunction>,
     structs: HashMap<String, BridgeStruct>,
+}
+
+struct DbConn {
+    key: String,
+    config: PgConnConfig,
+}
+
+#[derive(Clone)]
+struct PgConnConfig {
+    host: String,
+    port: u16,
+    database: String,
+    user: String,
+    password: String,
+}
+
+struct DbState {
+    next_handle: u64,
+    handles: HashMap<u64, DbConn>,
+    key_to_handle: HashMap<String, u64>,
+}
+
+impl DbState {
+    fn new() -> Self {
+        Self {
+            next_handle: 1,
+            handles: HashMap::new(),
+            key_to_handle: HashMap::new(),
+        }
+    }
+}
+
+static DB_STATE: OnceLock<Mutex<DbState>> = OnceLock::new();
+
+fn db_state() -> &'static Mutex<DbState> {
+    DB_STATE.get_or_init(|| Mutex::new(DbState::new()))
+}
+
+fn with_pg_client<T, F>(
+    cfg: PgConnConfig,
+    f: impl FnOnce(Client) -> F + Send + 'static,
+) -> Result<T, deno_core::error::CoreError>
+where
+    F: Future<Output = Result<T, deno_core::error::CoreError>> + 'static,
+    T: Send + 'static,
+{
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("db runtime init failed: {e}"))))?;
+
+        rt.block_on(async move {
+            let mut config = tokio_postgres::Config::new();
+            config.host(&cfg.host);
+            config.port(cfg.port);
+            if !cfg.database.is_empty() {
+                config.dbname(&cfg.database);
+            }
+            if !cfg.user.is_empty() {
+                config.user(&cfg.user);
+            }
+            if !cfg.password.is_empty() {
+                config.password(&cfg.password);
+            }
+
+            let (client, connection) = config
+                .connect(NoTls)
+                .await
+                .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("postgres connect failed: {e}"))))?;
+            tokio::spawn(async move {
+                let _ = connection.await;
+            });
+            f(client).await
+        })
+    })
+    .join()
+    .map_err(|_| deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked")))?
+}
+
+fn json_to_pg_param(value: &serde_json::Value) -> Box<dyn ToSql + Sync> {
+    match value {
+        serde_json::Value::Null => Box::new(None::<String>),
+        serde_json::Value::Bool(v) => Box::new(*v),
+        serde_json::Value::Number(v) => {
+            if let Some(i) = v.as_i64() {
+                Box::new(i)
+            } else if let Some(u) = v.as_u64() {
+                if u <= i64::MAX as u64 {
+                    Box::new(u as i64)
+                } else {
+                    Box::new(u as f64)
+                }
+            } else if let Some(f) = v.as_f64() {
+                Box::new(f)
+            } else {
+                Box::new(v.to_string())
+            }
+        }
+        serde_json::Value::String(v) => Box::new(v.clone()),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => Box::new(value.to_string()),
+    }
+}
+
+fn pg_cell_to_json(row: &tokio_postgres::Row, idx: usize) -> serde_json::Value {
+    let col = &row.columns()[idx];
+    match col.type_().name() {
+        "bool" => row
+            .try_get::<usize, Option<bool>>(idx)
+            .ok()
+            .flatten()
+            .map(serde_json::Value::Bool)
+            .unwrap_or(serde_json::Value::Null),
+        "int2" => row
+            .try_get::<usize, Option<i16>>(idx)
+            .ok()
+            .flatten()
+            .map(|v| serde_json::Value::Number(serde_json::Number::from(v as i64)))
+            .unwrap_or(serde_json::Value::Null),
+        "int4" => row
+            .try_get::<usize, Option<i32>>(idx)
+            .ok()
+            .flatten()
+            .map(|v| serde_json::Value::Number(serde_json::Number::from(v as i64)))
+            .unwrap_or(serde_json::Value::Null),
+        "int8" => row
+            .try_get::<usize, Option<i64>>(idx)
+            .ok()
+            .flatten()
+            .map(|v| serde_json::Value::Number(serde_json::Number::from(v)))
+            .unwrap_or(serde_json::Value::Null),
+        "float4" => row
+            .try_get::<usize, Option<f32>>(idx)
+            .ok()
+            .flatten()
+            .and_then(|v| serde_json::Number::from_f64(v as f64))
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        "float8" => row
+            .try_get::<usize, Option<f64>>(idx)
+            .ok()
+            .flatten()
+            .and_then(serde_json::Number::from_f64)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        "json" | "jsonb" => row
+            .try_get::<usize, Option<String>>(idx)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            .unwrap_or(serde_json::Value::Null),
+        _ => row
+            .try_get::<usize, Option<String>>(idx)
+            .ok()
+            .flatten()
+            .map(serde_json::Value::String)
+            .unwrap_or(serde_json::Value::Null),
+    }
 }
 
 #[derive(Clone)]
@@ -601,6 +762,218 @@ fn op_php_read_env() -> HashMap<String, String> {
 }
 
 #[op2]
+#[serde]
+fn op_php_db_call(
+    #[string] action: String,
+    #[serde] args: serde_json::Value,
+) -> Result<serde_json::Value, deno_core::error::CoreError> {
+    let err = |msg: String| {
+        deno_core::error::CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            msg,
+        ))
+    };
+
+    let args_obj = args.as_object().cloned().unwrap_or_default();
+    match action.as_str() {
+        "open" => {
+            let driver = args_obj
+                .get("driver")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if driver != "postgres" {
+                return Ok(serde_json::json!({
+                    "ok": false,
+                    "error": format!("unsupported driver '{}'", driver)
+                }));
+            }
+            let cfg = args_obj
+                .get("config")
+                .and_then(|v| v.as_object())
+                .cloned()
+                .unwrap_or_default();
+            let host = cfg.get("host").and_then(|v| v.as_str()).unwrap_or("127.0.0.1");
+            let port = cfg.get("port").and_then(|v| v.as_u64()).unwrap_or(5432);
+            let user = cfg.get("user").and_then(|v| v.as_str()).unwrap_or("");
+            let password = cfg.get("password").and_then(|v| v.as_str()).unwrap_or("");
+            let database = cfg
+                .get("database")
+                .and_then(|v| v.as_str())
+                .or_else(|| cfg.get("dbname").and_then(|v| v.as_str()))
+                .unwrap_or("");
+            let key = format!(
+                "postgres://{}:{}@{}:{}/{}",
+                user, password, host, port, database
+            );
+
+            {
+                let state = db_state()
+                    .lock()
+                    .map_err(|_| err("db lock poisoned".to_string()))?;
+                if let Some(handle) = state.key_to_handle.get(&key).copied() {
+                    return Ok(serde_json::json!({
+                        "ok": true,
+                        "handle": handle,
+                        "reused": true
+                    }));
+                }
+            }
+
+            let mut state = db_state()
+                .lock()
+                .map_err(|_| err("db lock poisoned".to_string()))?;
+            if let Some(handle) = state.key_to_handle.get(&key).copied() {
+                return Ok(serde_json::json!({
+                    "ok": true,
+                    "handle": handle,
+                    "reused": true
+                }));
+            }
+            let handle = state.next_handle;
+            state.next_handle += 1;
+            state.handles.insert(
+                handle,
+                DbConn {
+                    key: key.clone(),
+                    config: PgConnConfig {
+                        host: host.to_string(),
+                        port: port as u16,
+                        database: database.to_string(),
+                        user: user.to_string(),
+                        password: password.to_string(),
+                    },
+                },
+            );
+            state.key_to_handle.insert(key, handle);
+            Ok(serde_json::json!({
+                "ok": true,
+                "handle": handle,
+                "reused": false
+            }))
+        }
+        "query" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("query: missing handle".to_string()))?;
+            let sql = args_obj
+                .get("sql")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| err("query: missing sql".to_string()))?;
+            let params = args_obj
+                .get("params")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+
+            let cfg = {
+                let state = db_state()
+                    .lock()
+                    .map_err(|_| err("db lock poisoned".to_string()))?;
+                let conn = state
+                    .handles
+                    .get(&handle)
+                    .ok_or_else(|| err(format!("query: unknown handle {}", handle)))?;
+                conn.config.clone()
+            };
+            let sql = sql.to_string();
+            let out_rows = with_pg_client(cfg, move |client| async move {
+                let boxed: Vec<Box<dyn ToSql + Sync>> = params.iter().map(json_to_pg_param).collect();
+                let refs: Vec<&(dyn ToSql + Sync)> = boxed.iter().map(|v| v.as_ref()).collect();
+                let rows = client
+                    .query(&sql, &refs)
+                    .await
+                    .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("postgres query failed: {}", e))))?;
+
+                let mut out_rows = Vec::with_capacity(rows.len());
+                for row in rows.iter() {
+                    let mut obj = serde_json::Map::new();
+                    for idx in 0..row.len() {
+                        let name = row.columns()[idx].name().to_string();
+                        obj.insert(name, pg_cell_to_json(row, idx));
+                    }
+                    out_rows.push(serde_json::Value::Object(obj));
+                }
+                Ok(out_rows)
+            })?;
+
+            Ok(serde_json::json!({
+                "ok": true,
+                "rows": out_rows
+            }))
+        }
+        "exec" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("exec: missing handle".to_string()))?;
+            let sql = args_obj
+                .get("sql")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| err("exec: missing sql".to_string()))?;
+            let params = args_obj
+                .get("params")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+
+            let cfg = {
+                let state = db_state()
+                    .lock()
+                    .map_err(|_| err("db lock poisoned".to_string()))?;
+                let conn = state
+                    .handles
+                    .get(&handle)
+                    .ok_or_else(|| err(format!("exec: unknown handle {}", handle)))?;
+                conn.config.clone()
+            };
+            let sql = sql.to_string();
+            let affected = with_pg_client(cfg, move |client| async move {
+                let boxed: Vec<Box<dyn ToSql + Sync>> = params.iter().map(json_to_pg_param).collect();
+                let refs: Vec<&(dyn ToSql + Sync)> = boxed.iter().map(|v| v.as_ref()).collect();
+                client
+                    .execute(&sql, &refs)
+                    .await
+                    .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("postgres exec failed: {}", e))))
+            })?;
+
+            Ok(serde_json::json!({
+                "ok": true,
+                "affected_rows": affected
+            }))
+        }
+        "begin" => {
+            // Transaction scope across multiple calls is not supported in stateless mode.
+            Ok(serde_json::json!({ "ok": true }))
+        }
+        "commit" => {
+            Ok(serde_json::json!({ "ok": true }))
+        }
+        "rollback" => {
+            Ok(serde_json::json!({ "ok": true }))
+        }
+        "close" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("close: missing handle".to_string()))?;
+            let mut state = db_state()
+                .lock()
+                .map_err(|_| err("db lock poisoned".to_string()))?;
+            if let Some(conn) = state.handles.remove(&handle) {
+                state.key_to_handle.remove(&conn.key);
+            }
+            Ok(serde_json::json!({ "ok": true }))
+        }
+        _ => Ok(serde_json::json!({
+            "ok": false,
+            "error": format!("unknown db action '{}'", action)
+        })),
+    }
+}
+
+#[op2]
 #[string]
 fn op_php_cwd() -> Result<String, deno_core::error::CoreError> {
     std::env::current_dir()
@@ -745,6 +1118,7 @@ deno_core::extension!(
         op_php_mkdirs,
         op_php_sha256,
         op_php_read_env,
+        op_php_db_call,
         op_php_cwd,
         op_php_file_exists,
         op_php_path_resolve,

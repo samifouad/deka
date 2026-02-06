@@ -1,0 +1,33 @@
+import { Result } from 'core/result'
+
+type DbOpenOk = {
+  handle: int
+  reused: bool
+}
+
+type DbQueryOk = {
+  rows: array<Object>
+}
+
+type DbExecOk = {
+  affected_rows: int
+}
+
+type DbUnitOk = {
+  ok: bool
+}
+
+export function open($driver: string, $config: Object): Result<DbOpenOk, string>
+export function db_open($driver: string, $config: Object): Result<DbOpenOk, string>
+export function query($handle: int, $sql: string, $params: array = []): Result<DbQueryOk, string>
+export function db_query($handle: int, $sql: string, $params: array = []): Result<DbQueryOk, string>
+export function exec($handle: int, $sql: string, $params: array = []): Result<DbExecOk, string>
+export function db_exec($handle: int, $sql: string, $params: array = []): Result<DbExecOk, string>
+export function begin($handle: int): Result<DbUnitOk, string>
+export function db_begin($handle: int): Result<DbUnitOk, string>
+export function commit($handle: int): Result<DbUnitOk, string>
+export function db_commit($handle: int): Result<DbUnitOk, string>
+export function rollback($handle: int): Result<DbUnitOk, string>
+export function db_rollback($handle: int): Result<DbUnitOk, string>
+export function close($handle: int): Result<DbUnitOk, string>
+export function db_close($handle: int): Result<DbUnitOk, string>

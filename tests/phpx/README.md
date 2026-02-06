@@ -33,6 +33,11 @@ For PHP <-> PHPX bridge fixtures (PHP files that import PHPX modules), run:
 PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/bridge/testrunner.js
 ```
 
+For Postgres smoke validation (requires Docker/local DB), run:
+```
+PHPX_DB_SMOKE=1 DB_HOST=127.0.0.1 DB_PORT=55432 DB_NAME=linkhash_registry DB_USER=postgres DB_PASSWORD=postgres PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js tests/phpx/db
+```
+
 ## Mandatory When
 After any major runtime or parser/compiler change, run the full suite:
 ```
