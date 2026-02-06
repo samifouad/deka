@@ -45,9 +45,9 @@
 - [x] 11. Add binary integrity tests for file bytes round-trip.
 
 ### Phase 4: Net Bridge Migration
-- [ ] 12. Add `net` schema messages (`connect/read/write/tls_upgrade/close/deadline`).
-- [ ] 13. Migrate `op_php_net_call` to Protobuf transport.
-- [ ] 14. Add TCP/TLS protocol sanity tests.
+- [x] 12. Add `net` schema messages (`connect/read/write/tls_upgrade/close/deadline`).
+- [x] 13. Migrate `op_php_net_call` to Protobuf transport.
+- [x] 14. Add TCP/TLS protocol sanity tests.
 
 ### Phase 5: Cleanup and Hardening
 - [ ] 15. Remove JSON bridge fallback paths.

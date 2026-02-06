@@ -2075,11 +2075,9 @@ fn op_php_db_proto_decode(
     Ok(db_proto_response_to_json(&decoded))
 }
 
-#[op2]
-#[serde]
-fn op_php_net_call(
-    #[string] action: String,
-    #[serde] args: serde_json::Value,
+fn net_call_impl(
+    action: String,
+    args: serde_json::Value,
 ) -> Result<serde_json::Value, deno_core::error::CoreError> {
     let err = |msg: String| {
         deno_core::error::CoreError::from(std::io::Error::new(
@@ -2270,6 +2268,252 @@ fn op_php_net_call(
             "error": format!("unknown net action '{}'", action)
         })),
     }
+}
+
+#[derive(Clone, Copy)]
+enum NetProtoActionKind {
+    Connect,
+    SetDeadline,
+    Read,
+    Write,
+    TlsUpgrade,
+    Close,
+}
+
+fn net_action_payload_to_proto_request(
+    action: &str,
+    payload: &serde_json::Value,
+) -> Result<proto::bridge_v1::NetRequest, deno_core::error::CoreError> {
+    use proto::bridge_v1::net_request::Action;
+    let args = payload.as_object().cloned().unwrap_or_default();
+    let action = match action {
+        "connect" => Action::Connect(proto::bridge_v1::NetConnectRequest {
+            host: args
+                .get("host")
+                .and_then(|v| v.as_str())
+                .unwrap_or("127.0.0.1")
+                .to_string(),
+            port: args.get("port").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            timeout_ms: args.get("timeout_ms").and_then(|v| v.as_u64()).unwrap_or(5000),
+        }),
+        "set_deadline" => Action::SetDeadline(proto::bridge_v1::NetDeadlineRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+            millis: args.get("millis").and_then(|v| v.as_u64()).unwrap_or(0),
+        }),
+        "read" => Action::Read(proto::bridge_v1::NetReadRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+            max_bytes: args.get("max_bytes").and_then(|v| v.as_u64()).unwrap_or(4096),
+        }),
+        "write" => Action::Write(proto::bridge_v1::NetWriteRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+            data: args
+                .get("data")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+        }),
+        "tls_upgrade" => Action::TlsUpgrade(proto::bridge_v1::NetTlsUpgradeRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+            server_name: args
+                .get("server_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+        }),
+        "close" => Action::Close(proto::bridge_v1::NetHandleRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+        }),
+        other => return Err(core_err(format!("unsupported net proto action '{}'", other))),
+    };
+    Ok(proto::bridge_v1::NetRequest {
+        schema_version: 1,
+        action: Some(action),
+    })
+}
+
+fn net_proto_request_to_action_payload(
+    req: &proto::bridge_v1::NetRequest,
+) -> Result<(String, serde_json::Value, NetProtoActionKind), deno_core::error::CoreError> {
+    use proto::bridge_v1::net_request::Action;
+    let Some(action) = req.action.as_ref() else {
+        return Err(core_err("net proto request missing action"));
+    };
+    match action {
+        Action::Connect(connect) => Ok((
+            "connect".to_string(),
+            serde_json::json!({
+                "host": connect.host,
+                "port": connect.port,
+                "timeout_ms": connect.timeout_ms,
+            }),
+            NetProtoActionKind::Connect,
+        )),
+        Action::SetDeadline(deadline) => Ok((
+            "set_deadline".to_string(),
+            serde_json::json!({
+                "handle": deadline.handle,
+                "millis": deadline.millis,
+            }),
+            NetProtoActionKind::SetDeadline,
+        )),
+        Action::Read(read) => Ok((
+            "read".to_string(),
+            serde_json::json!({
+                "handle": read.handle,
+                "max_bytes": read.max_bytes,
+            }),
+            NetProtoActionKind::Read,
+        )),
+        Action::Write(write) => Ok((
+            "write".to_string(),
+            serde_json::json!({
+                "handle": write.handle,
+                "data": write.data,
+            }),
+            NetProtoActionKind::Write,
+        )),
+        Action::TlsUpgrade(upgrade) => Ok((
+            "tls_upgrade".to_string(),
+            serde_json::json!({
+                "handle": upgrade.handle,
+                "server_name": upgrade.server_name,
+            }),
+            NetProtoActionKind::TlsUpgrade,
+        )),
+        Action::Close(close) => Ok((
+            "close".to_string(),
+            serde_json::json!({ "handle": close.handle }),
+            NetProtoActionKind::Close,
+        )),
+    }
+}
+
+fn net_json_response_to_proto(
+    resp: &serde_json::Value,
+    kind: NetProtoActionKind,
+) -> proto::bridge_v1::NetResponse {
+    use proto::bridge_v1::net_response::Action;
+    let ok = resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+    let error = resp
+        .get("error")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let action = match kind {
+        NetProtoActionKind::Connect => Some(Action::Connect(proto::bridge_v1::NetHandleResponse {
+            handle: resp.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+            reused: resp.get("reused").and_then(|v| v.as_bool()).unwrap_or(false),
+        })),
+        NetProtoActionKind::SetDeadline => Some(Action::SetDeadline(proto::bridge_v1::NetUnitResponse { ok })),
+        NetProtoActionKind::Read => Some(Action::Read(proto::bridge_v1::NetReadResponse {
+            data: resp
+                .get("data")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            eof: resp.get("eof").and_then(|v| v.as_bool()).unwrap_or(false),
+        })),
+        NetProtoActionKind::Write => Some(Action::Write(proto::bridge_v1::NetWriteResponse {
+            written: resp.get("written").and_then(|v| v.as_u64()).unwrap_or(0),
+        })),
+        NetProtoActionKind::TlsUpgrade => {
+            Some(Action::TlsUpgrade(proto::bridge_v1::NetHandleResponse {
+                handle: resp.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+                reused: resp.get("reused").and_then(|v| v.as_bool()).unwrap_or(false),
+            }))
+        }
+        NetProtoActionKind::Close => Some(Action::Close(proto::bridge_v1::NetUnitResponse { ok })),
+    };
+
+    proto::bridge_v1::NetResponse {
+        schema_version: 1,
+        ok,
+        error,
+        action,
+    }
+}
+
+fn net_proto_response_to_json(resp: &proto::bridge_v1::NetResponse) -> serde_json::Value {
+    use proto::bridge_v1::net_response::Action;
+    let mut out = serde_json::Map::new();
+    out.insert("ok".to_string(), serde_json::Value::Bool(resp.ok));
+    if !resp.error.is_empty() {
+        out.insert("error".to_string(), serde_json::Value::String(resp.error.clone()));
+    }
+
+    if let Some(action) = resp.action.as_ref() {
+        match action {
+            Action::Connect(handle) | Action::TlsUpgrade(handle) => {
+                out.insert(
+                    "handle".to_string(),
+                    serde_json::Value::Number(handle.handle.into()),
+                );
+                out.insert("reused".to_string(), serde_json::Value::Bool(handle.reused));
+            }
+            Action::SetDeadline(unit) | Action::Close(unit) => {
+                out.insert("ok".to_string(), serde_json::Value::Bool(unit.ok));
+            }
+            Action::Read(read) => {
+                out.insert("data".to_string(), serde_json::Value::String(read.data.clone()));
+                out.insert("eof".to_string(), serde_json::Value::Bool(read.eof));
+            }
+            Action::Write(write) => {
+                out.insert(
+                    "written".to_string(),
+                    serde_json::Value::Number(write.written.into()),
+                );
+            }
+        }
+    }
+
+    serde_json::Value::Object(out)
+}
+
+fn net_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    let req = proto::bridge_v1::NetRequest::decode(request)
+        .map_err(|e| core_err(format!("net proto decode failed: {}", e)))?;
+    let (action, payload, kind) = net_proto_request_to_action_payload(&req)?;
+    let response_json = net_call_impl(action, payload)?;
+    let response = net_json_response_to_proto(&response_json, kind);
+    Ok(response.encode_to_vec())
+}
+
+#[op2]
+#[serde]
+fn op_php_net_call(
+    #[string] action: String,
+    #[serde] args: serde_json::Value,
+) -> Result<serde_json::Value, deno_core::error::CoreError> {
+    net_call_impl(action, args)
+}
+
+#[op2]
+#[buffer]
+fn op_php_net_call_proto(
+    #[buffer] request: &[u8],
+) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    net_call_proto_impl(request)
+}
+
+#[op2]
+#[buffer]
+fn op_php_net_proto_encode(
+    #[string] action: String,
+    #[serde] payload: serde_json::Value,
+) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    let request = net_action_payload_to_proto_request(&action, &payload)?;
+    Ok(request.encode_to_vec())
+}
+
+#[op2]
+#[serde]
+fn op_php_net_proto_decode(
+    #[buffer] response: &[u8],
+) -> Result<serde_json::Value, deno_core::error::CoreError> {
+    let decoded = proto::bridge_v1::NetResponse::decode(response)
+        .map_err(|e| core_err(format!("net proto decode response failed: {}", e)))?;
+    Ok(net_proto_response_to_json(&decoded))
 }
 
 fn fs_call_impl(
@@ -2896,6 +3140,9 @@ deno_core::extension!(
         op_php_db_proto_encode,
         op_php_db_proto_decode,
         op_php_net_call,
+        op_php_net_call_proto,
+        op_php_net_proto_encode,
+        op_php_net_proto_decode,
         op_php_fs_call,
         op_php_fs_call_proto,
         op_php_fs_proto_encode,
@@ -2918,6 +3165,7 @@ pub fn init() -> deno_core::Extension {
 mod tests {
     use super::*;
     use prost::Message;
+    use std::net::TcpListener;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn unique_suffix() -> String {
@@ -3123,6 +3371,132 @@ mod tests {
 
         assert_eq!(json_read.get("data"), proto_read_json.get("data"));
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn net_proto_tcp_parity_sanity() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let addr = listener.local_addr().expect("local addr");
+        let server = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().expect("accept");
+                let mut buf = [0_u8; 64];
+                let n = std::io::Read::read(&mut stream, &mut buf).expect("read");
+                std::io::Write::write_all(&mut stream, &buf[..n]).expect("write");
+            }
+        });
+
+        let json_connect = net_call_impl(
+            "connect".to_string(),
+            serde_json::json!({
+                "host": "127.0.0.1",
+                "port": addr.port(),
+                "timeout_ms": 3000
+            }),
+        )
+        .expect("json connect failed");
+        assert_ok(&json_connect);
+        let json_handle = json_connect
+            .get("handle")
+            .and_then(|v| v.as_u64())
+            .expect("json handle missing");
+
+        let json_write = net_call_impl(
+            "write".to_string(),
+            serde_json::json!({
+                "handle": json_handle,
+                "data": "ping"
+            }),
+        )
+        .expect("json write failed");
+        assert_ok(&json_write);
+
+        let json_read = net_call_impl(
+            "read".to_string(),
+            serde_json::json!({
+                "handle": json_handle,
+                "max_bytes": 4
+            }),
+        )
+        .expect("json read failed");
+        assert_ok(&json_read);
+        assert_eq!(json_read.get("data").and_then(|v| v.as_str()), Some("ping"));
+
+        let json_close = net_call_impl(
+            "close".to_string(),
+            serde_json::json!({ "handle": json_handle }),
+        )
+        .expect("json close failed");
+        assert_ok(&json_close);
+
+        let proto_connect_req = net_action_payload_to_proto_request(
+            "connect",
+            &serde_json::json!({
+                "host": "127.0.0.1",
+                "port": addr.port(),
+                "timeout_ms": 3000
+            }),
+        )
+        .expect("proto connect build failed");
+        let proto_connect_resp =
+            net_call_proto_impl(&proto_connect_req.encode_to_vec()).expect("proto connect failed");
+        let proto_connect_json = net_proto_response_to_json(
+            &proto::bridge_v1::NetResponse::decode(proto_connect_resp.as_slice())
+                .expect("decode connect"),
+        );
+        assert_ok(&proto_connect_json);
+        let proto_handle = proto_connect_json
+            .get("handle")
+            .and_then(|v| v.as_u64())
+            .expect("proto handle missing");
+
+        let proto_write_req = net_action_payload_to_proto_request(
+            "write",
+            &serde_json::json!({
+                "handle": proto_handle,
+                "data": "pong"
+            }),
+        )
+        .expect("proto write build failed");
+        let proto_write_resp =
+            net_call_proto_impl(&proto_write_req.encode_to_vec()).expect("proto write failed");
+        let proto_write_json = net_proto_response_to_json(
+            &proto::bridge_v1::NetResponse::decode(proto_write_resp.as_slice())
+                .expect("decode write"),
+        );
+        assert_ok(&proto_write_json);
+
+        let proto_read_req = net_action_payload_to_proto_request(
+            "read",
+            &serde_json::json!({
+                "handle": proto_handle,
+                "max_bytes": 4
+            }),
+        )
+        .expect("proto read build failed");
+        let proto_read_resp =
+            net_call_proto_impl(&proto_read_req.encode_to_vec()).expect("proto read failed");
+        let proto_read_json = net_proto_response_to_json(
+            &proto::bridge_v1::NetResponse::decode(proto_read_resp.as_slice())
+                .expect("decode read"),
+        );
+        assert_ok(&proto_read_json);
+        assert_eq!(proto_read_json.get("data").and_then(|v| v.as_str()), Some("pong"));
+
+        let proto_close_req = net_action_payload_to_proto_request(
+            "close",
+            &serde_json::json!({ "handle": proto_handle }),
+        )
+        .expect("proto close build failed");
+        let proto_close_resp =
+            net_call_proto_impl(&proto_close_req.encode_to_vec()).expect("proto close failed");
+        let proto_close_json = net_proto_response_to_json(
+            &proto::bridge_v1::NetResponse::decode(proto_close_resp.as_slice())
+                .expect("decode close"),
+        );
+        assert_ok(&proto_close_json);
+
+        server.join().expect("server join");
     }
 }
 

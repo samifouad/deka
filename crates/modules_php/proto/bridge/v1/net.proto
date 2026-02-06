@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package deka.bridge.v1;
+
+message NetConnectRequest {
+  string host = 1;
+  uint32 port = 2;
+  uint64 timeout_ms = 3;
+}
+
+message NetHandleRequest {
+  uint64 handle = 1;
+}
+
+message NetDeadlineRequest {
+  uint64 handle = 1;
+  uint64 millis = 2;
+}
+
+message NetReadRequest {
+  uint64 handle = 1;
+  uint64 max_bytes = 2;
+}
+
+message NetWriteRequest {
+  uint64 handle = 1;
+  string data = 2;
+}
+
+message NetTlsUpgradeRequest {
+  uint64 handle = 1;
+  string server_name = 2;
+}
+
+message NetRequest {
+  uint32 schema_version = 1;
+  oneof action {
+    NetConnectRequest connect = 10;
+    NetDeadlineRequest set_deadline = 11;
+    NetReadRequest read = 12;
+    NetWriteRequest write = 13;
+    NetTlsUpgradeRequest tls_upgrade = 14;
+    NetHandleRequest close = 15;
+  }
+}
+
+message NetHandleResponse {
+  uint64 handle = 1;
+  bool reused = 2;
+}
+
+message NetReadResponse {
+  string data = 1;
+  bool eof = 2;
+}
+
+message NetWriteResponse {
+  uint64 written = 1;
+}
+
+message NetUnitResponse {
+  bool ok = 1;
+}
+
+message NetResponse {
+  uint32 schema_version = 1;
+  bool ok = 2;
+  string error = 3;
+  oneof action {
+    NetHandleResponse connect = 10;
+    NetUnitResponse set_deadline = 11;
+    NetReadResponse read = 12;
+    NetWriteResponse write = 13;
+    NetHandleResponse tls_upgrade = 14;
+    NetUnitResponse close = 15;
+  }
+}
