@@ -610,7 +610,7 @@ Notes:
 160. [x] DX-TASKS:  Create `scripts/install-phpx-lsp.sh`:
 679:  - [x] Build LSP binary
 680:  - [x] Install to `~/.local/bin/` or system path
-681:  - [ ] Set up editor configs
+681:  - [x] Set up editor configs
 161. [x] DX-TASKS:  Create `scripts/install-zed-extension.sh`
 162. [x] DX-TASKS:  Create `scripts/install-vscode-extension.sh`
 163. [ ] DX-TASKS:  Test on clean systems (Linux, macOS)

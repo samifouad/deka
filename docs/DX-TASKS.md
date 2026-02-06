@@ -679,7 +679,7 @@ Import Error: Missing type stubs for '@user/hello'
 - [x] Create `scripts/install-phpx-lsp.sh`:
   - [x] Build LSP binary
   - [x] Install to `~/.local/bin/` or system path
-  - [ ] Set up editor configs
+  - [x] Set up editor configs
 - [ ] Package `phpx_lsp` alongside `deka` in installers (brew, npm, curl scripts)
 - [x] Create `scripts/install-zed-extension.sh`
 - [x] Create `scripts/install-vscode-extension.sh`
