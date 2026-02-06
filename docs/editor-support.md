@@ -60,6 +60,7 @@ require('lspconfig').phpx_lsp.setup({
 Reusable Neovim integration files live in `extensions/nvim-phpx`:
 - `extensions/nvim-phpx/lsp.lua`
 - `extensions/nvim-phpx/snippets/phpx.lua`
+- `extensions/nvim-phpx/ftdetect/phpx.lua`
 - `extensions/nvim-phpx/README.md`
 
 ### Helix
@@ -105,3 +106,10 @@ language-servers = ["phpx-lsp"]
 - Some editor-specific visual behaviors (fold markers, indent behavior) still require manual verification.
 - VS Code extension packaging currently includes unbundled `node_modules`.
 - Cross-platform release packaging for `phpx_lsp` is not automated yet.
+
+## Neovim Textobjects
+With the PHPX tree-sitter grammar/queries loaded, the following are available:
+- function outer/inner
+- struct outer/inner
+- JSX outer/inner
+- parameter outer

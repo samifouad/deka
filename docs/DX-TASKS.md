@@ -412,7 +412,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] JSX elements (`@jsx.outer`, `@jsx.inner`)
   - [x] Parameters (`@parameter.outer`)
 - [ ] Test in Neovim (via nvim-treesitter)
-- [ ] Document textobject usage
+- [x] Document textobject usage
 
 **Acceptance**: Textobjects work in Neovim for PHPX code
 
@@ -633,7 +633,7 @@ Import Error: Missing type stubs for '@user/hello'
     filetypes = { 'phpx' },
   })
   ```
-- [ ] Add autocommand for `.phpx` files
+- [x] Add autocommand for `.phpx` files
 - [ ] Test LSP features in Neovim
 - [x] Document keybindings
 

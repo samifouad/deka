@@ -470,7 +470,7 @@ Notes:
 411:  - [x] JSX elements (`@jsx.outer`, `@jsx.inner`)
 412:  - [x] Parameters (`@parameter.outer`)
 92. [ ] DX-TASKS:  Test in Neovim (via nvim-treesitter)
-93. [ ] DX-TASKS:  Document textobject usage
+93. [x] DX-TASKS:  Document textobject usage
 94. [x] DX-TASKS:  Add `hoverProvider` capability to LSP
 95. [x] DX-TASKS:  Implement `hover` method:
 429:  - [x] Parse PHPX to AST
@@ -588,7 +588,7 @@ Notes:
 148. [x] DX-TASKS:  Document installation (Lazy.nvim, Packer, etc.)
 149. [ ] DX-TASKS:  Test in Neovim
 150. [x] DX-TASKS:  Document LSP setup with `nvim-lspconfig`:
-151. [ ] DX-TASKS:  Add autocommand for `.phpx` files
+151. [x] DX-TASKS:  Add autocommand for `.phpx` files
 152. [ ] DX-TASKS:  Test LSP features in Neovim
 153. [x] DX-TASKS:  Document keybindings
 154. [x] DX-TASKS:  Create LuaSnip snippets for PHPX

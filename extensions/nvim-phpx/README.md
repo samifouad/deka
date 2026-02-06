@@ -5,6 +5,7 @@ Neovim support files for PHPX.
 ## Files
 - `lsp.lua`: `nvim-lspconfig` setup for `phpx_lsp`
 - `snippets/phpx.lua`: LuaSnip snippets for PHPX
+- `ftdetect/phpx.lua`: filetype detection for `.phpx`
 
 ## Install (Lazy.nvim)
 ```lua
@@ -43,3 +44,10 @@ Load `snippets/phpx.lua` with LuaSnip and trigger by prefix:
 - `pimport` import template
 - `pjsx` JSX component template
 - `pfm` frontmatter template
+
+## Tree-sitter Textobjects
+If your tree-sitter config loads the PHPX grammar/queries, textobjects are available:
+- function outer/inner
+- struct outer/inner
+- JSX outer/inner
+- parameter outer
