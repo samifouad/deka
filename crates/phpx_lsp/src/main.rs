@@ -2162,3 +2162,43 @@ fn find_word_occurrences(source: &[u8], word: &str) -> Vec<Span> {
     }
     spans
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_import_module_path_with_span() {
+        let line = "import { query } from 'db/postgres'";
+        let (module, span) = parse_module_path_with_span(line, 0).expect("module span");
+        assert_eq!(module, "db/postgres");
+        assert_eq!(&line[span.start..span.end], "db/postgres");
+    }
+
+    #[test]
+    fn detects_import_module_at_cursor_offset() {
+        let src = "import { query } from 'db/postgres'\n$query = 1\n";
+        let offset = src.find("postgres").expect("postgres");
+        let module = import_module_at_offset(src, offset).expect("module");
+        assert_eq!(module, "db/postgres");
+        let non_import = src.find("$query").expect("query var");
+        assert!(import_module_at_offset(src, non_import).is_none());
+    }
+
+    #[test]
+    fn collects_all_matching_import_module_spans() {
+        let src = "import { a } from 'db/postgres'\nimport { b } from 'db/mysql'\nimport { c } from 'db/postgres'\n";
+        let spans = import_module_spans(src, "db/postgres");
+        assert_eq!(spans.len(), 2);
+        assert_eq!(&src[spans[0].start..spans[0].end], "db/postgres");
+        assert_eq!(&src[spans[1].start..spans[1].end], "db/postgres");
+    }
+
+    #[test]
+    fn finds_whole_word_occurrences_only() {
+        let src = b"foo food foo\nfoo_bar foo\n";
+        let spans = find_word_occurrences(src, "foo");
+        let ranges: Vec<(usize, usize)> = spans.into_iter().map(|s| (s.start, s.end)).collect();
+        assert_eq!(ranges, vec![(0, 3), (9, 12), (21, 24)]);
+    }
+}
