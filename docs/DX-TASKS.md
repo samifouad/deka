@@ -558,7 +558,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [ ] Port from tree-sitter grammar OR
   - [ ] Use tree-sitter WASM in extension
 - [x] Add language configuration
-- [ ] Add file icon
+- [x] Add file icon
 
 **Acceptance**: Basic VSCode extension structure exists
 

@@ -556,7 +556,7 @@ Notes:
 557:  - [ ] Port from tree-sitter grammar OR
 558:  - [ ] Use tree-sitter WASM in extension
 129. [x] DX-TASKS:  Add language configuration
-130. [ ] DX-TASKS:  Add file icon
+130. [x] DX-TASKS:  Add file icon
 131. [x] DX-TASKS:  Add `vscode-languageclient` dependency
 132. [x] DX-TASKS:  Create `src/extension.ts`:
 569:  - [x] Start LSP server on activation

@@ -31,6 +31,10 @@
         "extensions": [
           ".phpx"
         ],
+        "icon": {
+          "light": "./icons/phpx.svg",
+          "dark": "./icons/phpx.svg"
+        },
         "configuration": "./language-configuration.json"
       }
     ],
