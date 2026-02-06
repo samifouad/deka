@@ -415,6 +415,7 @@ function __my_query_one_native_once($handle, $sql, $params = []) {
 
 function __my_parse_columns($count, $conn) {
     $cols = []
+    $types = []
     for ($i = 0; $i < $count; $i += 1) {
         $p = __my_read_packet($conn)
         if (!result_is_ok($p)) {
@@ -430,6 +431,14 @@ function __my_parse_columns($count, $conn) {
         __my_read_lenenc_str($p.value, $o)
         $name = __my_read_lenenc_str($p.value, $o)
         __my_read_lenenc_str($p.value, $o)
+        __my_read_lenenc_int($p.value, $o)
+        $o += 2
+        $o += 4
+        $typ = bytes_get($p.value, $o)
+        if ($typ === null) {
+            $typ = 253
+        }
+        $types[] = $typ
         if (!is_string($name) || $name === '') {
             $name = 'col_' . $i
         }
@@ -445,7 +454,7 @@ function __my_parse_columns($count, $conn) {
         return result_err('mysql expected column EOF')
     }
 
-    return result_ok($cols)
+    return result_ok({ names: $cols, types: $types })
 }
 
 function __my_parse_rows($cols, $conn) {
@@ -471,6 +480,308 @@ function __my_parse_rows($cols, $conn) {
         }
         $rows[] = $row
     }
+}
+
+function __my_lenenc_encode($n) {
+    $v = (int) $n
+    if ($v < 251) {
+        return chr($v)
+    }
+    if ($v <= 65535) {
+        return chr(252) . __my_i16le($v)
+    }
+    if ($v <= 16777215) {
+        return chr(253) . __my_i24le($v)
+    }
+    return chr(254) . __my_i32le($v) . __my_i32le((int) floor($v / 4294967296))
+}
+
+function __my_i64le($n) {
+    $v = (int) $n
+    $out = ''
+    for ($i = 0; $i < 8; $i += 1) {
+        $out .= chr($v & 255)
+        $v = ($v >> 8)
+    }
+    return $out
+}
+
+function __my_u64le_at($bytes, $offset) {
+    $v = 0
+    $shift = 1
+    for ($i = 0; $i < 8; $i += 1) {
+        $b = bytes_get($bytes, $offset + $i)
+        if ($b === null) {
+            return 0
+        }
+        $v += ($b * $shift)
+        $shift *= 256
+    }
+    return $v
+}
+
+function __my_stmt_prepare($conn, $sql) {
+    $conn.seq = 0
+    $sent = __my_send_packet($conn, chr(0x16) . $sql)
+    if (!result_is_ok($sent)) {
+        return result_err('wire stmt prepare send failed: ' . $sent.error)
+    }
+
+    $resp = __my_read_packet($conn)
+    if (!result_is_ok($resp)) {
+        return result_err('wire stmt prepare read failed: ' . $resp.error)
+    }
+    if (strlen($resp.value) === 0) {
+        return result_err('wire stmt prepare empty response')
+    }
+
+    $kind = bytes_get($resp.value, 0)
+    if ($kind === 255) {
+        return result_err(__my_err($resp.value))
+    }
+    if ($kind !== 0) {
+        return result_err('wire stmt prepare invalid response')
+    }
+
+    $stmt_id = __my_u32le_at($resp.value, 1)
+    $num_cols = __my_u16le_at($resp.value, 5)
+    $num_params = __my_u16le_at($resp.value, 7)
+
+    for ($i = 0; $i < $num_params; $i += 1) {
+        $p = __my_read_packet($conn)
+        if (!result_is_ok($p)) {
+            return result_err($p.error)
+        }
+        if (strlen($p.value) > 0 && bytes_get($p.value, 0) === 255) {
+            return result_err(__my_err($p.value))
+        }
+    }
+    if ($num_params > 0) {
+        $e = __my_read_packet($conn)
+        if (!result_is_ok($e)) {
+            return result_err($e.error)
+        }
+    }
+
+    for ($i = 0; $i < $num_cols; $i += 1) {
+        $c = __my_read_packet($conn)
+        if (!result_is_ok($c)) {
+            return result_err($c.error)
+        }
+        if (strlen($c.value) > 0 && bytes_get($c.value, 0) === 255) {
+            return result_err(__my_err($c.value))
+        }
+    }
+    if ($num_cols > 0) {
+        $e = __my_read_packet($conn)
+        if (!result_is_ok($e)) {
+            return result_err($e.error)
+        }
+    }
+
+    return result_ok({ stmt_id: $stmt_id, num_cols: $num_cols, num_params: $num_params })
+}
+
+function __my_stmt_close($conn, $stmt_id) {
+    $conn.seq = 0
+    __my_send_packet($conn, chr(0x19) . __my_i32le($stmt_id))
+    return result_ok({ ok: true })
+}
+
+function __my_stmt_param_encode($value) {
+    if ($value === null) {
+        return result_ok({ typ: 6, bytes: '', is_null: true })
+    }
+    if (is_bool($value)) {
+        return result_ok({ typ: 1, bytes: chr($value ? 1 : 0), is_null: false })
+    }
+    if (is_int($value)) {
+        return result_ok({ typ: 8, bytes: __my_i64le($value), is_null: false })
+    }
+    if (is_float($value)) {
+        return result_ok({ typ: 253, bytes: __my_lenenc_encode(strlen('' . $value)) . ('' . $value), is_null: false })
+    }
+    if (is_string($value)) {
+        return result_ok({ typ: 253, bytes: __my_lenenc_encode(strlen($value)) . $value, is_null: false })
+    }
+    return result_err('wire mysql unsupported param type')
+}
+
+function __my_stmt_execute_payload($stmt_id, $params) {
+    $values = is_array($params) ? array_values($params) : []
+    $n = count($values)
+    $payload = chr(0x17) . __my_i32le($stmt_id) . chr(0) . __my_i32le(1)
+    if ($n === 0) {
+        return result_ok($payload)
+    }
+
+    $null_bitmap_len = (int) floor(($n + 7) / 8)
+    $null_bitmap = str_repeat("\0", $null_bitmap_len)
+    $types = ''
+    $vals = ''
+    for ($i = 0; $i < $n; $i += 1) {
+        $enc = __my_stmt_param_encode($values[$i])
+        if (!result_is_ok($enc)) {
+            return result_err($enc.error . ' at index ' . $i)
+        }
+        if ($enc.value.is_null) {
+            $byte = (int) floor($i / 8)
+            $bit = $i % 8
+            $cur = bytes_get($null_bitmap, $byte)
+            if ($cur === null) {
+                $cur = 0
+            }
+            $cur = $cur | (1 << $bit)
+            $null_bitmap = substr($null_bitmap, 0, $byte) . chr($cur) . substr($null_bitmap, $byte + 1)
+        }
+        $types .= chr($enc.value.typ) . chr(0)
+        $vals .= $enc.value.bytes
+    }
+
+    $payload .= $null_bitmap . chr(1) . $types . $vals
+    return result_ok($payload)
+}
+
+function __my_binary_read_cell($bytes, &$offset, $typ) {
+    if ($typ === 1) {
+        $v = bytes_get($bytes, $offset)
+        $offset += 1
+        return $v
+    }
+    if ($typ === 2) {
+        $v = __my_u16le_at($bytes, $offset)
+        $offset += 2
+        return $v
+    }
+    if ($typ === 3) {
+        $v = __my_u32le_at($bytes, $offset)
+        $offset += 4
+        return $v
+    }
+    if ($typ === 8) {
+        $v = __my_u64le_at($bytes, $offset)
+        $offset += 8
+        return $v
+    }
+    if ($typ === 4) {
+        $raw = substr($bytes, $offset, 4)
+        $offset += 4
+        $u = unpack('f', $raw)
+        return is_array($u) ? $u[1] : 0
+    }
+    if ($typ === 5) {
+        $raw = substr($bytes, $offset, 8)
+        $offset += 8
+        $u = unpack('d', $raw)
+        return is_array($u) ? $u[1] : 0
+    }
+    return __my_read_lenenc_str($bytes, $offset)
+}
+
+function __my_parse_rows_binary($names, $types, $conn) {
+    $rows = []
+    $col_count = count($names)
+    $bitmap_len = (int) floor(($col_count + 7 + 2) / 8)
+
+    while (true) {
+        $p = __my_read_packet($conn)
+        if (!result_is_ok($p)) {
+            return result_err($p.error)
+        }
+        if (strlen($p.value) === 0) {
+            continue
+        }
+        $kind = bytes_get($p.value, 0)
+        if ($kind === 255) {
+            return result_err(__my_err($p.value))
+        }
+        if ($kind === 254 && strlen($p.value) < 9) {
+            return result_ok($rows)
+        }
+        if ($kind !== 0) {
+            return result_err('mysql unexpected binary row packet')
+        }
+
+        $bitmap = substr($p.value, 1, $bitmap_len)
+        $offset = 1 + $bitmap_len
+        $row = []
+        for ($i = 0; $i < $col_count; $i += 1) {
+            $byte = bytes_get($bitmap, (int) floor(($i + 2) / 8))
+            if ($byte === null) {
+                $byte = 0
+            }
+            $bit = ($i + 2) % 8
+            $is_null = (($byte >> $bit) & 1) === 1
+            $name = $names[$i]
+            if ($is_null) {
+                $row[$name] = null
+                continue
+            }
+            $typ = $i < count($types) ? $types[$i] : 253
+            $row[$name] = __my_binary_read_cell($p.value, $offset, $typ)
+        }
+        $rows[] = $row
+    }
+}
+
+function __my_query_wire_prepared($conn, $sql, $params) {
+    $prep = __my_stmt_prepare($conn, $sql)
+    if (!result_is_ok($prep)) {
+        return result_err($prep.error)
+    }
+    $stmt_id = $prep.value.stmt_id
+
+    $payload = __my_stmt_execute_payload($stmt_id, $params)
+    if (!result_is_ok($payload)) {
+        __my_stmt_close($conn, $stmt_id)
+        return result_err($payload.error)
+    }
+
+    $conn.seq = 0
+    $sent = __my_send_packet($conn, $payload.value)
+    if (!result_is_ok($sent)) {
+        __my_stmt_close($conn, $stmt_id)
+        return result_err('wire stmt execute send failed: ' . $sent.error)
+    }
+
+    $first = __my_read_packet($conn)
+    if (!result_is_ok($first)) {
+        __my_stmt_close($conn, $stmt_id)
+        return result_err('wire stmt execute read failed: ' . $first.error)
+    }
+
+    if (strlen($first.value) === 0) {
+        __my_stmt_close($conn, $stmt_id)
+        return result_ok({ rows: [], affected_rows: 0 })
+    }
+
+    $kind = bytes_get($first.value, 0)
+    if ($kind === 255) {
+        __my_stmt_close($conn, $stmt_id)
+        return result_err(__my_err($first.value))
+    }
+
+    if ($kind === 0) {
+        $o = 1
+        $affected = __my_read_lenenc_int($first.value, $o)
+        __my_stmt_close($conn, $stmt_id)
+        return result_ok({ rows: [], affected_rows: $affected })
+    }
+
+    $o = 0
+    $col_count = __my_read_lenenc_int($first.value, $o)
+    $cols = __my_parse_columns($col_count, $conn)
+    if (!result_is_ok($cols)) {
+        __my_stmt_close($conn, $stmt_id)
+        return result_err('wire stmt columns parse failed: ' . $cols.error)
+    }
+
+    $rows = __my_parse_rows_binary($cols.value.names, $cols.value.types, $conn)
+    __my_stmt_close($conn, $stmt_id)
+    if (!result_is_ok($rows)) {
+        return result_err('wire stmt rows parse failed: ' . $rows.error)
+    }
+    return result_ok({ rows: $rows.value, affected_rows: count($rows.value) })
 }
 
 function __my_query_wire($conn, $sql) {
@@ -507,7 +818,7 @@ function __my_query_wire($conn, $sql) {
         return result_err('wire column parse failed: ' . $cols.error)
     }
 
-    $rows = __my_parse_rows($cols.value, $conn)
+    $rows = __my_parse_rows($cols.value.names, $conn)
     if (!result_is_ok($rows)) {
         return result_err('wire row parse failed: ' . $rows.error)
     }
@@ -538,6 +849,10 @@ export function connect($config) {
 export function query($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
+            $res = __my_query_wire_prepared($handle, $sql, $params)
+            if (result_is_ok($res)) {
+                return result_ok({ rows: $res.value.rows })
+            }
             return __my_query_native_once($handle, $sql, $params)
         }
         $res = __my_query_wire($handle, $sql)
@@ -552,6 +867,13 @@ export function query($handle, $sql, $params = []) {
 export function query_one($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
+            $res = __my_query_wire_prepared($handle, $sql, $params)
+            if (result_is_ok($res)) {
+                if (!is_array($res.value.rows) || count($res.value.rows) === 0) {
+                    return result_err('no rows')
+                }
+                return result_ok($res.value.rows[0])
+            }
             return __my_query_one_native_once($handle, $sql, $params)
         }
         $res = query($handle, $sql, $params)
@@ -569,6 +891,10 @@ export function query_one($handle, $sql, $params = []) {
 export function exec($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
+            $res = __my_query_wire_prepared($handle, $sql, $params)
+            if (result_is_ok($res)) {
+                return result_ok({ affected_rows: $res.value.affected_rows })
+            }
             return __my_exec_native_once($handle, $sql, $params)
         }
         $res = __my_query_wire($handle, $sql)

@@ -23,7 +23,7 @@ if (!result_is_ok($conn)) {
 
 $h = $conn->value
 $many = query($h, 'select 1 as c', [])
-$one = query_one($h, 'select 1 as c', [])
+$one = query_one($h, 'select ? + ? as c', [1, 0])
 close($h)
 
 if (!result_is_ok($many) || !result_is_ok($one)) {
