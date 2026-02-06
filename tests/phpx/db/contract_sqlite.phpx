@@ -1,0 +1,46 @@
+/*
+TEST: db facade contract for sqlite wrapper (open_handle/query/query_one/close)
+*/
+import { connect, exec, query, query_one, close } from 'sqlite'
+import { db_affected_rows } from 'db'
+import { result_is_ok } from 'core/result'
+
+if (getenv('PHPX_DB_SMOKE') !== '1') {
+    echo "SKIP\n"
+    return
+}
+
+$path = getenv('SQLITE_PATH') ?: '/tmp/deka_phpx_contract.sqlite'
+$conn = connect({ path: $path })
+if (!result_is_ok($conn)) {
+    echo "ERR connect\n"
+    return
+}
+
+$h = $conn->value
+
+$create = exec($h, 'create table if not exists contract_items(id integer primary key, name text)', [])
+if (!result_is_ok($create)) {
+    close($h)
+    echo "ERR create\n"
+    return
+}
+
+$insert = exec($h, 'insert into contract_items(name) values (?)', ['item'])
+$affected = db_affected_rows($insert)
+if (!result_is_ok($insert) || !result_is_ok($affected)) {
+    close($h)
+    echo "ERR insert\n"
+    return
+}
+
+$many = query($h, 'select count(*) as c from contract_items', [])
+$one = query_one($h, 'select count(*) as c from contract_items', [])
+close($h)
+
+if (!result_is_ok($many) || !result_is_ok($one)) {
+    echo "ERR query\n"
+    return
+}
+
+echo "OK sqlite " . $affected->value . " " . $one->value['c'] . "\n"

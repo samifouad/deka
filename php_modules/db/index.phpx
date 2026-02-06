@@ -1,4 +1,4 @@
-import { result_ok, result_err } from 'core/result'
+import { result_ok, result_err, result_is_ok } from 'core/result'
 import { __deka_db_call } from 'internals/wasm'
 
 function normalize_result($raw) {
@@ -19,6 +19,30 @@ function normalize_result($raw) {
     return result_err('invalid db response')
 }
 
+function extract_handle($res) {
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+
+    if (!is_array($res->value) || !array_key_exists('handle', $res->value)) {
+        return result_err('open succeeded without handle')
+    }
+
+    return result_ok($res->value['handle'])
+}
+
+function extract_rows($res) {
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+
+    if (!is_array($res->value) || !array_key_exists('rows', $res->value) || !is_array($res->value['rows'])) {
+        return result_ok([])
+    }
+
+    return result_ok($res->value['rows'])
+}
+
 export function open($driver, $config) {
     $raw = __deka_db_call('open', {
         driver: $driver,
@@ -27,9 +51,16 @@ export function open($driver, $config) {
     return normalize_result($raw)
 }
 
-// Parser-safe prefixed exports for wrappers that avoid import alias syntax.
 export function db_open($driver, $config) {
     return open($driver, $config)
+}
+
+export function open_handle($driver, $config) {
+    return extract_handle(open($driver, $config))
+}
+
+export function db_open_handle($driver, $config) {
+    return open_handle($driver, $config)
 }
 
 export function query($handle, $sql, $params = []) {
@@ -45,6 +76,29 @@ export function db_query($handle, $sql, $params = []) {
     return query($handle, $sql, $params)
 }
 
+export function rows($res) {
+    return extract_rows($res)
+}
+
+export function db_rows($res) {
+    return rows($res)
+}
+
+export function query_one($handle, $sql, $params = []) {
+    $rows = rows(query($handle, $sql, $params))
+    if (!result_is_ok($rows)) {
+        return result_err($rows->error)
+    }
+    if (count($rows->value) === 0) {
+        return result_err('no rows')
+    }
+    return result_ok($rows->value[0])
+}
+
+export function db_query_one($handle, $sql, $params = []) {
+    return query_one($handle, $sql, $params)
+}
+
 export function exec($handle, $sql, $params = []) {
     $raw = __deka_db_call('exec', {
         handle: $handle,
@@ -56,6 +110,22 @@ export function exec($handle, $sql, $params = []) {
 
 export function db_exec($handle, $sql, $params = []) {
     return exec($handle, $sql, $params)
+}
+
+export function affected_rows($res) {
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+
+    if (!is_array($res->value) || !array_key_exists('affected_rows', $res->value)) {
+        return result_ok(0)
+    }
+
+    return result_ok((int) $res->value['affected_rows'])
+}
+
+export function db_affected_rows($res) {
+    return affected_rows($res)
 }
 
 export function begin($handle) {

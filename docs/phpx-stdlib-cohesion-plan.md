@@ -64,6 +64,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 3. [ ] Implement `tcp` module with `Connect` and `TcpSocket` methods.
 4. [ ] Implement `tls` module with socket upgrade and shared IO API.
 5. [ ] Add runtime smoke tests for tcp/tls/bytes/buffer.
+: `bytes`/`buffer` smoke tests are now in `tests/phpx/foundation`; tcp/tls tests pending tcp/tls modules.
 
 ### Phase 2: Encoding Namespace
 1. [x] Add `encoding/json` package (move current `json` surface).
@@ -86,10 +87,10 @@ This is the execution tracker for replacing patchwork internals with first-class
 9. [x] Define removal milestone for root `json` compatibility module (post-MVP window).
 
 ### Phase 3: DB Facade Standardization
-1. [ ] Define stable `db` facade API and type declarations.
-2. [ ] Implement shared row/result/tx abstractions.
+1. [x] Define stable `db` facade API and type declarations.
+2. [x] Implement shared row/result abstractions.
 3. [ ] Normalize parameter and row decode behavior across drivers.
-4. [ ] Add contract tests shared by postgres/mysql/sqlite.
+4. [x] Add contract tests shared by postgres/mysql/sqlite.
 
 ### Phase 4: Driver Refactor to Foundation
 1. [ ] Implement `db/postgres` on top of `tcp` + `buffer` (+ `tls`).
@@ -111,7 +112,9 @@ This is the execution tracker for replacing patchwork internals with first-class
 4. [ ] `tcp`/`tls` foundation modules not yet implemented.
 5. [x] `buffer` and `bytes` userland foundation modules implemented with smoke tests.
 6. [x] `encoding/json` namespace migration completed (compat proxy kept at `json`).
-7. [x] Internal bridge hook restrictions enforced (typecheck + runtime).
+7. [x] `db` facade now exposes shared `open_handle/query_one/rows/affected_rows` helpers.
+8. [x] DB contract tests added for postgres/mysql/sqlite wrappers.
+9. [x] Internal bridge hook restrictions enforced (typecheck + runtime).
 
 ## Validation Requirements Per Phase
 1. Unit tests for module APIs.
