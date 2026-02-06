@@ -10,6 +10,7 @@ bumpalo = "3"
 php-rs = { path = "../php-rs" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+prost = "0.13"
 sha2 = "0.10"
 postgres = "0.19"
 mysql = "26"
@@ -17,3 +18,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 wit-parser = "0.219.2"
 deka-validation = { path = "../../../deka-validation" }
 native-tls = "0.2"
+
+[build-dependencies]
+prost-build = "0.13"
+protoc-bin-vendored = "3"

@@ -18,14 +18,14 @@
 
 ### Phase 1: Schema and Generation
 - [x] 1. Define bridge envelope and `db` action messages in `.proto`.
-- [ ] 2. Add Rust protobuf codegen (build-time generation in `modules_php`).
-- [ ] 3. Add JS protobuf encode/decode support in `deka_php/php.js`.
+- [x] 2. Add Rust protobuf codegen (build-time generation in `modules_php`).
+- [x] 3. Add JS protobuf encode/decode support in `deka_php/php.js`.
 - [ ] 4. Document versioning policy for backward-compatible schema evolution.
 
 ### Phase 2: DB Bridge Migration
-- [ ] 5. Implement Protobuf decode/dispatch in `op_php_db_call`.
-- [ ] 6. Implement Protobuf encode responses for `open/query/query_one/exec/tx/close/stats`.
-- [ ] 7. Keep temporary JSON fallback path behind runtime feature flag.
+- [x] 5. Implement Protobuf decode/dispatch in `op_php_db_call`.
+- [x] 6. Implement Protobuf encode responses for `open/query/query_one/exec/tx/close/stats`.
+- [x] 7. Keep temporary JSON fallback path behind runtime feature flag.
 - [ ] 8. Add parity tests (`json` vs `protobuf`) for `postgres/mysql/sqlite`.
 
 ### Phase 3: FS Bridge Migration

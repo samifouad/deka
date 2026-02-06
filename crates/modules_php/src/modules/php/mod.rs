@@ -10,6 +10,7 @@ use mysql::prelude::Queryable;
 use mysql::{OptsBuilder, Params as MyParams, Pool as MyPool, Value as MyValue};
 use native_tls::{TlsConnector, TlsStream};
 use postgres::{Client, NoTls, types::ToSql};
+use prost::Message as ProstMessage;
 use rusqlite::types::ValueRef as SqliteValueRef;
 use rusqlite::{Connection as SqliteConnection, params_from_iter as sqlite_params_from_iter};
 use std::collections::{HashMap, HashSet};
@@ -22,6 +23,12 @@ use wit_parser::{Resolve, Results, Type, TypeDefKind, TypeId, WorldItem, WorldKe
 
 /// Embedded PHP WASM binary produced by the `php-rs` crate.
 static PHP_WASM_BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/php_rs.wasm"));
+
+mod proto {
+    pub mod bridge_v1 {
+        include!(concat!(env!("OUT_DIR"), "/deka.bridge.v1.rs"));
+    }
+}
 
 #[derive(serde::Serialize)]
 struct PhpDirEntry {
@@ -1100,11 +1107,9 @@ fn decode_double_quoted(input: &str) -> String {
     out
 }
 
-#[op2]
-#[serde]
-fn op_php_db_call(
-    #[string] action: String,
-    #[serde] args: serde_json::Value,
+fn db_call_impl(
+    action: String,
+    args: serde_json::Value,
 ) -> Result<serde_json::Value, deno_core::error::CoreError> {
     let err = |msg: String| {
         deno_core::error::CoreError::from(std::io::Error::new(
@@ -1566,6 +1571,504 @@ fn op_php_db_call(
             "error": format!("unknown db action '{}'", action)
         })),
     }
+}
+
+#[derive(Clone, Copy)]
+enum DbProtoActionKind {
+    Open,
+    Query,
+    QueryOne,
+    Exec,
+    Begin,
+    Commit,
+    Rollback,
+    Close,
+    Stats,
+}
+
+fn core_err(msg: impl Into<String>) -> deno_core::error::CoreError {
+    deno_core::error::CoreError::from(std::io::Error::other(msg.into()))
+}
+
+fn db_json_to_proto_value(value: &serde_json::Value) -> proto::bridge_v1::Value {
+    use proto::bridge_v1::value::Kind;
+    let kind = match value {
+        serde_json::Value::Null => Some(Kind::NullValue(proto::bridge_v1::NullValue {})),
+        serde_json::Value::Bool(v) => Some(Kind::BoolValue(*v)),
+        serde_json::Value::Number(v) => {
+            if let Some(i) = v.as_i64() {
+                Some(Kind::IntValue(i))
+            } else if let Some(f) = v.as_f64() {
+                Some(Kind::FloatValue(f))
+            } else {
+                Some(Kind::StringValue(v.to_string()))
+            }
+        }
+        serde_json::Value::String(v) => Some(Kind::StringValue(v.clone())),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            Some(Kind::StringValue(value.to_string()))
+        }
+    };
+    proto::bridge_v1::Value { kind }
+}
+
+fn db_proto_to_json_value(value: &proto::bridge_v1::Value) -> serde_json::Value {
+    use proto::bridge_v1::value::Kind;
+    match value.kind.as_ref() {
+        Some(Kind::NullValue(_)) => serde_json::Value::Null,
+        Some(Kind::BoolValue(v)) => serde_json::Value::Bool(*v),
+        Some(Kind::IntValue(v)) => serde_json::Value::Number((*v).into()),
+        Some(Kind::FloatValue(v)) => serde_json::Number::from_f64(*v)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        Some(Kind::StringValue(v)) => serde_json::Value::String(v.clone()),
+        Some(Kind::BytesValue(v)) => serde_json::Value::Array(
+            v.iter()
+                .map(|b| serde_json::Value::Number((*b as u64).into()))
+                .collect(),
+        ),
+        None => serde_json::Value::Null,
+    }
+}
+
+fn db_proto_request_to_action_payload(
+    req: &proto::bridge_v1::DbRequest,
+) -> Result<(String, serde_json::Value, DbProtoActionKind), deno_core::error::CoreError> {
+    use proto::bridge_v1::db_request::Action;
+    let Some(action) = req.action.as_ref() else {
+        return Err(core_err("db proto request missing action"));
+    };
+    match action {
+        Action::Open(open) => {
+            let mut cfg = serde_json::Map::new();
+            for item in &open.config {
+                let value = item
+                    .value
+                    .as_ref()
+                    .map(db_proto_to_json_value)
+                    .unwrap_or(serde_json::Value::Null);
+                cfg.insert(item.key.clone(), value);
+            }
+            Ok((
+                "open".to_string(),
+                serde_json::json!({
+                    "driver": open.driver,
+                    "config": cfg
+                }),
+                DbProtoActionKind::Open,
+            ))
+        }
+        Action::Query(query) => Ok((
+            "query".to_string(),
+            serde_json::json!({
+                "handle": query.handle,
+                "sql": query.sql,
+                "params": query.params.iter().map(db_proto_to_json_value).collect::<Vec<_>>()
+            }),
+            DbProtoActionKind::Query,
+        )),
+        Action::QueryOne(query) => Ok((
+            "query".to_string(),
+            serde_json::json!({
+                "handle": query.handle,
+                "sql": query.sql,
+                "params": query.params.iter().map(db_proto_to_json_value).collect::<Vec<_>>()
+            }),
+            DbProtoActionKind::QueryOne,
+        )),
+        Action::Exec(exec) => Ok((
+            "exec".to_string(),
+            serde_json::json!({
+                "handle": exec.handle,
+                "sql": exec.sql,
+                "params": exec.params.iter().map(db_proto_to_json_value).collect::<Vec<_>>()
+            }),
+            DbProtoActionKind::Exec,
+        )),
+        Action::Begin(h) => Ok((
+            "begin".to_string(),
+            serde_json::json!({ "handle": h.handle }),
+            DbProtoActionKind::Begin,
+        )),
+        Action::Commit(h) => Ok((
+            "commit".to_string(),
+            serde_json::json!({ "handle": h.handle }),
+            DbProtoActionKind::Commit,
+        )),
+        Action::Rollback(h) => Ok((
+            "rollback".to_string(),
+            serde_json::json!({ "handle": h.handle }),
+            DbProtoActionKind::Rollback,
+        )),
+        Action::Close(h) => Ok((
+            "close".to_string(),
+            serde_json::json!({ "handle": h.handle }),
+            DbProtoActionKind::Close,
+        )),
+        Action::Stats(_) => Ok((
+            "stats".to_string(),
+            serde_json::json!({}),
+            DbProtoActionKind::Stats,
+        )),
+    }
+}
+
+fn db_action_payload_to_proto_request(
+    action: &str,
+    payload: &serde_json::Value,
+) -> Result<proto::bridge_v1::DbRequest, deno_core::error::CoreError> {
+    use proto::bridge_v1::db_request::Action;
+    let args = payload.as_object().cloned().unwrap_or_default();
+    let action = match action {
+        "open" => {
+            let driver = args
+                .get("driver")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let mut config = Vec::new();
+            if let Some(cfg) = args.get("config").and_then(|v| v.as_object()) {
+                for (key, val) in cfg {
+                    config.push(proto::bridge_v1::NamedValue {
+                        key: key.clone(),
+                        value: Some(db_json_to_proto_value(val)),
+                    });
+                }
+            }
+            Action::Open(proto::bridge_v1::DbOpenRequest { driver, config })
+        }
+        "query" => {
+            let handle = args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0);
+            let sql = args
+                .get("sql")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let params = args
+                .get("params")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(db_json_to_proto_value)
+                .collect();
+            Action::Query(proto::bridge_v1::DbQueryRequest {
+                handle,
+                sql,
+                params,
+            })
+        }
+        "query_one" => {
+            let handle = args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0);
+            let sql = args
+                .get("sql")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let params = args
+                .get("params")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(db_json_to_proto_value)
+                .collect();
+            Action::QueryOne(proto::bridge_v1::DbQueryRequest {
+                handle,
+                sql,
+                params,
+            })
+        }
+        "exec" => {
+            let handle = args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0);
+            let sql = args
+                .get("sql")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let params = args
+                .get("params")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(db_json_to_proto_value)
+                .collect();
+            Action::Exec(proto::bridge_v1::DbExecRequest {
+                handle,
+                sql,
+                params,
+            })
+        }
+        "begin" => Action::Begin(proto::bridge_v1::DbHandleRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+        }),
+        "commit" => Action::Commit(proto::bridge_v1::DbHandleRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+        }),
+        "rollback" => Action::Rollback(proto::bridge_v1::DbHandleRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+        }),
+        "close" => Action::Close(proto::bridge_v1::DbHandleRequest {
+            handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
+        }),
+        "stats" => Action::Stats(true),
+        other => {
+            return Err(core_err(format!("unsupported db proto action '{}'", other)));
+        }
+    };
+
+    Ok(proto::bridge_v1::DbRequest {
+        schema_version: 1,
+        action: Some(action),
+    })
+}
+
+fn db_json_rows_to_proto_rows(value: &serde_json::Value) -> Vec<proto::bridge_v1::Row> {
+    let Some(rows) = value.as_array() else {
+        return Vec::new();
+    };
+    let mut out = Vec::with_capacity(rows.len());
+    for row in rows {
+        if let Some(obj) = row.as_object() {
+            let fields = obj
+                .iter()
+                .map(|(key, val)| proto::bridge_v1::NamedValue {
+                    key: key.clone(),
+                    value: Some(db_json_to_proto_value(val)),
+                })
+                .collect();
+            out.push(proto::bridge_v1::Row { fields });
+        }
+    }
+    out
+}
+
+fn db_proto_rows_to_json(rows: &[proto::bridge_v1::Row]) -> serde_json::Value {
+    let mut out = Vec::with_capacity(rows.len());
+    for row in rows {
+        let mut obj = serde_json::Map::new();
+        for field in &row.fields {
+            let val = field
+                .value
+                .as_ref()
+                .map(db_proto_to_json_value)
+                .unwrap_or(serde_json::Value::Null);
+            obj.insert(field.key.clone(), val);
+        }
+        out.push(serde_json::Value::Object(obj));
+    }
+    serde_json::Value::Array(out)
+}
+
+fn db_json_response_to_proto(
+    resp: &serde_json::Value,
+    kind: DbProtoActionKind,
+) -> proto::bridge_v1::DbResponse {
+    use proto::bridge_v1::db_response::Action;
+    let ok = resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+    let error = resp
+        .get("error")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let action = match kind {
+        DbProtoActionKind::Open => {
+            let handle = resp.get("handle").and_then(|v| v.as_u64()).unwrap_or(0);
+            let reused = resp.get("reused").and_then(|v| v.as_bool()).unwrap_or(false);
+            Some(Action::Open(proto::bridge_v1::DbOpenResponse { handle, reused }))
+        }
+        DbProtoActionKind::Query => {
+            let rows = db_json_rows_to_proto_rows(resp.get("rows").unwrap_or(&serde_json::Value::Null));
+            Some(Action::Query(proto::bridge_v1::DbRowsResponse { rows }))
+        }
+        DbProtoActionKind::QueryOne => {
+            let mut rows = db_json_rows_to_proto_rows(resp.get("rows").unwrap_or(&serde_json::Value::Null));
+            if rows.len() > 1 {
+                rows.truncate(1);
+            }
+            Some(Action::QueryOne(proto::bridge_v1::DbRowsResponse { rows }))
+        }
+        DbProtoActionKind::Exec => {
+            let affected_rows = resp
+                .get("affected_rows")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            Some(Action::Exec(proto::bridge_v1::DbExecResponse { affected_rows }))
+        }
+        DbProtoActionKind::Begin => Some(Action::Begin(proto::bridge_v1::DbUnitResponse { ok })),
+        DbProtoActionKind::Commit => Some(Action::Commit(proto::bridge_v1::DbUnitResponse { ok })),
+        DbProtoActionKind::Rollback => {
+            Some(Action::Rollback(proto::bridge_v1::DbUnitResponse { ok }))
+        }
+        DbProtoActionKind::Close => Some(Action::Close(proto::bridge_v1::DbUnitResponse { ok })),
+        DbProtoActionKind::Stats => {
+            let active_handles = resp
+                .get("active_handles")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+
+            let mut handles_by_driver = Vec::new();
+            if let Some(obj) = resp.get("handles_by_driver").and_then(|v| v.as_object()) {
+                for (driver, count_val) in obj {
+                    let count = count_val.as_u64().unwrap_or(0);
+                    handles_by_driver.push(proto::bridge_v1::DriverCount {
+                        driver: driver.clone(),
+                        count,
+                    });
+                }
+            }
+
+            let mut metrics = Vec::new();
+            if let Some(obj) = resp.get("metrics").and_then(|v| v.as_object()) {
+                for (key, metric_val) in obj {
+                    let calls = metric_val
+                        .get("calls")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let errors = metric_val
+                        .get("errors")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let total_ms = metric_val
+                        .get("total_ms")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let avg_ms = metric_val
+                        .get("avg_ms")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    metrics.push(proto::bridge_v1::NamedMetric {
+                        key: key.clone(),
+                        metric: Some(proto::bridge_v1::DbStatsMetric {
+                            calls,
+                            errors,
+                            total_ms,
+                            avg_ms,
+                        }),
+                    });
+                }
+            }
+
+            Some(Action::Stats(proto::bridge_v1::DbStatsResponse {
+                active_handles,
+                handles_by_driver,
+                metrics,
+            }))
+        }
+    };
+
+    proto::bridge_v1::DbResponse {
+        schema_version: 1,
+        ok,
+        error,
+        action,
+    }
+}
+
+fn db_proto_response_to_json(resp: &proto::bridge_v1::DbResponse) -> serde_json::Value {
+    use proto::bridge_v1::db_response::Action;
+    let mut out = serde_json::Map::new();
+    out.insert("ok".to_string(), serde_json::Value::Bool(resp.ok));
+    if !resp.error.is_empty() {
+        out.insert("error".to_string(), serde_json::Value::String(resp.error.clone()));
+    }
+    if let Some(action) = resp.action.as_ref() {
+        match action {
+            Action::Open(open) => {
+                out.insert(
+                    "handle".to_string(),
+                    serde_json::Value::Number(open.handle.into()),
+                );
+                out.insert("reused".to_string(), serde_json::Value::Bool(open.reused));
+            }
+            Action::Query(rows) | Action::QueryOne(rows) => {
+                out.insert("rows".to_string(), db_proto_rows_to_json(&rows.rows));
+            }
+            Action::Exec(exec) => {
+                out.insert(
+                    "affected_rows".to_string(),
+                    serde_json::Value::Number(exec.affected_rows.into()),
+                );
+            }
+            Action::Begin(unit)
+            | Action::Commit(unit)
+            | Action::Rollback(unit)
+            | Action::Close(unit) => {
+                out.insert("ok".to_string(), serde_json::Value::Bool(unit.ok));
+            }
+            Action::Stats(stats) => {
+                out.insert(
+                    "active_handles".to_string(),
+                    serde_json::Value::Number(stats.active_handles.into()),
+                );
+                let mut by_driver = serde_json::Map::new();
+                for item in &stats.handles_by_driver {
+                    by_driver.insert(item.driver.clone(), serde_json::Value::Number(item.count.into()));
+                }
+                out.insert("handles_by_driver".to_string(), serde_json::Value::Object(by_driver));
+
+                let mut metrics = serde_json::Map::new();
+                for metric in &stats.metrics {
+                    let m = metric.metric.as_ref();
+                    metrics.insert(
+                        metric.key.clone(),
+                        serde_json::json!({
+                            "calls": m.map(|x| x.calls).unwrap_or(0),
+                            "errors": m.map(|x| x.errors).unwrap_or(0),
+                            "total_ms": m.map(|x| x.total_ms).unwrap_or(0),
+                            "avg_ms": m.map(|x| x.avg_ms).unwrap_or(0),
+                        }),
+                    );
+                }
+                out.insert("metrics".to_string(), serde_json::Value::Object(metrics));
+            }
+        }
+    }
+    serde_json::Value::Object(out)
+}
+
+#[op2]
+#[serde]
+fn op_php_db_call(
+    #[string] action: String,
+    #[serde] args: serde_json::Value,
+) -> Result<serde_json::Value, deno_core::error::CoreError> {
+    db_call_impl(action, args)
+}
+
+#[op2]
+#[buffer]
+fn op_php_db_call_proto(
+    #[buffer] request: &[u8],
+) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    let req = proto::bridge_v1::DbRequest::decode(request)
+        .map_err(|e| core_err(format!("db proto decode failed: {}", e)))?;
+    let (action, payload, kind) = db_proto_request_to_action_payload(&req)?;
+    let response_json = db_call_impl(action, payload)?;
+    let response = db_json_response_to_proto(&response_json, kind);
+    Ok(response.encode_to_vec())
+}
+
+#[op2]
+#[buffer]
+fn op_php_db_proto_encode(
+    #[string] action: String,
+    #[serde] payload: serde_json::Value,
+) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    let request = db_action_payload_to_proto_request(&action, &payload)?;
+    Ok(request.encode_to_vec())
+}
+
+#[op2]
+#[serde]
+fn op_php_db_proto_decode(
+    #[buffer] response: &[u8],
+) -> Result<serde_json::Value, deno_core::error::CoreError> {
+    let decoded = proto::bridge_v1::DbResponse::decode(response)
+        .map_err(|e| core_err(format!("db proto decode response failed: {}", e)))?;
+    Ok(db_proto_response_to_json(&decoded))
 }
 
 #[op2]
@@ -2108,6 +2611,9 @@ deno_core::extension!(
         op_php_sha256,
         op_php_read_env,
         op_php_db_call,
+        op_php_db_call_proto,
+        op_php_db_proto_encode,
+        op_php_db_proto_decode,
         op_php_net_call,
         op_php_fs_call,
         op_php_cwd,
