@@ -11,8 +11,8 @@ php-rs = { path = "../php-rs" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = "0.10"
-tokio = { workspace = true }
-tokio-postgres = "0.7"
 postgres = "0.19"
+mysql = "26"
+rusqlite = { version = "0.32", features = ["bundled"] }
 wit-parser = "0.219.2"
 deka-validation = { path = "../../../deka-validation" }

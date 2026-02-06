@@ -6,7 +6,11 @@ use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
 use php_rs::parser::lexer::token::Token;
 use bumpalo::Bump;
+use mysql::prelude::Queryable;
+use mysql::{OptsBuilder, Params as MyParams, Pool as MyPool, Value as MyValue};
 use postgres::{Client, NoTls, types::ToSql};
+use rusqlite::types::ValueRef as SqliteValueRef;
+use rusqlite::{Connection as SqliteConnection, params_from_iter as sqlite_params_from_iter};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, OnceLock};
 use wit_parser::{Resolve, Results, Type, TypeDefKind, TypeId, WorldItem, WorldKey};
@@ -145,7 +149,7 @@ struct BridgeModuleTypes {
 
 struct DbConn {
     key: String,
-    config: PgConnConfig,
+    config: DbDriverConfig,
 }
 
 #[derive(Clone)]
@@ -155,6 +159,27 @@ struct PgConnConfig {
     database: String,
     user: String,
     password: String,
+}
+
+#[derive(Clone)]
+struct SqliteConnConfig {
+    path: String,
+}
+
+#[derive(Clone)]
+struct MysqlConnConfig {
+    host: String,
+    port: u16,
+    database: String,
+    user: String,
+    password: String,
+}
+
+#[derive(Clone)]
+enum DbDriverConfig {
+    Postgres(PgConnConfig),
+    Sqlite(SqliteConnConfig),
+    Mysql(MysqlConnConfig),
 }
 
 struct DbState {
@@ -309,6 +334,150 @@ fn pg_cell_to_json(row: &postgres::Row, idx: usize) -> serde_json::Value {
             .flatten()
             .map(serde_json::Value::String)
             .unwrap_or(serde_json::Value::Null),
+    }
+}
+
+fn with_sqlite_conn<T>(
+    cfg: SqliteConnConfig,
+    f: impl FnOnce(&SqliteConnection) -> Result<T, deno_core::error::CoreError> + Send + 'static,
+) -> Result<T, deno_core::error::CoreError>
+where
+    T: Send + 'static,
+{
+    std::thread::spawn(move || {
+        let path = sanitize_conn_value(&cfg.path);
+        let conn = SqliteConnection::open(&path).map_err(|e| {
+            deno_core::error::CoreError::from(std::io::Error::other(format!(
+                "sqlite open failed: {} (path={})",
+                e, path
+            )))
+        })?;
+        f(&conn)
+    })
+    .join()
+    .map_err(|_| deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked")))?
+}
+
+fn json_to_sqlite_value(value: &serde_json::Value) -> rusqlite::types::Value {
+    match value {
+        serde_json::Value::Null => rusqlite::types::Value::Null,
+        serde_json::Value::Bool(v) => rusqlite::types::Value::Integer(if *v { 1 } else { 0 }),
+        serde_json::Value::Number(v) => {
+            if let Some(i) = v.as_i64() {
+                rusqlite::types::Value::Integer(i)
+            } else if let Some(f) = v.as_f64() {
+                rusqlite::types::Value::Real(f)
+            } else {
+                rusqlite::types::Value::Null
+            }
+        }
+        serde_json::Value::String(v) => rusqlite::types::Value::Text(v.clone()),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            rusqlite::types::Value::Text(value.to_string())
+        }
+    }
+}
+
+fn sqlite_cell_to_json(row: &rusqlite::Row<'_>, idx: usize) -> serde_json::Value {
+    match row.get_ref(idx) {
+        Ok(SqliteValueRef::Null) => serde_json::Value::Null,
+        Ok(SqliteValueRef::Integer(v)) => serde_json::Value::Number(serde_json::Number::from(v)),
+        Ok(SqliteValueRef::Real(v)) => serde_json::Number::from_f64(v)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        Ok(SqliteValueRef::Text(v)) => {
+            serde_json::Value::String(String::from_utf8_lossy(v).to_string())
+        }
+        Ok(SqliteValueRef::Blob(v)) => serde_json::Value::String(format!("{:?}", v)),
+        Err(_) => serde_json::Value::Null,
+    }
+}
+
+fn with_mysql_conn<T>(
+    cfg: MysqlConnConfig,
+    f: impl FnOnce(&mut mysql::PooledConn) -> Result<T, deno_core::error::CoreError> + Send + 'static,
+) -> Result<T, deno_core::error::CoreError>
+where
+    T: Send + 'static,
+{
+    std::thread::spawn(move || {
+        let host = sanitize_conn_value(&cfg.host);
+        let user = sanitize_conn_value(&cfg.user);
+        let database = sanitize_conn_value(&cfg.database);
+        let password = sanitize_conn_value(&cfg.password);
+
+        let opts = OptsBuilder::new()
+            .ip_or_hostname(Some(host.clone()))
+            .tcp_port(cfg.port)
+            .user(Some(user.clone()))
+            .pass(Some(password.clone()))
+            .db_name(Some(database.clone()));
+
+        let pool = MyPool::new(opts).map_err(|e| {
+            deno_core::error::CoreError::from(std::io::Error::other(format!(
+                "mysql pool failed: {} (host={}, port={}, database={}, user={})",
+                e, host, cfg.port, database, user
+            )))
+        })?;
+        let mut conn = pool.get_conn().map_err(|e| {
+            deno_core::error::CoreError::from(std::io::Error::other(format!(
+                "mysql connect failed: {}",
+                e
+            )))
+        })?;
+        f(&mut conn)
+    })
+    .join()
+    .map_err(|_| deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked")))?
+}
+
+fn json_to_mysql_value(value: &serde_json::Value) -> MyValue {
+    match value {
+        serde_json::Value::Null => MyValue::NULL,
+        serde_json::Value::Bool(v) => MyValue::Int(if *v { 1 } else { 0 }),
+        serde_json::Value::Number(v) => {
+            if let Some(i) = v.as_i64() {
+                MyValue::Int(i)
+            } else if let Some(u) = v.as_u64() {
+                MyValue::UInt(u)
+            } else if let Some(f) = v.as_f64() {
+                MyValue::Double(f)
+            } else {
+                MyValue::NULL
+            }
+        }
+        serde_json::Value::String(v) => MyValue::Bytes(v.clone().into_bytes()),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            MyValue::Bytes(value.to_string().into_bytes())
+        }
+    }
+}
+
+fn mysql_value_to_json(value: &MyValue) -> serde_json::Value {
+    match value {
+        MyValue::NULL => serde_json::Value::Null,
+        MyValue::Bytes(v) => serde_json::Value::String(String::from_utf8_lossy(v).to_string()),
+        MyValue::Int(v) => serde_json::Value::Number(serde_json::Number::from(*v)),
+        MyValue::UInt(v) => serde_json::Value::Number(serde_json::Number::from(*v)),
+        MyValue::Float(v) => serde_json::Number::from_f64(*v as f64)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        MyValue::Double(v) => serde_json::Number::from_f64(*v)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        MyValue::Date(y, m, d, h, i, s, micros) => serde_json::Value::String(format!(
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:06}",
+            y, m, d, h, i, s, micros
+        )),
+        MyValue::Time(neg, days, h, i, s, micros) => serde_json::Value::String(format!(
+            "{}{} {:02}:{:02}:{:02}.{:06}",
+            if *neg { "-" } else { "" },
+            days,
+            h,
+            i,
+            s,
+            micros
+        )),
     }
 }
 
@@ -792,47 +961,118 @@ fn op_php_db_call(
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            if driver != "postgres" {
-                return Ok(serde_json::json!({
-                    "ok": false,
-                    "error": format!("unsupported driver '{}'", driver)
-                }));
-            }
             let cfg = args_obj
                 .get("config")
                 .and_then(|v| v.as_object())
                 .cloned()
                 .unwrap_or_default();
-            let host = cfg
-                .get("host")
-                .and_then(|v| v.as_str())
-                .unwrap_or("127.0.0.1")
-                .trim_matches('\0')
-                .to_string();
-            let port = cfg.get("port").and_then(|v| v.as_u64()).unwrap_or(5432);
-            let user = cfg
-                .get("user")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .trim_matches('\0')
-                .to_string();
-            let password = cfg
-                .get("password")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .trim_matches('\0')
-                .to_string();
-            let database = cfg
-                .get("database")
-                .and_then(|v| v.as_str())
-                .or_else(|| cfg.get("dbname").and_then(|v| v.as_str()))
-                .unwrap_or("")
-                .trim_matches('\0')
-                .to_string();
-            let key = format!(
-                "postgres://{}:{}@{}:{}/{}",
-                user, password, host, port, database
-            );
+
+            let (key, driver_cfg) = match driver.as_str() {
+                "postgres" => {
+                    let host = cfg
+                        .get("host")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("127.0.0.1")
+                        .trim_matches('\0')
+                        .to_string();
+                    let port = cfg.get("port").and_then(|v| v.as_u64()).unwrap_or(5432);
+                    let user = cfg
+                        .get("user")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .trim_matches('\0')
+                        .to_string();
+                    let password = cfg
+                        .get("password")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .trim_matches('\0')
+                        .to_string();
+                    let database = cfg
+                        .get("database")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| cfg.get("dbname").and_then(|v| v.as_str()))
+                        .unwrap_or("")
+                        .trim_matches('\0')
+                        .to_string();
+                    (
+                        format!(
+                            "postgres://{}:{}@{}:{}/{}",
+                            user, password, host, port, database
+                        ),
+                        DbDriverConfig::Postgres(PgConnConfig {
+                            host,
+                            port: port as u16,
+                            database,
+                            user,
+                            password,
+                        }),
+                    )
+                }
+                "sqlite" => {
+                    let path = cfg
+                        .get("path")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| cfg.get("file").and_then(|v| v.as_str()))
+                        .unwrap_or("")
+                        .trim_matches('\0')
+                        .to_string();
+                    if path.is_empty() {
+                        return Ok(serde_json::json!({
+                            "ok": false,
+                            "error": "sqlite open requires config.path"
+                        }));
+                    }
+                    (
+                        format!("sqlite://{}", path),
+                        DbDriverConfig::Sqlite(SqliteConnConfig { path }),
+                    )
+                }
+                "mysql" => {
+                    let host = cfg
+                        .get("host")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("127.0.0.1")
+                        .trim_matches('\0')
+                        .to_string();
+                    let port = cfg.get("port").and_then(|v| v.as_u64()).unwrap_or(3306);
+                    let user = cfg
+                        .get("user")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("root")
+                        .trim_matches('\0')
+                        .to_string();
+                    let password = cfg
+                        .get("password")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .trim_matches('\0')
+                        .to_string();
+                    let database = cfg
+                        .get("database")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| cfg.get("dbname").and_then(|v| v.as_str()))
+                        .unwrap_or("")
+                        .trim_matches('\0')
+                        .to_string();
+                    (
+                        format!("mysql://{}:{}@{}:{}/{}", user, password, host, port, database),
+                        DbDriverConfig::Mysql(MysqlConnConfig {
+                            host,
+                            port: port as u16,
+                            database,
+                            user,
+                            password,
+                        }),
+                    )
+                }
+                _ => {
+                    return Ok(serde_json::json!({
+                        "ok": false,
+                        "error": format!("unsupported driver '{}'", driver)
+                    }));
+                }
+            };
 
             {
                 let state = db_state()
@@ -863,13 +1103,7 @@ fn op_php_db_call(
                 handle,
                 DbConn {
                     key: key.clone(),
-                    config: PgConnConfig {
-                        host,
-                        port: port as u16,
-                        database,
-                        user,
-                        password,
-                    },
+                    config: driver_cfg,
                 },
             );
             state.key_to_handle.insert(key, handle);
@@ -894,7 +1128,7 @@ fn op_php_db_call(
                 .cloned()
                 .unwrap_or_default();
 
-            let cfg = {
+            let driver_cfg = {
                 let state = db_state()
                     .lock()
                     .map_err(|_| err("db lock poisoned".to_string()))?;
@@ -905,24 +1139,91 @@ fn op_php_db_call(
                 conn.config.clone()
             };
             let sql = sql.to_string();
-            let out_rows = with_pg_client(cfg, move |client| {
-                let boxed: Vec<Box<dyn ToSql + Sync>> = params.iter().map(json_to_pg_param).collect();
-                let refs: Vec<&(dyn ToSql + Sync)> = boxed.iter().map(|v| v.as_ref()).collect();
-                let rows = client
-                    .query(&sql, &refs)
-                    .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("postgres query failed: {}", e))))?;
+            let out_rows = match driver_cfg {
+                DbDriverConfig::Postgres(cfg) => with_pg_client(cfg, move |client| {
+                    let boxed: Vec<Box<dyn ToSql + Sync>> =
+                        params.iter().map(json_to_pg_param).collect();
+                    let refs: Vec<&(dyn ToSql + Sync)> = boxed.iter().map(|v| v.as_ref()).collect();
+                    let rows = client.query(&sql, &refs).map_err(|e| {
+                        deno_core::error::CoreError::from(std::io::Error::other(format!(
+                            "postgres query failed: {}",
+                            e
+                        )))
+                    })?;
 
-                let mut out_rows = Vec::with_capacity(rows.len());
-                for row in rows.iter() {
-                    let mut obj = serde_json::Map::new();
-                    for idx in 0..row.len() {
-                        let name = row.columns()[idx].name().to_string();
-                        obj.insert(name, pg_cell_to_json(row, idx));
+                    let mut out_rows = Vec::with_capacity(rows.len());
+                    for row in &rows {
+                        let mut obj = serde_json::Map::new();
+                        for idx in 0..row.len() {
+                            let name = row.columns()[idx].name().to_string();
+                            obj.insert(name, pg_cell_to_json(row, idx));
+                        }
+                        out_rows.push(serde_json::Value::Object(obj));
                     }
-                    out_rows.push(serde_json::Value::Object(obj));
-                }
-                Ok(out_rows)
-            })?;
+                    Ok(out_rows)
+                })?,
+                DbDriverConfig::Sqlite(cfg) => with_sqlite_conn(cfg, move |conn| {
+                    let mut stmt = conn.prepare(&sql).map_err(|e| {
+                        deno_core::error::CoreError::from(std::io::Error::other(format!(
+                            "sqlite prepare failed: {}",
+                            e
+                        )))
+                    })?;
+                    let sqlite_params: Vec<rusqlite::types::Value> =
+                        params.iter().map(json_to_sqlite_value).collect();
+                    let mut rows = stmt
+                        .query(sqlite_params_from_iter(sqlite_params.iter()))
+                        .map_err(|e| {
+                            deno_core::error::CoreError::from(std::io::Error::other(format!(
+                                "sqlite query failed: {}",
+                                e
+                            )))
+                        })?;
+
+                    let mut out_rows = Vec::new();
+                    while let Some(row) = rows.next().map_err(|e| {
+                        deno_core::error::CoreError::from(std::io::Error::other(format!(
+                            "sqlite row fetch failed: {}",
+                            e
+                        )))
+                    })? {
+                        let mut obj = serde_json::Map::new();
+                        let row_ref = row.as_ref();
+                        for idx in 0..row_ref.column_count() {
+                            let name = row_ref.column_name(idx).unwrap_or("").to_string();
+                            obj.insert(name, sqlite_cell_to_json(row, idx));
+                        }
+                        out_rows.push(serde_json::Value::Object(obj));
+                    }
+                    Ok(out_rows)
+                })?,
+                DbDriverConfig::Mysql(cfg) => with_mysql_conn(cfg, move |conn| {
+                    let mysql_params =
+                        MyParams::Positional(params.iter().map(json_to_mysql_value).collect());
+                    let rows: Vec<mysql::Row> = conn.exec(&sql, mysql_params).map_err(|e| {
+                        deno_core::error::CoreError::from(std::io::Error::other(format!(
+                            "mysql query failed: {}",
+                            e
+                        )))
+                    })?;
+
+                    let mut out_rows = Vec::with_capacity(rows.len());
+                    for row in &rows {
+                        let mut obj = serde_json::Map::new();
+                        let cols = row.columns_ref();
+                        for (idx, col) in cols.iter().enumerate() {
+                            let name = col.name_str().to_string();
+                            let value = row
+                                .as_ref(idx)
+                                .map(mysql_value_to_json)
+                                .unwrap_or(serde_json::Value::Null);
+                            obj.insert(name, value);
+                        }
+                        out_rows.push(serde_json::Value::Object(obj));
+                    }
+                    Ok(out_rows)
+                })?,
+            };
 
             Ok(serde_json::json!({
                 "ok": true,
@@ -944,7 +1245,7 @@ fn op_php_db_call(
                 .cloned()
                 .unwrap_or_default();
 
-            let cfg = {
+            let driver_cfg = {
                 let state = db_state()
                     .lock()
                     .map_err(|_| err("db lock poisoned".to_string()))?;
@@ -955,13 +1256,49 @@ fn op_php_db_call(
                 conn.config.clone()
             };
             let sql = sql.to_string();
-            let affected = with_pg_client(cfg, move |client| {
-                let boxed: Vec<Box<dyn ToSql + Sync>> = params.iter().map(json_to_pg_param).collect();
-                let refs: Vec<&(dyn ToSql + Sync)> = boxed.iter().map(|v| v.as_ref()).collect();
-                client
-                    .execute(&sql, &refs)
-                    .map_err(|e| deno_core::error::CoreError::from(std::io::Error::other(format!("postgres exec failed: {}", e))))
-            })?;
+            let affected = match driver_cfg {
+                DbDriverConfig::Postgres(cfg) => with_pg_client(cfg, move |client| {
+                    let boxed: Vec<Box<dyn ToSql + Sync>> =
+                        params.iter().map(json_to_pg_param).collect();
+                    let refs: Vec<&(dyn ToSql + Sync)> = boxed.iter().map(|v| v.as_ref()).collect();
+                    client.execute(&sql, &refs).map_err(|e| {
+                        deno_core::error::CoreError::from(std::io::Error::other(format!(
+                            "postgres exec failed: {}",
+                            e
+                        )))
+                    })
+                })?,
+                DbDriverConfig::Sqlite(cfg) => with_sqlite_conn(cfg, move |conn| {
+                    let mut stmt = conn.prepare(&sql).map_err(|e| {
+                        deno_core::error::CoreError::from(std::io::Error::other(format!(
+                            "sqlite prepare failed: {}",
+                            e
+                        )))
+                    })?;
+                    let sqlite_params: Vec<rusqlite::types::Value> =
+                        params.iter().map(json_to_sqlite_value).collect();
+                    let changed = stmt
+                        .execute(sqlite_params_from_iter(sqlite_params.iter()))
+                        .map_err(|e| {
+                            deno_core::error::CoreError::from(std::io::Error::other(format!(
+                                "sqlite exec failed: {}",
+                                e
+                            )))
+                        })?;
+                    Ok(changed as u64)
+                })?,
+                DbDriverConfig::Mysql(cfg) => with_mysql_conn(cfg, move |conn| {
+                    let mysql_params =
+                        MyParams::Positional(params.iter().map(json_to_mysql_value).collect());
+                    let result = conn.exec_iter(&sql, mysql_params).map_err(|e| {
+                        deno_core::error::CoreError::from(std::io::Error::other(format!(
+                            "mysql exec failed: {}",
+                            e
+                        )))
+                    })?;
+                    Ok(result.affected_rows())
+                })?,
+            };
 
             Ok(serde_json::json!({
                 "ok": true,

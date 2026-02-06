@@ -1,0 +1,57 @@
+/*
+TEST: SQLite smoke test for PHPX sqlite module.
+Mode:
+- Default: prints SKIP unless PHPX_DB_SMOKE=1.
+- Smoke: when enabled, opens a sqlite file, writes row, then reads count.
+*/
+import { connect, exec, query, close } from 'sqlite'
+import { result_is_ok } from 'core/result'
+
+if (getenv('PHPX_DB_SMOKE') !== '1') {
+    echo "SKIP\n"
+    return
+}
+
+$path = getenv('SQLITE_PATH') ?: '/tmp/deka_phpx_smoke.sqlite'
+
+$conn = connect({
+    path: $path
+})
+
+if (!result_is_ok($conn)) {
+    echo "ERR connect\n"
+    return
+}
+
+$handle = $conn->value
+$create = exec($handle, 'create table if not exists smoke_items(id integer primary key, name text)', [])
+if (!result_is_ok($create)) {
+    close($handle)
+    echo "ERR exec\n"
+    return
+}
+
+$insert = exec($handle, 'insert into smoke_items(name) values (?)', ['ok'])
+if (!result_is_ok($insert)) {
+    close($handle)
+    echo "ERR exec\n"
+    return
+}
+
+$rows = query($handle, 'select count(*) as c from smoke_items', [])
+close($handle)
+
+if (!result_is_ok($rows)) {
+    echo "ERR query\n"
+    return
+}
+
+$count = 0
+if (is_array($rows->value) && array_key_exists('rows', $rows->value) && count($rows->value['rows']) > 0) {
+    $first = $rows->value['rows'][0]
+    if (is_array($first) && array_key_exists('c', $first)) {
+        $count = (int) $first['c']
+    }
+}
+
+echo "OK " . $count . "\n"

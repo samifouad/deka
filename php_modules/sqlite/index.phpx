@@ -1,0 +1,93 @@
+import { db_open, db_query, db_exec, db_begin, db_commit, db_rollback, db_close } from 'db'
+import { result_ok, result_err, result_is_ok } from 'core/result'
+
+function __sqlite_handle_from_open($res) {
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+
+    if (!is_array($res->value) || !array_key_exists('handle', $res->value)) {
+        return result_err('open succeeded without handle')
+    }
+
+    return result_ok($res->value['handle'])
+}
+
+export function connect($config) {
+    $open = db_open('sqlite', $config)
+    return __sqlite_handle_from_open($open)
+}
+
+export function sqlite_connect($config) {
+    return connect($config)
+}
+
+export function query($handle, $sql, $params = []) {
+    return db_query($handle, $sql, $params)
+}
+
+export function sqlite_query($handle, $sql, $params = []) {
+    return query($handle, $sql, $params)
+}
+
+export function query_one($handle, $sql, $params = []) {
+    $res = db_query($handle, $sql, $params)
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+
+    $rows = []
+    if (is_array($res->value) && array_key_exists('rows', $res->value) && is_array($res->value['rows'])) {
+        $rows = $res->value['rows']
+    }
+
+    if (count($rows) === 0) {
+        return result_err('no rows')
+    }
+
+    return result_ok($rows[0])
+}
+
+export function sqlite_query_one($handle, $sql, $params = []) {
+    return query_one($handle, $sql, $params)
+}
+
+export function exec($handle, $sql, $params = []) {
+    return db_exec($handle, $sql, $params)
+}
+
+export function sqlite_exec($handle, $sql, $params = []) {
+    return exec($handle, $sql, $params)
+}
+
+export function begin($handle) {
+    return db_begin($handle)
+}
+
+export function sqlite_begin($handle) {
+    return begin($handle)
+}
+
+export function commit($handle) {
+    return db_commit($handle)
+}
+
+export function sqlite_commit($handle) {
+    return commit($handle)
+}
+
+export function rollback($handle) {
+    return db_rollback($handle)
+}
+
+export function sqlite_rollback($handle) {
+    return rollback($handle)
+}
+
+export function close($handle) {
+    return db_close($handle)
+}
+
+export function sqlite_close($handle) {
+    return close($handle)
+}

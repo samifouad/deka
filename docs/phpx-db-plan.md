@@ -29,14 +29,22 @@ Errors use:
 
 ## Implementation Status (Current)
 - Implemented: `op_php_db_call` host action bridge in `crates/modules_php/src/modules/php/mod.rs`.
-- Implemented: async postgres driver path via `tokio-postgres` (no nested runtime panic).
+- Implemented: host driver routes:
+  - `postgres` (sync `postgres` crate)
+  - `sqlite` (sync `rusqlite` crate)
+  - `mysql` (sync `mysql` crate)
 - Implemented: PHPX packages:
   - `php_modules/db` (generic primitives)
   - `php_modules/postgres` (driver wrapper)
+  - `php_modules/sqlite` (driver wrapper)
+  - `php_modules/mysql` (driver wrapper)
 - Implemented: prefixed exports to avoid import alias requirements in current parser:
   - `db_open`, `db_query`, `db_exec`, `db_begin`, `db_commit`, `db_rollback`, `db_close`
   - `pg_connect`, `pg_query`, `pg_query_one`, `pg_exec`, `pg_begin`, `pg_commit`, `pg_rollback`, `pg_close`
-- Verified with `deka run` smoke scripts: package loads successfully and returns runtime DB errors instead of crashing.
+- Verified with `deka run` smoke scripts:
+  - sqlite end-to-end `connect/exec/query/close` succeeds.
+  - mysql module loads and returns structured errors when query fails.
+  - postgres powers live `linkhash` API routes.
 
 ## PHPX API (v1)
 - `db`:
@@ -45,8 +53,9 @@ Errors use:
   - `exec(handle, sql, params): Result<DbExecOk, string>`
   - `begin/commit/rollback/close(handle): Result<DbUnitOk, string>`
 - `postgres`:
-  - `connect(config): Result<int, string>`
-  - `query/query_one/exec/...` wrappers around `db`.
+  - Canonical: `connect/query/query_one/exec/begin/commit/rollback/close`
+  - Compatibility aliases: `pg_connect/pg_query/pg_query_one/pg_exec/pg_begin/pg_commit/pg_rollback/pg_close`
+  - Both route to the same implementation; unprefixed is preferred for PHPX module-style usage.
 
 ## PHPX Usage Example
 ```php
@@ -91,8 +100,6 @@ close($conn->value);
 - Same contract can be extended for `sqlite` and `mysql`.
 
 ## Next Steps
-1. Add `sqlite` driver route to host action handler.
-2. Add `mysql` driver route to host action handler.
-3. Add statement prepare/cache and richer type decoding.
-4. Add metrics/introspection for active handles and query timings.
-5. Expand `linkhash_db` from read-path methods to full write-path repository methods.
+1. Add statement prepare/cache and richer type decoding.
+2. Add metrics/introspection for active handles and query timings.
+3. Expand `linkhash_db` from read-path methods to full write-path repository methods.

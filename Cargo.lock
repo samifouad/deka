@@ -645,6 +645,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "btoi"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dd6407f73a9b8b6162d8a2ef999fe6afd7cc15902ebf42c5cd296addf17e0ad"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "buf_redux"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4173,6 +4182,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lru"
+version = "0.12.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
+
+[[package]]
 name = "lru-slab"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4490,13 +4505,13 @@ dependencies = [
  "bumpalo",
  "deka-validation",
  "deno_core",
+ "mysql 26.0.1",
  "php-rs",
  "postgres",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",
- "tokio",
- "tokio-postgres",
  "wit-parser",
 ]
 
@@ -4544,17 +4559,40 @@ dependencies = [
  "flate2",
  "io-enum",
  "libc",
- "lru",
- "mysql_common",
+ "lru 0.10.1",
+ "mysql_common 0.30.6",
  "named_pipe",
  "native-tls",
  "once_cell",
- "pem",
+ "pem 2.0.1",
  "percent-encoding 2.3.2",
  "serde",
  "serde_json",
  "socket2 0.5.10",
- "twox-hash",
+ "twox-hash 1.6.3",
+ "url 2.5.8",
+]
+
+[[package]]
+name = "mysql"
+version = "26.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce2510a735f601bab18202b07ea0a197bd1d130d3a5ce2edf4577d225f0c3ee4"
+dependencies = [
+ "bufstream",
+ "bytes",
+ "crossbeam-queue",
+ "crossbeam-utils",
+ "flate2",
+ "io-enum",
+ "libc",
+ "lru 0.12.5",
+ "mysql_common 0.35.5",
+ "named_pipe",
+ "pem 3.0.6",
+ "percent-encoding 2.3.2",
+ "socket2 0.5.10",
+ "twox-hash 2.1.2",
  "url 2.5.8",
 ]
 
@@ -4577,6 +4615,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "mysql-common-derive"
+version = "0.32.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66f62cad7623a9cb6f8f64037f0c4f69c8db8e82914334a83c9788201c2c1bfa"
+dependencies = [
+ "darling 0.20.11",
+ "heck 0.5.0",
+ "num-bigint",
+ "proc-macro-crate 3.4.0",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+ "termcolor",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "mysql_common"
 version = "0.30.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4596,7 +4652,7 @@ dependencies = [
  "frunk",
  "lazy_static",
  "lexical",
- "mysql-common-derive",
+ "mysql-common-derive 0.30.2",
  "num-bigint",
  "num-traits",
  "rand 0.8.5",
@@ -4611,6 +4667,33 @@ dependencies = [
  "subprocess",
  "thiserror 1.0.69",
  "time 0.3.46",
+ "uuid",
+]
+
+[[package]]
+name = "mysql_common"
+version = "0.35.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbb9f371618ce723f095c61fbcdc36e8936956d2b62832f9c7648689b338e052"
+dependencies = [
+ "base64 0.22.1",
+ "bitflags 2.10.0",
+ "btoi",
+ "byteorder",
+ "bytes",
+ "crc32fast",
+ "flate2",
+ "getrandom 0.3.4",
+ "mysql-common-derive 0.32.1",
+ "num-bigint",
+ "num-traits",
+ "regex",
+ "saturating",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "thiserror 2.0.18",
  "uuid",
 ]
 
@@ -5456,6 +5539,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pem"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d30c53c26bc5b31a98cd02d20f25a7c8567146caf63ed593a9d87b2775291be"
+dependencies = [
+ "base64 0.22.1",
+ "serde_core",
+]
+
+[[package]]
 name = "pem-rfc7468"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5734,7 +5827,7 @@ dependencies = [
  "md4",
  "memchr",
  "multipart",
- "mysql",
+ "mysql 24.0.0",
  "num-bigint",
  "num-format",
  "num-integer",
@@ -6053,6 +6146,28 @@ dependencies = [
  "proc-macro2",
  "quote",
  "version_check 0.9.5",
+]
+
+[[package]]
+name = "proc-macro-error-attr2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96de42df36bb9bba5542fe9f1a054b8cc87e172759a1868aa05c1f3acc89dfc5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
+name = "proc-macro-error2"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11ec05c52be0a07b08061f7dd003e7d7092e0472bc731b4af7bb1ef876109802"
+dependencies = [
+ "proc-macro-error-attr2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]
@@ -9192,6 +9307,12 @@ dependencies = [
  "rand 0.8.5",
  "static_assertions",
 ]
+
+[[package]]
+name = "twox-hash"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea3136b675547379c4bd395ca6b938e5ad3c3d20fad76e7fe85f9e0d011419c"
 
 [[package]]
 name = "typeable"
