@@ -550,7 +550,7 @@ Notes:
 123. [ ] DX-TASKS:  Show symbols in editor outline/breadcrumbs
 124. [ ] DX-TASKS:  Test with large PHPX files
 125. [x] DX-TASKS:  Create `extensions/vscode-phpx/` directory
-126. [ ] DX-TASKS:  Initialize extension: `npm init` or `yo code`
+126. [x] DX-TASKS:  Initialize extension: `npm init` or `yo code`
 127. [x] DX-TASKS:  Update `package.json` metadata
 128. [x] DX-TASKS:  Create `syntaxes/phpx.tmLanguage.json` (TextMate grammar)
 557:  - [ ] Port from tree-sitter grammar OR

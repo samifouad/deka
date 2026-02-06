@@ -552,7 +552,7 @@ Import Error: Missing type stubs for '@user/hello'
 
 ### Task 5.1: Create VSCode Extension Scaffold
 - [x] Create `extensions/vscode-phpx/` directory
-- [ ] Initialize extension: `npm init` or `yo code`
+- [x] Initialize extension: `npm init` or `yo code`
 - [x] Update `package.json` metadata
 - [x] Create `syntaxes/phpx.tmLanguage.json` (TextMate grammar)
   - [ ] Port from tree-sitter grammar OR
