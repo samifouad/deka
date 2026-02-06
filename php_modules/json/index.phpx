@@ -1,6 +1,0 @@
-export { json_encode } from 'encoding/json'
-export { json_decode } from 'encoding/json'
-export { json_decode_result } from 'encoding/json'
-export { json_last_error } from 'encoding/json'
-export { json_last_error_msg } from 'encoding/json'
-export { json_validate } from 'encoding/json'

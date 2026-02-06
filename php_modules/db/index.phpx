@@ -71,16 +71,8 @@ export function open($driver, $config) {
     return normalize_result($raw)
 }
 
-export function db_open($driver, $config) {
-    return open($driver, $config)
-}
-
 export function open_handle($driver, $config) {
     return extract_handle(open($driver, $config))
-}
-
-export function db_open_handle($driver, $config) {
-    return open_handle($driver, $config)
 }
 
 export function query($handle, $sql, $params = []) {
@@ -93,16 +85,8 @@ export function query($handle, $sql, $params = []) {
     return normalize_result($raw)
 }
 
-export function db_query($handle, $sql, $params = []) {
-    return query($handle, $sql, $params)
-}
-
 export function rows($res) {
     return extract_rows($res)
-}
-
-export function db_rows($res) {
-    return rows($res)
 }
 
 export function query_one($handle, $sql, $params = []) {
@@ -116,10 +100,6 @@ export function query_one($handle, $sql, $params = []) {
     return result_ok($rows->value[0])
 }
 
-export function db_query_one($handle, $sql, $params = []) {
-    return query_one($handle, $sql, $params)
-}
-
 export function exec($handle, $sql, $params = []) {
     $safe_params = normalize_params($params)
     $raw = __deka_db_call('exec', {
@@ -128,10 +108,6 @@ export function exec($handle, $sql, $params = []) {
         params: $safe_params
     })
     return normalize_result($raw)
-}
-
-export function db_exec($handle, $sql, $params = []) {
-    return exec($handle, $sql, $params)
 }
 
 export function affected_rows($res) {
@@ -146,17 +122,9 @@ export function affected_rows($res) {
     return result_ok((int) $res->value['affected_rows'])
 }
 
-export function db_affected_rows($res) {
-    return affected_rows($res)
-}
-
 export function begin($handle) {
     $raw = __deka_db_call('begin', { handle: $handle })
     return normalize_result($raw)
-}
-
-export function db_begin($handle) {
-    return begin($handle)
 }
 
 export function commit($handle) {
@@ -164,24 +132,12 @@ export function commit($handle) {
     return normalize_result($raw)
 }
 
-export function db_commit($handle) {
-    return commit($handle)
-}
-
 export function rollback($handle) {
     $raw = __deka_db_call('rollback', { handle: $handle })
     return normalize_result($raw)
 }
 
-export function db_rollback($handle) {
-    return rollback($handle)
-}
-
 export function close($handle) {
     $raw = __deka_db_call('close', { handle: $handle })
     return normalize_result($raw)
-}
-
-export function db_close($handle) {
-    return close($handle)
 }

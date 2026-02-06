@@ -1,5 +1,5 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { db_open_handle, db_query, db_query_one, db_exec, db_begin, db_commit, db_rollback, db_close } from 'db'
+import { open_handle, query as db_query, query_one as db_query_one, exec as db_exec, begin as db_begin, commit as db_commit, rollback as db_rollback, close as db_close } from 'db'
 import { tcp_connect, tcp_read_exact, tcp_write, tcp_close, tcp_set_deadline } from 'tcp'
 import { bytes_get } from 'core/bytes'
 
@@ -378,7 +378,7 @@ function __my_query_native_once($handle, $sql, $params = []) {
     if (!is_object($handle) || !isset($handle.native_config)) {
         return result_err('wire mysql missing native fallback config')
     }
-    $native = db_open_handle('mysql', $handle.native_config)
+    $native = open_handle('mysql', $handle.native_config)
     if (!result_is_ok($native)) {
         return result_err($native.error)
     }
@@ -391,7 +391,7 @@ function __my_exec_native_once($handle, $sql, $params = []) {
     if (!is_object($handle) || !isset($handle.native_config)) {
         return result_err('wire mysql missing native fallback config')
     }
-    $native = db_open_handle('mysql', $handle.native_config)
+    $native = open_handle('mysql', $handle.native_config)
     if (!result_is_ok($native)) {
         return result_err($native.error)
     }
@@ -404,7 +404,7 @@ function __my_query_one_native_once($handle, $sql, $params = []) {
     if (!is_object($handle) || !isset($handle.native_config)) {
         return result_err('wire mysql missing native fallback config')
     }
-    $native = db_open_handle('mysql', $handle.native_config)
+    $native = open_handle('mysql', $handle.native_config)
     if (!result_is_ok($native)) {
         return result_err($native.error)
     }
@@ -532,7 +532,7 @@ export function connect($config) {
         return $wire
     }
 
-    return db_open_handle('mysql', $config)
+    return open_handle('mysql', $config)
 }
 
 export function query($handle, $sql, $params = []) {

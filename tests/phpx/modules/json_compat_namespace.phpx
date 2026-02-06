@@ -1,6 +1,0 @@
-/*
-TEST: json compatibility import path proxies to encoding/json
-*/
-import { json_encode } from 'json'
-
-echo json_encode(['hello' => 'compat', 'n' => 3]) . "\n"

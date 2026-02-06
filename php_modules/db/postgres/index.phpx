@@ -1,5 +1,5 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { db_open_handle, db_query, db_query_one, db_exec, db_begin, db_commit, db_rollback, db_close } from 'db'
+import { open_handle, query as db_query, query_one as db_query_one, exec as db_exec, begin as db_begin, commit as db_commit, rollback as db_rollback, close as db_close } from 'db'
 import { tcp_connect, tcp_read_exact, tcp_write, tcp_close, tcp_set_deadline } from 'tcp'
 import { tls_upgrade, tls_read_exact, tls_write, tls_close } from 'tls'
 import { bytes_get } from 'core/bytes'
@@ -499,7 +499,7 @@ export function connect($config) {
         return $wire
     }
 
-    return db_open_handle('postgres', $config)
+    return open_handle('postgres', $config)
 }
 
 export function query($handle, $sql, $params = []) {

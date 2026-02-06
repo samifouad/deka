@@ -1,7 +1,7 @@
 /*
 TEST: db facade contract for mysql wrapper (connect/query/query_one/close)
 */
-import { connect, query, query_one, close } from 'mysql'
+import { connect, query, query_one, close } from 'db/mysql'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {

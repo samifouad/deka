@@ -67,23 +67,22 @@ This is the execution tracker for replacing patchwork internals with first-class
 
 ### Phase 2: Encoding Namespace
 1. [x] Add `encoding/json` package (move current `json` surface).
-2. [x] Keep temporary compatibility re-export from root `json`.
+2. [x] Remove compatibility re-export from root `json` (breaking change).
 3. [x] Add `encoding/binary` for endian and framing helpers.
 4. [x] Update internal modules to prefer `encoding/json`.
-5. [x] Add migration note and deprecation window for root `json`.
+5. [x] Update migration docs for canonical-only imports.
 
 ### Phase 2A: JSON Migration (Explicit Tracker)
 1. [x] Create `php_modules/encoding/json/index.phpx` as canonical JSON API location.
 2. [x] Create `php_modules/encoding/json/module.d.phpx` with canonical type declarations.
-3. [x] Keep `php_modules/json/index.phpx` as compatibility proxy re-exporting `encoding/json`.
-4. [x] Keep `php_modules/json/module.d.phpx` as compatibility proxy declarations.
+3. [x] Remove `php_modules/json/index.phpx` compatibility proxy.
+4. [x] Remove `php_modules/json/module.d.phpx` compatibility declarations.
 5. [x] Update runtime-owned modules to import from `encoding/json` only.
 6. [x] Update Linkhash and example apps to import from `encoding/json`.
-7. [x] Add tests covering both import paths during transition:
+7. [x] Keep tests on canonical import path:
 - `import { ... } from 'encoding/json'`
-- `import { ... } from 'json'`
-8. [x] Add warning/deprecation note in docs for root `json`.
-9. [x] Define removal milestone for root `json` compatibility module (post-MVP window).
+8. [x] Remove compatibility-path tests.
+9. [x] Complete compatibility-path removal before MVP.
 
 ### Phase 3: DB Facade Standardization
 1. [x] Define stable `db` facade API and type declarations.
@@ -104,7 +103,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 ### Phase 5: Legacy Bridge Retirement
 1. [x] Remove userland-facing dependency on bridge-specific packages.
 2. [x] Keep internal fallback paths only where strictly needed.
-3. [ ] Remove dead bridge wrappers once parity confirmed.
+3. [x] Remove dead bridge wrappers once parity confirmed.
 4. [x] Freeze public API contracts and publish migration guide.
 
 ## Current State (Snapshot)
@@ -113,12 +112,12 @@ This is the execution tracker for replacing patchwork internals with first-class
 3. [x] Linkhash uses Postgres package and live data is visible on homepage/API.
 4. [x] `tcp`/`tls` foundation modules implemented via internal `__deka_net` host bridge.
 5. [x] `buffer` and `bytes` userland foundation modules implemented with smoke tests.
-6. [x] `encoding/json` namespace migration completed (compat proxy kept at `json`).
+6. [x] `encoding/json` namespace migration completed (canonical path only).
 7. [x] `db` facade now exposes shared `open_handle/query_one/rows/affected_rows` helpers.
 8. [x] DB contract tests added for postgres/mysql/sqlite wrappers.
 9. [x] Internal bridge hook restrictions enforced (typecheck + runtime).
 10. [x] Canonical driver module paths now available under `db/postgres`, `db/mysql`, `db/sqlite`.
-11. [x] Legacy top-level `postgres`/`mysql`/`sqlite` are compatibility proxy modules.
+11. [x] Legacy top-level `postgres`/`mysql`/`sqlite` compatibility proxy modules removed.
 12. [x] `encoding/binary` now available for endian encode/decode + append/read helpers.
 
 ## Validation Requirements Per Phase

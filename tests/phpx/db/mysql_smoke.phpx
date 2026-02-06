@@ -4,7 +4,7 @@ Mode:
 - Default: prints SKIP unless PHPX_DB_SMOKE=1.
 - Smoke: when enabled and MySQL is reachable, runs a simple count query.
 */
-import { connect, query, close } from 'mysql'
+import { connect, query, close } from 'db/mysql'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {

@@ -18,24 +18,13 @@ type DbUnitOk = {
 }
 
 export function open($driver: string, $config: Object): Result<DbOpenOk, string>
-export function db_open($driver: string, $config: Object): Result<DbOpenOk, string>
 export function open_handle($driver: string, $config: Object): Result<int, string>
-export function db_open_handle($driver: string, $config: Object): Result<int, string>
 export function query($handle: int, $sql: string, $params: array = []): Result<DbQueryOk, string>
-export function db_query($handle: int, $sql: string, $params: array = []): Result<DbQueryOk, string>
 export function rows($res: Result<DbQueryOk, string>): Result<array<Object>, string>
-export function db_rows($res: Result<DbQueryOk, string>): Result<array<Object>, string>
 export function query_one($handle: int, $sql: string, $params: array = []): Result<Object, string>
-export function db_query_one($handle: int, $sql: string, $params: array = []): Result<Object, string>
 export function exec($handle: int, $sql: string, $params: array = []): Result<DbExecOk, string>
-export function db_exec($handle: int, $sql: string, $params: array = []): Result<DbExecOk, string>
 export function affected_rows($res: Result<DbExecOk, string>): Result<int, string>
-export function db_affected_rows($res: Result<DbExecOk, string>): Result<int, string>
 export function begin($handle: int): Result<DbUnitOk, string>
-export function db_begin($handle: int): Result<DbUnitOk, string>
 export function commit($handle: int): Result<DbUnitOk, string>
-export function db_commit($handle: int): Result<DbUnitOk, string>
 export function rollback($handle: int): Result<DbUnitOk, string>
-export function db_rollback($handle: int): Result<DbUnitOk, string>
 export function close($handle: int): Result<DbUnitOk, string>
-export function db_close($handle: int): Result<DbUnitOk, string>

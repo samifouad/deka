@@ -1,7 +1,7 @@
-import { db_open_handle, db_query, db_query_one, db_exec, db_begin, db_commit, db_rollback, db_close } from 'db'
+import { open_handle, query as db_query, query_one as db_query_one, exec as db_exec, begin as db_begin, commit as db_commit, rollback as db_rollback, close as db_close } from 'db'
 
 export function connect($config) {
-    return db_open_handle('sqlite', $config)
+    return open_handle('sqlite', $config)
 }
 
 export function query($handle, $sql, $params = []) {

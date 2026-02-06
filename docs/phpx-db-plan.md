@@ -39,7 +39,7 @@ Errors use:
   - `php_modules/db/postgres` (driver wrapper)
   - `php_modules/db/sqlite` (driver wrapper)
   - `php_modules/db/mysql` (driver wrapper)
-  - `php_modules/postgres|sqlite|mysql` retained as compatibility proxies
+  - legacy top-level `php_modules/postgres|sqlite|mysql` compatibility proxies removed
 - Implemented: prefixed exports to avoid import alias requirements in current parser:
   - `db_open`, `db_query`, `db_exec`, `db_begin`, `db_commit`, `db_rollback`, `db_close`
   - `pg_connect`, `pg_query`, `pg_query_one`, `pg_exec`, `pg_begin`, `pg_commit`, `pg_rollback`, `pg_close`
@@ -61,7 +61,7 @@ Errors use:
 
 ## PHPX Usage Example
 ```php
-import { connect, query_one, close } from 'postgres';
+import { connect, query_one, close } from 'db/postgres';
 import { result_is_ok } from 'core/result';
 
 $conn = connect({

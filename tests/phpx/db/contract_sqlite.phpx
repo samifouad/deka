@@ -1,8 +1,8 @@
 /*
 TEST: db facade contract for sqlite wrapper (open_handle/query/query_one/close)
 */
-import { connect, exec, query, query_one, close } from 'sqlite'
-import { db_affected_rows } from 'db'
+import { connect, exec, query, query_one, close } from 'db/sqlite'
+import { affected_rows } from 'db'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
@@ -27,7 +27,7 @@ if (!result_is_ok($create)) {
 }
 
 $insert = exec($h, 'insert into contract_items(name) values (?)', ['item'])
-$affected = db_affected_rows($insert)
+$affected = affected_rows($insert)
 if (!result_is_ok($insert) || !result_is_ok($affected)) {
     close($h)
     echo "ERR insert\n"

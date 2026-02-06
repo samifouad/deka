@@ -7,12 +7,6 @@
   - `db/mysql`
   - `db/sqlite`
 
-## Compatibility paths (temporary)
-- `json` proxies to `encoding/json`
-- `postgres` proxies to `db/postgres`
-- `mysql` proxies to `db/mysql`
-- `sqlite` proxies to `db/sqlite`
-
 ## Recommended imports for new code
 ```php
 import { json_encode } from 'encoding/json'
@@ -31,6 +25,6 @@ import { connect, query_one } from 'db/postgres'
 - `db/query_one` returns `Result<Object, string>`
 - `db/exec` returns `Result<{ affected_rows: int }, string>`
 
-## Deprecation window
-- Compatibility paths remain through MVP.
-- Removal target: first post-MVP breaking release.
+## Breaking change status
+- Compatibility proxy modules were removed.
+- Canonical module paths are now required.

@@ -4,7 +4,7 @@ Mode:
 - Default: prints SKIP unless PHPX_DB_SMOKE=1.
 - Smoke: when enabled, opens a sqlite file, writes row, then reads count.
 */
-import { connect, exec, query, close } from 'sqlite'
+import { connect, exec, query, close } from 'db/sqlite'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
