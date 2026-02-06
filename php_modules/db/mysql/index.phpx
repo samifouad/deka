@@ -237,6 +237,7 @@ function __my_connect_wire($config) {
     $password = ''
     $database = ''
     $timeout_ms = 5000
+    $fallback_native = true
 
     if (is_array($config)) {
         if (array_key_exists('host', $config)) {
@@ -260,6 +261,9 @@ function __my_connect_wire($config) {
         if (array_key_exists('timeout_ms', $config)) {
             $timeout_ms = (int) $config['timeout_ms']
         }
+        if (array_key_exists('fallback_native', $config)) {
+            $fallback_native = !!$config['fallback_native']
+        }
     } else if (is_object($config)) {
         if (isset($config.host)) {
             $host = '' . $config.host
@@ -282,6 +286,9 @@ function __my_connect_wire($config) {
         if (isset($config.timeout_ms)) {
             $timeout_ms = (int) $config.timeout_ms
         }
+        if (isset($config.fallback_native)) {
+            $fallback_native = !!$config.fallback_native
+        }
     }
 
     $open = tcp_connect($host, $port, { timeout_ms: $timeout_ms })
@@ -294,7 +301,8 @@ function __my_connect_wire($config) {
         driver: 'mysql',
         sock: $open.value,
         seq: 0,
-        native_config: $config
+        native_config: $config,
+        allow_native_fallback: $fallback_native
     }
     $deadline = tcp_set_deadline($conn.sock, $timeout_ms)
     if (!result_is_ok($deadline)) {
@@ -375,6 +383,9 @@ function __my_is_wire_handle($handle) {
 }
 
 function __my_query_native_once($handle, $sql, $params = []) {
+    if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
+        return result_err('wire mysql native fallback disabled')
+    }
     if (!is_object($handle) || !isset($handle.native_config)) {
         return result_err('wire mysql missing native fallback config')
     }
@@ -388,6 +399,9 @@ function __my_query_native_once($handle, $sql, $params = []) {
 }
 
 function __my_exec_native_once($handle, $sql, $params = []) {
+    if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
+        return result_err('wire mysql native fallback disabled')
+    }
     if (!is_object($handle) || !isset($handle.native_config)) {
         return result_err('wire mysql missing native fallback config')
     }
@@ -401,6 +415,9 @@ function __my_exec_native_once($handle, $sql, $params = []) {
 }
 
 function __my_query_one_native_once($handle, $sql, $params = []) {
+    if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
+        return result_err('wire mysql native fallback disabled')
+    }
     if (!is_object($handle) || !isset($handle.native_config)) {
         return result_err('wire mysql missing native fallback config')
     }
@@ -853,6 +870,9 @@ export function query($handle, $sql, $params = []) {
             if (result_is_ok($res)) {
                 return result_ok({ rows: $res.value.rows })
             }
+            if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
+                return result_err($res.error)
+            }
             return __my_query_native_once($handle, $sql, $params)
         }
         $res = __my_query_wire($handle, $sql)
@@ -874,6 +894,9 @@ export function query_one($handle, $sql, $params = []) {
                 }
                 return result_ok($res.value.rows[0])
             }
+            if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
+                return result_err($res.error)
+            }
             return __my_query_one_native_once($handle, $sql, $params)
         }
         $res = query($handle, $sql, $params)
@@ -894,6 +917,9 @@ export function exec($handle, $sql, $params = []) {
             $res = __my_query_wire_prepared($handle, $sql, $params)
             if (result_is_ok($res)) {
                 return result_ok({ affected_rows: $res.value.affected_rows })
+            }
+            if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
+                return result_err($res.error)
             }
             return __my_exec_native_once($handle, $sql, $params)
         }
