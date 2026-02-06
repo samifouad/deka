@@ -14,13 +14,24 @@
 - First domain: `db`.
 - Keep JSON fallback temporarily until parity tests pass, then remove.
 
+## Protobuf Versioning Policy (Bridge v1)
+- Request/response envelopes must include `schema_version`.
+- New fields must be additive and optional-compatible.
+- Existing field numbers are immutable after release.
+- Removed fields must be reserved (field numbers and names).
+- Unknown fields must be ignored by decoders.
+- Breaking wire changes require `v2` message families and explicit runtime switch.
+- Runtime behavior rule:
+- `schema_version == 1`: serve with v1 handlers.
+- unsupported version: return structured bridge error, no partial dispatch.
+
 ## Tasks
 
 ### Phase 1: Schema and Generation
 - [x] 1. Define bridge envelope and `db` action messages in `.proto`.
 - [x] 2. Add Rust protobuf codegen (build-time generation in `modules_php`).
 - [x] 3. Add JS protobuf encode/decode support in `deka_php/php.js`.
-- [ ] 4. Document versioning policy for backward-compatible schema evolution.
+- [x] 4. Document versioning policy for backward-compatible schema evolution.
 
 ### Phase 2: DB Bridge Migration
 - [x] 5. Implement Protobuf decode/dispatch in `op_php_db_call`.
