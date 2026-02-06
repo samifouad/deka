@@ -562,7 +562,7 @@ Notes:
 569:  - [x] Start LSP server on activation
 570:  - [x] Configure server options
 571:  - [x] Handle server lifecycle
-133. [ ] DX-TASKS:  Bundle LSP binary with extension OR
+133. [x] DX-TASKS:  Bundle LSP binary with extension OR
 134. [ ] DX-TASKS:  Download binary on activation (GitHub releases)
 135. [ ] DX-TASKS:  Test extension locally: `code --extensionDevelopmentPath=.`
 136. [x] DX-TASKS:  Option A: TextMate grammar in `syntaxes/`

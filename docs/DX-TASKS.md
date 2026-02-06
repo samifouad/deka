@@ -570,7 +570,7 @@ Import Error: Missing type stubs for '@user/hello'
   - [x] Start LSP server on activation
   - [x] Configure server options
   - [x] Handle server lifecycle
-- [ ] Bundle LSP binary with extension OR
+- [x] Bundle LSP binary with extension OR
 - [ ] Download binary on activation (GitHub releases)
 - [ ] Test extension locally: `code --extensionDevelopmentPath=.`
 

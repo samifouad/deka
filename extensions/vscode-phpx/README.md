@@ -15,11 +15,11 @@ scripts/install-vscode-extension.sh
 
 ## LSP startup behavior
 
-Default startup command:
-
-```sh
-deka lsp
-```
+Resolution order:
+1. `phpx.lsp.path` (explicit setting)
+2. Bundled binary in extension `bin/` (if present)
+3. `deka lsp` from PATH
+4. `phpx_lsp` from PATH
 
 Override in VS Code settings if needed:
 
