@@ -2065,15 +2065,6 @@ fn db_proto_response_to_json(resp: &proto::bridge_v1::DbResponse) -> serde_json:
     serde_json::Value::Object(out)
 }
 
-#[op2]
-#[serde]
-fn op_php_db_call(
-    #[string] action: String,
-    #[serde] args: serde_json::Value,
-) -> Result<serde_json::Value, deno_core::error::CoreError> {
-    db_call_impl(action, args)
-}
-
 fn db_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
     let started = Instant::now();
     let req = proto::bridge_v1::DbRequest::decode(request)
@@ -2519,15 +2510,6 @@ fn net_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::Core
     let out = response.encode_to_vec();
     record_bridge_proto_metric("net", request.len(), out.len(), started.elapsed().as_micros() as u64);
     Ok(out)
-}
-
-#[op2]
-#[serde]
-fn op_php_net_call(
-    #[string] action: String,
-    #[serde] args: serde_json::Value,
-) -> Result<serde_json::Value, deno_core::error::CoreError> {
-    net_call_impl(action, args)
 }
 
 #[op2]
@@ -2999,15 +2981,6 @@ fn fs_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
 }
 
 #[op2]
-#[serde]
-fn op_php_fs_call(
-    #[string] action: String,
-    #[serde] args: serde_json::Value,
-) -> Result<serde_json::Value, deno_core::error::CoreError> {
-    fs_call_impl(action, args)
-}
-
-#[op2]
 #[buffer]
 fn op_php_fs_call_proto(
     #[buffer] request: &[u8],
@@ -3202,15 +3175,12 @@ deno_core::extension!(
         op_php_mkdirs,
         op_php_sha256,
         op_php_read_env,
-        op_php_db_call,
         op_php_db_call_proto,
         op_php_db_proto_encode,
         op_php_db_proto_decode,
-        op_php_net_call,
         op_php_net_call_proto,
         op_php_net_proto_encode,
         op_php_net_proto_decode,
-        op_php_fs_call,
         op_php_fs_call_proto,
         op_php_fs_proto_encode,
         op_php_fs_proto_decode,
