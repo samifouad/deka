@@ -1,0 +1,51 @@
+/*
+TEST: db stats reports active handles and sqlite query metrics.
+*/
+import { open_handle, query_one, close, stats } from 'db'
+import { result_is_ok } from 'core/result'
+
+$path = '/tmp/deka_phpx_stats.sqlite'
+$open = open_handle('sqlite', { path: $path })
+if (!result_is_ok($open)) {
+    echo "ERR open\n"
+    return
+}
+
+$h = $open->value
+$q = query_one($h, 'select 1 as v', [])
+if (!result_is_ok($q)) {
+    close($h)
+    echo "ERR query\n"
+    return
+}
+
+$s = stats()
+if (!result_is_ok($s)) {
+    close($h)
+    echo "ERR stats\n"
+    return
+}
+
+$active = $s->value['active_handles']
+$metrics = $s->value['metrics']
+if (!is_int($active) || $active < 1) {
+    close($h)
+    echo "ERR active\n"
+    return
+}
+
+if (!is_array($metrics) || !array_key_exists('query:sqlite', $metrics)) {
+    close($h)
+    echo "ERR metric-key\n"
+    return
+}
+
+$bucket = $metrics['query:sqlite']
+if (!is_array($bucket) || !array_key_exists('calls', $bucket) || $bucket['calls'] < 1) {
+    close($h)
+    echo "ERR metric-calls\n"
+    return
+}
+
+close($h)
+echo "OK stats\n"

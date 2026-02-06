@@ -187,3 +187,8 @@ export function close($handle) {
     $raw = __deka_db_call('close', { handle: $handle })
     return normalize_result($raw)
 }
+
+export function stats() {
+    $raw = __deka_db_call('stats', {})
+    return normalize_result($raw)
+}

@@ -40,9 +40,11 @@ Errors use:
   - `php_modules/db/sqlite` (driver wrapper)
   - `php_modules/db/mysql` (driver wrapper)
   - legacy top-level `php_modules/postgres|sqlite|mysql` compatibility proxies removed
-- Implemented: prefixed exports to avoid import alias requirements in current parser:
-  - `db_open`, `db_query`, `db_exec`, `db_begin`, `db_commit`, `db_rollback`, `db_close`
-  - `pg_connect`, `pg_query`, `pg_query_one`, `pg_exec`, `pg_begin`, `pg_commit`, `pg_rollback`, `pg_close`
+- Implemented: canonical unprefixed exports in module namespaces:
+  - `db`: `open`, `open_handle`, `query`, `query_one`, `rows`, `exec`, `affected_rows`, `begin`, `commit`, `rollback`, `close`, `stats`
+  - `db/postgres`: `connect`, `query`, `query_one`, `exec`, `begin`, `commit`, `rollback`, `close`
+  - `db/sqlite`: `connect`, `query`, `query_one`, `exec`, `begin`, `commit`, `rollback`, `close`
+  - `db/mysql`: `connect`, `query`, `query_one`, `exec`, `begin`, `commit`, `rollback`, `close`
 - Verified with `deka run` smoke scripts:
   - sqlite end-to-end `connect/exec/query/close` succeeds.
   - mysql module loads and returns structured errors when query fails.
@@ -50,14 +52,13 @@ Errors use:
 
 ## PHPX API (v1)
 - `db`:
-  - `open(driver, config): Result<DbOpenOk, string>`
-  - `query(handle, sql, params): Result<DbQueryOk, string>`
-  - `exec(handle, sql, params): Result<DbExecOk, string>`
+  - `open/open_handle(driver, config): Result<DbOpenOk|int, string>`
+  - `query/query_one/rows(handle, sql, params): Result<DbQueryOk|Object|array<Object>, string>`
+  - `exec/affected_rows(handle, sql, params): Result<DbExecOk|int, string>`
   - `begin/commit/rollback/close(handle): Result<DbUnitOk, string>`
-- `postgres`:
-  - Canonical: `connect/query/query_one/exec/begin/commit/rollback/close`
-  - Compatibility aliases: `pg_connect/pg_query/pg_query_one/pg_exec/pg_begin/pg_commit/pg_rollback/pg_close`
-  - Both route to the same implementation; unprefixed is preferred for PHPX module-style usage.
+  - `stats(): Result<DbStatsOk, string>` (active handles + timing counters)
+- `db/postgres|db/sqlite|db/mysql`:
+  - `connect/query/query_one/exec/begin/commit/rollback/close`
 
 ## PHPX Usage Example
 ```php
@@ -103,5 +104,5 @@ close($conn->value);
 
 ## Next Steps
 1. Add statement prepare/cache and richer type decoding.
-2. Add metrics/introspection for active handles and query timings.
+2. Add metrics/introspection for active handles and query timings. ✅
 3. Expand `linkhash_db` from read-path methods to full write-path repository methods.

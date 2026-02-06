@@ -17,6 +17,19 @@ type DbUnitOk = {
   ok: bool
 }
 
+type DbStatsMetric = {
+  calls: int
+  errors: int
+  total_ms: int
+  avg_ms: int
+}
+
+type DbStatsOk = {
+  active_handles: int
+  handles_by_driver: Object
+  metrics: Object
+}
+
 export function open($driver: string, $config: Object): Result<DbOpenOk, string>
 export function open_handle($driver: string, $config: Object): Result<int, string>
 export function query($handle: int, $sql: string, $params: array = []): Result<DbQueryOk, string>
@@ -28,3 +41,4 @@ export function begin($handle: int): Result<DbUnitOk, string>
 export function commit($handle: int): Result<DbUnitOk, string>
 export function rollback($handle: int): Result<DbUnitOk, string>
 export function close($handle: int): Result<DbUnitOk, string>
+export function stats(): Result<DbStatsOk, string>

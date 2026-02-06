@@ -121,6 +121,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 12. [x] `encoding/binary` now available for endian encode/decode + append/read helpers.
 13. [x] Wire-only smoke tests added (`fallback_native=false`) for postgres and mysql parameterized paths.
 14. [x] Wire strictness tests added for unsupported parameter types (postgres + mysql hard-error paths).
+15. [x] DB stats introspection added (`db.stats()` => active handles + per-driver query/exec timing counters).
 
 ## Validation Requirements Per Phase
 1. Unit tests for module APIs.

@@ -16,7 +16,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use wit_parser::{Resolve, Results, Type, TypeDefKind, TypeId, WorldItem, WorldKey};
 
 /// Embedded PHP WASM binary produced by the `php-rs` crate.
@@ -186,10 +186,28 @@ enum DbDriverConfig {
     Mysql(MysqlConnConfig),
 }
 
+impl DbDriverConfig {
+    fn driver_name(&self) -> &'static str {
+        match self {
+            DbDriverConfig::Postgres(_) => "postgres",
+            DbDriverConfig::Sqlite(_) => "sqlite",
+            DbDriverConfig::Mysql(_) => "mysql",
+        }
+    }
+}
+
+#[derive(Clone, serde::Serialize)]
+struct DbMetric {
+    calls: u64,
+    errors: u64,
+    total_ms: u64,
+}
+
 struct DbState {
     next_handle: u64,
     handles: HashMap<u64, DbConn>,
     key_to_handle: HashMap<String, u64>,
+    metrics: HashMap<String, DbMetric>,
 }
 
 impl DbState {
@@ -198,7 +216,22 @@ impl DbState {
             next_handle: 1,
             handles: HashMap::new(),
             key_to_handle: HashMap::new(),
+            metrics: HashMap::new(),
         }
+    }
+
+    fn record_metric(&mut self, action: &str, driver: &str, elapsed_ms: u64, is_error: bool) {
+        let key = format!("{}:{}", action, driver);
+        let metric = self.metrics.entry(key).or_insert(DbMetric {
+            calls: 0,
+            errors: 0,
+            total_ms: 0,
+        });
+        metric.calls += 1;
+        if is_error {
+            metric.errors += 1;
+        }
+        metric.total_ms = metric.total_ms.saturating_add(elapsed_ms);
     }
 }
 
@@ -985,6 +1018,7 @@ fn op_php_db_call(
     let args_obj = args.as_object().cloned().unwrap_or_default();
     match action.as_str() {
         "open" => {
+            let started = Instant::now();
             let driver = args_obj
                 .get("driver")
                 .and_then(|v| v.as_str())
@@ -1108,6 +1142,10 @@ fn op_php_db_call(
                     .lock()
                     .map_err(|_| err("db lock poisoned".to_string()))?;
                 if let Some(handle) = state.key_to_handle.get(&key).copied() {
+                    drop(state);
+                    if let Ok(mut state) = db_state().lock() {
+                        state.record_metric("open", &driver, started.elapsed().as_millis() as u64, false);
+                    }
                     return Ok(serde_json::json!({
                         "ok": true,
                         "handle": handle,
@@ -1120,6 +1158,7 @@ fn op_php_db_call(
                 .lock()
                 .map_err(|_| err("db lock poisoned".to_string()))?;
             if let Some(handle) = state.key_to_handle.get(&key).copied() {
+                state.record_metric("open", &driver, started.elapsed().as_millis() as u64, false);
                 return Ok(serde_json::json!({
                     "ok": true,
                     "handle": handle,
@@ -1136,6 +1175,7 @@ fn op_php_db_call(
                 },
             );
             state.key_to_handle.insert(key, handle);
+            state.record_metric("open", &driver, started.elapsed().as_millis() as u64, false);
             Ok(serde_json::json!({
                 "ok": true,
                 "handle": handle,
@@ -1143,6 +1183,7 @@ fn op_php_db_call(
             }))
         }
         "query" => {
+            let started = Instant::now();
             let handle = args_obj
                 .get("handle")
                 .and_then(|v| v.as_u64())
@@ -1167,8 +1208,9 @@ fn op_php_db_call(
                     .ok_or_else(|| err(format!("query: unknown handle {}", handle)))?;
                 conn.config.clone()
             };
+            let driver_name = driver_cfg.driver_name();
             let sql = sql.to_string();
-            let out_rows = match driver_cfg {
+            let out_rows_result = match driver_cfg {
                 DbDriverConfig::Postgres(cfg) => with_pg_client(cfg, move |client| {
                     let boxed: Vec<Box<dyn ToSql + Sync>> =
                         params.iter().map(json_to_pg_param).collect();
@@ -1253,6 +1295,13 @@ fn op_php_db_call(
                     Ok(out_rows)
                 })?,
             };
+            let elapsed_ms = started.elapsed().as_millis() as u64;
+            let mut metric_state = db_state()
+                .lock()
+                .map_err(|_| err("db lock poisoned".to_string()))?;
+            metric_state.record_metric("query", driver_name, elapsed_ms, false);
+            drop(metric_state);
+            let out_rows = out_rows_result;
 
             Ok(serde_json::json!({
                 "ok": true,
@@ -1260,6 +1309,7 @@ fn op_php_db_call(
             }))
         }
         "exec" => {
+            let started = Instant::now();
             let handle = args_obj
                 .get("handle")
                 .and_then(|v| v.as_u64())
@@ -1284,8 +1334,9 @@ fn op_php_db_call(
                     .ok_or_else(|| err(format!("exec: unknown handle {}", handle)))?;
                 conn.config.clone()
             };
+            let driver_name = driver_cfg.driver_name();
             let sql = sql.to_string();
-            let affected = match driver_cfg {
+            let affected_result = match driver_cfg {
                 DbDriverConfig::Postgres(cfg) => with_pg_client(cfg, move |client| {
                     let boxed: Vec<Box<dyn ToSql + Sync>> =
                         params.iter().map(json_to_pg_param).collect();
@@ -1328,6 +1379,13 @@ fn op_php_db_call(
                     Ok(result.affected_rows())
                 })?,
             };
+            let elapsed_ms = started.elapsed().as_millis() as u64;
+            let mut metric_state = db_state()
+                .lock()
+                .map_err(|_| err("db lock poisoned".to_string()))?;
+            metric_state.record_metric("exec", driver_name, elapsed_ms, false);
+            drop(metric_state);
+            let affected = affected_result;
 
             Ok(serde_json::json!({
                 "ok": true,
@@ -1345,6 +1403,7 @@ fn op_php_db_call(
             Ok(serde_json::json!({ "ok": true }))
         }
         "close" => {
+            let started = Instant::now();
             let handle = args_obj
                 .get("handle")
                 .and_then(|v| v.as_u64())
@@ -1353,9 +1412,51 @@ fn op_php_db_call(
                 .lock()
                 .map_err(|_| err("db lock poisoned".to_string()))?;
             if let Some(conn) = state.handles.remove(&handle) {
+                state.record_metric(
+                    "close",
+                    conn.config.driver_name(),
+                    started.elapsed().as_millis() as u64,
+                    false,
+                );
                 state.key_to_handle.remove(&conn.key);
             }
             Ok(serde_json::json!({ "ok": true }))
+        }
+        "stats" => {
+            let state = db_state()
+                .lock()
+                .map_err(|_| err("db lock poisoned".to_string()))?;
+            let mut handles_by_driver: HashMap<String, u64> = HashMap::new();
+            for conn in state.handles.values() {
+                let key = conn.config.driver_name().to_string();
+                let prev = handles_by_driver.get(&key).copied().unwrap_or(0);
+                handles_by_driver.insert(key, prev + 1);
+            }
+
+            let mut metrics = serde_json::Map::new();
+            for (key, metric) in &state.metrics {
+                let avg_ms = if metric.calls == 0 {
+                    0
+                } else {
+                    metric.total_ms / metric.calls
+                };
+                metrics.insert(
+                    key.clone(),
+                    serde_json::json!({
+                        "calls": metric.calls,
+                        "errors": metric.errors,
+                        "total_ms": metric.total_ms,
+                        "avg_ms": avg_ms
+                    }),
+                );
+            }
+
+            Ok(serde_json::json!({
+                "ok": true,
+                "active_handles": state.handles.len() as u64,
+                "handles_by_driver": handles_by_driver,
+                "metrics": metrics
+            }))
         }
         _ => Ok(serde_json::json!({
             "ok": false,
