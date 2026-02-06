@@ -30,5 +30,9 @@ if (!result_is_ok($res)) {
     echo "ERR query\n"
     return
 }
+if (!is_string($res->value['s'])) {
+    echo "ERR type\n"
+    return
+}
 
 echo "OK " . $res->value['s'] . "\n"
