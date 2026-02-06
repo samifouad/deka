@@ -496,7 +496,7 @@ Notes:
 455:  - [x] Struct fields
 456:  - [x] Built-in types (`Option`, `Result`, `Object`)
 457:  - [x] PHPX stdlib functions
-101. [ ] DX-TASKS:  Add snippets for common patterns
+101. [x] DX-TASKS:  Add snippets for common patterns
 102. [ ] DX-TASKS:  Test in Zed
 103. [x] DX-TASKS:  Add `definitionProvider` capability to LSP
 104. [x] DX-TASKS:  Implement `goto_definition` method:

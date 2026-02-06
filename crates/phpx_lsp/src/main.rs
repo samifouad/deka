@@ -15,7 +15,7 @@ use tower_lsp::lsp_types::{
     DiagnosticOptions, DiagnosticServerCapabilities, DiagnosticSeverity, DidChangeTextDocumentParams,
     DidOpenTextDocumentParams, DocumentSymbol, DocumentSymbolParams, Hover, HoverContents,
     InitializeParams, InitializeResult, InitializedParams, Location, MarkupContent, MarkupKind,
-    MessageType, OneOf, Position, Range, ReferenceParams, RenameParams, ServerCapabilities, SymbolKind, TextDocumentSyncCapability,
+    InsertTextFormat, MessageType, OneOf, Position, Range, ReferenceParams, RenameParams, ServerCapabilities, SymbolKind, TextDocumentSyncCapability,
     TextDocumentSyncKind, TextEdit, Url, WorkspaceEdit,
 };
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -237,6 +237,7 @@ impl LanguageServer for Backend {
 
         let mut items = builtin_completion_items();
         items.extend(stdlib_completion_items());
+        items.extend(snippet_completion_items());
         Ok(Some(CompletionResponse::Array(items)))
     }
 
@@ -1885,6 +1886,51 @@ fn stdlib_completion_items() -> Vec<CompletionItem> {
         });
     }
     items
+}
+
+fn snippet_completion_items() -> Vec<CompletionItem> {
+    vec![
+        CompletionItem {
+            label: "snippet:function".to_string(),
+            kind: Some(CompletionItemKind::SNIPPET),
+            insert_text: Some("function ${1:name}(${2:$arg}: ${3:string}): ${4:string} {\n    ${5:return ''}\n}".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            detail: Some("PHPX function template".to_string()),
+            ..CompletionItem::default()
+        },
+        CompletionItem {
+            label: "snippet:struct".to_string(),
+            kind: Some(CompletionItemKind::SNIPPET),
+            insert_text: Some("struct ${1:Name} {\n    $${2:field}: ${3:string}\n}".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            detail: Some("PHPX struct template".to_string()),
+            ..CompletionItem::default()
+        },
+        CompletionItem {
+            label: "snippet:import".to_string(),
+            kind: Some(CompletionItemKind::SNIPPET),
+            insert_text: Some("import { ${1:symbol} } from '${2:module}'".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            detail: Some("PHPX import template".to_string()),
+            ..CompletionItem::default()
+        },
+        CompletionItem {
+            label: "snippet:component".to_string(),
+            kind: Some(CompletionItemKind::SNIPPET),
+            insert_text: Some("function ${1:Component}($props: Object<{ ${2:message}: string }>) {\n    return <div>{$props.${2:message}}</div>\n}".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            detail: Some("PHPX JSX component template".to_string()),
+            ..CompletionItem::default()
+        },
+        CompletionItem {
+            label: "snippet:frontmatter".to_string(),
+            kind: Some(CompletionItemKind::SNIPPET),
+            insert_text: Some("---\nimport { ${1:Component} } from '${2:module}'\n\n$${3:data} = ${4:null}\n---\n<${1:Component} />\n".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            detail: Some("PHPX frontmatter template".to_string()),
+            ..CompletionItem::default()
+        },
+    ]
 }
 
 fn find_php_modules_root(start: &Path) -> Option<PathBuf> {
