@@ -614,15 +614,15 @@ Notes:
 161. [x] DX-TASKS:  Create `scripts/install-zed-extension.sh`
 162. [x] DX-TASKS:  Create `scripts/install-vscode-extension.sh`
 163. [ ] DX-TASKS:  Test on clean systems (Linux, macOS)
-164. [ ] DX-TASKS:  Add GitHub Actions workflow:
-692:  - [ ] Build tree-sitter grammar
-693:  - [ ] Build LSP server
-694:  - [ ] Run tests
-695:  - [ ] Create releases with binaries
-165. [ ] DX-TASKS:  Build for multiple platforms:
-697:  - [ ] Linux (x86_64)
-698:  - [ ] macOS (x86_64, arm64)
-699:  - [ ] Windows (x86_64)
+164. [x] DX-TASKS:  Add GitHub Actions workflow:
+692:  - [x] Build tree-sitter grammar
+693:  - [x] Build LSP server
+694:  - [x] Run tests
+695:  - [x] Create releases with binaries
+165. [x] DX-TASKS:  Build for multiple platforms:
+697:  - [x] Linux (x86_64)
+698:  - [x] macOS (x86_64, arm64)
+699:  - [x] Windows (x86_64)
 166. [ ] DX-TASKS:  Publish VSCode extension to marketplace (automated)
 167. [ ] DX-TASKS:  Write blog post/announcement:
 708:  - [ ] Why PHPX needs editor support

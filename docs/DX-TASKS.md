@@ -690,15 +690,15 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 7.3: Set Up CI/CD
-- [ ] Add GitHub Actions workflow:
-  - [ ] Build tree-sitter grammar
-  - [ ] Build LSP server
-  - [ ] Run tests
-  - [ ] Create releases with binaries
-- [ ] Build for multiple platforms:
-  - [ ] Linux (x86_64)
-  - [ ] macOS (x86_64, arm64)
-  - [ ] Windows (x86_64)
+- [x] Add GitHub Actions workflow:
+  - [x] Build tree-sitter grammar
+  - [x] Build LSP server
+  - [x] Run tests
+  - [x] Create releases with binaries
+- [x] Build for multiple platforms:
+  - [x] Linux (x86_64)
+  - [x] macOS (x86_64, arm64)
+  - [x] Windows (x86_64)
 - [ ] Publish VSCode extension to marketplace (automated)
 
 **Acceptance**: CI builds and tests on every commit
