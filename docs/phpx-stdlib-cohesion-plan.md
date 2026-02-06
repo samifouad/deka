@@ -95,7 +95,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 1. [x] Implement `db/postgres` on top of `tcp` + `buffer` (+ `tls`).
 : Wire path now supports startup/auth/query plus parameterized queries via extended protocol (`Parse/Bind/Execute/Sync`) for `auth=ok|cleartext|md5|sasl(scram-sha-256)`, with automatic native fallback for unsupported auth modes.
 2. [x] Implement `db/mysql` on top of `tcp` + `buffer` (+ `tls`).
-: Initial wire path now supports TCP handshake/auth for `mysql_native_password`, text-protocol `COM_QUERY`, and prepared `COM_STMT_PREPARE/EXECUTE/CLOSE` for parameterized calls; unsupported param types still fall back to native execution.
+: Initial wire path now supports TCP handshake/auth for `mysql_native_password`, text-protocol `COM_QUERY`, and prepared `COM_STMT_PREPARE/EXECUTE/CLOSE` for parameterized calls; fallback is connect-time only (auth/plugin), not per-query execution.
 3. [x] Keep `db/sqlite` file-backed with same facade contract.
 4. [x] Maintain optional native acceleration paths behind same public API.
 5. [x] Add driver compliance tests and perf baseline tests.

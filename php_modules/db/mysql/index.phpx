@@ -382,54 +382,6 @@ function __my_is_wire_handle($handle) {
     return is_object($handle) && isset($handle.kind) && $handle.kind === 'wire' && isset($handle.driver) && $handle.driver === 'mysql' && isset($handle.sock)
 }
 
-function __my_query_native_once($handle, $sql, $params = []) {
-    if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
-        return result_err('wire mysql native fallback disabled')
-    }
-    if (!is_object($handle) || !isset($handle.native_config)) {
-        return result_err('wire mysql missing native fallback config')
-    }
-    $native = open_handle('mysql', $handle.native_config)
-    if (!result_is_ok($native)) {
-        return result_err($native.error)
-    }
-    $run = db_query($native.value, $sql, $params)
-    db_close($native.value)
-    return $run
-}
-
-function __my_exec_native_once($handle, $sql, $params = []) {
-    if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
-        return result_err('wire mysql native fallback disabled')
-    }
-    if (!is_object($handle) || !isset($handle.native_config)) {
-        return result_err('wire mysql missing native fallback config')
-    }
-    $native = open_handle('mysql', $handle.native_config)
-    if (!result_is_ok($native)) {
-        return result_err($native.error)
-    }
-    $run = db_exec($native.value, $sql, $params)
-    db_close($native.value)
-    return $run
-}
-
-function __my_query_one_native_once($handle, $sql, $params = []) {
-    if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
-        return result_err('wire mysql native fallback disabled')
-    }
-    if (!is_object($handle) || !isset($handle.native_config)) {
-        return result_err('wire mysql missing native fallback config')
-    }
-    $native = open_handle('mysql', $handle.native_config)
-    if (!result_is_ok($native)) {
-        return result_err($native.error)
-    }
-    $run = db_query_one($native.value, $sql, $params)
-    db_close($native.value)
-    return $run
-}
-
 function __my_parse_columns($count, $conn) {
     $cols = []
     $types = []
@@ -622,10 +574,6 @@ function __my_stmt_param_encode($value) {
         return result_ok({ typ: 253, bytes: __my_lenenc_encode(strlen($value)) . $value, is_null: false })
     }
     return result_err('wire mysql unsupported param type')
-}
-
-function __my_is_param_type_error($msg) {
-    return is_string($msg) && strpos($msg, 'wire mysql unsupported param type') === 0
 }
 
 function __my_stmt_execute_payload($stmt_id, $params) {
@@ -874,13 +822,7 @@ export function query($handle, $sql, $params = []) {
             if (result_is_ok($res)) {
                 return result_ok({ rows: $res.value.rows })
             }
-            if (__my_is_param_type_error($res.error)) {
-                return result_err($res.error)
-            }
-            if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
-                return result_err($res.error)
-            }
-            return __my_query_native_once($handle, $sql, $params)
+            return result_err($res.error)
         }
         $res = __my_query_wire($handle, $sql)
         if (!result_is_ok($res)) {
@@ -901,13 +843,7 @@ export function query_one($handle, $sql, $params = []) {
                 }
                 return result_ok($res.value.rows[0])
             }
-            if (__my_is_param_type_error($res.error)) {
-                return result_err($res.error)
-            }
-            if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
-                return result_err($res.error)
-            }
-            return __my_query_one_native_once($handle, $sql, $params)
+            return result_err($res.error)
         }
         $res = query($handle, $sql, $params)
         if (!result_is_ok($res)) {
@@ -928,13 +864,7 @@ export function exec($handle, $sql, $params = []) {
             if (result_is_ok($res)) {
                 return result_ok({ affected_rows: $res.value.affected_rows })
             }
-            if (__my_is_param_type_error($res.error)) {
-                return result_err($res.error)
-            }
-            if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
-                return result_err($res.error)
-            }
-            return __my_exec_native_once($handle, $sql, $params)
+            return result_err($res.error)
         }
         $res = __my_query_wire($handle, $sql)
         if (!result_is_ok($res)) {
