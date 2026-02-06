@@ -4506,6 +4506,7 @@ dependencies = [
  "deka-validation",
  "deno_core",
  "mysql 26.0.1",
+ "native-tls",
  "php-rs",
  "postgres",
  "rusqlite",

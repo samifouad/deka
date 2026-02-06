@@ -55,7 +55,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 1. [x] Make `__deka_wasm_call` inaccessible from non-internal userland modules.
 2. [x] Add parser/typechecker hard error for direct use outside internal module roots.
 3. [x] Add runtime enforcement guard (defense in depth).
-4. [ ] Remove/avoid documentation of internal bridge hook.
+4. [x] Remove/avoid documentation of internal bridge hook.
 5. [x] Add tests proving external modules cannot call internal bridge hook.
 
 ### Phase 1: Foundation Modules
@@ -78,7 +78,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 3. [x] Keep `php_modules/json/index.phpx` as compatibility proxy re-exporting `encoding/json`.
 4. [x] Keep `php_modules/json/module.d.phpx` as compatibility proxy declarations.
 5. [x] Update runtime-owned modules to import from `encoding/json` only.
-6. [ ] Update Linkhash and example apps to import from `encoding/json`.
+6. [x] Update Linkhash and example apps to import from `encoding/json`.
 7. [x] Add tests covering both import paths during transition:
 - `import { ... } from 'encoding/json'`
 - `import { ... } from 'json'`
@@ -102,7 +102,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 1. [x] Remove userland-facing dependency on bridge-specific packages.
 2. [x] Keep internal fallback paths only where strictly needed.
 3. [ ] Remove dead bridge wrappers once parity confirmed.
-4. [ ] Freeze public API contracts and publish migration guide.
+4. [x] Freeze public API contracts and publish migration guide.
 
 ## Current State (Snapshot)
 1. [x] Generic `db` bridge exists with `postgres/sqlite/mysql` host routes.
@@ -129,3 +129,4 @@ This is the execution tracker for replacing patchwork internals with first-class
 - `docs/phpx-upgrade-plan.md`
 - `docs/TASKS.md`
 - `docs/UNIFIED-TASKS.md`
+- `docs/phpx-stdlib-migration.md`

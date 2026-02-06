@@ -10,9 +10,10 @@
 - Host layer: generic DB capability endpoint.
 - PHPX layer:
   - `db` package provides generic primitives.
-  - `postgres` package provides driver-flavored ergonomics.
+  - canonical driver packages live under `db/*` (`db/postgres`, `db/mysql`, `db/sqlite`).
 - Bridge:
-  - PHPX calls `__deka_wasm_call('__deka_db', action, payload)`.
+  - PHPX public packages call internal modules only.
+  - internal modules call the runtime host bridge.
   - Host handles action dispatch and returns JSON-compatible payloads.
 
 ## Host Contract (v1)
@@ -35,9 +36,10 @@ Errors use:
   - `mysql` (sync `mysql` crate)
 - Implemented: PHPX packages:
   - `php_modules/db` (generic primitives)
-  - `php_modules/postgres` (driver wrapper)
-  - `php_modules/sqlite` (driver wrapper)
-  - `php_modules/mysql` (driver wrapper)
+  - `php_modules/db/postgres` (driver wrapper)
+  - `php_modules/db/sqlite` (driver wrapper)
+  - `php_modules/db/mysql` (driver wrapper)
+  - `php_modules/postgres|sqlite|mysql` retained as compatibility proxies
 - Implemented: prefixed exports to avoid import alias requirements in current parser:
   - `db_open`, `db_query`, `db_exec`, `db_begin`, `db_commit`, `db_rollback`, `db_close`
   - `pg_connect`, `pg_query`, `pg_query_one`, `pg_exec`, `pg_begin`, `pg_commit`, `pg_rollback`, `pg_close`
