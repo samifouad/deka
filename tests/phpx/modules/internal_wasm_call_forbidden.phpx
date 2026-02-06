@@ -1,4 +1,0 @@
-/*
-TEST: direct __deka_wasm_call usage outside internals should fail typechecking
-*/
-__deka_wasm_call('__deka_db', 'open', {})

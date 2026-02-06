@@ -1,0 +1,129 @@
+import { bytes_from_string, bytes_to_string, bytes_len, bytes_slice, bytes_concat, bytes_get, bytes_set } from 'core/bytes'
+
+struct Buffer {
+    $data: string = ''
+    $cursor: int = 0
+}
+
+export function buffer_new($initial = '') {
+    return Buffer { $data: bytes_from_string('' . $initial), $cursor: 0 }
+}
+
+export function new($initial = '') {
+    return buffer_new($initial)
+}
+
+export function from_bytes($bytes) {
+    return Buffer { $data: bytes_from_string('' . $bytes), $cursor: 0 }
+}
+
+export function to_bytes($buffer) {
+    return $buffer.data
+}
+
+export function to_string($buffer) {
+    return bytes_to_string($buffer.data)
+}
+
+export function len($buffer) {
+    return bytes_len($buffer.data)
+}
+
+export function cursor($buffer) {
+    return $buffer.cursor
+}
+
+export function seek($buffer, $position) {
+    $next = (int) $position
+    if ($next < 0) {
+        $next = 0
+    }
+    $max = len($buffer)
+    if ($next > $max) {
+        $next = $max
+    }
+    return Buffer { $data: $buffer.data, $cursor: $next }
+}
+
+export function write($buffer, $chunk) {
+    $out = bytes_concat($buffer.data, bytes_from_string('' . $chunk))
+    return Buffer { $data: $out, $cursor: $buffer.cursor }
+}
+
+export function write_byte($buffer, $byte) {
+    $b = chr((int) $byte)
+    return write($buffer, $b)
+}
+
+export function read($buffer, $count) {
+    $n = (int) $count
+    if ($n <= 0) {
+        return {
+            chunk: '',
+            buffer: $buffer,
+            eof: false
+        }
+    }
+
+    $start = $buffer.cursor
+    $total = len($buffer)
+    if ($start >= $total) {
+        return {
+            chunk: '',
+            buffer: $buffer,
+            eof: true
+        }
+    }
+
+    $chunk = bytes_slice($buffer.data, $start, $n)
+    $next = $start + bytes_len($chunk)
+
+    return {
+        chunk: $chunk,
+        buffer: Buffer { $data: $buffer.data, $cursor: $next },
+        eof: $next >= $total
+    }
+}
+
+export function read_exact($buffer, $count) {
+    $res = read($buffer, $count)
+    if (bytes_len($res.chunk) !== (int) $count) {
+        return {
+            ok: false,
+            error: 'short read',
+            buffer: $res.buffer
+        }
+    }
+    return {
+        ok: true,
+        value: $res.chunk,
+        buffer: $res.buffer
+    }
+}
+
+export function write_u16_be($buffer, $value) {
+    $v = (int) $value
+    $hi = ($v >> 8) & 255
+    $lo = $v & 255
+    $out = write_byte($buffer, $hi)
+    return write_byte($out, $lo)
+}
+
+export function read_u16_be($buffer) {
+    $res = read_exact($buffer, 2)
+    if (!$res.ok) {
+        return $res
+    }
+    $b0 = bytes_get($res.value, 0)
+    $b1 = bytes_get($res.value, 1)
+    return {
+        ok: true,
+        value: (($b0 << 8) | $b1),
+        buffer: $res.buffer
+    }
+}
+
+export function set_byte($buffer, $index, $byte) {
+    $out = bytes_set($buffer.data, (int) $index, (int) $byte)
+    return Buffer { $data: $out, $cursor: $buffer.cursor }
+}

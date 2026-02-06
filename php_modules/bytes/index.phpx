@@ -1,0 +1,29 @@
+import { bytes_from_string, bytes_to_string, bytes_len, bytes_get, bytes_set, bytes_slice, bytes_concat } from 'core/bytes'
+
+export function from_string($value) {
+    return bytes_from_string($value)
+}
+
+export function to_string($value) {
+    return bytes_to_string($value)
+}
+
+export function len($value) {
+    return bytes_len($value)
+}
+
+export function get($value, $index) {
+    return bytes_get($value, $index)
+}
+
+export function set($value, $index, $byte) {
+    return bytes_set($value, $index, $byte)
+}
+
+export function slice($value, $start, $length = null) {
+    return bytes_slice($value, $start, $length)
+}
+
+export function concat($a, $b) {
+    return bytes_concat($a, $b)
+}

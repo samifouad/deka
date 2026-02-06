@@ -59,31 +59,31 @@ This is the execution tracker for replacing patchwork internals with first-class
 5. [x] Add tests proving external modules cannot call internal bridge hook.
 
 ### Phase 1: Foundation Modules
-1. [ ] Finalize `bytes` API (read/write primitives, conversion helpers).
-2. [ ] Implement `buffer` module over `bytes` with cursor/framing helpers.
+1. [x] Finalize `bytes` API (read/write primitives, conversion helpers).
+2. [x] Implement `buffer` module over `bytes` with cursor/framing helpers.
 3. [ ] Implement `tcp` module with `Connect` and `TcpSocket` methods.
 4. [ ] Implement `tls` module with socket upgrade and shared IO API.
 5. [ ] Add runtime smoke tests for tcp/tls/bytes/buffer.
 
 ### Phase 2: Encoding Namespace
-1. [ ] Add `encoding/json` package (move current `json` surface).
-2. [ ] Keep temporary compatibility re-export from root `json`.
+1. [x] Add `encoding/json` package (move current `json` surface).
+2. [x] Keep temporary compatibility re-export from root `json`.
 3. [ ] Add `encoding/binary` for endian and framing helpers.
-4. [ ] Update internal modules to prefer `encoding/json`.
-5. [ ] Add migration note and deprecation window for root `json`.
+4. [x] Update internal modules to prefer `encoding/json`.
+5. [x] Add migration note and deprecation window for root `json`.
 
 ### Phase 2A: JSON Migration (Explicit Tracker)
-1. [ ] Create `php_modules/encoding/json/index.phpx` as canonical JSON API location.
-2. [ ] Create `php_modules/encoding/json/module.d.phpx` with canonical type declarations.
-3. [ ] Keep `php_modules/json/index.phpx` as compatibility proxy re-exporting `encoding/json`.
-4. [ ] Keep `php_modules/json/module.d.phpx` as compatibility proxy declarations.
-5. [ ] Update runtime-owned modules to import from `encoding/json` only.
+1. [x] Create `php_modules/encoding/json/index.phpx` as canonical JSON API location.
+2. [x] Create `php_modules/encoding/json/module.d.phpx` with canonical type declarations.
+3. [x] Keep `php_modules/json/index.phpx` as compatibility proxy re-exporting `encoding/json`.
+4. [x] Keep `php_modules/json/module.d.phpx` as compatibility proxy declarations.
+5. [x] Update runtime-owned modules to import from `encoding/json` only.
 6. [ ] Update Linkhash and example apps to import from `encoding/json`.
-7. [ ] Add tests covering both import paths during transition:
+7. [x] Add tests covering both import paths during transition:
 - `import { ... } from 'encoding/json'`
 - `import { ... } from 'json'`
-8. [ ] Add warning/deprecation note in docs for root `json`.
-9. [ ] Define removal milestone for root `json` compatibility module (post-MVP window).
+8. [x] Add warning/deprecation note in docs for root `json`.
+9. [x] Define removal milestone for root `json` compatibility module (post-MVP window).
 
 ### Phase 3: DB Facade Standardization
 1. [ ] Define stable `db` facade API and type declarations.
@@ -108,9 +108,10 @@ This is the execution tracker for replacing patchwork internals with first-class
 1. [x] Generic `db` bridge exists with `postgres/sqlite/mysql` host routes.
 2. [x] `postgres`, `sqlite`, `mysql` PHPX wrappers exist.
 3. [x] Linkhash uses Postgres package and live data is visible on homepage/API.
-4. [ ] `tcp`/`tls`/`buffer` userland-first foundation not yet implemented.
-5. [ ] `encoding/json` namespace migration not started.
-6. [x] Internal bridge hook restrictions enforced (typecheck + runtime).
+4. [ ] `tcp`/`tls` foundation modules not yet implemented.
+5. [x] `buffer` and `bytes` userland foundation modules implemented with smoke tests.
+6. [x] `encoding/json` namespace migration completed (compat proxy kept at `json`).
+7. [x] Internal bridge hook restrictions enforced (typecheck + runtime).
 
 ## Validation Requirements Per Phase
 1. Unit tests for module APIs.

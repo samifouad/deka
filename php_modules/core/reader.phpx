@@ -1,3 +1,5 @@
+import { byte_is_whitespace } from 'core/byte'
+
 export function reader_new($input) {
     return [
         'input' => $input,

@@ -1,5 +1,5 @@
 import { isValidElement, __component_push_context, __component_pop_context } from 'component/core';
-import { json_encode } from 'json';
+import { json_encode } from 'encoding/json';
 
 struct Root {
     $container: string = '#app';

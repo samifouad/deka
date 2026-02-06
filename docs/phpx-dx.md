@@ -33,6 +33,12 @@ Runtime notes:
 - Unused imports are rejected at runtime compile time.
 - `.php` files opt in by placing `import` at the very top of the file.
 
+## Encoding namespace
+- Canonical JSON module path is now `encoding/json`.
+- Root `json` remains as a temporary compatibility proxy.
+- New code should import from `encoding/json`.
+- Compatibility removal target: first post-MVP breaking release (Phase 5 cleanup window).
+
 ## Semicolons (PHPX)
 - Semicolons are optional in `.phpx` (JS-style automatic semicolon insertion).
 - A line terminator ends a statement unless the expression clearly continues

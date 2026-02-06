@@ -19,10 +19,17 @@ export function bytes_get($bytes, $index) {
 
 export function bytes_set($bytes, $index, $byte) {
     if ($index < 0 || $index >= strlen($bytes)) {
-        return $bytes;
+        return $bytes
     }
-    $bytes[$index] = chr($byte);
-    return $bytes;
+    $prefix = ''
+    if ($index > 0) {
+        $prefix = substr($bytes, 0, $index)
+    }
+    $suffix = ''
+    if ($index + 1 < strlen($bytes)) {
+        $suffix = substr($bytes, $index + 1)
+    }
+    return $prefix . chr($byte) . $suffix
 }
 
 export function bytes_slice($bytes, $start, $length = null) {
