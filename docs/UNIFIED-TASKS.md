@@ -643,14 +643,14 @@ Notes:
 732:  - [x] Syntax errors
 733:  - [x] Type errors
 734:  - [x] Missing imports
-177. [ ] DX-TASKS:  **Prerequisite**: PHPX Validation System (See PHPX-VALIDATION.md)
-801:  - [ ] Foundation (syntax, imports, PHPX rules)
-802:  - [ ] Type system (type checking, generics)
-803:  - [ ] Structs, JSX, modules, patterns
-178. [ ] DX-TASKS:  Phase 1: Tree-sitter Grammar (Not started)
-179. [ ] DX-TASKS:  Phase 2: LSP Server (Blocked by validation system)
-180. [ ] DX-TASKS:  Phase 3: Advanced Tree-sitter (Not started)
-181. [ ] DX-TASKS:  Phase 4: LSP Intelligence (Blocked by validation system)
-182. [ ] DX-TASKS:  Phase 5: VSCode Extension (Not started)
-183. [ ] DX-TASKS:  Phase 6: Neovim Support (Not started)
-184. [ ] DX-TASKS:  Phase 7: Documentation (Not started)
+177. [x] DX-TASKS:  **Prerequisite**: PHPX Validation System (See PHPX-VALIDATION.md)
+801:  - [x] Foundation (syntax, imports, PHPX rules)
+802:  - [x] Type system (type checking, generics)
+803:  - [x] Structs, JSX, modules, patterns
+178. [x] DX-TASKS:  Phase 1: Tree-sitter Grammar (core delivered)
+179. [x] DX-TASKS:  Phase 2: LSP Server (core delivered)
+180. [x] DX-TASKS:  Phase 3: Advanced Tree-sitter (core delivered)
+181. [x] DX-TASKS:  Phase 4: LSP Intelligence (core delivered)
+182. [ ] DX-TASKS:  Phase 5: VSCode Extension (in progress)
+183. [ ] DX-TASKS:  Phase 6: Neovim Support (in progress)
+184. [ ] DX-TASKS:  Phase 7: Documentation (in progress)
