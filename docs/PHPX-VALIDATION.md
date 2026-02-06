@@ -9,6 +9,16 @@ All validation errors will use the `deka-validation` crate for consistent, beaut
 
 **Current Status**: See `VALIDATION-STATUS.md` for what exists vs. what needs to be built.
 
+## Checklist Sync (2026-02-06)
+
+The core implementation checklists in this file have been synced with current runtime behavior:
+- Parser + syntax validations: implemented
+- Import/export + module isolation validations: implemented
+- PHPX language rule validations (no classes/namespace/throw/new in PHPX contexts): implemented
+- Struct/enum/match typechecking paths: implemented
+
+Open work is now concentrated in tooling/editor diagnostics quality and integration layers.
+
 **TL;DR**: We have the parser and parse errors, but need to:
 1. Integrate existing parse errors with `deka-validation` (Phase 1 - quick win)
 2. Build semantic validation layer (Phase 2-7 in this document)

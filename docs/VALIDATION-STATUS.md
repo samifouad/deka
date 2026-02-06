@@ -2,6 +2,16 @@
 
 Current state of PHPX validation and what needs to be built.
 
+## Status Update (2026-02-06)
+
+This document originally described an early gap analysis. The current runtime now includes substantial validation coverage:
+- Parse errors are integrated with `deka-validation` formatting.
+- Semantic validators are active for imports/exports, module rules, and core PHPX restrictions.
+- Type system checks are active (assignments, calls, returns, generics/inference paths).
+- Struct and enum/match validation is active in the checker/inference pipeline.
+
+Remaining gaps are mostly DX/editor integration and deeper LSP surfacing, tracked in `docs/UNIFIED-TASKS.md`.
+
 ## What We Have ✅
 
 ### 1. PHP Parser with PHPX Mode
