@@ -624,6 +624,10 @@ function __my_stmt_param_encode($value) {
     return result_err('wire mysql unsupported param type')
 }
 
+function __my_is_param_type_error($msg) {
+    return is_string($msg) && strpos($msg, 'wire mysql unsupported param type') === 0
+}
+
 function __my_stmt_execute_payload($stmt_id, $params) {
     $values = is_array($params) ? array_values($params) : []
     $n = count($values)
@@ -870,6 +874,9 @@ export function query($handle, $sql, $params = []) {
             if (result_is_ok($res)) {
                 return result_ok({ rows: $res.value.rows })
             }
+            if (__my_is_param_type_error($res.error)) {
+                return result_err($res.error)
+            }
             if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
                 return result_err($res.error)
             }
@@ -894,6 +901,9 @@ export function query_one($handle, $sql, $params = []) {
                 }
                 return result_ok($res.value.rows[0])
             }
+            if (__my_is_param_type_error($res.error)) {
+                return result_err($res.error)
+            }
             if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
                 return result_err($res.error)
             }
@@ -917,6 +927,9 @@ export function exec($handle, $sql, $params = []) {
             $res = __my_query_wire_prepared($handle, $sql, $params)
             if (result_is_ok($res)) {
                 return result_ok({ affected_rows: $res.value.affected_rows })
+            }
+            if (__my_is_param_type_error($res.error)) {
+                return result_err($res.error)
             }
             if (is_object($handle) && isset($handle.allow_native_fallback) && !$handle.allow_native_fallback) {
                 return result_err($res.error)
