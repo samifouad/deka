@@ -345,14 +345,20 @@ function __pg_command_affected_rows($cmd) {
     return 0
 }
 
-function __pg_query_wire($conn, $sql) {
-    $payload = '' . $sql . "\0"
-    $packet = 'Q' . __pg_i32(strlen($payload) + 4) . $payload
-    $sent = __pg_send($conn, $packet)
-    if (!result_is_ok($sent)) {
-        return result_err('wire query send failed: ' . $sent.error)
+function __pg_param_value($value, $idx) {
+    if ($value === null) {
+        return result_ok({ is_null: true, data: '' })
     }
+    if (is_bool($value)) {
+        return result_ok({ is_null: false, data: $value ? 't' : 'f' })
+    }
+    if (is_int($value) || is_float($value) || is_string($value)) {
+        return result_ok({ is_null: false, data: '' . $value })
+    }
+    return result_err('wire unsupported param type at index ' . $idx)
+}
 
+function __pg_collect_query_result($conn) {
     $cols = []
     $rows = []
     $command = ''
@@ -362,6 +368,10 @@ function __pg_query_wire($conn, $sql) {
         $msg = __pg_read_message($conn)
         if (!result_is_ok($msg)) {
             return result_err('wire query read failed: ' . $msg.error)
+        }
+
+        if ($msg.value.type === '1' || $msg.value.type === '2' || $msg.value.type === '3' || $msg.value.type === 'n') {
+            continue
         }
 
         if ($msg.value.type === 'T') {
@@ -385,10 +395,78 @@ function __pg_query_wire($conn, $sql) {
             return result_err('wire query error: ' . __pg_error_from_payload($msg.value.payload))
         }
 
+        if ($msg.value.type === 'N') {
+            continue
+        }
+
         if ($msg.value.type === 'Z') {
             return result_ok({ rows: $rows, command: $command, affected_rows: $affected })
         }
     }
+}
+
+function __pg_query_wire_simple($conn, $sql) {
+    $payload = '' . $sql . "\0"
+    $packet = 'Q' . __pg_i32(strlen($payload) + 4) . $payload
+    $sent = __pg_send($conn, $packet)
+    if (!result_is_ok($sent)) {
+        return result_err('wire query send failed: ' . $sent.error)
+    }
+    return __pg_collect_query_result($conn)
+}
+
+function __pg_query_wire_extended($conn, $sql, $params) {
+    if (!is_array($params)) {
+        return result_err('wire params must be an array')
+    }
+
+    $values = array_values($params)
+    $param_count = count($values)
+
+    $parse_payload = "\0" . $sql . "\0" . __pg_i16($param_count)
+    for ($i = 0; $i < $param_count; $i += 1) {
+        $parse_payload .= __pg_i32(0)
+    }
+    $parse = 'P' . __pg_i32(strlen($parse_payload) + 4) . $parse_payload
+
+    $bind_payload = "\0\0" . __pg_i16(0) . __pg_i16($param_count)
+    for ($i = 0; $i < $param_count; $i += 1) {
+        $pv = __pg_param_value($values[$i], $i)
+        if (!result_is_ok($pv)) {
+            return result_err($pv.error)
+        }
+        if ($pv.value.is_null) {
+            $bind_payload .= __pg_i32(-1)
+            continue
+        }
+        $bytes = $pv.value.data
+        $bind_payload .= __pg_i32(strlen($bytes)) . $bytes
+    }
+    $bind_payload .= __pg_i16(0)
+    $bind = 'B' . __pg_i32(strlen($bind_payload) + 4) . $bind_payload
+
+    $describe_payload = 'P' . "\0"
+    $describe = 'D' . __pg_i32(strlen($describe_payload) + 4) . $describe_payload
+
+    $execute_payload = "\0" . __pg_i32(0)
+    $execute = 'E' . __pg_i32(strlen($execute_payload) + 4) . $execute_payload
+
+    $sync = 'S' . __pg_i32(4)
+    $packet = $parse . $bind . $describe . $execute . $sync
+
+    $sent = __pg_send($conn, $packet)
+    if (!result_is_ok($sent)) {
+        return result_err('wire query send failed: ' . $sent.error)
+    }
+
+    return __pg_collect_query_result($conn)
+}
+
+function __pg_query_wire($conn, $sql, $params = []) {
+    if (is_array($params) && count($params) > 0) {
+        return __pg_query_wire_extended($conn, $sql, $params)
+    }
+    return __pg_query_wire_simple($conn, $sql)
 }
 
 export function connect($config) {
@@ -412,10 +490,7 @@ export function connect($config) {
 
 export function query($handle, $sql, $params = []) {
     if (__pg_is_wire_handle($handle)) {
-        if (count($params) > 0) {
-            return result_err('wire query params are not implemented yet')
-        }
-        $res = __pg_query_wire($handle, $sql)
+        $res = __pg_query_wire($handle, $sql, $params)
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }
@@ -426,10 +501,7 @@ export function query($handle, $sql, $params = []) {
 
 export function query_one($handle, $sql, $params = []) {
     if (__pg_is_wire_handle($handle)) {
-        if (count($params) > 0) {
-            return result_err('wire query params are not implemented yet')
-        }
-        $res = __pg_query_wire($handle, $sql)
+        $res = __pg_query_wire($handle, $sql, $params)
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }
@@ -443,10 +515,7 @@ export function query_one($handle, $sql, $params = []) {
 
 export function exec($handle, $sql, $params = []) {
     if (__pg_is_wire_handle($handle)) {
-        if (count($params) > 0) {
-            return result_err('wire exec params are not implemented yet')
-        }
-        $res = __pg_query_wire($handle, $sql)
+        $res = __pg_query_wire($handle, $sql, $params)
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }

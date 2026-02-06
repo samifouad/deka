@@ -93,7 +93,7 @@ This is the execution tracker for replacing patchwork internals with first-class
 
 ### Phase 4: Driver Refactor to Foundation
 1. [ ] Implement `db/postgres` on top of `tcp` + `buffer` (+ `tls`).
-: Initial wire path is now implemented for startup/auth/query (`auth=ok|cleartext|md5`) with automatic native fallback for unsupported modes (e.g. sasl) and unimplemented parameter binding.
+: Wire path now supports startup/auth/query plus parameterized queries via extended protocol (`Parse/Bind/Execute/Sync`) for `auth=ok|cleartext|md5`, with automatic native fallback for unsupported auth modes (e.g. sasl).
 2. [ ] Implement `db/mysql` on top of `tcp` + `buffer` (+ `tls`).
 3. [x] Keep `db/sqlite` file-backed with same facade contract.
 4. [x] Maintain optional native acceleration paths behind same public API.
