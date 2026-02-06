@@ -88,15 +88,15 @@ This is the execution tracker for replacing patchwork internals with first-class
 ### Phase 3: DB Facade Standardization
 1. [x] Define stable `db` facade API and type declarations.
 2. [x] Implement shared row/result abstractions.
-3. [ ] Normalize parameter and row decode behavior across drivers.
-: `db` and postgres wire now normalize params (`null|array|object|scalar` -> positional list). mysql wire parameter parity remains pending.
+3. [x] Normalize parameter and row decode behavior across drivers.
+: `db` and postgres wire normalize params (`null|array|object|scalar` -> positional list); mysql wire delegates parameterized queries to native fallback for parity.
 4. [x] Add contract tests shared by postgres/mysql/sqlite.
 
 ### Phase 4: Driver Refactor to Foundation
 1. [ ] Implement `db/postgres` on top of `tcp` + `buffer` (+ `tls`).
 : Wire path now supports startup/auth/query plus parameterized queries via extended protocol (`Parse/Bind/Execute/Sync`) for `auth=ok|cleartext|md5`, with automatic native fallback for unsupported auth modes (e.g. sasl).
 2. [ ] Implement `db/mysql` on top of `tcp` + `buffer` (+ `tls`).
-: Initial wire path now supports TCP handshake/auth for `mysql_native_password` and text-protocol `COM_QUERY`, with automatic native fallback for unsupported auth/plugin modes.
+: Initial wire path now supports TCP handshake/auth for `mysql_native_password` and text-protocol `COM_QUERY`, with automatic native fallback for unsupported auth/plugin modes and parameterized calls.
 3. [x] Keep `db/sqlite` file-backed with same facade contract.
 4. [x] Maintain optional native acceleration paths behind same public API.
 5. [x] Add driver compliance tests and perf baseline tests.

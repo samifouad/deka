@@ -289,7 +289,13 @@ function __my_connect_wire($config) {
         return result_err('wire connect failed: ' . $open.error)
     }
 
-    $conn = { kind: 'wire', driver: 'mysql', sock: $open.value, seq: 0 }
+    $conn = {
+        kind: 'wire',
+        driver: 'mysql',
+        sock: $open.value,
+        seq: 0,
+        native_config: $config
+    }
     $deadline = tcp_set_deadline($conn.sock, $timeout_ms)
     if (!result_is_ok($deadline)) {
         tcp_close($conn.sock)
@@ -366,6 +372,45 @@ function __my_connect_wire($config) {
 
 function __my_is_wire_handle($handle) {
     return is_object($handle) && isset($handle.kind) && $handle.kind === 'wire' && isset($handle.driver) && $handle.driver === 'mysql' && isset($handle.sock)
+}
+
+function __my_query_native_once($handle, $sql, $params = []) {
+    if (!is_object($handle) || !isset($handle.native_config)) {
+        return result_err('wire mysql missing native fallback config')
+    }
+    $native = db_open_handle('mysql', $handle.native_config)
+    if (!result_is_ok($native)) {
+        return result_err($native.error)
+    }
+    $run = db_query($native.value, $sql, $params)
+    db_close($native.value)
+    return $run
+}
+
+function __my_exec_native_once($handle, $sql, $params = []) {
+    if (!is_object($handle) || !isset($handle.native_config)) {
+        return result_err('wire mysql missing native fallback config')
+    }
+    $native = db_open_handle('mysql', $handle.native_config)
+    if (!result_is_ok($native)) {
+        return result_err($native.error)
+    }
+    $run = db_exec($native.value, $sql, $params)
+    db_close($native.value)
+    return $run
+}
+
+function __my_query_one_native_once($handle, $sql, $params = []) {
+    if (!is_object($handle) || !isset($handle.native_config)) {
+        return result_err('wire mysql missing native fallback config')
+    }
+    $native = db_open_handle('mysql', $handle.native_config)
+    if (!result_is_ok($native)) {
+        return result_err($native.error)
+    }
+    $run = db_query_one($native.value, $sql, $params)
+    db_close($native.value)
+    return $run
 }
 
 function __my_parse_columns($count, $conn) {
@@ -493,7 +538,7 @@ export function connect($config) {
 export function query($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
-            return result_err('wire mysql params are not implemented yet')
+            return __my_query_native_once($handle, $sql, $params)
         }
         $res = __my_query_wire($handle, $sql)
         if (!result_is_ok($res)) {
@@ -506,6 +551,9 @@ export function query($handle, $sql, $params = []) {
 
 export function query_one($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
+        if (is_array($params) && count($params) > 0) {
+            return __my_query_one_native_once($handle, $sql, $params)
+        }
         $res = query($handle, $sql, $params)
         if (!result_is_ok($res)) {
             return result_err($res.error)
@@ -521,7 +569,7 @@ export function query_one($handle, $sql, $params = []) {
 export function exec($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
-            return result_err('wire mysql params are not implemented yet')
+            return __my_exec_native_once($handle, $sql, $params)
         }
         $res = __my_query_wire($handle, $sql)
         if (!result_is_ok($res)) {
