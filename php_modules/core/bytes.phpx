@@ -42,3 +42,31 @@ export function bytes_slice($bytes, $start, $length = null) {
 export function bytes_concat($a, $b) {
     return $a . $b;
 }
+
+export function bytes_to_array($bytes) {
+    $out = []
+    $n = strlen($bytes)
+    for ($i = 0; $i < $n; $i++) {
+        $out[] = ord($bytes[$i])
+    }
+    return $out
+}
+
+export function bytes_from_array($arr) {
+    if (!is_array($arr)) {
+        return ''
+    }
+
+    $out = ''
+    foreach ($arr as $v) {
+        $b = (int) $v
+        if ($b < 0) {
+            $b = 0
+        }
+        if ($b > 255) {
+            $b = 255
+        }
+        $out .= chr($b)
+    }
+    return $out
+}

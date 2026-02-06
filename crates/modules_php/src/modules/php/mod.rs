@@ -13,6 +13,7 @@ use postgres::{Client, NoTls, types::ToSql};
 use rusqlite::types::ValueRef as SqliteValueRef;
 use rusqlite::{Connection as SqliteConnection, params_from_iter as sqlite_params_from_iter};
 use std::collections::{HashMap, HashSet};
+use std::fs::{File as StdFile, OpenOptions};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::{Mutex, OnceLock};
@@ -266,6 +267,26 @@ fn net_state() -> &'static Mutex<NetState> {
     NET_STATE.get_or_init(|| Mutex::new(NetState::new()))
 }
 
+struct FsState {
+    next_handle: u64,
+    handles: HashMap<u64, StdFile>,
+}
+
+impl FsState {
+    fn new() -> Self {
+        Self {
+            next_handle: 1,
+            handles: HashMap::new(),
+        }
+    }
+}
+
+static FS_STATE: OnceLock<Mutex<FsState>> = OnceLock::new();
+
+fn fs_state() -> &'static Mutex<FsState> {
+    FS_STATE.get_or_init(|| Mutex::new(FsState::new()))
+}
+
 fn sanitize_conn_value(value: &str) -> String {
     value
         .chars()
@@ -473,7 +494,10 @@ where
             .tcp_port(cfg.port)
             .user(Some(user.clone()))
             .pass(Some(password.clone()))
-            .db_name(Some(database.clone()));
+            .db_name(Some(database.clone()))
+            .tcp_connect_timeout(Some(Duration::from_secs(3)))
+            .read_timeout(Some(Duration::from_secs(5)))
+            .write_timeout(Some(Duration::from_secs(5)));
 
         let pool = MyPool::new(opts).map_err(|e| {
             deno_core::error::CoreError::from(std::io::Error::other(format!(
@@ -999,7 +1023,81 @@ fn op_php_sha256(#[string] data: String) -> String {
 #[op2]
 #[serde]
 fn op_php_read_env() -> HashMap<String, String> {
-    std::env::vars().collect()
+    let mut merged = HashMap::new();
+    for (key, value) in std::env::vars() {
+        merged.insert(key, value);
+    }
+    for (key, value) in read_dotenv_from_cwd() {
+        merged.insert(key, value);
+    }
+    merged
+}
+
+fn read_dotenv_from_cwd() -> HashMap<String, String> {
+    let out = HashMap::new();
+    let Ok(cwd) = std::env::current_dir() else {
+        return out;
+    };
+    let path = cwd.join(".env");
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return out;
+    };
+    parse_dotenv(&raw)
+}
+
+fn parse_dotenv(raw: &str) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let body = trimmed.strip_prefix("export ").unwrap_or(trimmed);
+        let Some((key_raw, value_raw)) = body.split_once('=') else {
+            continue;
+        };
+        let key = key_raw.trim();
+        if key.is_empty() {
+            continue;
+        }
+        let mut value = value_raw.trim().to_string();
+        if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {
+            value = decode_double_quoted(&value[1..value.len() - 1]);
+        } else if value.starts_with('\'') && value.ends_with('\'') && value.len() >= 2 {
+            value = value[1..value.len() - 1].to_string();
+        } else if let Some(idx) = value.find(" #") {
+            value = value[..idx].trim_end().to_string();
+        }
+        out.insert(key.to_string(), value);
+    }
+    out
+}
+
+fn decode_double_quoted(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            out.push(ch);
+            continue;
+        }
+        let Some(next) = chars.next() else {
+            out.push('\\');
+            break;
+        };
+        match next {
+            'n' => out.push('\n'),
+            'r' => out.push('\r'),
+            't' => out.push('\t'),
+            '"' => out.push('"'),
+            '\\' => out.push('\\'),
+            other => {
+                out.push('\\');
+                out.push(other);
+            }
+        }
+    }
+    out
 }
 
 #[op2]
@@ -1019,10 +1117,15 @@ fn op_php_db_call(
     match action.as_str() {
         "open" => {
             let started = Instant::now();
-            let driver = args_obj
+            let raw_driver = args_obj
                 .get("driver")
                 .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let driver = raw_driver
+                .split('\0')
+                .next()
                 .unwrap_or("")
+                .trim()
                 .to_string();
             let cfg = args_obj
                 .get("config")
@@ -1031,7 +1134,7 @@ fn op_php_db_call(
                 .unwrap_or_default();
 
             let (key, driver_cfg) = match driver.as_str() {
-                "postgres" => {
+                d if d.starts_with("postgres") => {
                     let host = cfg
                         .get("host")
                         .and_then(|v| v.as_str())
@@ -1072,7 +1175,7 @@ fn op_php_db_call(
                         }),
                     )
                 }
-                "sqlite" => {
+                d if d.starts_with("sqlite") => {
                     let path = cfg
                         .get("path")
                         .and_then(|v| v.as_str())
@@ -1091,7 +1194,7 @@ fn op_php_db_call(
                         DbDriverConfig::Sqlite(SqliteConnConfig { path }),
                     )
                 }
-                "mysql" => {
+                d if d.starts_with("mysql") => {
                     let host = cfg
                         .get("host")
                         .and_then(|v| v.as_str())
@@ -1663,6 +1766,203 @@ fn op_php_net_call(
 }
 
 #[op2]
+#[serde]
+fn op_php_fs_call(
+    #[string] action: String,
+    #[serde] args: serde_json::Value,
+) -> Result<serde_json::Value, deno_core::error::CoreError> {
+    let err = |msg: String| {
+        deno_core::error::CoreError::from(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            msg,
+        ))
+    };
+
+    let to_bytes = |value: Option<&serde_json::Value>| -> Vec<u8> {
+        let Some(value) = value else {
+            return Vec::new();
+        };
+        if let Some(arr) = value.as_array() {
+            let mut out = Vec::with_capacity(arr.len());
+            for item in arr {
+                let byte = item.as_u64().unwrap_or(0).min(255) as u8;
+                out.push(byte);
+            }
+            return out;
+        }
+        if let Some(s) = value.as_str() {
+            return s.as_bytes().to_vec();
+        }
+        Vec::new()
+    };
+
+    let args_obj = args.as_object().cloned().unwrap_or_default();
+    match action.as_str() {
+        "open" => {
+            let path = args_obj
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim_matches('\0')
+                .to_string();
+            if path.is_empty() {
+                return Ok(serde_json::json!({ "ok": false, "error": "open: missing path" }));
+            }
+
+            let mode = args_obj
+                .get("mode")
+                .and_then(|v| v.as_str())
+                .unwrap_or("r");
+            let mut opts = OpenOptions::new();
+            let read = mode.contains('r') || mode.contains('+');
+            let write = mode.contains('w') || mode.contains('a') || mode.contains('x') || mode.contains('c') || mode.contains('+');
+            let append = mode.contains('a');
+            let truncate = mode.contains('w');
+            let create = mode.contains('w') || mode.contains('a') || mode.contains('x') || mode.contains('c');
+            let create_new = mode.contains('x');
+
+            opts.read(read)
+                .write(write)
+                .append(append)
+                .truncate(truncate)
+                .create(create)
+                .create_new(create_new);
+
+            let file = match opts.open(&path) {
+                Ok(file) => file,
+                Err(e) => {
+                    return Ok(serde_json::json!({
+                        "ok": false,
+                        "error": format!("open: {}", e)
+                    }));
+                }
+            };
+
+            let mut state = fs_state()
+                .lock()
+                .map_err(|_| err("fs lock poisoned".to_string()))?;
+            let handle = state.next_handle;
+            state.next_handle += 1;
+            state.handles.insert(handle, file);
+            Ok(serde_json::json!({ "ok": true, "handle": handle }))
+        }
+        "read" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("read: missing handle".to_string()))?;
+            let max_bytes = args_obj
+                .get("max_bytes")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(65536) as usize;
+            let mut buf = vec![0_u8; max_bytes.max(1)];
+
+            let mut state = fs_state()
+                .lock()
+                .map_err(|_| err("fs lock poisoned".to_string()))?;
+            let Some(file) = state.handles.get_mut(&handle) else {
+                return Ok(serde_json::json!({
+                    "ok": false,
+                    "error": format!("read: unknown handle {}", handle)
+                }));
+            };
+
+            match file.read(&mut buf) {
+                Ok(n) => {
+                    buf.truncate(n);
+                    Ok(serde_json::json!({
+                        "ok": true,
+                        "data": buf,
+                        "eof": n == 0
+                    }))
+                }
+                Err(e) => Ok(serde_json::json!({
+                    "ok": false,
+                    "error": format!("read: {}", e)
+                })),
+            }
+        }
+        "write" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("write: missing handle".to_string()))?;
+            let data = to_bytes(args_obj.get("data"));
+
+            let mut state = fs_state()
+                .lock()
+                .map_err(|_| err("fs lock poisoned".to_string()))?;
+            let Some(file) = state.handles.get_mut(&handle) else {
+                return Ok(serde_json::json!({
+                    "ok": false,
+                    "error": format!("write: unknown handle {}", handle)
+                }));
+            };
+
+            match file.write_all(&data) {
+                Ok(()) => Ok(serde_json::json!({ "ok": true, "written": data.len() })),
+                Err(e) => Ok(serde_json::json!({
+                    "ok": false,
+                    "error": format!("write: {}", e)
+                })),
+            }
+        }
+        "close" => {
+            let handle = args_obj
+                .get("handle")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| err("close: missing handle".to_string()))?;
+            let mut state = fs_state()
+                .lock()
+                .map_err(|_| err("fs lock poisoned".to_string()))?;
+            state.handles.remove(&handle);
+            Ok(serde_json::json!({ "ok": true }))
+        }
+        "read_file" => {
+            let path = args_obj
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim_matches('\0')
+                .to_string();
+            if path.is_empty() {
+                return Ok(serde_json::json!({ "ok": false, "error": "read_file: missing path" }));
+            }
+            match std::fs::read(&path) {
+                Ok(data) => Ok(serde_json::json!({ "ok": true, "data": data })),
+                Err(e) => Ok(serde_json::json!({
+                    "ok": false,
+                    "error": format!("read_file: {}", e)
+                })),
+            }
+        }
+        "write_file" => {
+            let path = args_obj
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim_matches('\0')
+                .to_string();
+            if path.is_empty() {
+                return Ok(serde_json::json!({ "ok": false, "error": "write_file: missing path" }));
+            }
+            let data = to_bytes(args_obj.get("data"));
+            match std::fs::write(&path, &data) {
+                Ok(()) => Ok(serde_json::json!({ "ok": true, "written": data.len() })),
+                Err(e) => Ok(serde_json::json!({
+                    "ok": false,
+                    "error": format!("write_file: {}", e)
+                })),
+            }
+        }
+        _ => Ok(serde_json::json!({
+            "ok": false,
+            "error": format!("unknown fs action '{}'", action)
+        })),
+    }
+}
+
+#[op2]
 #[string]
 fn op_php_cwd() -> Result<String, deno_core::error::CoreError> {
     std::env::current_dir()
@@ -1809,6 +2109,7 @@ deno_core::extension!(
         op_php_read_env,
         op_php_db_call,
         op_php_net_call,
+        op_php_fs_call,
         op_php_cwd,
         op_php_file_exists,
         op_php_path_resolve,

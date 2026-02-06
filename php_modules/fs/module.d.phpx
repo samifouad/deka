@@ -1,0 +1,8 @@
+import { Result } from 'core/result'
+
+export function open($path: string, $mode: string = 'r'): Result<int, string>
+export function read($handle: int, $max_bytes: int = 65536): Result<Object<{ data: mixed, eof: bool }>, string>
+export function write($handle: int, $bytes: mixed): Result<Object<{ written: int }>, string>
+export function close($handle: int): Result<Object<{ ok: bool }>, string>
+export function read_file($path: string): Result<mixed, string>
+export function write_file($path: string, $bytes: mixed): Result<Object<{ written: int }>, string>

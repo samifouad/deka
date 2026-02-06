@@ -1,0 +1,78 @@
+import { result_ok, result_err, result_is_ok } from 'core/result'
+import { __deka_fs_call } from 'core/bridge'
+import { bytes_from_array, bytes_to_array } from 'core/bytes'
+
+function normalize_result($raw) {
+    if (is_array($raw) && array_key_exists('ok', $raw)) {
+        if ($raw['ok']) {
+            return result_ok($raw)
+        }
+        return result_err(array_key_exists('error', $raw) ? $raw['error'] : 'fs error')
+    }
+    if (is_object($raw) && isset($raw->ok)) {
+        if ($raw->ok) {
+            return result_ok($raw)
+        }
+        return result_err(isset($raw->error) ? $raw->error : 'fs error')
+    }
+    return result_err('invalid fs response')
+}
+
+export function open($path, $mode = 'r') {
+    $raw = __deka_fs_call('open', { path: $path, mode: $mode })
+    $res = normalize_result($raw)
+    if (!result_is_ok($res)) {
+        return $res
+    }
+    if (!is_array($res->value) || !array_key_exists('handle', $res->value)) {
+        return result_err('open succeeded without handle')
+    }
+    return result_ok($res->value['handle'])
+}
+
+export function read($handle, $max_bytes = 65536) {
+    $raw = __deka_fs_call('read', { handle: $handle, max_bytes: $max_bytes })
+    $res = normalize_result($raw)
+    if (!result_is_ok($res)) {
+        return $res
+    }
+    if (!is_array($res->value)) {
+        return result_err('read returned invalid payload')
+    }
+    $arr = array_key_exists('data', $res->value) ? $res->value['data'] : []
+    $eof = array_key_exists('eof', $res->value) ? $res->value['eof'] : false
+    return result_ok({
+        data: bytes_from_array($arr),
+        eof: $eof
+    })
+}
+
+export function write($handle, $bytes) {
+    $arr = bytes_to_array($bytes)
+    $raw = __deka_fs_call('write', { handle: $handle, data: $arr })
+    return normalize_result($raw)
+}
+
+export function close($handle) {
+    $raw = __deka_fs_call('close', { handle: $handle })
+    return normalize_result($raw)
+}
+
+export function read_file($path) {
+    $raw = __deka_fs_call('read_file', { path: $path })
+    $res = normalize_result($raw)
+    if (!result_is_ok($res)) {
+        return $res
+    }
+    if (!is_array($res->value)) {
+        return result_err('read_file returned invalid payload')
+    }
+    $arr = array_key_exists('data', $res->value) ? $res->value['data'] : []
+    return result_ok(bytes_from_array($arr))
+}
+
+export function write_file($path, $bytes) {
+    $arr = bytes_to_array($bytes)
+    $raw = __deka_fs_call('write_file', { path: $path, data: $arr })
+    return normalize_result($raw)
+}

@@ -1,4 +1,4 @@
-import { bytes_from_string, bytes_to_string, bytes_len, bytes_get, bytes_set, bytes_slice, bytes_concat } from 'core/bytes'
+import { bytes_from_string, bytes_to_string, bytes_len, bytes_get, bytes_set, bytes_slice, bytes_concat, bytes_to_array, bytes_from_array } from 'core/bytes'
 
 export function from_string($value) {
     return bytes_from_string($value)
@@ -26,4 +26,12 @@ export function slice($value, $start, $length = null) {
 
 export function concat($a, $b) {
     return bytes_concat($a, $b)
+}
+
+export function to_array($value) {
+    return bytes_to_array($value)
+}
+
+export function from_array($value) {
+    return bytes_from_array($value)
 }

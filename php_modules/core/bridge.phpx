@@ -1,0 +1,24 @@
+function __bridge_call($kind, $action, $payload = {}) {
+    if ($kind === 'db') {
+        return \__deka_wasm_call('__deka_db', $action, $payload)
+    }
+    if ($kind === 'net') {
+        return \__deka_wasm_call('__deka_net', $action, $payload)
+    }
+    if ($kind === 'fs') {
+        return \__deka_wasm_call('__deka_fs', $action, $payload)
+    }
+    return { ok: false, error: 'unknown bridge kind: ' . $kind }
+}
+
+export function __deka_db_call($op, $payload = {}) {
+    return __bridge_call('db', $op, $payload)
+}
+
+export function __deka_net_call($op, $payload = {}) {
+    return __bridge_call('net', $op, $payload)
+}
+
+export function __deka_fs_call($op, $payload = {}) {
+    return __bridge_call('fs', $op, $payload)
+}
