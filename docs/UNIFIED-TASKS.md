@@ -580,25 +580,25 @@ Notes:
 599:  - [ ] Create publisher account
 600:  - [ ] Run `vsce publish`
 145. [x] DX-TASKS:  Add to Deka documentation
-146. [ ] DX-TASKS:  Create Neovim plugin structure: `nvim-phpx/`
+146. [x] DX-TASKS:  Create Neovim plugin structure: `nvim-phpx/`
 147. [ ] DX-TASKS:  Add tree-sitter grammar to nvim-treesitter:
 616:  - [ ] Fork `nvim-treesitter`
 617:  - [ ] Add parser config for PHPX
 618:  - [ ] Submit PR to nvim-treesitter
-148. [ ] DX-TASKS:  Document installation (Lazy.nvim, Packer, etc.)
+148. [x] DX-TASKS:  Document installation (Lazy.nvim, Packer, etc.)
 149. [ ] DX-TASKS:  Test in Neovim
-150. [ ] DX-TASKS:  Document LSP setup with `nvim-lspconfig`:
+150. [x] DX-TASKS:  Document LSP setup with `nvim-lspconfig`:
 151. [ ] DX-TASKS:  Add autocommand for `.phpx` files
 152. [ ] DX-TASKS:  Test LSP features in Neovim
-153. [ ] DX-TASKS:  Document keybindings
-154. [ ] DX-TASKS:  Create LuaSnip snippets for PHPX
-155. [ ] DX-TASKS:  Add common patterns:
-646:  - [ ] Function definition
-647:  - [ ] Struct literal
-648:  - [ ] Import statement
-649:  - [ ] JSX component
-650:  - [ ] Frontmatter template
-156. [ ] DX-TASKS:  Document snippet usage
+153. [x] DX-TASKS:  Document keybindings
+154. [x] DX-TASKS:  Create LuaSnip snippets for PHPX
+155. [x] DX-TASKS:  Add common patterns:
+646:  - [x] Function definition
+647:  - [x] Struct literal
+648:  - [x] Import statement
+649:  - [x] JSX component
+650:  - [x] Frontmatter template
+156. [x] DX-TASKS:  Document snippet usage
 157. [x] DX-TASKS:  Create `docs/editor-support.md`:
 665:  - [x] Overview of tree-sitter and LSP
 666:  - [x] Installation for each editor (Zed, VSCode, Neovim, Helix)

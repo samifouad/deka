@@ -57,6 +57,11 @@ require('lspconfig').phpx_lsp.setup({
 })
 ```
 
+Reusable Neovim integration files live in `extensions/nvim-phpx`:
+- `extensions/nvim-phpx/lsp.lua`
+- `extensions/nvim-phpx/snippets/phpx.lua`
+- `extensions/nvim-phpx/README.md`
+
 ### Helix
 Configure language server in `languages.toml`:
 ```toml

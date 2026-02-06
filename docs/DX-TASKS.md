@@ -612,13 +612,13 @@ Import Error: Missing type stubs for '@user/hello'
 **Duration**: 2-3 days
 
 ### Task 6.1: Register Tree-sitter Grammar
-- [ ] Create Neovim plugin structure: `nvim-phpx/`
+- [x] Create Neovim plugin structure: `nvim-phpx/`
 - [ ] Add tree-sitter grammar to nvim-treesitter:
   - [ ] Fork `nvim-treesitter`
   - [ ] Add parser config for PHPX
   - [ ] Submit PR to nvim-treesitter
   - OR create standalone plugin
-- [ ] Document installation (Lazy.nvim, Packer, etc.)
+- [x] Document installation (Lazy.nvim, Packer, etc.)
 - [ ] Test in Neovim
 
 **Acceptance**: PHPX has syntax highlighting in Neovim
@@ -626,7 +626,7 @@ Import Error: Missing type stubs for '@user/hello'
 ---
 
 ### Task 6.2: Configure LSP
-- [ ] Document LSP setup with `nvim-lspconfig`:
+- [x] Document LSP setup with `nvim-lspconfig`:
   ```lua
   require('lspconfig').phpx_lsp.setup({
     cmd = { '/path/to/deka/target/release/phpx_lsp' },
@@ -635,21 +635,21 @@ Import Error: Missing type stubs for '@user/hello'
   ```
 - [ ] Add autocommand for `.phpx` files
 - [ ] Test LSP features in Neovim
-- [ ] Document keybindings
+- [x] Document keybindings
 
 **Acceptance**: PHPX LSP works in Neovim
 
 ---
 
 ### Task 6.3: Add Neovim Snippets
-- [ ] Create LuaSnip snippets for PHPX
-- [ ] Add common patterns:
-  - [ ] Function definition
-  - [ ] Struct literal
-  - [ ] Import statement
-  - [ ] JSX component
-  - [ ] Frontmatter template
-- [ ] Document snippet usage
+- [x] Create LuaSnip snippets for PHPX
+- [x] Add common patterns:
+  - [x] Function definition
+  - [x] Struct literal
+  - [x] Import statement
+  - [x] JSX component
+  - [x] Frontmatter template
+- [x] Document snippet usage
 
 **Acceptance**: Snippets available in Neovim
 
