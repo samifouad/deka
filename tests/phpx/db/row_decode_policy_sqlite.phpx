@@ -1,0 +1,28 @@
+/*
+TEST: db facade normalizes row scalar values to string|null across drivers.
+This test uses sqlite for deterministic no-network execution.
+*/
+import { connect, query_one, close } from 'db/sqlite'
+import { result_is_ok } from 'core/result'
+
+$path = '/tmp/deka_phpx_row_decode.sqlite'
+$conn = connect({ path: $path })
+if (!result_is_ok($conn)) {
+    echo "ERR connect\n"
+    return
+}
+
+$row = query_one($conn->value, 'select 7 as i, 3.5 as f, null as n', [])
+close($conn->value)
+
+if (!result_is_ok($row)) {
+    echo "ERR query\n"
+    return
+}
+
+if (!is_string($row->value['i']) || !is_string($row->value['f']) || $row->value['n'] !== null) {
+    echo "ERR type\n"
+    return
+}
+
+echo "OK " . $row->value['i'] . ":" . $row->value['f'] . "\n"

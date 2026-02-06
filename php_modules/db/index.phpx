@@ -40,7 +40,49 @@ function extract_rows($res) {
         return result_ok([])
     }
 
-    return result_ok($res->value['rows'])
+    return result_ok(normalize_rows($res->value['rows']))
+}
+
+function normalize_cell($value) {
+    if ($value === null) {
+        return null
+    }
+    if (is_string($value)) {
+        return $value
+    }
+    if (is_bool($value)) {
+        return $value ? '1' : '0'
+    }
+    if (is_int($value) || is_float($value)) {
+        return '' . $value
+    }
+    return $value
+}
+
+function normalize_row($row) {
+    if (is_array($row)) {
+        $out = []
+        foreach ($row as $k => $v) {
+            $out[$k] = normalize_cell($v)
+        }
+        return $out
+    }
+    if (is_object($row)) {
+        $out = {}
+        foreach ($row as $k => $v) {
+            $out->{$k} = normalize_cell($v)
+        }
+        return $out
+    }
+    return normalize_cell($row)
+}
+
+function normalize_rows($rows) {
+    $out = []
+    foreach ($rows as $row) {
+        $out[] = normalize_row($row)
+    }
+    return $out
 }
 
 function normalize_params($params) {
@@ -49,7 +91,11 @@ function normalize_params($params) {
     }
 
     if (is_array($params)) {
-        return array_values($params)
+        $vals = []
+        foreach ($params as $v) {
+            $vals[] = $v
+        }
+        return $vals
     }
 
     if (is_object($params)) {
