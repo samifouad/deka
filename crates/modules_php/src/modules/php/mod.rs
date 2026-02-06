@@ -294,6 +294,42 @@ fn fs_state() -> &'static Mutex<FsState> {
     FS_STATE.get_or_init(|| Mutex::new(FsState::new()))
 }
 
+#[derive(Clone, serde::Serialize)]
+struct BridgeProtoMetric {
+    calls: u64,
+    total_req_bytes: u64,
+    total_resp_bytes: u64,
+    total_us: u64,
+    avg_us: u64,
+}
+
+static BRIDGE_PROTO_METRICS: OnceLock<Mutex<HashMap<String, BridgeProtoMetric>>> = OnceLock::new();
+
+fn bridge_proto_metrics() -> &'static Mutex<HashMap<String, BridgeProtoMetric>> {
+    BRIDGE_PROTO_METRICS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn record_bridge_proto_metric(kind: &str, req_len: usize, resp_len: usize, elapsed_us: u64) {
+    if let Ok(mut metrics) = bridge_proto_metrics().lock() {
+        let metric = metrics.entry(kind.to_string()).or_insert(BridgeProtoMetric {
+            calls: 0,
+            total_req_bytes: 0,
+            total_resp_bytes: 0,
+            total_us: 0,
+            avg_us: 0,
+        });
+        metric.calls += 1;
+        metric.total_req_bytes = metric.total_req_bytes.saturating_add(req_len as u64);
+        metric.total_resp_bytes = metric.total_resp_bytes.saturating_add(resp_len as u64);
+        metric.total_us = metric.total_us.saturating_add(elapsed_us);
+        metric.avg_us = if metric.calls == 0 {
+            0
+        } else {
+            metric.total_us / metric.calls
+        };
+    }
+}
+
 fn sanitize_conn_value(value: &str) -> String {
     value
         .chars()
@@ -2039,12 +2075,15 @@ fn op_php_db_call(
 }
 
 fn db_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    let started = Instant::now();
     let req = proto::bridge_v1::DbRequest::decode(request)
         .map_err(|e| core_err(format!("db proto decode failed: {}", e)))?;
     let (action, payload, kind) = db_proto_request_to_action_payload(&req)?;
     let response_json = db_call_impl(action, payload)?;
     let response = db_json_response_to_proto(&response_json, kind);
-    Ok(response.encode_to_vec())
+    let out = response.encode_to_vec();
+    record_bridge_proto_metric("db", request.len(), out.len(), started.elapsed().as_micros() as u64);
+    Ok(out)
 }
 
 #[op2]
@@ -2471,12 +2510,15 @@ fn net_proto_response_to_json(resp: &proto::bridge_v1::NetResponse) -> serde_jso
 }
 
 fn net_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    let started = Instant::now();
     let req = proto::bridge_v1::NetRequest::decode(request)
         .map_err(|e| core_err(format!("net proto decode failed: {}", e)))?;
     let (action, payload, kind) = net_proto_request_to_action_payload(&req)?;
     let response_json = net_call_impl(action, payload)?;
     let response = net_json_response_to_proto(&response_json, kind);
-    Ok(response.encode_to_vec())
+    let out = response.encode_to_vec();
+    record_bridge_proto_metric("net", request.len(), out.len(), started.elapsed().as_micros() as u64);
+    Ok(out)
 }
 
 #[op2]
@@ -2945,12 +2987,15 @@ fn fs_proto_response_to_json(resp: &proto::bridge_v1::FsResponse) -> serde_json:
 }
 
 fn fs_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    let started = Instant::now();
     let req = proto::bridge_v1::FsRequest::decode(request)
         .map_err(|e| core_err(format!("fs proto decode failed: {}", e)))?;
     let (action, payload, kind) = fs_proto_request_to_action_payload(&req)?;
     let response_json = fs_call_impl(action, payload)?;
     let response = fs_json_response_to_proto(&response_json, kind);
-    Ok(response.encode_to_vec())
+    let out = response.encode_to_vec();
+    record_bridge_proto_metric("fs", request.len(), out.len(), started.elapsed().as_micros() as u64);
+    Ok(out)
 }
 
 #[op2]
@@ -2988,6 +3033,28 @@ fn op_php_fs_proto_decode(
     let decoded = proto::bridge_v1::FsResponse::decode(response)
         .map_err(|e| core_err(format!("fs proto decode response failed: {}", e)))?;
     Ok(fs_proto_response_to_json(&decoded))
+}
+
+#[op2]
+#[serde]
+fn op_php_bridge_proto_stats() -> Result<serde_json::Value, deno_core::error::CoreError> {
+    let metrics = bridge_proto_metrics()
+        .lock()
+        .map_err(|_| core_err("bridge proto metrics lock poisoned"))?;
+    let mut out = serde_json::Map::new();
+    for (key, metric) in metrics.iter() {
+        out.insert(
+            key.clone(),
+            serde_json::json!({
+                "calls": metric.calls,
+                "total_req_bytes": metric.total_req_bytes,
+                "total_resp_bytes": metric.total_resp_bytes,
+                "total_us": metric.total_us,
+                "avg_us": metric.avg_us,
+            }),
+        );
+    }
+    Ok(serde_json::Value::Object(out))
 }
 
 #[op2]
@@ -3147,6 +3214,7 @@ deno_core::extension!(
         op_php_fs_call_proto,
         op_php_fs_proto_encode,
         op_php_fs_proto_decode,
+        op_php_bridge_proto_stats,
         op_php_cwd,
         op_php_file_exists,
         op_php_path_resolve,
@@ -3497,6 +3565,13 @@ mod tests {
         assert_ok(&proto_close_json);
 
         server.join().expect("server join");
+    }
+
+    #[test]
+    fn proto_bridge_rejects_malformed_payloads() {
+        assert!(db_call_proto_impl(&[0xff, 0x00, 0x01]).is_err());
+        assert!(fs_call_proto_impl(&[0xff, 0x00, 0x01]).is_err());
+        assert!(net_call_proto_impl(&[0xff, 0x00, 0x01]).is_err());
     }
 }
 

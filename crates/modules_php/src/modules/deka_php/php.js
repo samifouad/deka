@@ -4183,52 +4183,28 @@ function writeWasmResultBytes(bytes) {
 }
 function routeHostCall(kind, action, payload) {
     if (kind === 'db') {
-        const useProto = ()=>{
-            const raw = String(globalThis.process?.env?.DEKA_PHP_BRIDGE_PROTOBUF || '').toLowerCase();
-            return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
-        };
-        if (useProto() && typeof op_php_db_call_proto === 'function' && typeof op_php_db_proto_encode === 'function' && typeof op_php_db_proto_decode === 'function') {
-            try {
-                const request = op_php_db_proto_encode(String(action || ''), payload || {});
-                const response = op_php_db_call_proto(request);
-                return op_php_db_proto_decode(response);
-            } catch (_err) {
-                return op_php_db_call(String(action || ''), payload);
-            }
+        if (typeof op_php_db_call_proto === 'function' && typeof op_php_db_proto_encode === 'function' && typeof op_php_db_proto_decode === 'function') {
+            const request = op_php_db_proto_encode(String(action || ''), payload || {});
+            const response = op_php_db_call_proto(request);
+            return op_php_db_proto_decode(response);
         }
-        return op_php_db_call(String(action || ''), payload);
+        return { ok: false, error: 'db protobuf bridge ops unavailable' };
     }
     if (kind === 'net') {
-        const useProto = ()=>{
-            const raw = String(globalThis.process?.env?.DEKA_PHP_BRIDGE_PROTOBUF || '').toLowerCase();
-            return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
-        };
-        if (useProto() && typeof op_php_net_call_proto === 'function' && typeof op_php_net_proto_encode === 'function' && typeof op_php_net_proto_decode === 'function') {
-            try {
-                const request = op_php_net_proto_encode(String(action || ''), payload || {});
-                const response = op_php_net_call_proto(request);
-                return op_php_net_proto_decode(response);
-            } catch (_err) {
-                return op_php_net_call(String(action || ''), payload);
-            }
+        if (typeof op_php_net_call_proto === 'function' && typeof op_php_net_proto_encode === 'function' && typeof op_php_net_proto_decode === 'function') {
+            const request = op_php_net_proto_encode(String(action || ''), payload || {});
+            const response = op_php_net_call_proto(request);
+            return op_php_net_proto_decode(response);
         }
-        return op_php_net_call(String(action || ''), payload);
+        return { ok: false, error: 'net protobuf bridge ops unavailable' };
     }
     if (kind === 'fs') {
-        const useProto = ()=>{
-            const raw = String(globalThis.process?.env?.DEKA_PHP_BRIDGE_PROTOBUF || '').toLowerCase();
-            return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
-        };
-        if (useProto() && typeof op_php_fs_call_proto === 'function' && typeof op_php_fs_proto_encode === 'function' && typeof op_php_fs_proto_decode === 'function') {
-            try {
-                const request = op_php_fs_proto_encode(String(action || ''), payload || {});
-                const response = op_php_fs_call_proto(request);
-                return op_php_fs_proto_decode(response);
-            } catch (_err) {
-                return op_php_fs_call(String(action || ''), payload);
-            }
+        if (typeof op_php_fs_call_proto === 'function' && typeof op_php_fs_proto_encode === 'function' && typeof op_php_fs_proto_decode === 'function') {
+            const request = op_php_fs_proto_encode(String(action || ''), payload || {});
+            const response = op_php_fs_call_proto(request);
+            return op_php_fs_proto_decode(response);
         }
-        return op_php_fs_call(String(action || ''), payload);
+        return { ok: false, error: 'fs protobuf bridge ops unavailable' };
     }
     return {
         ok: false,

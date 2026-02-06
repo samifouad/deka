@@ -50,12 +50,17 @@
 - [x] 14. Add TCP/TLS protocol sanity tests.
 
 ### Phase 5: Cleanup and Hardening
-- [ ] 15. Remove JSON bridge fallback paths.
-- [ ] 16. Add bridge fuzz/safety tests for malformed payloads.
-- [ ] 17. Add bridge metrics for decode/encode overhead and payload size.
-- [ ] 18. Update AGENTS/docs with mandatory validation test commands.
+- [x] 15. Remove JSON bridge fallback paths.
+- [x] 16. Add bridge fuzz/safety tests for malformed payloads.
+- [x] 17. Add bridge metrics for decode/encode overhead and payload size.
+- [x] 18. Update AGENTS/docs with mandatory validation test commands.
 
 ## Validation Gate Per Task
 - Run `cargo check -p modules_php`.
 - Run targeted runtime tests for affected bridge domain.
 - Commit after passing checks.
+
+## Mandatory Validation Commands
+- `cargo check -p modules_php`
+- `cargo test -p modules_php "proto_" -- --nocapture`
+- If bridge runtime JS changed: `cargo check -p modules_php` and run one smoke server start (`deka serve <entry>.phpx`) before merge.
