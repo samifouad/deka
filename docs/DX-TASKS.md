@@ -346,9 +346,9 @@ Import Error: Missing type stubs for '@user/hello'
 ### Task 2.8: Document LSP Server
 - [x] Create `crates/phpx_lsp/README.md`
   - [x] Installation instructions
-  - [ ] Editor integration guides (Zed, VSCode, Neovim)
-  - [ ] Configuration options
-  - [ ] Debugging tips
+  - [x] Editor integration guides (Zed, VSCode, Neovim)
+  - [x] Configuration options
+  - [x] Debugging tips
 - [x] Document compiler API in `crates/modules_php/src/compiler_api.rs`
 - [x] Add troubleshooting section
 - [x] List supported features and roadmap

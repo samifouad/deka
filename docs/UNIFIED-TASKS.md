@@ -434,9 +434,9 @@ Notes:
 72. [x] DX-TASKS:  Test with various import scenarios
 73. [x] DX-TASKS:  Create `crates/phpx_lsp/README.md`
 348:  - [x] Installation instructions
-349:  - [ ] Editor integration guides (Zed, VSCode, Neovim)
-350:  - [ ] Configuration options
-351:  - [ ] Debugging tips
+349:  - [x] Editor integration guides (Zed, VSCode, Neovim)
+350:  - [x] Configuration options
+351:  - [x] Debugging tips
 74. [x] DX-TASKS:  Document compiler API in `crates/modules_php/src/compiler_api.rs`
 75. [x] DX-TASKS:  Add troubleshooting section
 76. [x] DX-TASKS:  List supported features and roadmap
