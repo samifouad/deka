@@ -28,7 +28,7 @@ function same_site_value($value) {
 }
 
 export function all() {
-  if (isset($_COOKIE) && is_array($_COOKIE)) {
+  if (is_array($_COOKIE)) {
     return $_COOKIE
   }
   return []
@@ -36,7 +36,7 @@ export function all() {
 
 export function has($name) {
   $key = '' . $name
-  return isset($_COOKIE) && is_array($_COOKIE) && array_key_exists($key, $_COOKIE)
+  return array_key_exists($key, all())
 }
 
 export function get($name, $fallback = null) {
