@@ -87,7 +87,8 @@
   - [x] LSP completion/hover coverage for relation annotations.
   - [x] Generator coverage for relation migration rules + schema metadata.
   - [x] CLI generation/migration state coverage in release tests.
-  - [ ] Runtime e2e DB test in automated suite (requires containerized DB in CI/local test harness).
+  - [x] Runtime e2e DB test in local opt-in harness (`scripts/test-phpx-db-e2e.sh`).
+  - [ ] Runtime e2e DB test in CI (containerized DB service wiring).
 
 ## Acceptance Criteria
 
