@@ -63,6 +63,7 @@
 - [x] `serve --dev` flag and runtime dev-mode plumbing.
 - [x] File-watch event stream emits HMR change notifications (initial logging path).
 - [x] Dev-mode feature gate for future WS and patch application.
+- [x] `deka run <script>` resolves `deka.json` scripts for dev entrypoints (for `deka run dev` flow).
 
 ### Phase B: HMR Transport
 
