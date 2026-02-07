@@ -264,6 +264,24 @@ fn types_ok() {
 }
 
 #[test]
+fn relation_annotation_ok() {
+    let path = fixtures_root().join("types/relation_ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+}
+
+#[test]
+fn relation_hasmany_non_array_reports_type_error() {
+    let path = fixtures_root().join("types/relation_hasmany_non_array.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::TypeError);
+}
+
+#[test]
 fn structs_ok() {
     let path = fixtures_root().join("structs/ok.phpx");
     let result = compile_fixture(&path);
