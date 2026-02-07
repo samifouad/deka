@@ -92,15 +92,42 @@ language-servers = ["phpx-lsp"]
   - Rebuild `phpx_lsp`: `cargo build --release -p phpx_lsp`
   - Ensure editor points to the rebuilt binary.
   - Restart editor.
+- Diagnostics are noisy/colored:
+  - Update to latest `phpx_lsp` release build. LSP diagnostics are now plain text.
 - Unknown language for `.phpx`:
   - Verify extension is installed and active.
   - Confirm file association includes `.phpx`.
 - Imports unresolved in LSP:
   - Ensure workspace has `php_modules/`.
-  - If using custom root, set `PHPX_MODULE_ROOT`.
+  - Ensure either local `php_modules/` exists or `PHPX_MODULE_ROOT` points at a root containing `php_modules/`.
+- Named export completion missing in `import { ... } from 'mod'`:
+  - Rebuild and restart language server.
+  - Confirm imported module has explicit `export` declarations.
+  - Confirm module resolves to `.phpx`/`index.phpx` under `php_modules/`.
 - CLI/runtime mismatch:
   - Rebuild CLI: `cargo build --release -p cli`
   - Use `target/release/cli` (wired local `deka`).
+
+## Dev Mode Workflow (VS Code + Zed)
+1. Rebuild binaries:
+```sh
+cargo build --release -p cli -p phpx_lsp
+```
+2. Start runtime in dev mode:
+```sh
+deka serve --dev main.phpx
+```
+3. Verify dev runtime:
+  - HTTP serves normally.
+  - HMR WS endpoint is `/_deka/hmr`.
+  - In dev mode, HTML responses get a dev client script injected automatically.
+4. Editor loop:
+  - Keep `phpx_lsp` pointed at `target/release/phpx_lsp`.
+  - On parser/type/LSP changes: rebuild and restart language server.
+
+## Zed Notes
+- For local grammar development, install the PHPX extension as a dev extension from `extensions/phpx`.
+- If grammar build fails, ensure `extension.toml` grammar source points to a reachable local path/revision for dev use.
 
 ## Known Limitations
 - Some editor-specific visual behaviors (fold markers, indent behavior) still require manual verification.

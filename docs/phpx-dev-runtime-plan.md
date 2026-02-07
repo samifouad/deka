@@ -54,7 +54,7 @@
 - [x] Ensure import/export diagnostics use plain text in editor diagnostics.
 - [x] Ensure import completion includes module exports reliably.
 - [x] Add module path + export completion parity tests for editor integration.
-- [ ] Document VS Code + Zed dev-mode workflow and troubleshooting.
+- [x] Document VS Code + Zed dev-mode workflow and troubleshooting.
 
 ## Phased Rollout
 
