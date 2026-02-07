@@ -590,7 +590,62 @@ fn render_client_phpx(models: &[ModelDef]) -> String {
         ));
     }
     format!(
-        "{}import {{ open_handle }} from 'db'\n\n\
+        "{}import {{ open_handle, query as db_query, exec as db_exec, rows as db_rows, begin as db_begin, commit as db_commit, rollback as db_rollback }} from 'db'\n\
+import {{ result_ok, result_err, result_is_ok }} from 'core/result'\n\n\
+function quote_ident($name) {{\n\
+    return '\"' . str_replace('\"', '\"\"', '' . $name) . '\"'\n\
+}}\n\n\
+function model_name($model) {{\n\
+    if (is_string($model)) {{\n\
+        return $model\n\
+    }}\n\
+    if (is_object($model) && isset($model->name)) {{\n\
+        return '' . $model->name\n\
+    }}\n\
+    if (is_array($model) && array_key_exists('name', $model)) {{\n\
+        return '' . $model['name']\n\
+    }}\n\
+    return null\n\
+}}\n\n\
+function model_table($model) {{\n\
+    $name = model_name($model)\n\
+    if ($name === null || $name === '') {{\n\
+        return null\n\
+    }}\n\
+    $table = preg_replace('/([a-z0-9])([A-Z])/', '$1_$2', $name)\n\
+    if ($table === null) {{\n\
+        $table = $name\n\
+    }}\n\
+    $table = strtolower($table)\n\
+    if (substr($table, -1) !== 's') {{\n\
+        $table = $table . 's'\n\
+    }}\n\
+    return $table\n\
+}}\n\n\
+function compile_predicate($expr, &$params) {{\n\
+    if ($expr === null || !is_array($expr) || !array_key_exists('kind', $expr)) {{\n\
+        return ''\n\
+    }}\n\
+    $kind = $expr['kind']\n\
+    if ($kind === 'eq') {{\n\
+        $params[] = $expr['value']\n\
+        return quote_ident($expr['column']) . ' = $' . count($params)\n\
+    }}\n\
+    if ($kind === 'and' || $kind === 'or') {{\n\
+        $parts_sql = []\n\
+        foreach ($expr['parts'] as $part) {{\n\
+            $inner = compile_predicate($part, $params)\n\
+            if ($inner !== '') {{\n\
+                $parts_sql[] = '(' . $inner . ')'\n\
+            }}\n\
+        }}\n\
+        if (count($parts_sql) === 0) {{\n\
+            return ''\n\
+        }}\n\
+        return implode($kind === 'and' ? ' AND ' : ' OR ', $parts_sql)\n\
+    }}\n\
+    return ''\n\
+}}\n\n\
 export function eq($column, $value) {{\n\
     return {{ kind: 'eq', column: $column, value: $value }}\n\
 }}\n\n\
@@ -600,22 +655,128 @@ export function and(...$parts) {{\n\
 export function or(...$parts) {{\n\
     return {{ kind: 'or', parts: $parts }}\n\
 }}\n\n\
+export function connect($driver, $config) {{\n\
+    return open_handle($driver, $config)\n\
+}}\n\n\
+export function selectMany($handle, $model, $where = null, $limit = null, $offset = null) {{\n\
+    $table = model_table($model)\n\
+    if ($table === null) {{\n\
+        return result_err('unknown model')\n\
+    }}\n\
+    $sql = 'SELECT * FROM ' . quote_ident($table)\n\
+    $params = []\n\
+    $where_sql = compile_predicate($where, $params)\n\
+    if ($where_sql !== '') {{\n\
+        $sql = $sql . ' WHERE ' . $where_sql\n\
+    }}\n\
+    if ($limit !== null) {{\n\
+        $sql = $sql . ' LIMIT ' . (int) $limit\n\
+    }}\n\
+    if ($offset !== null) {{\n\
+        $sql = $sql . ' OFFSET ' . (int) $offset\n\
+    }}\n\
+    return db_rows(db_query($handle, $sql, $params))\n\
+}}\n\n\
+export function selectOne($handle, $model, $where = null) {{\n\
+    $rows = selectMany($handle, $model, $where, 1, null)\n\
+    if (!result_is_ok($rows)) {{\n\
+        return $rows\n\
+    }}\n\
+    if (count($rows->value) === 0) {{\n\
+        return result_err('no rows')\n\
+    }}\n\
+    return result_ok($rows->value[0])\n\
+}}\n\n\
+export function insertOne($handle, $model, $row) {{\n\
+    $table = model_table($model)\n\
+    if ($table === null) {{\n\
+        return result_err('unknown model')\n\
+    }}\n\
+    if (!is_array($row) || count($row) === 0) {{\n\
+        return result_err('insert row must be non-empty array')\n\
+    }}\n\
+    $cols = array_keys($row)\n\
+    $values = []\n\
+    $holders = []\n\
+    $idx = 1\n\
+    foreach ($cols as $col) {{\n\
+        $holders[] = '$' . $idx\n\
+        $values[] = $row[$col]\n\
+        $idx += 1\n\
+    }}\n\
+    $quoted = array_map(fn($c) => quote_ident($c), $cols)\n\
+    $sql = 'INSERT INTO ' . quote_ident($table) . ' (' . implode(', ', $quoted) . ') VALUES (' . implode(', ', $holders) . ')'\n\
+    return db_exec($handle, $sql, $values)\n\
+}}\n\n\
+export function updateWhere($handle, $model, $patch, $where = null) {{\n\
+    $table = model_table($model)\n\
+    if ($table === null) {{\n\
+        return result_err('unknown model')\n\
+    }}\n\
+    if (!is_array($patch) || count($patch) === 0) {{\n\
+        return result_err('update patch must be non-empty array')\n\
+    }}\n\
+    $params = []\n\
+    $sets = []\n\
+    foreach ($patch as $col => $value) {{\n\
+        $params[] = $value\n\
+        $sets[] = quote_ident($col) . ' = $' . count($params)\n\
+    }}\n\
+    $sql = 'UPDATE ' . quote_ident($table) . ' SET ' . implode(', ', $sets)\n\
+    $where_sql = compile_predicate($where, $params)\n\
+    if ($where_sql !== '') {{\n\
+        $sql = $sql . ' WHERE ' . $where_sql\n\
+    }}\n\
+    return db_exec($handle, $sql, $params)\n\
+}}\n\n\
+export function deleteWhere($handle, $model, $where = null) {{\n\
+    $table = model_table($model)\n\
+    if ($table === null) {{\n\
+        return result_err('unknown model')\n\
+    }}\n\
+    $params = []\n\
+    $sql = 'DELETE FROM ' . quote_ident($table)\n\
+    $where_sql = compile_predicate($where, $params)\n\
+    if ($where_sql !== '') {{\n\
+        $sql = $sql . ' WHERE ' . $where_sql\n\
+    }}\n\
+    return db_exec($handle, $sql, $params)\n\
+}}\n\n\
+export function transaction($handle, $fn) {{\n\
+    $started = db_begin($handle)\n\
+    if (!result_is_ok($started)) {{\n\
+        return $started\n\
+    }}\n\
+    $result = $fn($handle)\n\
+    if (is_object($result) && isset($result->ok) && !$result->ok) {{\n\
+        db_rollback($handle)\n\
+        return $result\n\
+    }}\n\
+    $committed = db_commit($handle)\n\
+    if (!result_is_ok($committed)) {{\n\
+        db_rollback($handle)\n\
+        return $committed\n\
+    }}\n\
+    return result_ok($result)\n\
+}}\n\n\
 export function createClient($meta) {{\n\
-    function connect($driver, $config) {{\n\
-        return open_handle($driver, $config)\n\
-    }}\n\n\
     function not_implemented($method) {{\n\
         return {{ ok: false, error: 'db client method not implemented yet: ' . $method }}\n\
-    }}\n\n\
+    }}\n\
     return {{\n\
         $meta: $meta,\n\
         $models: {{\n{}        }},\n\
         connect: connect,\n\
+        selectMany: selectMany,\n\
+        selectOne: selectOne,\n\
+        insertOne: insertOne,\n\
+        updateWhere: updateWhere,\n\
+        deleteWhere: deleteWhere,\n\
+        transaction: transaction,\n\
         select: function() {{ return not_implemented('select') }},\n\
         insert: function($model) {{ return not_implemented('insert') }},\n\
         update: function($model) {{ return not_implemented('update') }},\n\
         delete: function($model) {{ return not_implemented('delete') }},\n\
-        transaction: function($fn) {{ return not_implemented('transaction') }},\n\
         eq: eq,\n\
         and: and,\n\
         or: or\n\
@@ -1056,7 +1217,9 @@ struct User {
         assert!(client.contains("select: function()"));
         assert!(client.contains("update: function($model)"));
         assert!(client.contains("delete: function($model)"));
-        assert!(client.contains("transaction: function($fn)"));
+        assert!(client.contains("transaction: transaction"));
+        assert!(client.contains("selectMany: selectMany"));
+        assert!(client.contains("insertOne: insertOne"));
     }
 
     #[test]
