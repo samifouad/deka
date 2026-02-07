@@ -8,7 +8,7 @@ use std::sync::{
 };
 use tokio::sync::mpsc;
 
-use engine::RuntimeState;
+use engine::{RuntimeState, execute_request_parts};
 use pool::{ExecutionMode, RequestData};
 
 static NEXT_WS_ID: AtomicU64 = AtomicU64::new(1);
@@ -18,7 +18,16 @@ struct WsEntry {
 }
 
 static WS_REGISTRY: OnceLock<Mutex<HashMap<u64, WsEntry>>> = OnceLock::new();
-static HMR_REGISTRY: OnceLock<Mutex<HashMap<u64, mpsc::UnboundedSender<Message>>>> = OnceLock::new();
+struct HmrEntry {
+    sender: mpsc::UnboundedSender<Message>,
+    path: String,
+}
+static HMR_REGISTRY: OnceLock<Mutex<HashMap<u64, HmrEntry>>> = OnceLock::new();
+static HMR_RUNTIME_STATE: OnceLock<Arc<RuntimeState>> = OnceLock::new();
+
+pub fn set_hmr_runtime_state(state: Arc<RuntimeState>) {
+    let _ = HMR_RUNTIME_STATE.set(state);
+}
 
 pub fn register_sender(sender: mpsc::UnboundedSender<Message>, pending: Arc<AtomicUsize>) -> u64 {
     let id = NEXT_WS_ID.fetch_add(1, Ordering::Relaxed);
@@ -37,12 +46,18 @@ pub fn unregister_sender(id: u64) {
     }
 }
 
-pub async fn handle_hmr_websocket(socket: WebSocket) {
+pub async fn handle_hmr_websocket(socket: WebSocket, _state: Arc<RuntimeState>) {
     let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
     let id = NEXT_WS_ID.fetch_add(1, Ordering::Relaxed);
     let registry = HMR_REGISTRY.get_or_init(|| Mutex::new(HashMap::new()));
     if let Ok(mut guard) = registry.lock() {
-        guard.insert(id, tx);
+        guard.insert(
+            id,
+            HmrEntry {
+                sender: tx,
+                path: "/".to_string(),
+            },
+        );
     }
 
     let (mut ws_sender, mut ws_receiver) = socket.split();
@@ -56,6 +71,9 @@ pub async fn handle_hmr_websocket(socket: WebSocket) {
 
     while let Some(message) = ws_receiver.next().await {
         match message {
+            Ok(Message::Text(text)) => {
+                update_hmr_path(id, &text);
+            }
             Ok(Message::Close(_)) => break,
             Ok(_) => {}
             Err(_) => break,
@@ -71,37 +89,209 @@ pub async fn handle_hmr_websocket(socket: WebSocket) {
 }
 
 pub fn broadcast_hmr_changed(paths: &[String]) {
-    let payload = serde_json::json!({
-        "type": "patch",
-        "schema": 1,
-        "paths": paths,
-        "ops": [
-            {
-                "op": "swap",
-                "selector": "#app",
-            }
-        ],
-    })
-    .to_string();
-
+    let Some(state) = HMR_RUNTIME_STATE.get().cloned() else {
+        return;
+    };
     let Some(registry) = HMR_REGISTRY.get() else {
         return;
     };
-    let mut dead = Vec::new();
+    let mut clients = Vec::new();
     if let Ok(guard) = registry.lock() {
-        for (id, sender) in guard.iter() {
-            if sender.send(Message::Text(payload.clone())).is_err() {
-                dead.push(*id);
+        for (id, entry) in guard.iter() {
+            clients.push((*id, entry.path.clone(), entry.sender.clone()));
+        }
+    }
+    if clients.is_empty() {
+        return;
+    }
+    let changed = paths.to_vec();
+    tokio::spawn(async move {
+        let mut dead = Vec::new();
+        for (id, path, sender) in clients {
+            let payload = render_hmr_payload(Arc::clone(&state), &path, &changed).await;
+            if sender.send(Message::Text(payload)).is_err() {
+                dead.push(id);
+            }
+        }
+        if dead.is_empty() {
+            return;
+        }
+        if let Some(registry) = HMR_REGISTRY.get() {
+            if let Ok(mut guard) = registry.lock() {
+                for id in dead {
+                    guard.remove(&id);
+                }
+            }
+        }
+    });
+}
+
+fn update_hmr_path(id: u64, text: &str) {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(text) else {
+        return;
+    };
+    if value.get("type").and_then(|v| v.as_str()) != Some("subscribe") {
+        return;
+    }
+    let Some(path) = value.get("path").and_then(|v| v.as_str()) else {
+        return;
+    };
+    if path.is_empty() {
+        return;
+    }
+    if let Some(registry) = HMR_REGISTRY.get() {
+        if let Ok(mut guard) = registry.lock() {
+            if let Some(entry) = guard.get_mut(&id) {
+                entry.path = path.to_string();
             }
         }
     }
-    if dead.is_empty() {
-        return;
+}
+
+async fn render_hmr_payload(
+    state: Arc<RuntimeState>,
+    path: &str,
+    changed_paths: &[String],
+) -> String {
+    let mut headers = Vec::new();
+    headers.push(("accept".to_string(), "text/x-phpx-fragment".to_string()));
+    let uri = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        format!("/{}", path)
+    };
+    let response = execute_request_parts(
+        Arc::clone(&state),
+        format!("http://localhost{}", uri),
+        "GET".to_string(),
+        headers,
+        None,
+    )
+    .await;
+    let Ok(response) = response else {
+        return reload_payload(changed_paths);
+    };
+    if response.status >= 400 || response.body_base64.is_some() {
+        return reload_payload(changed_paths);
     }
-    if let Ok(mut guard) = registry.lock() {
-        for id in dead {
-            guard.remove(&id);
+    if let Some(html) = partial_html_from_response(&response) {
+        return patch_payload(changed_paths, "#app", &html);
+    }
+
+    let response = execute_request_parts(
+        Arc::clone(&state),
+        format!("http://localhost{}", uri),
+        "GET".to_string(),
+        Vec::new(),
+        None,
+    )
+    .await;
+    let Ok(response) = response else {
+        return reload_payload(changed_paths);
+    };
+    if response.status >= 400 || response.body_base64.is_some() {
+        return reload_payload(changed_paths);
+    }
+    if let Some(html) = extract_container_inner_html(&response.body, "app") {
+        return patch_payload(changed_paths, "#app", &html);
+    }
+    if let Some(html) = extract_container_inner_html(&response.body, "body") {
+        return patch_payload(changed_paths, "body", &html);
+    }
+    reload_payload(changed_paths)
+}
+
+fn partial_html_from_response(response: &engine::ResponseEnvelope) -> Option<String> {
+    let content_type = response
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+        .map(|(_, v)| v.to_ascii_lowercase())
+        .unwrap_or_default();
+    if !content_type.contains("json") {
+        return None;
+    }
+    let value = serde_json::from_str::<serde_json::Value>(&response.body).ok()?;
+    value
+        .get("html")
+        .and_then(|v| v.as_str())
+        .map(|v| v.to_string())
+}
+
+fn patch_payload(changed_paths: &[String], selector: &str, html: &str) -> String {
+    serde_json::json!({
+        "type": "patch",
+        "schema": 1,
+        "paths": changed_paths,
+        "ops": [
+            {
+                "op": "set_html",
+                "selector": selector,
+                "html": html,
+            }
+        ],
+    })
+    .to_string()
+}
+
+fn reload_payload(changed_paths: &[String]) -> String {
+    serde_json::json!({
+        "type": "reload",
+        "paths": changed_paths,
+    })
+    .to_string()
+}
+
+fn extract_container_inner_html(html: &str, id: &str) -> Option<String> {
+    let needle_a = format!("id=\"{}\"", id);
+    let needle_b = format!("id='{}'", id);
+    let id_pos = html.find(&needle_a).or_else(|| html.find(&needle_b))?;
+    let start_tag = html[..id_pos].rfind('<')?;
+    let open_end_rel = html[start_tag..].find('>')?;
+    let open_end = start_tag + open_end_rel;
+    let tag_name = read_tag_name(&html[start_tag + 1..open_end])?;
+    let close_tag = format!("</{}>", tag_name);
+    let open_tag_prefix = format!("<{}", tag_name);
+    let mut depth = 1usize;
+    let mut cursor = open_end + 1;
+    while cursor < html.len() {
+        let next_open = html[cursor..].find(&open_tag_prefix).map(|v| cursor + v);
+        let next_close = html[cursor..].find(&close_tag).map(|v| cursor + v);
+        match (next_open, next_close) {
+            (Some(o), Some(c)) if o < c => {
+                depth += 1;
+                cursor = o + open_tag_prefix.len();
+            }
+            (_, Some(c)) => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(html[open_end + 1..c].to_string());
+                }
+                cursor = c + close_tag.len();
+            }
+            _ => break,
         }
+    }
+    None
+}
+
+fn read_tag_name(fragment: &str) -> Option<String> {
+    let trimmed = fragment.trim_start();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let mut out = String::new();
+    for ch in trimmed.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+            out.push(ch.to_ascii_lowercase());
+        } else {
+            break;
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
     }
 }
 

@@ -9,12 +9,13 @@ use axum::{
 };
 use base64::Engine;
 
-use crate::websocket::{handle_hmr_websocket, handle_websocket};
+use crate::websocket::{handle_hmr_websocket, handle_websocket, set_hmr_runtime_state};
 use engine::{RuntimeState, execute_request_parts};
 
 use crate::debug::http_debug_enabled;
 
 pub fn app_router(state: Arc<RuntimeState>) -> Router {
+    set_hmr_runtime_state(Arc::clone(&state));
     Router::new().fallback(handle_request).with_state(state)
 }
 
@@ -28,8 +29,9 @@ async fn handle_request(
     let hmr_path = request.uri().path() == "/_deka/hmr";
     if hmr_path && dev_mode_enabled() {
         if let Some(ws) = ws {
+            let state_for_hmr = Arc::clone(&state);
             return ws
-                .on_upgrade(|socket| handle_hmr_websocket(socket))
+                .on_upgrade(move |socket| handle_hmr_websocket(socket, state_for_hmr))
                 .into_response();
         }
         return Response::builder()
@@ -174,7 +176,7 @@ fn inject_hmr_client(html: &str) -> String {
     if html.contains(MARKER) {
         return html.to_string();
     }
-    const SCRIPT: &str = r#"<script id="__deka_hmr_client">(function(){try{var p=location.protocol==='https:'?'wss':'ws';var ws=new WebSocket(p+'://'+location.host+'/_deka/hmr');function c(s){return document.querySelector(s||'#app');}function e(v){return String(v||'').replace(/\\/g,'\\\\').replace(/"/g,'\\"');}function sf(){var a=document.activeElement;if(!a||!a.closest||!a.closest('#app')){return null;}return{id:a.id||'',name:a.getAttribute('name')||'',deka:a.getAttribute('data-deka-id')||'',start:typeof a.selectionStart==='number'?a.selectionStart:null,end:typeof a.selectionEnd==='number'?a.selectionEnd:null};}function rf(state){if(!state){return;}var el=null;if(state.id){el=document.getElementById(state.id);}if(!el&&state.deka){el=document.querySelector('#app [data-deka-id="'+e(state.deka)+'"]');}if(!el&&state.name){el=document.querySelector('#app [name="'+e(state.name)+'"]');}if(!el||typeof el.focus!=='function'){return;}el.focus();if(state.start!==null&&state.end!==null&&typeof el.setSelectionRange==='function'){try{el.setSelectionRange(state.start,state.end);}catch(_){}}}async function h(s){var n=c(s);if(!n){location.reload();return;}var y=window.scrollY||window.pageYOffset||0;var f=sf();try{var r=await fetch(location.href,{headers:{'Accept':'text/html'},credentials:'same-origin',cache:'no-store'});if(!r.ok){location.reload();return;}var t=await r.text();var d=new DOMParser().parseFromString(t,'text/html');var m=d.querySelector(s||'#app');if(!m){location.reload();return;}n.innerHTML=m.innerHTML;window.scrollTo(0,y);rf(f);}catch(_){location.reload();}}async function a(m){if(!m||!Array.isArray(m.ops)||m.ops.length===0){await h('#app');return;}for(var i=0;i<m.ops.length;i++){var op=m.ops[i]||{};if(op.op==='swap'){await h(op.selector||'#app');continue;}location.reload();return;}}ws.onmessage=function(ev){try{var m=JSON.parse(ev.data||'{}');if(m.type==='patch'){a(m);return;}if(m.type==='changed'){h('#app');return;}if(m.type==='reload'){location.reload();return;}}catch(_){location.reload();}};ws.onclose=function(){setTimeout(function(){location.reload();},300);};}catch(_){}})();</script>"#;
+    const SCRIPT: &str = r#"<script id="__deka_hmr_client">(function(){try{var p=location.protocol==='https:'?'wss':'ws';var ws=new WebSocket(p+'://'+location.host+'/_deka/hmr');function c(s){return document.querySelector(s||'#app');}function e(v){return String(v||'').replace(/\\/g,'\\\\').replace(/"/g,'\\"');}function sf(){var a=document.activeElement;if(!a||!a.closest||!a.closest('#app')){return null;}return{id:a.id||'',name:a.getAttribute('name')||'',deka:a.getAttribute('data-deka-id')||'',start:typeof a.selectionStart==='number'?a.selectionStart:null,end:typeof a.selectionEnd==='number'?a.selectionEnd:null};}function rf(state){if(!state){return;}var el=null;if(state.id){el=document.getElementById(state.id);}if(!el&&state.deka){el=document.querySelector('#app [data-deka-id="'+e(state.deka)+'"]');}if(!el&&state.name){el=document.querySelector('#app [name="'+e(state.name)+'"]');}if(!el||typeof el.focus!=='function'){return;}el.focus();if(state.start!==null&&state.end!==null&&typeof el.setSelectionRange==='function'){try{el.setSelectionRange(state.start,state.end);}catch(_){}}}function ap(selector,html){var n=c(selector||'#app');if(!n){location.reload();return;}var y=window.scrollY||window.pageYOffset||0;var f=sf();n.innerHTML=String(html||'');window.scrollTo(0,y);rf(f);}function sub(){try{ws.send(JSON.stringify({type:'subscribe',path:location.pathname+location.search}));}catch(_){}}function a(m){if(!m||!Array.isArray(m.ops)||m.ops.length===0){location.reload();return;}for(var i=0;i<m.ops.length;i++){var op=m.ops[i]||{};if(op.op==='set_html'){ap(op.selector||'#app',op.html||'');continue;}location.reload();return;}}ws.onopen=function(){sub();};ws.onmessage=function(ev){try{var m=JSON.parse(ev.data||'{}');if(m.type==='patch'){a(m);return;}if(m.type==='reload'){location.reload();return;}}catch(_){location.reload();}};window.addEventListener('popstate',function(){sub();});ws.onclose=function(){setTimeout(function(){location.reload();},300);};}catch(_){}})();</script>"#;
 
     if let Some(idx) = html.rfind("</body>") {
         let mut out = String::with_capacity(html.len() + SCRIPT.len());
