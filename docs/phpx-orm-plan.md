@@ -6,11 +6,11 @@
 - [x] Avoid a separate Prisma-like schema DSL.
 - [x] Generate app-owned ORM client files into project `db/` (not `php_modules/`).
 - [x] Support Drizzle-style query builder DX.
-- [ ] Support first-class IDE feedback (parser, validator, LSP).
+- [x] Support first-class IDE feedback (parser, validator, LSP).
 
 ## Canonical Flow
 
-- [ ] User defines models in `types/index.phpx` (or another file).
+- [x] User defines models in `types/index.phpx` (or another file).
 - [x] User runs `deka db generate types/index.phpx` or `deka db generate types/`.
 - [x] CLI resolves/validates model input and generates initial `db/*`.
 - [x] App imports generated client via `@/db`.
@@ -79,7 +79,7 @@
 - [x] Phase 1: CLI command scaffolding (`db generate/migrate/info/flush`) and path resolution.
 - [x] Phase 2: Annotation parser/AST support + parser tests.
 - [x] Phase 3: Validation + LSP support for annotations and model relations.
-- [ ] Phase 4: ORM IR + Postgres migration generator.
+- [x] Phase 4: ORM IR + Postgres migration generator.
 - [x] Phase 5: Generated client implementation + `@/db` import path.
 - [x] Phase 6: Linkhash migration to generated client.
 - [ ] Phase 7: Test hardening across parser/validation/generator/CLI/runtime.

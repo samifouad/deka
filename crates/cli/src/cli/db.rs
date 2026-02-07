@@ -953,6 +953,19 @@ fn render_meta_phpx(models: &[ModelDef]) -> String {
     body.push_str("export const Meta = {\n    models: {\n");
     for model in models {
         let table = to_table_name(&model.name);
+        let relations = model
+            .fields
+            .iter()
+            .filter_map(|field| {
+                field.relation_spec().map(|rel| {
+                    format!(
+                        "{{ field: '{}', kind: '{}', model: '{}', foreignKey: '{}' }}",
+                        field.name, rel.kind, rel._model, rel.foreign_key
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
         body.push_str(&format!("        {}: {{\n", model.name));
         body.push_str(&format!("            name: '{}',\n", model.name));
         body.push_str(&format!("            table: '{}',\n", table));
@@ -985,7 +998,8 @@ fn render_meta_phpx(models: &[ModelDef]) -> String {
                     .join(", ")
             ));
         }
-        body.push_str("            }\n");
+        body.push_str("            },\n");
+        body.push_str(&format!("            relations: [{}]\n", relations));
         body.push_str("        },\n");
     }
     body.push_str("    }\n}\n");
@@ -1016,6 +1030,19 @@ fn render_generated_schema_json(models: &[ModelDef]) -> String {
                 json!({
                     "name": model.name,
                     "table": to_table_name(&model.name),
+                    "relations": model.fields
+                        .iter()
+                        .filter_map(|field| {
+                            field.relation_spec().map(|relation| {
+                                json!({
+                                    "field": field.name,
+                                    "kind": relation.kind,
+                                    "model": relation._model,
+                                    "foreignKey": relation.foreign_key,
+                                })
+                            })
+                        })
+                        .collect::<Vec<_>>(),
                     "fields": model.fields
                         .iter()
                         .map(|field| {
@@ -1483,6 +1510,22 @@ struct User {
         let schema = super::render_generated_schema_json(&models);
         assert!(schema.contains("\"table\": \"users\""));
         assert!(schema.contains("\"db_name\": \"email_address\""));
+    }
+
+    #[test]
+    fn generated_schema_json_contains_relation_metadata() {
+        let source = r#"
+struct Post {
+  $id: int @id @autoIncrement
+  $authorId: int
+  $author: User @relation("belongsTo", "User", "authorId")
+}
+"#;
+        let models = extract_struct_models(source, "inline.phpx".to_string()).expect("models");
+        let schema = super::render_generated_schema_json(&models);
+        assert!(schema.contains("\"relations\""));
+        assert!(schema.contains("\"kind\": \"belongsTo\""));
+        assert!(schema.contains("\"foreignKey\": \"authorId\""));
     }
 
     #[test]
