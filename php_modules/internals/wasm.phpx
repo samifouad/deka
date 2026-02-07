@@ -1,3 +1,0 @@
-export function __deka_db_call($op, $payload = {}) {
-    return __deka_wasm_call('__deka_db', $op, $payload)
-}
