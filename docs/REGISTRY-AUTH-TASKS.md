@@ -91,7 +91,7 @@
 Notes:
 - State-changing endpoints enforce `POST` and validate `X-CSRF-Token` against server-side session CSRF hash.
 - [x] One-time PAT reveal + hashed-at-rest token storage.
-- [ ] Add PAT last-used metadata + bulk revoke.
+- [x] Add PAT last-used metadata + bulk revoke.
 - [ ] Add org role model (`owner`, `maintainer`, `publisher`, `viewer`).
 - [ ] Add reserved namespace policy.
 - [ ] Add auth/publish rate limiting and abuse guardrails.
