@@ -144,6 +144,8 @@ async function startClient(context) {
 
   try {
     context.subscriptions.push(client.start())
+    await client.onReady()
+    output.appendLine('[phpx] language server is ready')
   } catch (err) {
     const msg = `Failed to start PHPX language server: ${String(err)}`
     output.appendLine(`[phpx] error: ${msg}`)
@@ -166,7 +168,13 @@ async function restartClient(context) {
     client = null
   }
   await startClient(context)
-  vscode.window.showInformationMessage('PHPX language server restarted')
+  if (client && client.state === State.Running) {
+    vscode.window.showInformationMessage('PHPX language server restarted')
+  } else {
+    vscode.window.showWarningMessage(
+      'PHPX language server did not start. Open Output -> PHPX for details.'
+    )
+  }
 }
 
 async function activate(context) {
