@@ -23,7 +23,7 @@
 - [x] `db/client.phpx` generated client scaffold.
 - [x] `db/meta.phpx` generated model metadata (initial).
 - [x] `db/migrations/*.sql` migration files (initial `0001_init.sql` generation).
-- [ ] `db/.generated/*` internal generated helpers.
+- [x] `db/.generated/*` internal generated helpers (initial `schema.json`).
 - [x] `db/_state.json` generator state (initial).
 - [x] Generated PHPX files include `AUTO-GENERATED` warning header.
 
