@@ -11,7 +11,7 @@
 ## Canonical Flow
 
 - [ ] User defines models in `types/index.phpx` (or another file).
-- [ ] User runs `deka db generate types/index.phpx` or `deka db generate types/`.
+- [x] User runs `deka db generate types/index.phpx` or `deka db generate types/`.
 - [x] CLI resolves/validates model input and generates initial `db/*`.
 - [ ] App imports generated client via `@/db`.
 - [x] User applies migrations with `deka db migrate`.
@@ -51,7 +51,7 @@
 - [x] Add LSP completions/signature help/hover for annotations.
 - [x] Add LSP diagnostics for annotation errors (via typechecker diagnostics pipeline).
 - [x] Add `@/` alias support in typechecker and LSP.
-- [ ] Add `@/` alias support in runtime resolver and CLI.
+- [x] Add `@/` alias support in runtime resolver and CLI.
 
 ## Drizzle-Style Client DX
 
@@ -59,7 +59,8 @@
 - [ ] `db.select()->from(Model)->where(...)->many()`
 - [ ] `db.update(Model)->set(...)->where(...)->returning()->many()`
 - [ ] `db.delete(Model)->where(...)->exec()`
-- [ ] Predicates/helpers: `eq`, `and`, `or`, `ilike`, `isNull`, `asc`, `desc`, `limit`, `offset`.
+- [x] Predicates/helpers scaffolded in generated client: `eq`, `and`, `or` (+ shape placeholders for richer query builder).
+- [ ] Predicates/helpers: `ilike`, `isNull`, `asc`, `desc`, `limit`, `offset`.
 - [ ] Transaction API.
 
 ## Rollout
@@ -74,7 +75,7 @@
 
 ## Acceptance Criteria
 
-- [ ] `deka db generate types/` resolves and validates `types/index.phpx`.
+- [x] `deka db generate types/` resolves and validates `types/index.phpx`.
 - [ ] Generated client imports via `@/db` in app code.
 - [ ] `deka db migrate` applies pending migrations and records state.
 - [ ] LSP shows clear diagnostics/completions for model annotations.
