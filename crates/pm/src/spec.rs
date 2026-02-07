@@ -4,7 +4,6 @@ use anyhow::{Result, anyhow};
 pub enum Ecosystem {
     Node,
     Php,
-    Gleam,
 }
 
 impl Ecosystem {
@@ -12,7 +11,6 @@ impl Ecosystem {
         match self {
             Ecosystem::Node => "node",
             Ecosystem::Php => "php",
-            Ecosystem::Gleam => "gleam",
         }
     }
 
@@ -20,7 +18,6 @@ impl Ecosystem {
         match value.to_lowercase().as_str() {
             "node" => Some(Ecosystem::Node),
             "php" => Some(Ecosystem::Php),
-            "gleam" => Some(Ecosystem::Gleam),
             _ => None,
         }
     }
@@ -36,9 +33,6 @@ pub fn parse_hinted_spec(
     if override_ecosystem.is_none() {
         if spec.starts_with('$') {
             ecosystem = Ecosystem::Php;
-            spec = spec[1..].trim().to_string();
-        } else if spec.starts_with('!') {
-            ecosystem = Ecosystem::Gleam;
             spec = spec[1..].trim().to_string();
         }
     }

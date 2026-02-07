@@ -1,6 +1,6 @@
 use php_rs::parser::ast::Program;
 
-use super::{parse_errors_to_validation_errors, ValidationError};
+use super::{ValidationError, parse_errors_to_validation_errors};
 
 const DEFAULT_HELP_TEXT: &str = "Check syntax near the highlighted code.";
 

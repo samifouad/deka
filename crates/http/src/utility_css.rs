@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 const MARKER: &str = "__deka_utility_css";
-const DEFAULT_PREFLIGHT: bool = false;
+const DEFAULT_PREFLIGHT: bool = true;
 
 #[derive(Clone, Copy, Debug)]
 struct UtilityCssConfig {
@@ -102,7 +102,6 @@ fn class_to_rule(class: &str) -> Option<String> {
         return None;
     }
     let base = parts.pop()?.to_string();
-    let decl = utility_decl(&base)?;
     let mut selector = format!(".{}", escape_selector(class));
     let mut media = None;
     for variant in &parts {
@@ -118,6 +117,18 @@ fn class_to_rule(class: &str) -> Option<String> {
             _ => {}
         }
     }
+    if let Some(token) = base.strip_prefix("space-y-") {
+        let v = spacing_value(token)?;
+        let rule = format!(
+            "{} > :not([hidden]) ~ :not([hidden]){{--tw-space-y-reverse:0;margin-top:calc({} * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc({} * var(--tw-space-y-reverse));}}",
+            selector, v, v
+        );
+        if let Some(query) = media {
+            return Some(format!("@media {}{{{}}}", query, rule));
+        }
+        return Some(rule);
+    }
+    let decl = utility_decl(&base)?;
     let rule = format!("{}{{{}}}", selector, decl);
     if let Some(query) = media {
         Some(format!("@media {}{{{}}}", query, rule))
@@ -150,7 +161,10 @@ fn utility_decl(base: &str) -> Option<String> {
         "justify-end" => Some("justify-content:flex-end;".to_string()),
         "flex-wrap" => Some("flex-wrap:wrap;".to_string()),
         "w-full" => Some("width:100%;".to_string()),
+        "w-9" => Some("width:2.25rem;".to_string()),
         "h-full" => Some("height:100%;".to_string()),
+        "h-9" => Some("height:2.25rem;".to_string()),
+        "h-16" => Some("height:4rem;".to_string()),
         "min-h-screen" => Some("min-height:100vh;".to_string()),
         "mx-auto" => Some("margin-left:auto;margin-right:auto;".to_string()),
         "uppercase" => Some("text-transform:uppercase;".to_string()),
@@ -165,6 +179,8 @@ fn utility_decl(base: &str) -> Option<String> {
         "text-2xl" => Some("font-size:1.5rem;line-height:2rem;".to_string()),
         "text-4xl" => Some("font-size:2.25rem;line-height:2.5rem;".to_string()),
         "tracking-wide" => Some("letter-spacing:0.025em;".to_string()),
+        "list-decimal" => Some("list-style-type:decimal;".to_string()),
+        "list-disc" => Some("list-style-type:disc;".to_string()),
         "rounded" => Some("border-radius:0.25rem;".to_string()),
         "rounded-md" => Some("border-radius:0.375rem;".to_string()),
         "rounded-lg" => Some("border-radius:0.5rem;".to_string()),
@@ -174,6 +190,7 @@ fn utility_decl(base: &str) -> Option<String> {
         "shadow-md" => Some("box-shadow:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -2px rgba(0,0,0,0.1);".to_string()),
         "border" => Some("border-width:1px;border-style:solid;".to_string()),
         "border-b" => Some("border-bottom-width:1px;border-bottom-style:solid;".to_string()),
+        "border-t" => Some("border-top-width:1px;border-top-style:solid;".to_string()),
         "whitespace-pre-wrap" => Some("white-space:pre-wrap;".to_string()),
         "transition-shadow" => Some("transition-property:box-shadow;transition-duration:150ms;transition-timing-function:cubic-bezier(0.4,0,0.2,1);".to_string()),
         _ if base.starts_with("gap-") => spacing_value(base.strip_prefix("gap-")?).map(|v| format!("gap:{};", v)),
@@ -219,10 +236,12 @@ fn spacing_scale() -> HashMap<&'static str, &'static str> {
         ("py-6", "padding-top:1.5rem;padding-bottom:1.5rem;"),
         ("py-10", "padding-top:2.5rem;padding-bottom:2.5rem;"),
         ("pt-2", "padding-top:0.5rem;"),
+        ("pl-5", "padding-left:1.25rem;"),
         ("mt-1", "margin-top:0.25rem;"),
         ("mt-2", "margin-top:0.5rem;"),
         ("mt-3", "margin-top:0.75rem;"),
         ("mt-4", "margin-top:1rem;"),
+        ("mt-5", "margin-top:1.25rem;"),
         ("mt-6", "margin-top:1.5rem;"),
         ("mt-8", "margin-top:2rem;"),
         ("mt-10", "margin-top:2.5rem;"),
@@ -240,8 +259,15 @@ fn color_scale() -> HashMap<&'static str, &'static str> {
         ("bg-blue-50", "background-color:#eff6ff;"),
         ("bg-blue-600", "background-color:#2563eb;"),
         ("bg-blue-700", "background-color:#1d4ed8;"),
+        ("bg-amber-50", "background-color:#fffbeb;"),
+        ("bg-emerald-50", "background-color:#ecfdf5;"),
+        ("bg-emerald-600", "background-color:#059669;"),
+        ("bg-emerald-700", "background-color:#047857;"),
+        ("bg-indigo-600", "background-color:#4f46e5;"),
+        ("bg-indigo-700", "background-color:#4338ca;"),
         ("text-white", "color:#ffffff;"),
         ("text-gray-100", "color:#f3f4f6;"),
+        ("text-gray-400", "color:#9ca3af;"),
         ("text-gray-500", "color:#6b7280;"),
         ("text-gray-600", "color:#4b5563;"),
         ("text-gray-700", "color:#374151;"),
@@ -251,8 +277,15 @@ fn color_scale() -> HashMap<&'static str, &'static str> {
         ("text-blue-700", "color:#1d4ed8;"),
         ("text-blue-800", "color:#1e40af;"),
         ("text-blue-900", "color:#1e3a8a;"),
+        ("text-amber-700", "color:#b45309;"),
+        ("text-amber-800", "color:#92400e;"),
+        ("text-emerald-700", "color:#047857;"),
+        ("border-gray-300", "border-color:#d1d5db;"),
         ("border-gray-200", "border-color:#e5e7eb;"),
+        ("border-amber-200", "border-color:#fde68a;"),
         ("border-blue-100", "border-color:#dbeafe;"),
+        ("border-blue-200", "border-color:#bfdbfe;"),
+        ("border-emerald-200", "border-color:#a7f3d0;"),
     ])
 }
 
@@ -370,7 +403,7 @@ fn load_config() -> UtilityCssConfig {
 }
 
 fn preflight_css() -> &'static str {
-    "*,*::before,*::after{box-sizing:border-box;}html,body{margin:0;padding:0;}img,svg,video,canvas{display:block;max-width:100%;}button,input,select,textarea{font:inherit;color:inherit;}"
+    "*,*::before,*::after{box-sizing:border-box;border:0 solid #e5e7eb;}html,body{margin:0;padding:0;}html{line-height:1.5;-webkit-text-size-adjust:100%;font-family:ui-sans-serif,system-ui,sans-serif;}body{line-height:inherit;}h1,h2,h3,h4,h5,h6,p,figure,blockquote,dl,dd{margin:0;}ul,ol{margin:0;padding:0;list-style:none;}a{color:inherit;text-decoration:inherit;}img,svg,video,canvas{display:block;max-width:100%;height:auto;}button,input,select,textarea{font:inherit;color:inherit;background-color:transparent;}button,[type='button'],[type='reset'],[type='submit']{appearance:button;cursor:pointer;}"
 }
 
 #[cfg(test)]

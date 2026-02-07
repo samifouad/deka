@@ -108,6 +108,7 @@ pub fn cmd_default(context: &Context) {
             std::env::set_var("DEKA_ARGS", args_json);
         }
         std::env::set_var("HANDLER_PATH", ui_path.to_string_lossy().to_string());
+        std::env::set_var("DEKA_JSX_IMPORT_SOURCE", "react");
     }
 
     // Execute the TUI via runtime

@@ -1,7 +1,7 @@
 use deno_core::Extension;
 
-pub mod modules;
 pub mod compiler_api;
+pub mod modules;
 pub mod validation;
 
 pub fn php_extension() -> Extension {

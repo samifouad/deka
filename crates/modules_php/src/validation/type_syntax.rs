@@ -1,4 +1,4 @@
-use php_rs::parser::ast::visitor::{walk_type, Visitor};
+use php_rs::parser::ast::visitor::{Visitor, walk_type};
 use php_rs::parser::ast::{Name, Program, Type};
 use php_rs::parser::lexer::token::TokenKind;
 use php_rs::parser::span::Span;
@@ -107,13 +107,7 @@ impl TypeSyntaxValidator<'_> {
         }
     }
 
-    fn push_error(
-        &mut self,
-        kind: ErrorKind,
-        span: Span,
-        message: String,
-        help_text: &str,
-    ) {
+    fn push_error(&mut self, kind: ErrorKind, span: Span, message: String, help_text: &str) {
         let (line, column, underline_length) = span_location(span, self.source);
         self.errors.push(ValidationError {
             kind,
@@ -149,21 +143,16 @@ fn type_span(ty: &Type) -> Span {
             types.first().map(type_span).unwrap_or_default()
         }
         Type::Nullable(inner) => type_span(inner),
-        Type::ObjectShape(fields) => fields
-            .first()
-            .map(|field| field.span)
-            .unwrap_or_default(),
+        Type::ObjectShape(fields) => fields.first().map(|field| field.span).unwrap_or_default(),
         Type::Applied { base, .. } => type_span(base),
     }
 }
 
 fn type_base_name(ty: &Type, source: &str) -> Option<String> {
     match ty {
-        Type::Simple(token) => {
-            std::str::from_utf8(token.text(source.as_bytes()))
-                .ok()
-                .map(|text| text.to_string())
-        }
+        Type::Simple(token) => std::str::from_utf8(token.text(source.as_bytes()))
+            .ok()
+            .map(|text| text.to_string()),
         Type::Name(name) => name_to_string(name, source),
         _ => None,
     }

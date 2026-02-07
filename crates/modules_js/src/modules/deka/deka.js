@@ -100,6 +100,10 @@ globalThis.__dekaOps = ops;
 const { op_read_handler_source, op_read_module_source, op_read_env, op_stdout_write, op_stderr_write, op_execute_isolate, op_transform_module, op_bundle_browser, op_bundle_browser_assets, op_bundle_css, op_transform_css, op_tailwind_process, op_read_file, op_fs_exists, op_fs_stat, op_fs_read_dir, op_fs_mkdir, op_fs_remove_file, op_fs_append, op_fs_append_bytes, op_fs_open, op_fs_close, op_fs_read, op_fs_write, op_fs_copy_file, op_zlib_gzip, op_write_file, op_write_file_base64, op_introspect_stats, op_introspect_top, op_introspect_workers, op_introspect_isolate, op_introspect_kill_isolate, op_introspect_requests, op_introspect_evict, op_set_introspect_profiling, op_ws_send, op_ws_send_binary, op_ws_close, op_blob_create, op_blob_get, op_blob_size, op_blob_type, op_blob_slice, op_blob_drop, op_stream_create, op_stream_enqueue, op_stream_close, op_stream_read, op_stream_drop, op_crypto_random, op_crypto_digest, op_crypto_hmac, op_crypto_pbkdf2, op_crypto_aes_gcm_encrypt, op_crypto_aes_gcm_decrypt, op_crypto_key_info, op_crypto_key_from_secret, op_crypto_key_from_pem, op_crypto_key_from_der, op_crypto_key_from_jwk, op_crypto_key_export_pem, op_crypto_key_export_der, op_crypto_key_export_jwk, op_crypto_key_public, op_crypto_key_equals, op_crypto_sign, op_crypto_verify, op_crypto_generate_keypair, op_crypto_get_curves, op_crypto_ecdh_new, op_crypto_ecdh_generate, op_crypto_ecdh_get_public, op_crypto_ecdh_get_private, op_crypto_ecdh_set_private, op_crypto_ecdh_compute_secret, op_crypto_ecdh_convert, op_url_parse, op_napi_open, op_http_fetch, op_process_spawn, op_process_spawn_sync, op_process_read_stdout, op_process_read_stderr, op_process_write_stdin, op_process_close_stdin, op_process_wait, op_process_kill, op_sleep, op_stdin_read, op_stdin_set_raw_mode, op_udp_bind, op_udp_send, op_udp_recv, op_udp_close, op_udp_local_addr, op_udp_peer_addr, op_udp_connect, op_udp_disconnect, op_udp_set_broadcast, op_udp_set_ttl, op_udp_set_multicast_ttl, op_udp_set_multicast_loop, op_udp_set_multicast_if, op_udp_join_multicast, op_udp_leave_multicast, op_udp_set_recv_buffer_size, op_udp_set_send_buffer_size, op_udp_get_recv_buffer_size, op_udp_get_send_buffer_size, op_dns_lookup, op_dns_reverse, op_tcp_listen, op_tcp_accept, op_tcp_connect, op_tcp_read, op_tcp_write, op_tcp_close, op_tcp_shutdown, op_tcp_local_addr, op_tcp_peer_addr, op_tcp_listener_addr, op_tcp_listener_close } = ops;
 if (typeof globalThis.process === "undefined") {
     const env = op_read_env();
+    // Early debug: Log process initialization
+    if (env.DEKA_IPC_DEBUG === "1") {
+        console.error('[DEKA-INIT] Starting process global initialization, PID:', env.DEKA_PID || 'unknown');
+    }
     let args = [];
     const rawArgs = env.DEKA_ARGS;
     if (typeof rawArgs === "string" && rawArgs.length > 0) {
@@ -511,7 +515,14 @@ if (typeof globalThis.process === "undefined") {
         stderr,
         stdin,
         dlopen: (module1, filename)=>{
+            // Always log
+            console.error('[DLOPEN] Called with filename:', filename);
+            console.error('[DLOPEN] module1:', module1);
+
             const op = globalThis.__dekaOps?.op_napi_open;
+            console.error('[DLOPEN] op_napi_open type:', typeof op);
+            console.error('[DLOPEN] op_napi_open exists:', !!op);
+
             if (typeof op !== "function") {
                 throw new Error("N-API is not available in this runtime");
             }
@@ -520,13 +531,51 @@ if (typeof globalThis.process === "undefined") {
                 return BufferCtor ? BufferCtor.from(data) : data;
             });
             const reportError = globalThis.__dekaNapiReportError || ((error)=>{
+                console.error('[DLOPEN] reportError called:', error);
                 throw error;
             });
-            const exports = op(filename, globalThis, createBuffer, reportError);
+
+            console.error('[DLOPEN] About to call op_napi_open...');
+            let exports;
+            try {
+                exports = op(filename, globalThis, createBuffer, reportError);
+                console.error('[DLOPEN] op_napi_open returned successfully');
+            } catch (e) {
+                console.error('[DLOPEN] op_napi_open threw error:', e);
+                throw e;
+            }
+
+            console.error('[DLOPEN] exports type:', typeof exports);
+            console.error('[DLOPEN] exports keys:', exports ? Object.keys(exports) : 'null/undefined');
+            console.error('[DLOPEN] exports own properties:', exports ? Object.getOwnPropertyNames(exports) : 'null/undefined');
+            if (exports && typeof exports === 'object') {
+                console.error('[DLOPEN] exports methods:', Object.keys(exports).filter(k => typeof exports[k] === 'function'));
+                const allProps = [];
+                for (const key in exports) {
+                    allProps.push(key);
+                }
+                console.error('[DLOPEN] exports for-in:', allProps);
+            }
+
             if (module1 && typeof module1 === "object") {
                 module1.exports = exports;
             }
             return exports;
+        },
+        binding: (name)=>{
+            // Deprecated internal Node.js API - provide minimal stubs for compatibility
+            // Most native bindings are now exposed via public APIs
+            const bindings = {
+                constants: typeof globalThis.os === 'object' ? (globalThis.os.constants || {}) : {},
+                fs: {},
+                buffer: {},
+                util: {},
+                uv: {},
+            };
+            if (name in bindings) {
+                return bindings[name];
+            }
+            throw new Error(`No such module: ${name}`);
         },
         hrtime,
         uptime: ()=>{
@@ -615,6 +664,19 @@ if (typeof globalThis.process === "undefined") {
             if (debugIpc) {
                 console.error('[IPC-CHILD-INIT] IPC enabled, FD:', ipcFd);
                 console.error('[IPC-CHILD-INIT] process.connected:', globalThis.process.connected);
+            }
+
+            // IMPORTANT: Keep runtime alive while IPC is connected
+            // In Node.js, an active IPC channel prevents event loop from exiting
+            if (!globalThis.__dekaRuntimeHold) {
+                let ipcHoldResolve;
+                globalThis.__dekaRuntimeHold = new Promise((res) => {
+                    ipcHoldResolve = res;
+                });
+                globalThis.__dekaIpcHoldResolve = ipcHoldResolve;
+                if (debugIpc) {
+                    console.error('[IPC-CHILD-INIT] Created runtime hold promise to keep event loop alive');
+                }
             }
 
             // Implement process.send() for child -> parent messaging
@@ -708,39 +770,69 @@ if (typeof globalThis.process === "undefined") {
             globalThis.process.disconnect = function() {
                 if (!globalThis.process.connected) return;
                 globalThis.process.connected = false;
+
+                // Release runtime hold so process can exit
+                if (globalThis.__dekaIpcHoldResolve) {
+                    globalThis.__dekaIpcHoldResolve();
+                    globalThis.__dekaIpcHoldResolve = null;
+                    globalThis.__dekaRuntimeHold = null;
+                }
+
                 globalThis.process.emit('disconnect');
             };
 
-            // Set up message listener for child process
-            // Child receives messages via reading from IPC fd
-            // TODO: Implement message reception in child process
-            // This requires: op_child_ipc_read(fd) -> Option<String>
-            //
-            // Implementation approach:
-            // 1. Poll IPC socket for incoming messages
-            // 2. When message arrives, deserialize and emit 'message' event
-            // 3. Handle parent disconnect (socket closed)
-            //
-            // Example polling loop (needs to be triggered from Rust side):
-            // setInterval(() => {
-            //     const op = globalThis.__dekaOps?.op_child_ipc_read;
-            //     if (typeof op === 'function' && globalThis.process.connected) {
-            //         try {
-            //             const msg = op(parseInt(ipcFd));
-            //             if (msg) {
-            //                 const envelope = JSON.parse(msg);
-            //                 if (envelope.cmd === 'NODE_HANDLE') {
-            //                     globalThis.process.emit('message', envelope.msg);
-            //                 }
-            //             }
-            //         } catch (err) {
-            //             // Socket closed or parse error
-            //             if (globalThis.process.connected) {
-            //                 globalThis.process.disconnect();
-            //             }
-            //         }
-            //     }
-            // }, 10);
+            // Set up message listener for child process to receive from parent
+            const op_child_read = globalThis.__dekaOps?.op_child_ipc_read;
+            if (typeof op_child_read === 'function') {
+                // Start async read loop for incoming messages from parent
+                (async () => {
+                    const debugIpc = globalThis.process.env?.DEKA_IPC_DEBUG === "1";
+                    const fd = parseInt(ipcFd);
+
+                    if (debugIpc) {
+                        console.error('[IPC-CHILD-READER] Starting IPC read loop, FD:', fd);
+                    }
+
+                    while (globalThis.process.connected) {
+                        try {
+                            const result = await op_child_read(fd);
+
+                            if (result.message === null || result.message === undefined) {
+                                // EOF - parent closed connection
+                                if (debugIpc) {
+                                    console.error('[IPC-CHILD-READER] EOF detected, parent disconnected');
+                                }
+                                globalThis.process.disconnect();
+                                break;
+                            }
+
+                            const parsed = JSON.parse(result.message);
+                            const userMsg = parsed.msg !== undefined ? parsed.msg : parsed;
+
+                            if (debugIpc) {
+                                console.error('[IPC-CHILD-READER] Received message:', userMsg);
+                            }
+
+                            globalThis.process.emit('message', userMsg);
+                        } catch (err) {
+                            if (debugIpc) {
+                                console.error('[IPC-CHILD-READER] Error:', err);
+                            }
+                            // Error reading - disconnect
+                            globalThis.process.disconnect();
+                            break;
+                        }
+                    }
+
+                    if (debugIpc) {
+                        console.error('[IPC-CHILD-READER] Read loop ended');
+                    }
+                })();
+
+                if (debugIpc) {
+                    console.error('[IPC-CHILD-INIT] Started IPC read loop for incoming messages');
+                }
+            }
         }
     }
 
@@ -3182,11 +3274,55 @@ requireExtensions[".mjs"] = ()=>{
     throw new Error("Cannot require ES module");
 };
 requireExtensions[".node"] = (mod, filename)=>{
+    // Always log to see if this code path is hit
+    console.error('[NAPI-LOAD] Loading .node file:', filename);
+    console.error('[NAPI-LOAD] op_napi_open1 type:', typeof op_napi_open1);
+    console.error('[NAPI-LOAD] op_napi_open1 exists:', !!op_napi_open1);
+
     const createBuffer = globalThis.__dekaNapiCreateBuffer || ((data)=>Buffer.from(data));
     const reportError = globalThis.__dekaNapiReportError || ((error)=>{
+        console.error('[NAPI-LOAD] reportError called with:', error);
         throw error;
     });
-    mod.exports = op_napi_open1(filename, globalThis, createBuffer, reportError);
+
+    console.error('[NAPI-LOAD] About to call op_napi_open1...');
+    console.error('[NAPI-LOAD] Arguments:', {
+        filename,
+        globalThis: typeof globalThis,
+        createBuffer: typeof createBuffer,
+        reportError: typeof reportError
+    });
+
+    let exports;
+    try {
+        exports = op_napi_open1(filename, globalThis, createBuffer, reportError);
+        console.error('[NAPI-LOAD] op_napi_open1 returned successfully');
+    } catch (e) {
+        console.error('[NAPI-LOAD] op_napi_open1 threw error:', e);
+        console.error('[NAPI-LOAD] Error stack:', e.stack);
+        throw e;
+    }
+
+    // Debug: Log what the native module exports
+    console.error('[NAPI-LOAD] Exports type:', typeof exports);
+    console.error('[NAPI-LOAD] Exports is null:', exports === null);
+    console.error('[NAPI-LOAD] Exports is undefined:', exports === undefined);
+    console.error('[NAPI-LOAD] Exports toString:', exports?.toString ? exports.toString() : 'no toString');
+    console.error('[NAPI-LOAD] Exports constructor:', exports?.constructor?.name);
+    console.error('[NAPI-LOAD] Exports keys:', exports ? Object.keys(exports) : 'null/undefined');
+    console.error('[NAPI-LOAD] Exports own property names:', exports ? Object.getOwnPropertyNames(exports) : 'null/undefined');
+    console.error('[NAPI-LOAD] Exports prototype:', exports ? Object.getPrototypeOf(exports) : 'null/undefined');
+    if (exports && typeof exports === 'object') {
+        console.error('[NAPI-LOAD] Exports methods:', Object.keys(exports).filter(k => typeof exports[k] === 'function'));
+        // Try to enumerate properties another way
+        const allProps = [];
+        for (const key in exports) {
+            allProps.push(key);
+        }
+        console.error('[NAPI-LOAD] Exports for-in loop:', allProps);
+    }
+
+    mod.exports = exports;
 };
 function waitForPromise(promise) {
     const sab = new SharedArrayBuffer(4);
@@ -5346,6 +5482,16 @@ function freemem() {
     const value = Number(env.DEKA_FREE_MEM || env.FREE_MEM || 0);
     return Number.isFinite(value) ? value : 0;
 }
+function networkInterfaces() {
+    // Return stub network interfaces for Next.js
+    // Real implementation would use native code to query actual interfaces
+    return {
+        lo0: [
+            { address: '127.0.0.1', netmask: '255.0.0.0', family: 'IPv4', mac: '00:00:00:00:00:00', internal: true },
+            { address: '::1', netmask: 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff', family: 'IPv6', mac: '00:00:00:00:00:00', internal: true }
+        ]
+    };
+}
 globalThis.__dekaNodeOs = {
     platform,
     arch,
@@ -5357,7 +5503,8 @@ globalThis.__dekaNodeOs = {
     EOL,
     cpus,
     totalmem,
-    freemem
+    freemem,
+    networkInterfaces
 };
 function toURL(input) {
     return input instanceof URLImpl ? input : new URLImpl(String(input));
@@ -8458,6 +8605,17 @@ class Server extends EventEmitter {
         }
         this.emit("close");
         if (callback) callback();
+    }
+    address() {
+        // Return server address info in Node.js format
+        if (!this.listening || this.port === undefined) {
+            return null;
+        }
+        return {
+            address: "0.0.0.0",
+            family: "IPv4",
+            port: this.port
+        };
     }
     async handleIntrospect(req, res) {
         if (!globalThis.process?.env?.DEKA_INTROSPECT) {
@@ -14833,12 +14991,38 @@ class ChildProcess extends EventEmitter {
     channel = null;           // IPC channel reference
     _ipcReader = null;        // IPC read loop promise
     _ipcEnabled = false;      // Track if IPC was enabled
+    _ipcHoldResolve = null;   // Runtime hold resolve function
     constructor(pidPromise, options){
         super();
         this.pid = null;
         this.stdio = options?.stdio || 'pipe';
         this._ipcEnabled = options?.ipc || false;
         this.connected = this._ipcEnabled;
+
+        // IMPORTANT: Create runtime hold immediately when IPC is enabled
+        // In Node.js, spawning a child with IPC prevents parent event loop from exiting
+        // We must create this hold BEFORE the handler completes, not in attachIpcReader
+        if (this._ipcEnabled) {
+            let ipcHoldResolve;
+            const ipcHoldPromise = new Promise((res) => {
+                ipcHoldResolve = res;
+            });
+            this._ipcHoldResolve = ipcHoldResolve;
+
+            // Integrate with global runtime hold
+            if (!globalThis.__dekaRuntimeHold) {
+                globalThis.__dekaRuntimeHold = ipcHoldPromise;
+            } else if (typeof globalThis.__dekaRuntimeHold.then === 'function') {
+                // Chain with existing runtime hold
+                const existingHold = globalThis.__dekaRuntimeHold;
+                globalThis.__dekaRuntimeHold = Promise.race([existingHold, ipcHoldPromise]);
+            }
+
+            const debug = !!(globalThis.process?.env?.DEKA_IPC_DEBUG || globalThis.process?.env?.DEKA_VERBOSE);
+            if (debug) {
+                console.log(`[IPC] Created runtime hold in constructor for IPC child`);
+            }
+        }
         // Only create stdout/stderr if not inherited
         if (this.stdio === 'inherit') {
             this.stdout = null;
@@ -15016,6 +15200,17 @@ class ChildProcess extends EventEmitter {
         this.connected = false;
         this.channel = null;
         this._ipcReader = null;
+
+        // Release runtime hold for this child
+        if (this._ipcHoldResolve) {
+            const debug = !!(globalThis.process?.env?.DEKA_IPC_DEBUG || globalThis.process?.env?.DEKA_VERBOSE);
+            if (debug) {
+                console.log(`[IPC] Releasing runtime hold for child pid=${this.pid}`);
+            }
+            this._ipcHoldResolve();
+            this._ipcHoldResolve = null;
+        }
+
         this.emit('disconnect');
     }
     attachReaders() {
@@ -15094,6 +15289,7 @@ class ChildProcess extends EventEmitter {
             console.log(`[IPC] attachIpcReader: pid=${this.pid} connected=${this.connected}`);
         }
 
+        // Runtime hold was already created in constructor to keep parent alive
         // Start async read loop
         this._ipcReader = (async () => {
             try {
@@ -15109,8 +15305,8 @@ class ChildProcess extends EventEmitter {
                         console.log(`[IPC] op_process_read_message result:`, result);
                     }
 
-                    // Check for EOF
-                    if (result.eof || !result.data || result.data.length === 0) {
+                    // Check for EOF - Rust returns { message: null } for EOF
+                    if (result.message === null || result.message === undefined) {
                         if (debug) {
                             console.log(`[IPC] EOF detected for pid=${this.pid}`);
                         }
@@ -15118,10 +15314,10 @@ class ChildProcess extends EventEmitter {
                         break;
                     }
 
-                    // Parse JSON message
+                    // Parse JSON message - result.message is already a string
                     let json;
                     try {
-                        const text = new TextDecoder().decode(result.data);
+                        const text = result.message;
                         if (debug) {
                             console.log(`[IPC] Received JSON text:`, text);
                         }
@@ -17230,11 +17426,68 @@ requireExtensions1[".mjs"] = ()=>{
     throw new Error("Cannot require ES module");
 };
 requireExtensions1[".node"] = (mod, filename)=>{
+    // Always log to see if this code path is hit
+    console.error('[NAPI-LOAD-2] Loading .node file:', filename);
+    console.error('[NAPI-LOAD-2] op_napi_open2 type:', typeof op_napi_open2);
+    console.error('[NAPI-LOAD-2] op_napi_open2 exists:', !!op_napi_open2);
+
+    // Fallback to find the op if op_napi_open2 is undefined
+    let op_func = op_napi_open2;
+    if (!op_func) {
+        console.error('[NAPI-LOAD-2] op_napi_open2 is undefined, trying fallbacks...');
+        op_func = globalThis.__dekaOps?.op_napi_open ||
+                  globalThis.Deno?.core?.ops?.op_napi_open;
+        console.error('[NAPI-LOAD-2] Fallback op_func:', !!op_func);
+    }
+
+    if (!op_func) {
+        throw new Error("N-API is not available - op_napi_open not found");
+    }
+
     const createBuffer = globalThis.__dekaNapiCreateBuffer || ((data)=>Buffer.from(data));
     const reportError = globalThis.__dekaNapiReportError || ((error)=>{
+        console.error('[NAPI-LOAD-2] reportError called with:', error);
         throw error;
     });
-    mod.exports = op_napi_open2(filename, globalThis, createBuffer, reportError);
+
+    console.error('[NAPI-LOAD-2] About to call op...');
+    console.error('[NAPI-LOAD-2] Arguments:', {
+        filename,
+        globalThis: typeof globalThis,
+        createBuffer: typeof createBuffer,
+        reportError: typeof reportError
+    });
+
+    let exports;
+    try {
+        exports = op_func(filename, globalThis, createBuffer, reportError);
+        console.error('[NAPI-LOAD-2] op returned successfully');
+    } catch (e) {
+        console.error('[NAPI-LOAD-2] op threw error:', e);
+        console.error('[NAPI-LOAD-2] Error stack:', e.stack);
+        throw e;
+    }
+
+    // Debug: Log what the native module exports
+    console.error('[NAPI-LOAD-2] Exports type:', typeof exports);
+    console.error('[NAPI-LOAD-2] Exports is null:', exports === null);
+    console.error('[NAPI-LOAD-2] Exports is undefined:', exports === undefined);
+    console.error('[NAPI-LOAD-2] Exports toString:', exports?.toString ? exports.toString() : 'no toString');
+    console.error('[NAPI-LOAD-2] Exports constructor:', exports?.constructor?.name);
+    console.error('[NAPI-LOAD-2] Exports keys:', exports ? Object.keys(exports) : 'null/undefined');
+    console.error('[NAPI-LOAD-2] Exports own property names:', exports ? Object.getOwnPropertyNames(exports) : 'null/undefined');
+    console.error('[NAPI-LOAD-2] Exports prototype:', exports ? Object.getPrototypeOf(exports) : 'null/undefined');
+    if (exports && typeof exports === 'object') {
+        console.error('[NAPI-LOAD-2] Exports methods:', Object.keys(exports).filter(k => typeof exports[k] === 'function'));
+        // Try to enumerate properties another way
+        const allProps = [];
+        for (const key in exports) {
+            allProps.push(key);
+        }
+        console.error('[NAPI-LOAD-2] Exports for-in:', allProps);
+    }
+
+    mod.exports = exports;
 };
 function waitForPromise1(promise) {
     const sab = new SharedArrayBuffer(4);

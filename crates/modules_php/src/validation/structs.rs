@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use php_rs::parser::ast::visitor::{walk_expr, Visitor};
+use php_rs::parser::ast::visitor::{Visitor, walk_expr};
 use php_rs::parser::ast::{
     BinaryOp, ClassKind, ClassMember, Expr, ExprId, Program, PropertyEntry, Stmt, UnaryOp,
 };
@@ -59,7 +59,12 @@ fn collect_struct_definitions(program: &Program, source: &str) -> HashMap<String
     }
 
     for stmt in program.statements {
-        let Stmt::Class { kind, name, members, .. } = stmt
+        let Stmt::Class {
+            kind,
+            name,
+            members,
+            ..
+        } = stmt
         else {
             continue;
         };
@@ -83,7 +88,9 @@ fn collect_struct_definitions(program: &Program, source: &str) -> HashMap<String
                         ));
                     }
                 }
-                ClassMember::Property { ty, entries, span, .. } => {
+                ClassMember::Property {
+                    ty, entries, span, ..
+                } => {
                     if ty.is_none() {
                         errors.push(struct_error(
                             *span,
@@ -291,11 +298,13 @@ fn is_constant_expr(expr: &Expr) -> bool {
             key_ok && is_constant_expr(item.value)
         }),
         Expr::ObjectLiteral { items, .. } => items.iter().all(|item| is_constant_expr(item.value)),
-        Expr::StructLiteral { fields, .. } => fields.iter().all(|field| is_constant_expr(field.value)),
-        Expr::ClassConstFetch { .. } => true,
-        Expr::Binary { op, left, right, .. } => {
-            matches!(op, BinaryOp::BitOr) && is_constant_expr(left) && is_constant_expr(right)
+        Expr::StructLiteral { fields, .. } => {
+            fields.iter().all(|field| is_constant_expr(field.value))
         }
+        Expr::ClassConstFetch { .. } => true,
+        Expr::Binary {
+            op, left, right, ..
+        } => matches!(op, BinaryOp::BitOr) && is_constant_expr(left) && is_constant_expr(right),
         Expr::Unary { op, expr, .. } => {
             matches!(op, UnaryOp::Plus | UnaryOp::Minus) && is_constant_expr(expr)
         }

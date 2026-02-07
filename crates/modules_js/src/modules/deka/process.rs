@@ -14,7 +14,8 @@ use tokio::sync::Mutex as AsyncMutex;
 
 /// IPC channel for bidirectional message passing between parent and child
 struct IpcChannel {
-    socket: tokio::net::UnixStream,  // Bidirectional Unix socket for IPC
+    socket: tokio::net::UnixStream,  // Parent's end of the Unix socket for IPC
+    _child_socket: Option<tokio::net::UnixStream>,  // Keep child socket alive until child starts
 }
 
 struct ChildProcessEntry {
@@ -139,9 +140,16 @@ pub(super) fn op_process_spawn_immediate(
         ))
     })?;
 
-    // Take parent socket from pair (child socket is passed via env)
-    let ipc_channel = ipc_socket_pair.map(|(parent_socket, _)| IpcChannel {
-        socket: parent_socket,
+    // Take parent socket from pair and drop child_socket
+    // After spawn(), child has already dup2'd the socket to fd 3
+    // We must close our reference to child_socket so the socket pair works correctly
+    let ipc_channel = ipc_socket_pair.map(|(parent_socket, child_socket)| {
+        // Explicitly drop child_socket here
+        drop(child_socket);
+        IpcChannel {
+            socket: parent_socket,
+            _child_socket: None,
+        }
     });
 
     let entry = ChildProcessEntry {
@@ -256,9 +264,16 @@ pub(super) async fn op_process_spawn(
         ))
     })?;
 
-    // Take parent socket from pair (child socket is passed via env)
-    let ipc_channel = ipc_socket_pair.map(|(parent_socket, _)| IpcChannel {
-        socket: parent_socket,
+    // Take parent socket from pair and drop child_socket
+    // After spawn(), child has already dup2'd the socket to fd 3
+    // We must close our reference to child_socket so the socket pair works correctly
+    let ipc_channel = ipc_socket_pair.map(|(parent_socket, child_socket)| {
+        // Explicitly drop child_socket here
+        drop(child_socket);
+        IpcChannel {
+            socket: parent_socket,
+            _child_socket: None,
+        }
     });
 
     let entry = ChildProcessEntry {

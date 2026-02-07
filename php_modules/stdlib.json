@@ -1,0 +1,6 @@
+[
+  "core/*",
+  "json",
+  "string/*",
+  "array/*"
+]

@@ -86,10 +86,7 @@ fn run_tests(context: &Context) -> Result<(), String> {
         &format!("[runtime] {} test file(s)", resolved_files.len()),
     );
     for file in &resolved_files {
-        let rel = file
-            .strip_prefix(&cwd)
-            .unwrap_or(file)
-            .to_string_lossy();
+        let rel = file.strip_prefix(&cwd).unwrap_or(file).to_string_lossy();
         stdio::log("test", &format!("[deka:{}]", rel));
     }
 
@@ -115,7 +112,14 @@ fn run_tests(context: &Context) -> Result<(), String> {
         stdio::log("test", if trimmed.is_empty() { "ok" } else { trimmed });
     } else {
         let trimmed = response_body.trim();
-        stdio::error("test", if trimmed.is_empty() { "tests failed" } else { trimmed });
+        stdio::error(
+            "test",
+            if trimmed.is_empty() {
+                "tests failed"
+            } else {
+                trimmed
+            },
+        );
     }
 
     stop_child(&mut child);
@@ -200,7 +204,10 @@ fn resolve_test_files(cwd: &Path, filters: &[String]) -> Result<Vec<PathBuf>, St
     if !substring_filters.is_empty() {
         for file in &all_tests {
             let haystack = file.to_string_lossy();
-            if substring_filters.iter().any(|filter| haystack.contains(filter)) {
+            if substring_filters
+                .iter()
+                .any(|filter| haystack.contains(filter))
+            {
                 resolved.push(file.clone());
             }
         }
@@ -263,7 +270,10 @@ fn scan_for_tests(root: &Path) -> Result<Vec<PathBuf>, String> {
 }
 
 fn should_skip_dir(path: &Path) -> bool {
-    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
     matches!(name, "node_modules" | "target" | "dist" | ".git")
 }
 
@@ -737,8 +747,8 @@ fn create_temp_dir() -> Result<PathBuf, String> {
 }
 
 fn spawn_runtime(handler_path: &Path, port: &str) -> Result<std::process::Child, String> {
-    let exe = std::env::current_exe()
-        .map_err(|err| format!("failed to resolve executable: {}", err))?;
+    let exe =
+        std::env::current_exe().map_err(|err| format!("failed to resolve executable: {}", err))?;
     let exe_string = exe.to_string_lossy().to_string();
     let mut cmd = Command::new(exe);
     cmd.arg("serve")
@@ -773,9 +783,7 @@ fn fetch_with_timeout(port: &str, timeout: Duration) -> Option<Result<(u16, Stri
         .map_err(|err| format!("failed to set read timeout: {}", err))
         .ok()?;
     let mut stream = stream;
-    let request = format!(
-        "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
-    );
+    let request = format!("GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
     if let Err(err) = stream.write_all(request.as_bytes()) {
         return Some(Err(format!("failed to write request: {}", err)));
     }

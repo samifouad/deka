@@ -1,4 +1,4 @@
-import { __deka_slice_bytes, __deka_strlen_bytes } from './bytes_utils.phpx';
+import { __deka_strlen_bytes } from './bytes_utils.phpx';
 
 /// docid: php/string/strtr()
 /// <Function name="strtr">

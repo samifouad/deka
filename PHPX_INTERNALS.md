@@ -3,6 +3,18 @@
 Goal: minimize __deka_* usage. Keep only truly low-level hooks and migrate
 everything else into phpx.
 
+## PHPX Syntax Additions (recent)
+### Type aliases (phpx only)
+Syntax:
+- `type Person = Object<{ id: int, name: string, email?: string }>;`
+- `type Person = { id: int, name: string, email?: string };` (object-shape sugar)
+
+Behavior:
+- Compile-time only; stripped during emission.
+- Aliases can reference any type expression (including unions, nullable, structs).
+- Object-shape rules apply (exact fields, optional `?`, dot access yields `T|null`).
+- Aliases are top-level only and must not shadow built-in types or structs.
+
 ## Keep (Rust-only, for now)
 - chr, ord (byte primitives)
 - crc32, md5, md5_file, sha1, sha1_file, crypt (hash/crypto)

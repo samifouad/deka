@@ -10,6 +10,7 @@ fn main() {
     cli::register_global_params(&mut registry);
     cli::build::register(&mut registry);
     cli::compile::register(&mut registry);
+    cli::db::register(&mut registry);
     cli::init::register(&mut registry);
     cli::install::register(&mut registry);
     cli::lsp::register(&mut registry);

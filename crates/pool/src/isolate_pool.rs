@@ -2257,10 +2257,12 @@ impl WorkerThread {
 
         if !isolate.handler_loaded {
             isolate.handler_loaded = true;
-            deka_stdio::log(
-                "handler",
-                &format!("loaded {} on worker {}", key.name, self.worker_id),
-            );
+            if std::env::var("DEKA_DEBUG").is_ok() {
+                deka_stdio::log(
+                    "handler",
+                    &format!("loaded {} on worker {}", key.name, self.worker_id),
+                );
+            }
         }
 
         let heap_before_bytes = {
@@ -2291,7 +2293,6 @@ impl WorkerThread {
         let mut needs_event_loop = false;
         let mut microtask_error: Option<String> = None;
         let result = if request.request_data.mode == ExecutionMode::Module {
-            needs_event_loop = true;
             isolate
                 .runtime
                 .execute_script(
@@ -2340,9 +2341,8 @@ impl WorkerThread {
         };
         let exec_script_ms = exec_start.elapsed().as_millis() as u64;
 
-        if request.request_data.mode == ExecutionMode::Request {
+        if matches!(request.request_data.mode, ExecutionMode::Request | ExecutionMode::Module) {
             // Run event loop to complete async operations
-            needs_event_loop = true;
             {
                 let scope = &mut isolate.runtime.handle_scope();
                 let local = deno_core::v8::Local::new(scope, &result);
@@ -2359,8 +2359,8 @@ impl WorkerThread {
                                 if let Ok(promise) =
                                     deno_core::v8::Local::<deno_core::v8::Promise>::try_from(local)
                                 {
-                                    if promise.state() != deno_core::v8::PromiseState::Pending {
-                                        needs_event_loop = false;
+                                    if promise.state() == deno_core::v8::PromiseState::Pending {
+                                        needs_event_loop = true;
                                     }
                                 } else {
                                     needs_event_loop = false;
@@ -2369,8 +2369,6 @@ impl WorkerThread {
                         }
                         _ => needs_event_loop = false,
                     }
-                } else {
-                    needs_event_loop = false;
                 }
             }
         }

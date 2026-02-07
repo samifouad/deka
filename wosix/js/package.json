@@ -1,0 +1,15 @@
+{
+  "name": "@deka/wosix-js",
+  "version": "0.1.0",
+  "description": "JS wrapper for Wosix WebContainer bindings.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

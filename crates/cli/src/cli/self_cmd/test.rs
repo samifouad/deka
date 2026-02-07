@@ -30,10 +30,7 @@ fn run_php_suite(context: &Context) -> Result<(), String> {
     let cwd = context.env.cwd.clone();
     let suite_dir = cwd.join("tests").join("php");
     if !suite_dir.exists() {
-        return Err(format!(
-            "php suite not found at {}",
-            suite_dir.display()
-        ));
+        return Err(format!("php suite not found at {}", suite_dir.display()));
     }
 
     let mut pending = Vec::new();
@@ -73,7 +70,8 @@ fn run_php_suite(context: &Context) -> Result<(), String> {
             let official_shape_ok = matches_shapes(shapes, &official);
             let native_shape_ok = matches_shapes(shapes, &native);
             let stderr_match = shapes.contains_key("stderr") || official.stderr == native.stderr;
-            if official_shape_ok && native_shape_ok && official.code == native.code && stderr_match {
+            if official_shape_ok && native_shape_ok && official.code == native.code && stderr_match
+            {
                 println!("{COLOR_YELLOW}shape ok{COLOR_RESET}");
                 continue;
             }
@@ -124,8 +122,8 @@ fn run_php_suite(context: &Context) -> Result<(), String> {
 }
 
 fn resolve_deka_bin() -> Result<String, String> {
-    let exe = std::env::current_exe()
-        .map_err(|err| format!("failed to resolve deka binary: {}", err))?;
+    let exe =
+        std::env::current_exe().map_err(|err| format!("failed to resolve deka binary: {}", err))?;
     Ok(exe.to_string_lossy().to_string())
 }
 
@@ -205,7 +203,11 @@ fn load_directives(path: &Path) -> Directives {
     }
     Directives {
         nondeterministic: content.contains("@nondeterministic"),
-        shapes: if shapes.is_empty() { None } else { Some(shapes) },
+        shapes: if shapes.is_empty() {
+            None
+        } else {
+            Some(shapes)
+        },
     }
 }
 
@@ -218,11 +220,7 @@ fn parse_shape_line(line: &str) -> Option<(String, String)> {
     if let Some(eq) = rest.find('=') {
         let key = rest[..eq].trim();
         rest = rest[eq + 1..].trim();
-        let value = rest
-            .split_whitespace()
-            .next()
-            .unwrap_or("")
-            .trim();
+        let value = rest.split_whitespace().next().unwrap_or("").trim();
         if !key.is_empty() && !value.is_empty() {
             return Some((key.to_string(), value.to_string()));
         }
@@ -255,14 +253,18 @@ fn matches_shape(shape: &str, output: &str) -> bool {
         "number" => trimmed.parse::<f64>().is_ok(),
         "string" => !trimmed.is_empty(),
         _ => {
-            if let Some(inner) = shape.strip_prefix("array<").and_then(|s| s.strip_suffix('>'))
+            if let Some(inner) = shape
+                .strip_prefix("array<")
+                .and_then(|s| s.strip_suffix('>'))
             {
                 if let Some(values) = parse_print_r_array(output) {
                     return values.iter().all(|value| matches_shape(inner, value));
                 }
                 return false;
             }
-            if let Some(inner) = shape.strip_prefix("lines<").and_then(|s| s.strip_suffix('>'))
+            if let Some(inner) = shape
+                .strip_prefix("lines<")
+                .and_then(|s| s.strip_suffix('>'))
             {
                 let lines: Vec<&str> = output
                     .lines()
@@ -327,8 +329,8 @@ fn collect_php_files(
     files: &mut Vec<PathBuf>,
     pending: &mut Vec<PathBuf>,
 ) -> Result<(), String> {
-    let entries = fs::read_dir(dir)
-        .map_err(|err| format!("failed to read {}: {}", dir.display(), err))?;
+    let entries =
+        fs::read_dir(dir).map_err(|err| format!("failed to read {}: {}", dir.display(), err))?;
     for entry in entries.flatten() {
         let path = entry.path();
         let file_type = match entry.file_type() {
@@ -352,8 +354,8 @@ fn collect_php_files(
 }
 
 fn collect_all_php_files(dir: &Path, pending: &mut Vec<PathBuf>) -> Result<(), String> {
-    let entries = fs::read_dir(dir)
-        .map_err(|err| format!("failed to read {}: {}", dir.display(), err))?;
+    let entries =
+        fs::read_dir(dir).map_err(|err| format!("failed to read {}: {}", dir.display(), err))?;
     for entry in entries.flatten() {
         let path = entry.path();
         let file_type = match entry.file_type() {

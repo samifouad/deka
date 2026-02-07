@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use php_rs::parser::ast::visitor::{walk_stmt, walk_type, Visitor};
+use php_rs::parser::ast::visitor::{Visitor, walk_stmt, walk_type};
 use php_rs::parser::ast::{Program, Stmt, Type};
 use php_rs::parser::span::Span;
 
@@ -199,10 +199,7 @@ impl<'ast> Visitor<'ast> for TypeParamWalker<'_> {
     }
 }
 
-fn token_text(
-    token: &php_rs::parser::lexer::token::Token,
-    source: &str,
-) -> Option<String> {
+fn token_text(token: &php_rs::parser::lexer::token::Token, source: &str) -> Option<String> {
     std::str::from_utf8(token.text(source.as_bytes()))
         .ok()
         .map(|text| text.to_string())

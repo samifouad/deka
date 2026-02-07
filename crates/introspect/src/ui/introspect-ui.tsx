@@ -826,6 +826,8 @@ function IntrospectApp({ runtime, archive }: { runtime: string; archive: boolean
 
 export async function runIntrospectUi(runtime: string, archive = false) {
   const ink = withFullScreen(<IntrospectApp runtime={runtime} archive={archive} />)
+  const hold = ink.waitUntilExit()
+  ;(globalThis as { __dekaRuntimeHold?: Promise<void> }).__dekaRuntimeHold = hold
   await ink.start()
-  await ink.waitUntilExit()
+  await hold
 }

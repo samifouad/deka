@@ -237,6 +237,7 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
 
     let index_files = [
         "index.php",
+        "index.phpx",
         "index.html",
         "index.js",
         "index.ts",
@@ -273,7 +274,7 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
 fn detect_mode(path: &Path) -> ServeMode {
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         match ext {
-            "php" => ServeMode::Php,
+            "php" | "phpx" => ServeMode::Php,
             "js" | "ts" | "mjs" | "mts" => ServeMode::Js,
             "html" | "htm" => ServeMode::Static,
             _ => ServeMode::Static,

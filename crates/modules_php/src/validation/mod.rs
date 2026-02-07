@@ -1,19 +1,19 @@
-pub mod imports;
 pub mod exports;
 pub mod generics;
+pub mod imports;
 pub mod jsx;
 pub mod modules;
 pub mod patterns;
 pub mod phpx_rules;
-pub mod syntax;
 pub mod structs;
+pub mod syntax;
 pub mod type_checker;
 pub mod type_syntax;
 
 use php_rs::parser::ast::Program;
 use php_rs::phpx::typeck::ExternalFunctionSig;
-use std::collections::HashMap;
 use serde::Serialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Severity {
@@ -193,13 +193,13 @@ pub fn parse_errors_to_validation_errors(
             let (line, column, underline_len) = if let Some(info) =
                 error.span.line_info(source.as_bytes())
             {
-                let padding = std::cmp::min(
-                    info.line_text.len(),
-                    info.column.saturating_sub(1),
-                );
+                let padding = std::cmp::min(info.line_text.len(), info.column.saturating_sub(1));
                 let highlight_len = std::cmp::max(
                     1,
-                    std::cmp::min(error.span.len(), info.line_text.len().saturating_sub(padding)),
+                    std::cmp::min(
+                        error.span.len(),
+                        info.line_text.len().saturating_sub(padding),
+                    ),
                 );
                 (info.line, info.column, highlight_len)
             } else {

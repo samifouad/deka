@@ -1,0 +1,9 @@
+struct Foo {
+    $x: int = 1;
+}
+
+export function ping() {
+    $payload = { hello: 'world' };
+    $foo = Foo { $x: 2 };
+    return 1;
+}

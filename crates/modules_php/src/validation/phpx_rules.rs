@@ -1,4 +1,4 @@
-use php_rs::parser::ast::visitor::{walk_expr, walk_stmt, Visitor};
+use php_rs::parser::ast::visitor::{Visitor, walk_expr, walk_stmt};
 use php_rs::parser::ast::{BinaryOp, Expr, ExprId, Program, Stmt, StmtId};
 use php_rs::parser::span::Span;
 
@@ -91,13 +91,7 @@ impl<'ast> Visitor<'ast> for NoNullValidator<'_> {
 }
 
 impl NoNullValidator<'_> {
-    fn push_error(
-        &mut self,
-        kind: ErrorKind,
-        span: Span,
-        message: String,
-        help_text: &str,
-    ) {
+    fn push_error(&mut self, kind: ErrorKind, span: Span, message: String, help_text: &str) {
         let (line, column, underline_length) = span_location(span, self.source);
         self.errors.push(ValidationError {
             kind,
@@ -144,13 +138,7 @@ impl<'ast> Visitor<'ast> for NoExceptionValidator<'_> {
 }
 
 impl NoExceptionValidator<'_> {
-    fn push_error(
-        &mut self,
-        kind: ErrorKind,
-        span: Span,
-        message: String,
-        help_text: &str,
-    ) {
+    fn push_error(&mut self, kind: ErrorKind, span: Span, message: String, help_text: &str) {
         let (line, column, underline_length) = span_location(span, self.source);
         self.errors.push(ValidationError {
             kind,
@@ -243,13 +231,7 @@ impl<'ast> Visitor<'ast> for NoOopValidator<'_> {
 }
 
 impl NoOopValidator<'_> {
-    fn push_error(
-        &mut self,
-        kind: ErrorKind,
-        span: Span,
-        message: String,
-        help_text: &str,
-    ) {
+    fn push_error(&mut self, kind: ErrorKind, span: Span, message: String, help_text: &str) {
         let (line, column, underline_length) = span_location(span, self.source);
         self.errors.push(ValidationError {
             kind,
@@ -296,13 +278,7 @@ impl<'ast> Visitor<'ast> for NoNamespaceValidator<'_> {
 }
 
 impl NoNamespaceValidator<'_> {
-    fn push_error(
-        &mut self,
-        kind: ErrorKind,
-        span: Span,
-        message: String,
-        help_text: &str,
-    ) {
+    fn push_error(&mut self, kind: ErrorKind, span: Span, message: String, help_text: &str) {
         let (line, column, underline_length) = span_location(span, self.source);
         self.errors.push(ValidationError {
             kind,

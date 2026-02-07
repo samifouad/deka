@@ -43,8 +43,8 @@ pub fn validate_imports(
             }
         }
 
-    let clean = strip_php_tags_inline(line);
-    let trimmed = clean.trim();
+        let clean = strip_php_tags_inline(line);
+        let trimmed = clean.trim();
 
         if trimmed.is_empty() {
             continue;
@@ -60,10 +60,7 @@ pub fn validate_imports(
                     idx + 1,
                     find_column(line, "import"),
                     trimmed.len(),
-                    format!(
-                        "Import must appear before other code in {}.",
-                        file_path
-                    ),
+                    format!("Import must appear before other code in {}.", file_path),
                     "Move import statements to the top of the file.",
                 ));
                 continue;
@@ -285,7 +282,10 @@ pub(crate) fn parse_import_line(
                 line_number,
                 find_column(raw_line, &local),
                 local.len().max(1),
-                format!("Default imports are not supported for wasm modules in {}.", file_path),
+                format!(
+                    "Default imports are not supported for wasm modules in {}.",
+                    file_path
+                ),
                 "Use named wasm imports: import { fn } from '@user/mod' as wasm.",
                 Some("import { fn } from '@user/mod' as wasm;"),
             ));
@@ -376,14 +376,7 @@ fn import_error(
     message: String,
     help_text: &str,
 ) -> ValidationError {
-    import_error_with_suggestion(
-        line,
-        column,
-        underline_length,
-        message,
-        help_text,
-        None,
-    )
+    import_error_with_suggestion(line, column, underline_length, message, help_text, None)
 }
 
 fn import_error_with_suggestion(
@@ -427,7 +420,9 @@ fn import_warning(
 
 pub(crate) fn is_ident(name: &str) -> bool {
     let mut chars = name.chars();
-    let Some(first) = chars.next() else { return false };
+    let Some(first) = chars.next() else {
+        return false;
+    };
     if !(first == '_' || first.is_ascii_alphabetic()) {
         return false;
     }
@@ -639,8 +634,16 @@ fn is_ident_used(source: &str, name: &str) -> bool {
         if let Some(pos) = source[idx..].find(name) {
             let start = idx + pos;
             let end = start + needle.len();
-            let before = if start == 0 { None } else { Some(bytes[start - 1]) };
-            let after = if end >= bytes.len() { None } else { Some(bytes[end]) };
+            let before = if start == 0 {
+                None
+            } else {
+                Some(bytes[start - 1])
+            };
+            let after = if end >= bytes.len() {
+                None
+            } else {
+                Some(bytes[end])
+            };
             let valid_before = before.map_or(true, |b| !is_ident_char(b));
             let valid_after = after.map_or(true, |b| !is_ident_char(b));
             if valid_before && valid_after {

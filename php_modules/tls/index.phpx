@@ -1,5 +1,5 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { __deka_net_call } from 'internals/net'
+import { bridge } from 'core/bridge'
 
 function normalize_result($raw) {
     if (is_array($raw) && array_key_exists('ok', $raw)) {
@@ -20,7 +20,7 @@ function normalize_result($raw) {
 }
 
 export function upgrade($tcp_handle, $server_name) {
-    $res = normalize_result(__deka_net_call('tls_upgrade', {
+    $res = normalize_result(bridge('net', 'tls_upgrade', {
         handle: (int) $tcp_handle,
         server_name: '' . $server_name
     }))
@@ -38,7 +38,7 @@ export function tls_upgrade($tcp_handle, $server_name) {
 }
 
 export function read($handle, $max_bytes = 4096) {
-    $res = normalize_result(__deka_net_call('read', {
+    $res = normalize_result(bridge('net', 'read', {
         handle: (int) $handle,
         max_bytes: (int) $max_bytes
     }))
@@ -76,7 +76,7 @@ export function tls_read_exact($handle, $count) {
 }
 
 export function write($handle, $data) {
-    $res = normalize_result(__deka_net_call('write', {
+    $res = normalize_result(bridge('net', 'write', {
         handle: (int) $handle,
         data: '' . $data
     }))
@@ -94,7 +94,7 @@ export function tls_write($handle, $data) {
 }
 
 export function close($handle) {
-    return normalize_result(__deka_net_call('close', { handle: (int) $handle }))
+    return normalize_result(bridge('net', 'close', { handle: (int) $handle }))
 }
 
 export function tls_close($handle) {

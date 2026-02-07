@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use php_rs::parser::ast::visitor::{walk_expr, Visitor};
+use php_rs::parser::ast::visitor::{Visitor, walk_expr};
 use php_rs::parser::ast::{ClassMember, Expr, ExprId, MatchArm, Param, Program, Stmt};
 use php_rs::parser::span::Span;
 
@@ -69,12 +69,7 @@ impl MatchValidator<'_> {
                         entry.insert(case_name.clone());
                     }
                     if let Expr::StaticCall { args, .. } = *cond {
-                        self.validate_payload_binding(
-                            &enum_name,
-                            &case_name,
-                            args,
-                            cond.span(),
-                        );
+                        self.validate_payload_binding(&enum_name, &case_name, args, cond.span());
                     }
                 } else {
                     mixed_conditions = true;
@@ -117,7 +112,11 @@ impl MatchValidator<'_> {
         args: &[php_rs::parser::ast::Arg],
         span: Span,
     ) {
-        let Some(info) = self.enums.get(enum_name).and_then(|info| info.cases.get(case_name)) else {
+        let Some(info) = self
+            .enums
+            .get(enum_name)
+            .and_then(|info| info.cases.get(case_name))
+        else {
             return;
         };
         let expected = info.params.len();
@@ -165,7 +164,12 @@ fn collect_enums(program: &Program, source: &str) -> HashMap<String, EnumInfo> {
             if let ClassMember::Case { name, payload, .. } = member {
                 if let Some(case_name) = token_text(name, source) {
                     let params = payload
-                        .map(|params| params.iter().filter_map(|param| param_name(param, source)).collect())
+                        .map(|params| {
+                            params
+                                .iter()
+                                .filter_map(|param| param_name(param, source))
+                                .collect()
+                        })
                         .unwrap_or_default();
                     cases.insert(case_name, EnumCaseInfo { params });
                 }
@@ -175,25 +179,46 @@ fn collect_enums(program: &Program, source: &str) -> HashMap<String, EnumInfo> {
     }
 
     // Built-in enums
-    enums.entry("Option".to_string()).or_insert_with(|| EnumInfo {
-        cases: HashMap::from([
-            ("Some".to_string(), EnumCaseInfo { params: vec!["value".to_string()] }),
-            ("None".to_string(), EnumCaseInfo { params: Vec::new() }),
-        ]),
-    });
-    enums.entry("Result".to_string()).or_insert_with(|| EnumInfo {
-        cases: HashMap::from([
-            ("Ok".to_string(), EnumCaseInfo { params: vec!["value".to_string()] }),
-            ("Err".to_string(), EnumCaseInfo { params: vec!["error".to_string()] }),
-        ]),
-    });
+    enums
+        .entry("Option".to_string())
+        .or_insert_with(|| EnumInfo {
+            cases: HashMap::from([
+                (
+                    "Some".to_string(),
+                    EnumCaseInfo {
+                        params: vec!["value".to_string()],
+                    },
+                ),
+                ("None".to_string(), EnumCaseInfo { params: Vec::new() }),
+            ]),
+        });
+    enums
+        .entry("Result".to_string())
+        .or_insert_with(|| EnumInfo {
+            cases: HashMap::from([
+                (
+                    "Ok".to_string(),
+                    EnumCaseInfo {
+                        params: vec!["value".to_string()],
+                    },
+                ),
+                (
+                    "Err".to_string(),
+                    EnumCaseInfo {
+                        params: vec!["error".to_string()],
+                    },
+                ),
+            ]),
+        });
 
     enums
 }
 
 fn enum_case_from_expr(expr: ExprId<'_>, source: &str) -> Option<(String, String)> {
     match *expr {
-        Expr::ClassConstFetch { class, constant, .. } => {
+        Expr::ClassConstFetch {
+            class, constant, ..
+        } => {
             let class_name = expr_name(class, source)?;
             let case_name = expr_name(constant, source)?;
             Some((class_name, case_name))

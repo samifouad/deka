@@ -8,23 +8,25 @@ use crate::validation::exports::validate_exports;
 use crate::validation::generics::validate_generics;
 use crate::validation::imports::validate_imports;
 use crate::validation::imports::{
-    consume_comment_line, frontmatter_bounds, strip_php_tags_inline, ImportKind, ImportSpec,
+    ImportKind, ImportSpec, consume_comment_line, frontmatter_bounds, strip_php_tags_inline,
 };
 use crate::validation::jsx::{
     validate_components, validate_frontmatter, validate_jsx_expressions, validate_jsx_syntax,
     validate_template_section,
 };
-use crate::validation::modules::{resolve_modules_root, validate_module_resolution, validate_wasm_imports};
+use crate::validation::modules::{
+    resolve_modules_root, validate_module_resolution, validate_wasm_imports,
+};
 use crate::validation::patterns::validate_match_exhaustiveness;
-use crate::validation::syntax::validate_syntax;
-use crate::validation::type_checker::{check_types, check_types_with_externals};
-use crate::validation::type_syntax::validate_type_annotations;
 use crate::validation::phpx_rules::{
     validate_no_exceptions, validate_no_namespace, validate_no_null, validate_no_oop,
 };
 use crate::validation::structs::{validate_struct_definitions, validate_struct_literals};
+use crate::validation::syntax::validate_syntax;
+use crate::validation::type_checker::{check_types, check_types_with_externals};
+use crate::validation::type_syntax::validate_type_annotations;
 use crate::validation::{ErrorKind, Severity, ValidationError, ValidationResult};
-use php_rs::phpx::typeck::{external_functions_from_stub, ExternalFunctionSig};
+use php_rs::phpx::typeck::{ExternalFunctionSig, external_functions_from_stub};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -54,8 +56,7 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
     let type_errors = validate_type_annotations(&program, source);
     errors.extend(type_errors);
 
-    let (mut wasm_functions, wasm_errors) =
-        collect_wasm_stub_signatures(source, file_path, arena);
+    let (mut wasm_functions, wasm_errors) = collect_wasm_stub_signatures(source, file_path, arena);
     errors.extend(wasm_errors);
 
     let type_errors = if wasm_functions.is_empty() {
@@ -95,7 +96,11 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
     ValidationResult {
         errors,
         warnings,
-        ast: if has_parse_errors { None } else { Some(program) },
+        ast: if has_parse_errors {
+            None
+        } else {
+            Some(program)
+        },
         wasm_functions,
     }
 }
@@ -190,11 +195,7 @@ fn collect_wasm_stub_signatures(
                         spec.line,
                         spec.column,
                         spec.from.len().max(1),
-                        format!(
-                            "Failed to read wasm stub {}: {}",
-                            stub_path.display(),
-                            err
-                        ),
+                        format!("Failed to read wasm stub {}: {}", stub_path.display(), err),
                     ));
                     continue;
                 }
@@ -202,8 +203,10 @@ fn collect_wasm_stub_signatures(
             let processed = preprocess_stub_source(&stub_source);
             let program = parse_stub_program(&processed, arena);
             if !program.errors.is_empty() {
-                let mut parse_errors =
-                    crate::validation::parse_errors_to_validation_errors(&stub_source, program.errors);
+                let mut parse_errors = crate::validation::parse_errors_to_validation_errors(
+                    &stub_source,
+                    program.errors,
+                );
                 for err in &mut parse_errors {
                     err.kind = ErrorKind::WasmError;
                     err.message = format!("Wasm stub parse error: {}", err.message);
@@ -392,7 +395,10 @@ fn preprocess_stub_source(source: &str) -> String {
         let line_trimmed_end = line.trim_end_matches('\n');
         let trimmed_no_ws = line_trimmed_end.trim_start();
         if trimmed_no_ws.starts_with("function ") && line_trimmed_end.trim_end().ends_with(';') {
-            let mut replaced = line_trimmed_end.trim_end().trim_end_matches(';').to_string();
+            let mut replaced = line_trimmed_end
+                .trim_end()
+                .trim_end_matches(';')
+                .to_string();
             replaced.push_str(" {}");
             line = replaced;
             if has_newline {

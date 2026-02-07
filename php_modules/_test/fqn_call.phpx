@@ -1,0 +1,4 @@
+export function ping() {
+    if (false) { \__phpx_component_core\isValidElement(false); }
+    return 1;
+}

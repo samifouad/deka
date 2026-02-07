@@ -21,7 +21,12 @@ pub fn validate_exports(source: &str, file_path: &str, program: &Program) -> Vec
     let bounds = frontmatter_bounds(&lines);
     let scan_end = bounds.map(|(_, end)| end).unwrap_or(lines.len());
     let is_template = bounds
-        .map(|(_, end)| lines.iter().skip(end + 1).any(|line| !line.trim().is_empty()))
+        .map(|(_, end)| {
+            lines
+                .iter()
+                .skip(end + 1)
+                .any(|line| !line.trim().is_empty())
+        })
         .unwrap_or(false);
 
     let import_locals = collect_import_locals(&lines, bounds, file_path);
@@ -238,18 +243,16 @@ pub(crate) fn parse_export_list_line(
         .unwrap_or(line)
         .trim_start();
 
-    let rest = rest
-        .strip_prefix('{')
-        .ok_or_else(|| {
-            export_error_with_suggestion(
-                line_number,
-                find_column(raw_line, "export"),
-                line.trim().len(),
-                format!("Invalid export syntax in {}.", file_path),
-                "Expected '{' after export.",
-                Some("export { name };"),
-            )
-        })?;
+    let rest = rest.strip_prefix('{').ok_or_else(|| {
+        export_error_with_suggestion(
+            line_number,
+            find_column(raw_line, "export"),
+            line.trim().len(),
+            format!("Invalid export syntax in {}.", file_path),
+            "Expected '{' after export.",
+            Some("export { name };"),
+        )
+    })?;
 
     let close_idx = rest.find('}').ok_or_else(|| {
         export_error_with_suggestion(
@@ -414,14 +417,7 @@ fn export_error(
     message: String,
     help_text: &str,
 ) -> ValidationError {
-    export_error_with_suggestion(
-        line,
-        column,
-        underline_length,
-        message,
-        help_text,
-        None,
-    )
+    export_error_with_suggestion(line, column, underline_length, message, help_text, None)
 }
 
 fn export_error_with_suggestion(

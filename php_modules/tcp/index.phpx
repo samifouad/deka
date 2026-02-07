@@ -1,5 +1,5 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { __deka_net_call } from 'internals/net'
+import { bridge } from 'core/bridge'
 
 function normalize_result($raw) {
     if (is_array($raw) && array_key_exists('ok', $raw)) {
@@ -25,7 +25,7 @@ export function connect($host, $port, $options = {}) {
         port: (int) $port,
         timeout_ms: is_array($options) && array_key_exists('timeout_ms', $options) ? (int) $options['timeout_ms'] : 5000
     }
-    $res = normalize_result(__deka_net_call('connect', $payload))
+    $res = normalize_result(bridge('net', 'connect', $payload))
     if (!result_is_ok($res)) {
         return result_err($res->error)
     }
@@ -40,7 +40,7 @@ export function tcp_connect($host, $port, $options = {}) {
 }
 
 export function read($handle, $max_bytes = 4096) {
-    $res = normalize_result(__deka_net_call('read', {
+    $res = normalize_result(bridge('net', 'read', {
         handle: (int) $handle,
         max_bytes: (int) $max_bytes
     }))
@@ -78,7 +78,7 @@ export function tcp_read_exact($handle, $count) {
 }
 
 export function write($handle, $data) {
-    $res = normalize_result(__deka_net_call('write', {
+    $res = normalize_result(bridge('net', 'write', {
         handle: (int) $handle,
         data: '' . $data
     }))
@@ -96,7 +96,7 @@ export function tcp_write($handle, $data) {
 }
 
 export function set_deadline($handle, $millis) {
-    return normalize_result(__deka_net_call('set_deadline', {
+    return normalize_result(bridge('net', 'set_deadline', {
         handle: (int) $handle,
         millis: (int) $millis
     }))
@@ -107,7 +107,7 @@ export function tcp_set_deadline($handle, $millis) {
 }
 
 export function close($handle) {
-    return normalize_result(__deka_net_call('close', { handle: (int) $handle }))
+    return normalize_result(bridge('net', 'close', { handle: (int) $handle }))
 }
 
 export function tcp_close($handle) {

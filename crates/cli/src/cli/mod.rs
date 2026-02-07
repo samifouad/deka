@@ -6,12 +6,13 @@ use stdio::{ascii, error as stdio_error, raw};
 // define & export cli's submodules
 pub mod build;
 pub mod compile;
+pub mod db;
 pub mod init;
 pub mod install;
 pub mod lsp;
 pub mod run;
-pub mod serve;
 pub mod self_cmd;
+pub mod serve;
 pub mod test;
 pub mod user;
 

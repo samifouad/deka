@@ -1,0 +1,6 @@
+{
+  "module": "module.wasm",
+  "wit": "module.wit",
+  "instance": "per_request",
+  "abi": "deka-json"
+}

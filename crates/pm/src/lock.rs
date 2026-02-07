@@ -27,7 +27,6 @@ pub struct DekaLock {
     pub lockfile_version: u32,
     pub node: EcosystemSection,
     pub php: EcosystemSection,
-    pub gleam: EcosystemSection,
 }
 
 impl Default for DekaLock {
@@ -36,7 +35,6 @@ impl Default for DekaLock {
             lockfile_version: 1,
             node: EcosystemSection::default(),
             php: EcosystemSection::default(),
-            gleam: EcosystemSection::default(),
         }
     }
 }
@@ -88,9 +86,6 @@ pub fn update_lock_entry(
         }
         "php" => {
             lock.php.packages.insert(name.to_string(), entry);
-        }
-        "gleam" => {
-            lock.gleam.packages.insert(name.to_string(), entry);
         }
         other => {
             return Err(anyhow!("unknown ecosystem {}", other));

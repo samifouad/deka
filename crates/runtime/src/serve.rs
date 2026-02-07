@@ -1,6 +1,7 @@
 use std::path::Path as FsPath;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{sync::{Mutex, OnceLock}};
 
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
@@ -13,6 +14,8 @@ use stdio as stdio_log;
 use transport::{
     DnsOptions, HttpOptions, RedisOptions, TcpOptions, UdpOptions, UnixOptions, WsOptions,
 };
+
+static WATCHER_GUARDS: OnceLock<Mutex<Vec<notify::RecommendedWatcher>>> = OnceLock::new();
 
 pub fn serve(context: &Context) {
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -535,6 +538,11 @@ fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>, dev_mode: bool) -
     watcher
         .watch(watch_root, notify::RecursiveMode::Recursive)
         .map_err(|err| err.to_string())?;
+
+    // Keep watcher alive for process lifetime; dropping it stops event delivery.
+    if let Ok(mut guards) = WATCHER_GUARDS.get_or_init(|| Mutex::new(Vec::new())).lock() {
+        guards.push(watcher);
+    }
 
     tokio::spawn(async move {
         while let Some(event) = rx.recv().await {
