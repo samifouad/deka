@@ -50,7 +50,8 @@
 - [x] Add annotation validation rules (unknown, duplicate, target mismatch, bad args).
 - [x] Add LSP completions/signature help/hover for annotations.
 - [x] Add LSP diagnostics for annotation errors (via typechecker diagnostics pipeline).
-- [ ] Add `@/` alias support in runtime resolver, parser/typechecker, CLI, and LSP.
+- [x] Add `@/` alias support in typechecker and LSP.
+- [ ] Add `@/` alias support in runtime resolver and CLI.
 
 ## Drizzle-Style Client DX
 
