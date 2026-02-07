@@ -89,6 +89,9 @@ message DbStatsResponse {
   uint64 active_handles = 1;
   repeated DriverCount handles_by_driver = 2;
   repeated NamedMetric metrics = 3;
+  uint64 statement_cache_entries = 4;
+  uint64 statement_cache_hits = 5;
+  uint64 statement_cache_misses = 6;
 }
 
 message NamedMetric {

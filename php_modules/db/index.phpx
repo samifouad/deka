@@ -186,6 +186,9 @@ export function stats() {
                 ok: true,
                 active_handles: 0,
                 handles_by_driver: {},
+                statement_cache_entries: 0,
+                statement_cache_hits: 0,
+                statement_cache_misses: 0,
                 metrics: {}
             })
         }

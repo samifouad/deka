@@ -257,6 +257,9 @@ struct DbState {
     next_handle: u64,
     handles: HashMap<u64, DbConn>,
     key_to_handle: HashMap<String, u64>,
+    statement_cache: HashMap<u64, HashSet<String>>,
+    statement_cache_hits: u64,
+    statement_cache_misses: u64,
     metrics: HashMap<String, DbMetric>,
 }
 
@@ -266,6 +269,9 @@ impl DbState {
             next_handle: 1,
             handles: HashMap::new(),
             key_to_handle: HashMap::new(),
+            statement_cache: HashMap::new(),
+            statement_cache_hits: 0,
+            statement_cache_misses: 0,
             metrics: HashMap::new(),
         }
     }
@@ -282,6 +288,23 @@ impl DbState {
             metric.errors += 1;
         }
         metric.total_ms = metric.total_ms.saturating_add(elapsed_ms);
+    }
+
+    fn touch_statement_cache(&mut self, handle: u64, sql: &str) {
+        let entry = self.statement_cache.entry(handle).or_default();
+        if entry.contains(sql) {
+            self.statement_cache_hits = self.statement_cache_hits.saturating_add(1);
+            return;
+        }
+        entry.insert(sql.to_string());
+        self.statement_cache_misses = self.statement_cache_misses.saturating_add(1);
+    }
+
+    fn statement_cache_entries(&self) -> u64 {
+        self.statement_cache
+            .values()
+            .map(|set| set.len() as u64)
+            .sum::<u64>()
     }
 }
 
@@ -1403,14 +1426,18 @@ fn db_call_impl(
                 .unwrap_or_default();
 
             let driver_cfg = {
-                let state = db_state()
+                let mut state = db_state()
                     .lock()
                     .map_err(|_| err("db lock poisoned".to_string()))?;
-                let conn = state
-                    .handles
-                    .get(&handle)
-                    .ok_or_else(|| err(format!("query: unknown handle {}", handle)))?;
-                conn.config.clone()
+                let driver_name = {
+                    let conn = state
+                        .handles
+                        .get(&handle)
+                        .ok_or_else(|| err(format!("query: unknown handle {}", handle)))?;
+                    conn.config.clone()
+                };
+                state.touch_statement_cache(handle, sql);
+                driver_name
             };
             let driver_name = driver_cfg.driver_name();
             let sql = sql.to_string();
@@ -1529,14 +1556,18 @@ fn db_call_impl(
                 .unwrap_or_default();
 
             let driver_cfg = {
-                let state = db_state()
+                let mut state = db_state()
                     .lock()
                     .map_err(|_| err("db lock poisoned".to_string()))?;
-                let conn = state
-                    .handles
-                    .get(&handle)
-                    .ok_or_else(|| err(format!("exec: unknown handle {}", handle)))?;
-                conn.config.clone()
+                let driver_name = {
+                    let conn = state
+                        .handles
+                        .get(&handle)
+                        .ok_or_else(|| err(format!("exec: unknown handle {}", handle)))?;
+                    conn.config.clone()
+                };
+                state.touch_statement_cache(handle, sql);
+                driver_name
             };
             let driver_name = driver_cfg.driver_name();
             let sql = sql.to_string();
@@ -1619,6 +1650,7 @@ fn db_call_impl(
                     false,
                 );
                 state.key_to_handle.remove(&conn.key);
+                state.statement_cache.remove(&handle);
             }
             Ok(serde_json::json!({ "ok": true }))
         }
@@ -1655,6 +1687,9 @@ fn db_call_impl(
                 "ok": true,
                 "active_handles": state.handles.len() as u64,
                 "handles_by_driver": handles_by_driver,
+                "statement_cache_entries": state.statement_cache_entries(),
+                "statement_cache_hits": state.statement_cache_hits,
+                "statement_cache_misses": state.statement_cache_misses,
                 "metrics": metrics
             }))
         }
@@ -2010,6 +2045,18 @@ fn db_json_response_to_proto(
                 .get("active_handles")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
+            let statement_cache_entries = resp
+                .get("statement_cache_entries")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let statement_cache_hits = resp
+                .get("statement_cache_hits")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let statement_cache_misses = resp
+                .get("statement_cache_misses")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
 
             let mut handles_by_driver = Vec::new();
             if let Some(obj) = resp.get("handles_by_driver").and_then(|v| v.as_object()) {
@@ -2057,6 +2104,9 @@ fn db_json_response_to_proto(
                 active_handles,
                 handles_by_driver,
                 metrics,
+                statement_cache_entries,
+                statement_cache_hits,
+                statement_cache_misses,
             }))
         }
     };
@@ -2118,6 +2168,18 @@ fn db_proto_response_to_json(resp: &proto::bridge_v1::DbResponse) -> serde_json:
                 out.insert(
                     "handles_by_driver".to_string(),
                     serde_json::Value::Object(by_driver),
+                );
+                out.insert(
+                    "statement_cache_entries".to_string(),
+                    serde_json::Value::Number(stats.statement_cache_entries.into()),
+                );
+                out.insert(
+                    "statement_cache_hits".to_string(),
+                    serde_json::Value::Number(stats.statement_cache_hits.into()),
+                );
+                out.insert(
+                    "statement_cache_misses".to_string(),
+                    serde_json::Value::Number(stats.statement_cache_misses.into()),
                 );
 
                 let mut metrics = serde_json::Map::new();
@@ -3503,6 +3565,17 @@ mod tests {
         .expect("json query failed");
         assert_ok(&json_query);
 
+        let json_query_again = db_call_impl(
+            "query".to_string(),
+            serde_json::json!({
+                "handle": handle,
+                "sql": "select name, downloads from packages order by downloads asc",
+                "params": []
+            }),
+        )
+        .expect("json query again failed");
+        assert_ok(&json_query_again);
+
         let proto_req = db_action_payload_to_proto_request(
             "query",
             &serde_json::json!({
@@ -3520,6 +3593,52 @@ mod tests {
         assert_ok(&proto_json);
 
         assert_eq!(json_query.get("rows"), proto_json.get("rows"));
+
+        let json_stats = db_call_impl("stats".to_string(), serde_json::json!({}))
+            .expect("json stats failed");
+        assert_ok(&json_stats);
+        assert!(
+            json_stats
+                .get("statement_cache_entries")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
+                >= 1
+        );
+        assert!(
+            json_stats
+                .get("statement_cache_hits")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
+                >= 1
+        );
+        assert!(
+            json_stats
+                .get("statement_cache_misses")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
+                >= 1
+        );
+
+        let proto_stats_req = db_action_payload_to_proto_request("stats", &serde_json::json!({}))
+            .expect("proto stats request build failed");
+        let proto_stats_resp = db_call_proto_impl(&proto_stats_req.encode_to_vec())
+            .expect("proto stats failed");
+        let proto_stats_decoded = proto::bridge_v1::DbResponse::decode(proto_stats_resp.as_slice())
+            .expect("decode stats failed");
+        let proto_stats_json = db_proto_response_to_json(&proto_stats_decoded);
+        assert_ok(&proto_stats_json);
+        assert_eq!(
+            json_stats.get("statement_cache_entries"),
+            proto_stats_json.get("statement_cache_entries")
+        );
+        assert_eq!(
+            json_stats.get("statement_cache_hits"),
+            proto_stats_json.get("statement_cache_hits")
+        );
+        assert_eq!(
+            json_stats.get("statement_cache_misses"),
+            proto_stats_json.get("statement_cache_misses")
+        );
 
         let close_res = db_call_impl("close".to_string(), serde_json::json!({ "handle": handle }))
             .expect("close failed");

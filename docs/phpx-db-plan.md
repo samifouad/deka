@@ -46,6 +46,7 @@ Errors use:
   - `db/sqlite`: `connect`, `query`, `query_one`, `exec`, `begin`, `commit`, `rollback`, `close`
   - `db/mysql`: `connect`, `query`, `query_one`, `exec`, `begin`, `commit`, `rollback`, `close`
 - Implemented: db facade row normalization now preserves native scalar types (`int|float|bool|string|null`) instead of forcing string conversion.
+- Implemented: host-level per-handle statement cache tracking for `query/exec`, surfaced via `db.stats()` as `statement_cache_entries|hits|misses` (JSON + protobuf paths).
 - Verified with `deka run` smoke scripts:
   - sqlite end-to-end `connect/exec/query/close` succeeds.
   - mysql module loads and returns structured errors when query fails.
