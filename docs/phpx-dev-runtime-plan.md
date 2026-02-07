@@ -103,7 +103,7 @@
 - [x] `deka serve` never enables watcher/HMR/dev client behavior.
 - [x] `deka serve --dev` enables watch + HMR transport.
 - [x] Editing a template updates changed DOM nodes without full route replacement.
-- [ ] Islands hydrate by directive schedule while non-island DOM still supports HMR.
+- [x] Islands hydrate by directive schedule while non-island DOM still supports HMR.
 - [x] Tailwind-style utility classes can be used without separate build tooling.
 
 ## Utility CSS Config

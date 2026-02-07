@@ -391,8 +391,11 @@ function __component_render_vnode($node) {
     }
 
     if (is_string($type) && __component_is_component_name($type) && function_exists($type)) {
-        $next = $type($props);
-        return __component_render_node($next);
+        $island = __component_island_meta($type, $props)
+        $call_props = __component_strip_island_props($props)
+        $next = $type($call_props)
+        $html = __component_render_node($next)
+        return __component_wrap_island($html, $island)
     }
 
     if (!is_string($type)) {

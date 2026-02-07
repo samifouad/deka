@@ -37,6 +37,7 @@ Each feature should have at least one fixture file and corresponding `.out` expe
 - [x] JSX context provider + hook
 - [x] renderToString (DOM)
 - [x] Hydration component output
+- [x] Island directive metadata (`clientLoad/Idle/Visible/Media/Only`)
 
 ## Runtime Bridge
 - [x] PHP -> PHPX Object/Struct bridging
@@ -80,6 +81,7 @@ Each feature should have at least one fixture file and corresponding `.out` expe
 | Frontmatter entry | `tests/phpx/modules/frontmatter_entry.phpx` | `.out` |
 | Frontmatter module | `tests/phpx/modules/frontmatter_module.phpx` | `.out` |
 | Hydration component | `tests/phpx/modules/hydration_component.phpx` | `.out` |
+| Island directives | `tests/phpx/modules/island_directives.phpx` | `.out` |
 | PHP bridge object/struct | `tests/phpx/bridge/object_struct_from_php.php` | `.out` |
 | PHP bridge Option | `tests/phpx/bridge/option_from_php.php` | `.out` |
 | PHP bridge Result | `tests/phpx/bridge/result_from_php.php` | `.out` |
