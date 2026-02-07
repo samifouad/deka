@@ -51,9 +51,9 @@
 
 ### 5) Tooling and LSP
 
-- [ ] Ensure import/export diagnostics use plain text in editor diagnostics.
-- [ ] Ensure import completion includes module exports reliably.
-- [ ] Add module path + export completion parity tests for editor integration.
+- [x] Ensure import/export diagnostics use plain text in editor diagnostics.
+- [x] Ensure import completion includes module exports reliably.
+- [x] Add module path + export completion parity tests for editor integration.
 - [ ] Document VS Code + Zed dev-mode workflow and troubleshooting.
 
 ## Phased Rollout

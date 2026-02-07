@@ -1,9 +1,6 @@
 use bumpalo::Bump;
 use modules_php::compiler_api::compile_phpx;
-use modules_php::validation::{
-    format_validation_error, format_validation_warning, Severity, ValidationError,
-    ValidationWarning,
-};
+use modules_php::validation::{Severity, ValidationError, ValidationWarning};
 use php_rs::parser::ast::{
     ClassKind, ClassMember, Expr, ExprId, Name, ObjectKey, Param, Program, Stmt, StmtId, Type,
 };
@@ -433,7 +430,8 @@ async fn main() {
         .await;
 }
 
-fn diagnostic_from_error(file_path: &str, source: &str, error: &ValidationError) -> Diagnostic {
+fn diagnostic_from_error(_file_path: &str, _source: &str, error: &ValidationError) -> Diagnostic {
+    let rendered = diagnostic_message(error.kind.as_str(), &error.message, &error.help_text, error.suggestion.as_deref());
     Diagnostic {
         range: diagnostic_range(error.line, error.column, error.underline_length),
         severity: Some(severity_to_lsp(error.severity)),
@@ -441,16 +439,22 @@ fn diagnostic_from_error(file_path: &str, source: &str, error: &ValidationError)
             error.kind.as_str().to_string(),
         )),
         source: Some("phpx".to_string()),
-        message: format_validation_error(source, file_path, error),
+        message: strip_ansi_codes(&rendered),
         ..Diagnostic::default()
     }
 }
 
 fn diagnostic_from_warning(
-    file_path: &str,
-    source: &str,
+    _file_path: &str,
+    _source: &str,
     warning: &ValidationWarning,
 ) -> Diagnostic {
+    let rendered = diagnostic_message(
+        warning.kind.as_str(),
+        &warning.message,
+        &warning.help_text,
+        warning.suggestion.as_deref(),
+    );
     Diagnostic {
         range: diagnostic_range(warning.line, warning.column, warning.underline_length),
         severity: Some(severity_to_lsp(warning.severity)),
@@ -458,9 +462,72 @@ fn diagnostic_from_warning(
             warning.kind.as_str().to_string(),
         )),
         source: Some("phpx".to_string()),
-        message: format_validation_warning(source, file_path, warning),
+        message: strip_ansi_codes(&rendered),
         ..Diagnostic::default()
     }
+}
+
+fn diagnostic_message(kind: &str, message: &str, help_text: &str, suggestion: Option<&str>) -> String {
+    let mut out = String::new();
+    out.push_str(kind);
+    out.push_str(": ");
+    out.push_str(message);
+    if !help_text.trim().is_empty() {
+        out.push('\n');
+        out.push_str("help: ");
+        out.push_str(help_text.trim());
+    }
+    if let Some(suggestion) = suggestion {
+        if !suggestion.trim().is_empty() {
+            out.push('\n');
+            out.push_str("suggestion: ");
+            out.push_str(suggestion.trim());
+        }
+    }
+    out
+}
+
+fn strip_ansi_codes(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut out = String::with_capacity(input.len());
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'[' {
+            i += 2;
+            while i < bytes.len() {
+                let b = bytes[i];
+                if (b as char).is_ascii_alphabetic() {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+
+    let bytes = out.as_bytes();
+    let mut cleaned = String::with_capacity(out.len());
+    let mut j = 0usize;
+    while j < bytes.len() {
+        if bytes[j] == b'[' {
+            let mut k = j + 1;
+            let mut saw_digit = false;
+            while k < bytes.len() && (bytes[k].is_ascii_digit() || bytes[k] == b';') {
+                saw_digit = true;
+                k += 1;
+            }
+            if saw_digit && k < bytes.len() && bytes[k] == b'm' {
+                j = k + 1;
+                continue;
+            }
+        }
+        cleaned.push(bytes[j] as char);
+        j += 1;
+    }
+    cleaned
 }
 
 fn severity_to_lsp(severity: Severity) -> DiagnosticSeverity {
@@ -1758,6 +1825,15 @@ fn parse_exported_names(source: &str) -> Vec<ExportInfo> {
             continue;
         }
         let rest = trimmed.strip_prefix("export ").unwrap_or(trimmed);
+        if let Some(name) = rest.strip_prefix("function ") {
+            if let Some(token) = export_token(name) {
+                exports.push(ExportInfo {
+                    name: token,
+                    kind: Some(CompletionItemKind::FUNCTION),
+                });
+            }
+            continue;
+        }
         if let Some(open) = rest.find('{') {
             let close = rest.rfind('}').unwrap_or(rest.len());
             let inner = &rest[open + 1..close];
@@ -1780,46 +1856,37 @@ fn parse_exported_names(source: &str) -> Vec<ExportInfo> {
             }
             continue;
         }
-        if let Some(name) = rest.strip_prefix("function ") {
-            if let Some(token) = name.split_whitespace().next() {
-                exports.push(ExportInfo {
-                    name: token.to_string(),
-                    kind: Some(CompletionItemKind::FUNCTION),
-                });
-            }
-            continue;
-        }
         if let Some(name) = rest.strip_prefix("const ") {
-            if let Some(token) = name.split_whitespace().next() {
+            if let Some(token) = export_token(name) {
                 exports.push(ExportInfo {
-                    name: token.to_string(),
+                    name: token,
                     kind: Some(CompletionItemKind::CONSTANT),
                 });
             }
             continue;
         }
         if let Some(name) = rest.strip_prefix("type ") {
-            if let Some(token) = name.split_whitespace().next() {
+            if let Some(token) = export_token(name) {
                 exports.push(ExportInfo {
-                    name: token.to_string(),
+                    name: token,
                     kind: Some(CompletionItemKind::TYPE_PARAMETER),
                 });
             }
             continue;
         }
         if let Some(name) = rest.strip_prefix("struct ") {
-            if let Some(token) = name.split_whitespace().next() {
+            if let Some(token) = export_token(name) {
                 exports.push(ExportInfo {
-                    name: token.to_string(),
+                    name: token,
                     kind: Some(CompletionItemKind::STRUCT),
                 });
             }
             continue;
         }
         if let Some(name) = rest.strip_prefix("enum ") {
-            if let Some(token) = name.split_whitespace().next() {
+            if let Some(token) = export_token(name) {
                 exports.push(ExportInfo {
-                    name: token.to_string(),
+                    name: token,
                     kind: Some(CompletionItemKind::ENUM),
                 });
             }
@@ -1827,6 +1894,21 @@ fn parse_exported_names(source: &str) -> Vec<ExportInfo> {
         }
     }
     exports
+}
+
+fn export_token(input: &str) -> Option<String> {
+    let raw = input.trim_start().split_whitespace().next()?;
+    let cleaned = raw
+        .trim_end_matches(|c: char| c == ';' || c == ',' || c == '{')
+        .split('(')
+        .next()
+        .unwrap_or(raw)
+        .trim();
+    if cleaned.is_empty() {
+        None
+    } else {
+        Some(cleaned.to_string())
+    }
 }
 
 fn completion_for_import(
@@ -1849,7 +1931,8 @@ fn completion_for_import(
     }
     let rel = offset.saturating_sub(line_start);
 
-    if let (Some(open), Some(close)) = (line_text.find('{'), line_text.find('}')) {
+    if let Some(open) = line_text.find('{') {
+        let close = line_text.find('}').unwrap_or(line_text.len());
         if rel > open && rel <= close {
             let module_spec = parse_module_path(line_text)?;
             let root = find_php_modules_root(Path::new(file_path), workspace_roots)?;
@@ -2519,5 +2602,45 @@ mod tests {
 
         let resolved = find_php_modules_root(&file, std::slice::from_ref(&workspace)).expect("resolve modules");
         assert_eq!(resolved, php_modules);
+    }
+
+    #[test]
+    fn completes_named_exports_for_import_clause() {
+        let workspace = temp_dir("phpx_lsp_import_exports");
+        let php_modules = workspace.join("php_modules");
+        let db = php_modules.join("db");
+        fs::create_dir_all(&db).expect("mkdir db");
+        fs::write(
+            db.join("index.phpx"),
+            "export function stats() {}\nexport function status() {}\n",
+        )
+        .expect("write module");
+        let file = workspace.join("main.phpx");
+        fs::write(&file, "import { sta } from 'db'\n").expect("write main");
+
+        let source = fs::read_to_string(&file).expect("read main");
+        let offset = source.find("sta").expect("sta") + 3;
+        let items = completion_for_import(&source, file.to_str().expect("file"), offset, std::slice::from_ref(&workspace))
+            .expect("completion");
+        let labels: Vec<String> = items.into_iter().map(|item| item.label).collect();
+        assert!(labels.iter().any(|label| label == "stats"), "labels={labels:?}");
+        assert!(labels.iter().any(|label| label == "status"), "labels={labels:?}");
+    }
+
+    #[test]
+    fn completes_named_exports_without_closing_brace() {
+        let workspace = temp_dir("phpx_lsp_import_partial");
+        let php_modules = workspace.join("php_modules");
+        let db = php_modules.join("db");
+        fs::create_dir_all(&db).expect("mkdir db");
+        fs::write(db.join("index.phpx"), "export function stats() {}\n").expect("write module");
+        let file = workspace.join("main.phpx");
+        let source = "import { sta from 'db'\n";
+
+        let offset = source.find("sta").expect("sta") + 3;
+        let items = completion_for_import(source, file.to_str().expect("file"), offset, std::slice::from_ref(&workspace))
+            .expect("completion");
+        let labels: Vec<String> = items.into_iter().map(|item| item.label).collect();
+        assert!(labels.iter().any(|label| label == "stats"), "labels={labels:?}");
     }
 }

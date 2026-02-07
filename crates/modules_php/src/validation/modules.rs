@@ -334,6 +334,21 @@ fn is_template_module(source: &str) -> bool {
 }
 
 pub(crate) fn resolve_modules_root(file_path: &str) -> Option<PathBuf> {
+    if let Ok(root) = std::env::var("PHPX_MODULE_ROOT") {
+        let root = PathBuf::from(root);
+        let candidate = root.join("php_modules");
+        if candidate.exists() {
+            return Some(candidate);
+        }
+        if root
+            .file_name()
+            .is_some_and(|name| name == "php_modules")
+            && root.exists()
+        {
+            return Some(root);
+        }
+    }
+
     let path = Path::new(file_path);
     let dir = if path.is_dir() {
         path.to_path_buf()
@@ -356,6 +371,21 @@ pub(crate) fn resolve_modules_root(file_path: &str) -> Option<PathBuf> {
         let candidate = ancestor.join("php_modules");
         if candidate.exists() {
             return Some(candidate);
+        }
+    }
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        if let Some(root) = find_project_root(&current_dir) {
+            let candidate = root.join("php_modules");
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+        for ancestor in current_dir.ancestors() {
+            let candidate = ancestor.join("php_modules");
+            if candidate.exists() {
+                return Some(candidate);
+            }
         }
     }
     None
