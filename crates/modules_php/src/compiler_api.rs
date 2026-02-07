@@ -329,16 +329,28 @@ fn resolve_wasm_stub_path(file_path: &str, spec: &ImportSpec) -> Option<PathBuf>
     let modules_root = resolve_modules_root(file_path)?;
     let raw = spec.from.trim();
     let is_relative = raw.starts_with('.');
+    let is_project_alias = raw.starts_with("@/");
+    let spec_path = raw.strip_prefix("@/").unwrap_or(raw);
     let base_dir = if is_relative {
         Path::new(file_path)
+            .parent()
+            .unwrap_or(modules_root.as_path())
+            .to_path_buf()
+    } else if is_project_alias {
+        modules_root
             .parent()
             .unwrap_or(modules_root.as_path())
             .to_path_buf()
     } else {
         modules_root.clone()
     };
-    let root_path = base_dir.join(raw);
-    if root_path.strip_prefix(&modules_root).ok().is_none() {
+    let root_path = base_dir.join(spec_path);
+    let allowed_root = if is_project_alias {
+        modules_root.parent().unwrap_or(modules_root.as_path())
+    } else {
+        modules_root.as_path()
+    };
+    if root_path.strip_prefix(allowed_root).ok().is_none() {
         return None;
     }
     let manifest_path = root_path.join("deka.json");
