@@ -1,5 +1,5 @@
 const vscode = require('vscode')
-const { LanguageClient, TransportKind } = require('vscode-languageclient/node')
+const { LanguageClient, TransportKind, State } = require('vscode-languageclient/node')
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
@@ -135,6 +135,11 @@ async function startClient(context) {
 
   client.onDidChangeState((event) => {
     output.appendLine(`[phpx] client state changed: ${event.oldState} -> ${event.newState}`)
+    if (event.newState === State.StartFailed) {
+      vscode.window.showErrorMessage(
+        'PHPX language server failed to start. Open Output -> PHPX for details.'
+      )
+    }
   })
 
   try {
@@ -148,7 +153,16 @@ async function startClient(context) {
 
 async function restartClient(context) {
   if (client) {
-    await client.stop()
+    try {
+      // stop() throws when client is already in StartFailed; ignore and recreate.
+      if (client.state === State.Running || client.state === State.Starting) {
+        await client.stop()
+      }
+    } catch (err) {
+      if (output) {
+        output.appendLine(`[phpx] stop warning: ${String(err)}`)
+      }
+    }
     client = null
   }
   await startClient(context)
