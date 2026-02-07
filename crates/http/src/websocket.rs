@@ -72,8 +72,15 @@ pub async fn handle_hmr_websocket(socket: WebSocket) {
 
 pub fn broadcast_hmr_changed(paths: &[String]) {
     let payload = serde_json::json!({
-        "type": "changed",
+        "type": "patch",
+        "schema": 1,
         "paths": paths,
+        "ops": [
+            {
+                "op": "swap",
+                "selector": "#app",
+            }
+        ],
     })
     .to_string();
 
