@@ -549,12 +549,14 @@ fn generate_db_artifacts(cwd: &Path, source: &Path, models: &[ModelDef]) -> Resu
     let meta_path = db_dir.join("meta.phpx");
     let state_path = db_dir.join("_state.json");
     let migration_path = migrations_dir.join("0001_init.sql");
+    let schema_path = generated_dir.join("schema.json");
 
     let index_body = render_index_phpx();
     let client_body = render_client_phpx(models);
     let meta_body = render_meta_phpx(models);
     let state_body = render_state_json(source, models);
     let migration_body = render_init_migration(models);
+    let schema_body = render_generated_schema_json(models);
 
     fs::write(&index_path, index_body)
         .map_err(|e| format!("failed to write {}: {}", index_path.display(), e))?;
@@ -566,8 +568,10 @@ fn generate_db_artifacts(cwd: &Path, source: &Path, models: &[ModelDef]) -> Resu
         .map_err(|e| format!("failed to write {}: {}", state_path.display(), e))?;
     fs::write(&migration_path, migration_body)
         .map_err(|e| format!("failed to write {}: {}", migration_path.display(), e))?;
+    fs::write(&schema_path, schema_body)
+        .map_err(|e| format!("failed to write {}: {}", schema_path.display(), e))?;
 
-    Ok(5)
+    Ok(6)
 }
 
 fn render_index_phpx() -> String {
@@ -677,6 +681,42 @@ fn render_state_json(source: &Path, models: &[ModelDef]) -> String {
         "generated_at_unix": generated_at,
         "model_count": models.len(),
         "models": models.iter().map(|m| m.name.clone()).collect::<Vec<_>>(),
+    });
+    serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".to_string())
+}
+
+fn render_generated_schema_json(models: &[ModelDef]) -> String {
+    let payload = json!({
+        "version": 1,
+        "models": models
+            .iter()
+            .map(|model| {
+                json!({
+                    "name": model.name,
+                    "table": to_table_name(&model.name),
+                    "fields": model.fields
+                        .iter()
+                        .map(|field| {
+                            let (sql_type, nullable) = map_sql_type(&field.ty);
+                            json!({
+                                "name": field.name,
+                                "db_name": field.mapped_name(),
+                                "type": field.ty,
+                                "sql_type": sql_type,
+                                "nullable": nullable,
+                                "annotations": field.annotations
+                                    .iter()
+                                    .map(|ann| json!({
+                                        "name": ann.name,
+                                        "args": ann.args,
+                                    }))
+                                    .collect::<Vec<_>>(),
+                            })
+                        })
+                        .collect::<Vec<_>>(),
+                })
+            })
+            .collect::<Vec<_>>(),
     });
     serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".to_string())
 }
@@ -1017,6 +1057,20 @@ struct User {
         assert!(client.contains("update: function($model)"));
         assert!(client.contains("delete: function($model)"));
         assert!(client.contains("transaction: function($fn)"));
+    }
+
+    #[test]
+    fn generated_schema_json_contains_db_names() {
+        let source = r#"
+struct User {
+  $id: int @id @autoIncrement
+  $email: string @map("email_address")
+}
+"#;
+        let models = extract_struct_models(source, "inline.phpx".to_string()).expect("models");
+        let schema = super::render_generated_schema_json(&models);
+        assert!(schema.contains("\"table\": \"users\""));
+        assert!(schema.contains("\"db_name\": \"email_address\""));
     }
 
     #[test]
