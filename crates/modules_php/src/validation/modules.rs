@@ -62,7 +62,7 @@ pub fn validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationErr
         if spec.kind != ImportKind::Wasm {
             continue;
         }
-        if spec.from.starts_with('@') && !is_valid_user_module(&spec.from) {
+        if spec.from.starts_with('@') && !spec.from.starts_with("@/") && !is_valid_user_module(&spec.from) {
             errors.push(wasm_error(
                 spec.line,
                 spec.column,
@@ -136,7 +136,7 @@ impl ModuleGraph {
             if spec.kind == ImportKind::Wasm {
                 continue;
             }
-            if spec.from.starts_with('@') && !is_valid_user_module(&spec.from) {
+            if spec.from.starts_with('@') && !spec.from.starts_with("@/") && !is_valid_user_module(&spec.from) {
                 errors.push(module_error(
                     spec.line,
                     spec.column,
@@ -442,10 +442,15 @@ fn resolve_import_target(
 ) -> Result<ResolvedImportTarget, ValidationError> {
     let raw = raw.trim();
     let is_relative = raw.starts_with('.');
+    let is_project_alias = raw.starts_with("@/");
+    let spec_path = raw.strip_prefix("@/").unwrap_or(raw);
     let base_dir = if is_relative {
         Path::new(current_file_path)
             .parent()
             .map(PathBuf::from)
+    } else if is_project_alias {
+        modules_root
+            .and_then(|root| root.parent().map(PathBuf::from))
     } else {
         modules_root.map(PathBuf::from)
     }
@@ -462,7 +467,7 @@ fn resolve_import_target(
         )
     })?;
 
-    let base_path = base_dir.join(raw);
+    let base_path = base_dir.join(spec_path);
     let mut candidates = Vec::new();
     if raw.ends_with(".phpx") {
         candidates.push(base_path.clone());
@@ -470,7 +475,7 @@ fn resolve_import_target(
         candidates.push(base_path.with_extension("phpx"));
         candidates.push(base_path.join("index.phpx"));
     }
-    if !is_relative {
+    if !is_relative && !is_project_alias {
         if let Some(root) = modules_root {
             candidates.push(root.join(format!("{raw}.phpx")));
             candidates.push(root.join(raw).join("index.phpx"));
@@ -479,7 +484,18 @@ fn resolve_import_target(
 
     for candidate in candidates {
         if candidate.exists() {
-            if let Some(root) = modules_root {
+            if is_project_alias {
+                if let Some(project_root) = modules_root.and_then(|root| root.parent()) {
+                    if let Ok(rel) = candidate.strip_prefix(project_root) {
+                        let rel = rel.to_string_lossy().replace('\\', "/");
+                        let module_id = format!("@/{}", module_id_from_rel(&rel));
+                        return Ok(ResolvedImportTarget {
+                            module_id,
+                            file_path: candidate,
+                        });
+                    }
+                }
+            } else if let Some(root) = modules_root {
                 if let Ok(rel) = candidate.strip_prefix(root) {
                     let rel = rel.to_string_lossy().replace('\\', "/");
                     let module_id = module_id_from_rel(&rel);
@@ -537,29 +553,47 @@ fn resolve_wasm_target(
     })?;
 
     let is_relative = raw.starts_with('.');
+    let is_project_alias = raw.starts_with("@/");
+    let spec_path = raw.strip_prefix("@/").unwrap_or(raw);
     let base_dir = if is_relative {
         Path::new(current_file_path)
+            .parent()
+            .unwrap_or(modules_root)
+            .to_path_buf()
+    } else if is_project_alias {
+        modules_root
             .parent()
             .unwrap_or(modules_root)
             .to_path_buf()
     } else {
         modules_root.to_path_buf()
     };
-    let root_path = base_dir.join(raw);
+    let root_path = base_dir.join(spec_path);
+    let allowed_root = if is_project_alias {
+        modules_root.parent().unwrap_or(modules_root)
+    } else {
+        modules_root
+    };
     let rel = root_path
-        .strip_prefix(modules_root)
+        .strip_prefix(allowed_root)
         .ok()
-        .and_then(|rel| Some(rel.to_string_lossy().replace('\\', "/")));
+        .map(|rel| rel.to_string_lossy().replace('\\', "/"));
     if rel.as_deref().unwrap_or("").starts_with("..") || rel.is_none() {
         return Err(wasm_error(
             1,
             1,
             raw.len().max(1),
             format!(
-                "Wasm import must resolve inside php_modules/ ({}: {}).",
-                current_file_path, raw
+                "Wasm import must resolve inside {} ({}: {}).",
+                if is_project_alias { "project root" } else { "php_modules/" },
+                current_file_path,
+                raw
             ),
-            "Move the wasm module under php_modules/.",
+            if is_project_alias {
+                "Move the wasm module under the project root."
+            } else {
+                "Move the wasm module under php_modules/."
+            },
         ));
     }
 
