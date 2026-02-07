@@ -28,7 +28,13 @@ pub fn serve(context: &Context) {
 async fn serve_async(context: &Context) -> Result<(), String> {
     init_env();
 
-    let watch_enabled = watch_enabled(context);
+    let dev_mode = dev_enabled(context);
+    let watch_enabled = watch_enabled(context) || dev_mode;
+    if dev_mode && std::env::var("DEKA_DEV").is_err() {
+        unsafe {
+            std::env::set_var("DEKA_DEV", "1");
+        }
+    }
     let resolved = runtime_config::resolve_handler_path(&context.handler.input)
         .map_err(|err| format!("Failed to resolve handler path: {}", err))?;
 
@@ -48,6 +54,9 @@ async fn serve_async(context: &Context) -> Result<(), String> {
     let handler_source = load_handler_source(&handler_path, &resolved.mode, is_static_dir)?;
 
     stdio_log::log("handler", &format!("loaded {}", handler_path));
+    if dev_mode {
+        stdio_log::log("dev", "enabled");
+    }
 
     // For JS/TS files, use run-mode (Bun/Node compatible) instead of handler mode
     let is_js_mode = matches!(resolved.mode, runtime_config::ServeMode::Js);
@@ -79,7 +88,7 @@ async fn serve_async(context: &Context) -> Result<(), String> {
     let _ = set_engine(Arc::clone(&engine));
 
     if watch_enabled {
-        if let Err(err) = start_watch(&handler_path, Arc::clone(&engine)) {
+        if let Err(err) = start_watch(&handler_path, Arc::clone(&engine), dev_mode) {
             tracing::warn!("watch mode failed: {}", err);
         }
     }
@@ -153,6 +162,15 @@ fn watch_enabled(context: &Context) -> bool {
         return true;
     }
     std::env::var("DEKA_WATCH")
+        .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+}
+
+fn dev_enabled(context: &Context) -> bool {
+    if context.args.flags.contains_key("--dev") {
+        return true;
+    }
+    std::env::var("DEKA_DEV")
         .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
         .unwrap_or(false)
 }
@@ -487,7 +505,7 @@ fn now_millis() -> u64 {
         .as_millis() as u64
 }
 
-fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>) -> Result<(), String> {
+fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>, dev_mode: bool) -> Result<(), String> {
     let path = FsPath::new(handler_path);
     let watch_root = path.parent().unwrap_or_else(|| FsPath::new("."));
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<notify::Result<notify::Event>>();
@@ -504,7 +522,16 @@ fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>) -> Result<(), Str
     tokio::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
-                Ok(_) => {
+                Ok(event) => {
+                    if dev_mode {
+                        let mut changed = Vec::new();
+                        for path in &event.paths {
+                            changed.push(path.to_string_lossy().to_string());
+                        }
+                        if !changed.is_empty() {
+                            stdio_log::log("hmr", &format!("changed {}", changed.join(", ")));
+                        }
+                    }
                     tokio::time::sleep(Duration::from_millis(5)).await;
                     let evicted = engine.pool().evict_all().await;
                     if evicted > 0 {
