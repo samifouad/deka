@@ -5,7 +5,7 @@
 - [ ] Use Bluesky OAuth as the primary user identity for linkhash.
 - [ ] Map Bluesky handle to package namespace (`@handle/package`).
 - [x] Introduce canonical immutable package IDs (`linkha.sh/lh_<sha256(...)>`).
-- [ ] Issue scoped publish tokens for CLI use (`read`, `read:write`, `read:write:delete`).
+- [x] Issue scoped publish tokens for CLI use (`read`, `read:write`, `read:write:delete`).
 - [ ] Provide first-class PHPX auth primitives (`crypto`, `jwt`, `cookies`).
 - [ ] Add framework-level request context providers (React-like provider model, server-first).
 
@@ -50,10 +50,10 @@
 
 - [ ] `/auth/login` redirect to Bluesky OAuth
 - [ ] `/auth/callback` code exchange + identity fetch
-- [ ] local account/org mapping from Bluesky identity
-- [ ] session cookie issuance and rotation
-- [ ] PAT management (create/list/revoke) with scope + expiry
-- [ ] token hashing-at-rest + last-used metadata
+- [x] local account/org mapping from Bluesky identity (dev-login path in place, Bluesky callback wiring pending)
+- [x] session cookie issuance and rotation
+- [x] PAT management (create/list/revoke) with scope + expiry
+- [x] token hashing-at-rest + last-used metadata
 
 ## Registry Permission Model
 
@@ -82,12 +82,12 @@
 
 ## Hardening Pass (After Bulk Auth Build)
 
-- [ ] Rotate session ID on login/privilege changes (fixation protection).
-- [ ] Add session idle timeout + absolute timeout enforcement.
+- [x] Rotate session ID on login/privilege changes (fixation protection).
+- [x] Add session idle timeout + absolute timeout enforcement.
 - [ ] Enforce PKCE + OAuth state + nonce checks.
 - [ ] Add strict redirect URI allowlist.
 - [ ] Add CSRF protection for state-changing browser endpoints.
-- [ ] One-time PAT reveal + hashed-at-rest token storage.
+- [x] One-time PAT reveal + hashed-at-rest token storage.
 - [ ] Add PAT last-used metadata + bulk revoke.
 - [ ] Add org role model (`owner`, `maintainer`, `publisher`, `viewer`).
 - [ ] Add reserved namespace policy.
