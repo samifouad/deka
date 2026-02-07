@@ -45,6 +45,7 @@ Errors use:
   - `db/postgres`: `connect`, `query`, `query_one`, `exec`, `begin`, `commit`, `rollback`, `close`
   - `db/sqlite`: `connect`, `query`, `query_one`, `exec`, `begin`, `commit`, `rollback`, `close`
   - `db/mysql`: `connect`, `query`, `query_one`, `exec`, `begin`, `commit`, `rollback`, `close`
+- Implemented: db facade row normalization now preserves native scalar types (`int|float|bool|string|null`) instead of forcing string conversion.
 - Verified with `deka run` smoke scripts:
   - sqlite end-to-end `connect/exec/query/close` succeeds.
   - mysql module loads and returns structured errors when query fails.

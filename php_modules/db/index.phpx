@@ -1,5 +1,5 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { __deka_db_call } from 'internals/wasm'
+import { bridge } from 'core/bridge'
 
 function normalize_result($raw) {
     if (is_array($raw) && array_key_exists('ok', $raw)) {
@@ -44,18 +44,7 @@ function extract_rows($res) {
 }
 
 function normalize_cell($value) {
-    if ($value === null) {
-        return null
-    }
-    if (is_string($value)) {
-        return $value
-    }
-    if (is_bool($value)) {
-        return $value ? '1' : '0'
-    }
-    if (is_int($value) || is_float($value)) {
-        return '' . $value
-    }
+    // Preserve native scalar types from host drivers.
     return $value
 }
 
@@ -110,7 +99,7 @@ function normalize_params($params) {
 }
 
 export function open($driver, $config) {
-    $raw = __deka_db_call('open', {
+    $raw = bridge('db', 'open', {
         driver: $driver,
         config: $config
     })
@@ -123,7 +112,7 @@ export function open_handle($driver, $config) {
 
 export function query($handle, $sql, $params = []) {
     $safe_params = normalize_params($params)
-    $raw = __deka_db_call('query', {
+    $raw = bridge('db', 'query', {
         handle: $handle,
         sql: $sql,
         params: $safe_params
@@ -148,7 +137,7 @@ export function query_one($handle, $sql, $params = []) {
 
 export function exec($handle, $sql, $params = []) {
     $safe_params = normalize_params($params)
-    $raw = __deka_db_call('exec', {
+    $raw = bridge('db', 'exec', {
         handle: $handle,
         sql: $sql,
         params: $safe_params
@@ -169,26 +158,37 @@ export function affected_rows($res) {
 }
 
 export function begin($handle) {
-    $raw = __deka_db_call('begin', { handle: $handle })
+    $raw = bridge('db', 'begin', { handle: $handle })
     return normalize_result($raw)
 }
 
 export function commit($handle) {
-    $raw = __deka_db_call('commit', { handle: $handle })
+    $raw = bridge('db', 'commit', { handle: $handle })
     return normalize_result($raw)
 }
 
 export function rollback($handle) {
-    $raw = __deka_db_call('rollback', { handle: $handle })
+    $raw = bridge('db', 'rollback', { handle: $handle })
     return normalize_result($raw)
 }
 
 export function close($handle) {
-    $raw = __deka_db_call('close', { handle: $handle })
+    $raw = bridge('db', 'close', { handle: $handle })
     return normalize_result($raw)
 }
 
 export function stats() {
-    $raw = __deka_db_call('stats', {})
-    return normalize_result($raw)
+    $raw = bridge('db', 'stats', {})
+    $res = normalize_result($raw)
+    if (!result_is_ok($res)) {
+        if (is_string($res->error) && strpos($res->error, "unknown db action 'stats'") !== false) {
+            return result_ok({
+                ok: true,
+                active_handles: 0,
+                handles_by_driver: {},
+                metrics: {}
+            })
+        }
+    }
+    return $res
 }

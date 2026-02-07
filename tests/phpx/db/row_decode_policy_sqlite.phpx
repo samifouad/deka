@@ -1,5 +1,5 @@
 /*
-TEST: db facade normalizes row scalar values to string|null across drivers.
+TEST: db facade preserves native scalar row values across drivers.
 This test uses sqlite for deterministic no-network execution.
 */
 import { connect, query_one, close } from 'db/sqlite'
@@ -20,7 +20,7 @@ if (!result_is_ok($row)) {
     return
 }
 
-if (!is_string($row->value['i']) || !is_string($row->value['f']) || $row->value['n'] !== null) {
+if (!is_int($row->value['i']) || !is_float($row->value['f']) || $row->value['n'] !== null) {
     echo "ERR type\n"
     return
 }
