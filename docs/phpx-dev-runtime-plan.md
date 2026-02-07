@@ -66,9 +66,9 @@
 
 ### Phase B: HMR Transport
 
-- [ ] WS endpoint (`/_deka/hmr`) and event protocol.
-- [ ] Browser dev client bootstrap and reconnect logic.
-- [ ] Basic reload fallback when patching is unavailable.
+- [x] WS endpoint (`/_deka/hmr`) and event protocol.
+- [x] Browser dev client bootstrap and reconnect logic.
+- [x] Basic reload fallback when patching is unavailable.
 
 ### Phase C: Granular DOM Patches
 

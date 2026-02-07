@@ -530,6 +530,7 @@ fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>, dev_mode: bool) -
                         }
                         if !changed.is_empty() {
                             stdio_log::log("hmr", &format!("changed {}", changed.join(", ")));
+                            transport::notify_hmr_changed(&changed);
                         }
                     }
                     tokio::time::sleep(Duration::from_millis(5)).await;

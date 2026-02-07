@@ -18,6 +18,7 @@ struct WsEntry {
 }
 
 static WS_REGISTRY: OnceLock<Mutex<HashMap<u64, WsEntry>>> = OnceLock::new();
+static HMR_REGISTRY: OnceLock<Mutex<HashMap<u64, mpsc::UnboundedSender<Message>>>> = OnceLock::new();
 
 pub fn register_sender(sender: mpsc::UnboundedSender<Message>, pending: Arc<AtomicUsize>) -> u64 {
     let id = NEXT_WS_ID.fetch_add(1, Ordering::Relaxed);
@@ -31,6 +32,67 @@ pub fn register_sender(sender: mpsc::UnboundedSender<Message>, pending: Arc<Atom
 pub fn unregister_sender(id: u64) {
     if let Some(registry) = WS_REGISTRY.get() {
         if let Ok(mut guard) = registry.lock() {
+            guard.remove(&id);
+        }
+    }
+}
+
+pub async fn handle_hmr_websocket(socket: WebSocket) {
+    let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+    let id = NEXT_WS_ID.fetch_add(1, Ordering::Relaxed);
+    let registry = HMR_REGISTRY.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(mut guard) = registry.lock() {
+        guard.insert(id, tx);
+    }
+
+    let (mut ws_sender, mut ws_receiver) = socket.split();
+    let write_task = tokio::spawn(async move {
+        while let Some(message) = rx.recv().await {
+            if ws_sender.send(message).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    while let Some(message) = ws_receiver.next().await {
+        match message {
+            Ok(Message::Close(_)) => break,
+            Ok(_) => {}
+            Err(_) => break,
+        }
+    }
+
+    if let Some(registry) = HMR_REGISTRY.get() {
+        if let Ok(mut guard) = registry.lock() {
+            guard.remove(&id);
+        }
+    }
+    write_task.abort();
+}
+
+pub fn broadcast_hmr_changed(paths: &[String]) {
+    let payload = serde_json::json!({
+        "type": "reload",
+        "paths": paths,
+    })
+    .to_string();
+
+    let Some(registry) = HMR_REGISTRY.get() else {
+        return;
+    };
+    let mut dead = Vec::new();
+    if let Ok(guard) = registry.lock() {
+        for (id, sender) in guard.iter() {
+            if sender.send(Message::Text(payload.clone())).is_err() {
+                dead.push(*id);
+            }
+        }
+    }
+    if dead.is_empty() {
+        return;
+    }
+    if let Ok(mut guard) = registry.lock() {
+        for id in dead {
             guard.remove(&id);
         }
     }

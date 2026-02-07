@@ -9,7 +9,7 @@ use axum::{
 };
 use base64::Engine;
 
-use crate::websocket::handle_websocket;
+use crate::websocket::{handle_hmr_websocket, handle_websocket};
 use engine::{RuntimeState, execute_request_parts};
 
 use crate::debug::http_debug_enabled;
@@ -25,6 +25,18 @@ async fn handle_request(
 ) -> impl IntoResponse {
     let method = request.method().as_str().to_string();
     let uri = request.uri().to_string();
+    let hmr_path = request.uri().path() == "/_deka/hmr";
+    if hmr_path && dev_mode_enabled() {
+        if let Some(ws) = ws {
+            return ws
+                .on_upgrade(|socket| handle_hmr_websocket(socket))
+                .into_response();
+        }
+        return Response::builder()
+            .status(426)
+            .body(axum::body::Body::from("WebSocket upgrade required"))
+            .unwrap();
+    }
     if http_debug_enabled() {
         tracing::info!("[http] request {} {}", method, uri);
     }
@@ -71,7 +83,7 @@ async fn handle_request(
         body,
     )
     .await {
-        Ok(response_envelope) => {
+        Ok(mut response_envelope) => {
             if http_debug_enabled() {
                 tracing::info!("[http] response {} {}", response_envelope.status, uri);
             }
@@ -88,6 +100,10 @@ async fn handle_request(
             }
 
             let mut response = Response::builder().status(response_envelope.status);
+            let inject_dev_hmr = dev_mode_enabled()
+                && is_html_response(&response_envelope.headers)
+                && response_envelope.body_base64.is_none()
+                && !response_envelope.body.is_empty();
 
             for (key, value) in response_envelope.headers {
                 if key.eq_ignore_ascii_case("set-cookie") && value.contains('\n') {
@@ -116,6 +132,9 @@ async fn handle_request(
                 };
                 response.body(axum::body::Body::from(bytes)).unwrap()
             } else {
+                if inject_dev_hmr {
+                    response_envelope.body = inject_hmr_client(&response_envelope.body);
+                }
                 response
                     .body(axum::body::Body::from(response_envelope.body))
                     .unwrap()
@@ -131,5 +150,61 @@ async fn handle_request(
                 )))
                 .unwrap()
         }
+    }
+}
+
+fn dev_mode_enabled() -> bool {
+    std::env::var("DEKA_DEV")
+        .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+}
+
+fn is_html_response(headers: &std::collections::HashMap<String, String>) -> bool {
+    for (key, value) in headers {
+        if key.eq_ignore_ascii_case("content-type") && value.to_ascii_lowercase().contains("text/html")
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn inject_hmr_client(html: &str) -> String {
+    const MARKER: &str = "__deka_hmr_client";
+    if html.contains(MARKER) {
+        return html.to_string();
+    }
+    const SCRIPT: &str = r#"<script id="__deka_hmr_client">(function(){try{var p=location.protocol==='https:'?'wss':'ws';var ws=new WebSocket(p+'://'+location.host+'/_deka/hmr');ws.onmessage=function(ev){try{var m=JSON.parse(ev.data||'{}');if(m.type==='reload'){location.reload();}}catch(_){location.reload();}};ws.onclose=function(){setTimeout(function(){location.reload();},300);};}catch(_){}})();</script>"#;
+
+    if let Some(idx) = html.rfind("</body>") {
+        let mut out = String::with_capacity(html.len() + SCRIPT.len());
+        out.push_str(&html[..idx]);
+        out.push_str(SCRIPT);
+        out.push_str(&html[idx..]);
+        return out;
+    }
+    let mut out = String::with_capacity(html.len() + SCRIPT.len());
+    out.push_str(html);
+    out.push_str(SCRIPT);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::inject_hmr_client;
+
+    #[test]
+    fn injects_before_body_close() {
+        let html = "<html><body><h1>x</h1></body></html>";
+        let out = inject_hmr_client(html);
+        assert!(out.contains("__deka_hmr_client"));
+        assert!(out.find("__deka_hmr_client").unwrap() < out.find("</body>").unwrap());
+    }
+
+    #[test]
+    fn avoids_duplicate_injection() {
+        let html = "<html><body><script id=\"__deka_hmr_client\"></script></body></html>";
+        let out = inject_hmr_client(html);
+        assert_eq!(out.matches("__deka_hmr_client").count(), 1);
     }
 }

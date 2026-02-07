@@ -48,6 +48,10 @@ pub enum ListenConfig {
     Redis(RedisOptions),
 }
 
+pub fn notify_hmr_changed(paths: &[String]) {
+    http::websocket::broadcast_hmr_changed(paths);
+}
+
 pub async fn serve(state: Arc<RuntimeState>, target: ListenConfig) -> Result<(), String> {
     match target {
         ListenConfig::Http(options) => {
