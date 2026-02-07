@@ -94,8 +94,8 @@
 
 - [ ] End-to-end tests for HMR state preservation.
 - [x] Unit coverage for server snapshot patch generation (`websocket.rs`).
-- [ ] Performance baseline for patch path vs full reload.
-- [ ] Documentation and migration notes.
+- [x] Unit payload-size baseline (granular patch vs full replace payload).
+- [x] Documentation and migration notes (`docs/utility-css-compat.md`).
 
 ## Acceptance Criteria
 

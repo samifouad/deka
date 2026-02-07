@@ -725,4 +725,30 @@ mod tests {
             "<section data-deka-id=\"n2\">B</section>"
         );
     }
+
+    #[test]
+    fn granular_patch_payload_is_smaller_than_full_replace() {
+        let full_path = "/__hmr_test_size_full";
+        let full_payload = build_patch_from_snapshot(
+            full_path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<div data-deka-id=\"a\">Alpha</div><div data-deka-id=\"b\">Bravo</div>",
+        );
+
+        let patch_path = "/__hmr_test_size_patch";
+        let _ = build_patch_from_snapshot(
+            patch_path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<div data-deka-id=\"a\">Alpha</div><div data-deka-id=\"b\">Bravo</div>",
+        );
+        let patch_payload = build_patch_from_snapshot(
+            patch_path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<div data-deka-id=\"a\">Alpha 2</div><div data-deka-id=\"b\">Bravo</div>",
+        );
+        assert!(patch_payload.len() < full_payload.len());
+    }
 }
