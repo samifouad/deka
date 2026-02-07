@@ -73,6 +73,8 @@
 - [x] `@relation("belongsTo", ..., "<fk>")` auto-generates an index for the foreign key on the owning table.
 - [x] `array<T>` fields without `@relation(...)` are persisted as `JSONB` in Postgres migrations.
 - [x] `array<Struct>` should use explicit `@relation(...)`; otherwise it is treated as data and stored as `JSONB`.
+- [x] Relation model argument is validated against field type (`array<Post>` must use `"Post"` in `hasMany`).
+- [x] `belongsTo/hasOne` validates that `foreignKey` exists on the owning struct.
 
 ## Rollout
 

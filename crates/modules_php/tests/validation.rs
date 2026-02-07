@@ -282,6 +282,13 @@ fn relation_hasmany_non_array_reports_type_error() {
 }
 
 #[test]
+fn relation_belongsto_missing_fk_reports_type_error() {
+    let path = fixtures_root().join("types/relation_belongsto_missing_fk.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::TypeError);
+}
+
+#[test]
 fn structs_ok() {
     let path = fixtures_root().join("structs/ok.phpx");
     let result = compile_fixture(&path);

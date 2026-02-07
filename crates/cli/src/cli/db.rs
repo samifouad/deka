@@ -1219,14 +1219,29 @@ fn render_init_migration(models: &[ModelDef]) -> String {
         out.push_str(&format!("CREATE TABLE IF NOT EXISTS \"{}\" (\n", table));
         let mut defs: Vec<String> = Vec::new();
         let mut index_defs: Vec<String> = Vec::new();
+        let mut fk_lookup: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        for field in &model.fields {
+            if field.relation_spec().is_some() {
+                continue;
+            }
+            let mapped = field.mapped_name();
+            fk_lookup.insert(field.name.clone(), mapped.clone());
+            fk_lookup.insert(mapped.clone(), mapped);
+        }
+        let mut seen_indexes = std::collections::HashSet::new();
         for field in &model.fields {
             if let Some(relation) = field.relation_spec() {
                 if relation.kind == "belongsTo" {
-                    let index_name = format!("idx_{}_{}", table, relation.foreign_key);
-                    index_defs.push(format!(
-                        "CREATE INDEX IF NOT EXISTS \"{}\" ON \"{}\" (\"{}\");",
-                        index_name, table, relation.foreign_key
-                    ));
+                    if let Some(db_fk) = fk_lookup.get(&relation.foreign_key) {
+                        let index_name = format!("idx_{}_{}", table, db_fk);
+                        let stmt = format!(
+                            "CREATE INDEX IF NOT EXISTS \"{}\" ON \"{}\" (\"{}\");",
+                            index_name, table, db_fk
+                        );
+                        if seen_indexes.insert(stmt.clone()) {
+                            index_defs.push(stmt);
+                        }
+                    }
                 }
                 continue;
             }
@@ -1259,10 +1274,13 @@ fn render_init_migration(models: &[ModelDef]) -> String {
                 let index_name = explicit
                     .filter(|name| !name.is_empty())
                     .unwrap_or_else(|| format!("idx_{}_{}", table, db_name));
-                index_defs.push(format!(
+                let stmt = format!(
                     "CREATE INDEX IF NOT EXISTS \"{}\" ON \"{}\" (\"{}\");",
                     index_name, table, db_name
-                ));
+                );
+                if seen_indexes.insert(stmt.clone()) {
+                    index_defs.push(stmt);
+                }
             }
         }
         out.push_str(&defs.join(",\n"));
@@ -1463,6 +1481,35 @@ struct Post {
         assert!(migration.contains("\"authorId\" BIGINT NOT NULL"));
         assert!(!migration.contains("\"author\" TEXT"));
         assert!(migration.contains("CREATE INDEX IF NOT EXISTS \"idx_posts_authorId\""));
+    }
+
+    #[test]
+    fn migration_relation_belongsto_fk_uses_mapped_column_name_for_index() {
+        let source = r#"
+struct Post {
+  $id: int @id @autoIncrement
+  $authorId: int @map("author_id")
+  $author: User @relation("belongsTo", "User", "authorId")
+}
+"#;
+        let models = extract_struct_models(source, "inline.phpx".to_string()).expect("models");
+        let migration = super::render_init_migration(&models);
+        assert!(migration.contains("\"author_id\" BIGINT NOT NULL"));
+        assert!(migration.contains("CREATE INDEX IF NOT EXISTS \"idx_posts_author_id\""));
+    }
+
+    #[test]
+    fn migration_relation_belongsto_without_fk_field_does_not_emit_index() {
+        let source = r#"
+struct Post {
+  $id: int @id @autoIncrement
+  $author: User @relation("belongsTo", "User", "authorId")
+}
+"#;
+        let models = extract_struct_models(source, "inline.phpx".to_string()).expect("models");
+        let migration = super::render_init_migration(&models);
+        assert!(!migration.contains("idx_posts_authorId"));
+        assert!(!migration.contains("idx_posts_author_id"));
     }
 
     #[test]
