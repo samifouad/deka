@@ -39,6 +39,7 @@ impl Backend {
         let arena = Bump::new();
         let result = compile_phpx(text, &file_path, &arena);
         let mut diagnostics = Vec::new();
+        let workspace_roots = self.workspace_roots.read().await.clone();
 
         for error in result.errors {
             diagnostics.push(diagnostic_from_error(&file_path, text, &error));
@@ -47,6 +48,11 @@ impl Backend {
         for warning in result.warnings {
             diagnostics.push(diagnostic_from_warning(&file_path, text, &warning));
         }
+        diagnostics.extend(unresolved_import_diagnostics(
+            text,
+            &file_path,
+            &workspace_roots,
+        ));
 
         self._client
             .publish_diagnostics(uri, diagnostics, None)
@@ -1987,6 +1993,61 @@ fn completion_for_import(
     Some(items)
 }
 
+fn unresolved_import_diagnostics(
+    source: &str,
+    file_path: &str,
+    workspace_roots: &[PathBuf],
+) -> Vec<Diagnostic> {
+    let root = match find_php_modules_root(Path::new(file_path), workspace_roots) {
+        Some(root) => root,
+        None => return Vec::new(),
+    };
+
+    let imports = parse_imports(source);
+    if imports.is_empty() {
+        return Vec::new();
+    }
+
+    let line_index = LineIndex::new(source);
+    let mut module_cache: HashMap<(String, bool), Option<Vec<ExportInfo>>> = HashMap::new();
+    let mut diagnostics = Vec::new();
+
+    for import in imports {
+        if import.imported == "default" {
+            continue;
+        }
+
+        let key = (import.from.clone(), import.is_wasm);
+        let exports = module_cache
+            .entry(key)
+            .or_insert_with(|| module_exports(&root, &import.from, import.is_wasm));
+        let Some(exports) = exports else {
+            continue;
+        };
+
+        let found = exports.iter().any(|export| export.name == import.imported);
+        if found {
+            continue;
+        }
+
+        diagnostics.push(Diagnostic {
+            range: span_to_range(import.span, &line_index),
+            severity: Some(DiagnosticSeverity::ERROR),
+            code: Some(tower_lsp::lsp_types::NumberOrString::String(
+                "Import Error".to_string(),
+            )),
+            source: Some("phpx".to_string()),
+            message: format!(
+                "Import Error: Module '{}' has no export named '{}'.",
+                import.from, import.imported
+            ),
+            ..Diagnostic::default()
+        });
+    }
+
+    diagnostics
+}
+
 fn completion_for_annotation(source: &str, offset: usize) -> Option<Vec<CompletionItem>> {
     let line_start = source[..offset.min(source.len())]
         .rfind('\n')
@@ -2642,5 +2703,44 @@ mod tests {
             .expect("completion");
         let labels: Vec<String> = items.into_iter().map(|item| item.label).collect();
         assert!(labels.iter().any(|label| label == "stats"), "labels={labels:?}");
+    }
+
+    #[test]
+    fn reports_missing_named_import_export() {
+        let workspace = temp_dir("phpx_lsp_missing_export");
+        let php_modules = workspace.join("php_modules");
+        let db = php_modules.join("db");
+        fs::create_dir_all(&db).expect("mkdir db");
+        fs::write(db.join("index.phpx"), "export function stats() {}\n").expect("write module");
+        let file = workspace.join("main.phpx");
+        let source = "import { stat } from 'db'\n";
+        fs::write(&file, source).expect("write main");
+
+        let diagnostics =
+            unresolved_import_diagnostics(source, file.to_str().expect("file"), std::slice::from_ref(&workspace));
+        assert_eq!(diagnostics.len(), 1, "diagnostics={diagnostics:?}");
+        assert!(diagnostics[0].message.contains("no export named 'stat'"));
+        assert_eq!(
+            diagnostics[0].code,
+            Some(tower_lsp::lsp_types::NumberOrString::String(
+                "Import Error".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn accepts_valid_named_import_alias() {
+        let workspace = temp_dir("phpx_lsp_import_alias_ok");
+        let php_modules = workspace.join("php_modules");
+        let db = php_modules.join("db");
+        fs::create_dir_all(&db).expect("mkdir db");
+        fs::write(db.join("index.phpx"), "export function stats() {}\n").expect("write module");
+        let file = workspace.join("main.phpx");
+        let source = "import { stats as stat } from 'db'\n";
+        fs::write(&file, source).expect("write main");
+
+        let diagnostics =
+            unresolved_import_diagnostics(source, file.to_str().expect("file"), std::slice::from_ref(&workspace));
+        assert!(diagnostics.is_empty(), "diagnostics={diagnostics:?}");
     }
 }
