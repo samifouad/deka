@@ -1702,6 +1702,10 @@ function collectFunctionDeclarations(source) {
 }
 function isImportedFunctionUsed(source, name) {
     if (isImportedAsJsxTag(source, name)) return true;
+    const memberPattern = new RegExp(`\\b${escapeRegex(name)}\\s*\\.`, 'g');
+    if (memberPattern.test(source)) return true;
+    const objectPattern = new RegExp(`\\b${escapeRegex(name)}\\s*->`, 'g');
+    if (objectPattern.test(source)) return true;
     const pattern = new RegExp(`\\b${escapeRegex(name)}\\s*\\(`, 'g');
     let match;
     while((match = pattern.exec(source)) !== null){
@@ -2119,8 +2123,11 @@ function buildExportWrappers(moduleId, moduleNamespace, exports, typeInfo) {
 function resolveImportTarget(specifier, currentFilePath, modulesRoot) {
     const raw = String(specifier);
     const isRelative = raw.startsWith('.');
-    const baseDir = isRelative ? globalThis.path.dirname(currentFilePath) : modulesRoot;
-    const basePath = globalThis.path.resolve(baseDir, raw);
+    const isProjectAlias = raw.startsWith('@/');
+    const projectRoot = modulesRoot ? globalThis.path.dirname(modulesRoot) : '';
+    const aliasPath = isProjectAlias ? raw.slice(2) : raw;
+    const baseDir = isRelative ? globalThis.path.dirname(currentFilePath) : isProjectAlias ? projectRoot : modulesRoot;
+    const basePath = globalThis.path.resolve(baseDir, aliasPath);
     const candidates = [];
     if (raw.endsWith('.phpx')) {
         candidates.push(basePath);
@@ -2128,14 +2135,27 @@ function resolveImportTarget(specifier, currentFilePath, modulesRoot) {
         candidates.push(basePath + '.phpx');
         candidates.push(globalThis.path.join(basePath, 'index.phpx'));
     }
-    if (!isRelative) {
+    if (!isRelative && !isProjectAlias) {
         candidates.push(globalThis.path.resolve(modulesRoot, raw + '.phpx'));
         candidates.push(globalThis.path.resolve(modulesRoot, raw, 'index.phpx'));
     }
     for (const candidate of candidates){
         if (globalThis.fs.existsSync(candidate)) {
-            const rel = globalThis.path.relative(modulesRoot, candidate).replace(/\\/g, '/');
-            const moduleId = moduleIdFromRel(rel);
+            let moduleId = raw;
+            if (isProjectAlias) {
+                const rel = globalThis.path.relative(projectRoot, candidate).replace(/\\/g, '/');
+                moduleId = `@/${moduleIdFromRel(rel)}`;
+            } else {
+                const rel = globalThis.path.relative(modulesRoot, candidate).replace(/\\/g, '/');
+                if (rel && !rel.startsWith('..')) {
+                    moduleId = moduleIdFromRel(rel);
+                } else if (projectRoot) {
+                    const projectRel = globalThis.path.relative(projectRoot, candidate).replace(/\\/g, '/');
+                    moduleId = `@/${moduleIdFromRel(projectRel)}`;
+                } else {
+                    moduleId = moduleIdFromRel(rel);
+                }
+            }
             return {
                 filePath: candidate,
                 moduleId
@@ -2256,8 +2276,15 @@ function parseExportFromLine(line, currentFilePath, modulesRoot) {
     };
 }
 function parsePhpxModule(filePath, modulesRoot) {
+    let moduleId = '';
     const rel = globalThis.path.relative(modulesRoot, filePath).replace(/\\/g, '/');
-    const moduleId = moduleIdFromRel(rel);
+    if (rel && !rel.startsWith('..')) {
+        moduleId = moduleIdFromRel(rel);
+    } else {
+        const projectRoot = globalThis.path.dirname(modulesRoot);
+        const projectRel = globalThis.path.relative(projectRoot, filePath).replace(/\\/g, '/');
+        moduleId = `@/${moduleIdFromRel(projectRel)}`;
+    }
     const raw = globalThis.fs.readFileSync(filePath, 'utf8');
     const sourceHash = hashSource(raw);
     const runtimeDeps = detectCoreRuntimeDeps(raw, filePath).filter((dep)=>dep !== moduleId);
@@ -2740,7 +2767,18 @@ function compilePhpxModules(entryPath, rootModuleIds = null) {
         while(queue.length > 0){
             const moduleId = queue.pop();
             if (modules.has(moduleId)) continue;
-            const filePath = modulePathMap.get(moduleId);
+            let filePath = modulePathMap.get(moduleId);
+            if (!filePath && moduleId.startsWith('@/')) {
+                const projectRoot = globalThis.path.dirname(modulesRoot);
+                const spec = moduleId.slice(2);
+                const fileCandidate = globalThis.path.resolve(projectRoot, spec + '.phpx');
+                const indexCandidate = globalThis.path.resolve(projectRoot, spec, 'index.phpx');
+                if (globalThis.fs.existsSync(fileCandidate)) {
+                    filePath = fileCandidate;
+                } else if (globalThis.fs.existsSync(indexCandidate)) {
+                    filePath = indexCandidate;
+                }
+            }
             if (!filePath) {
                 throw new Error(`Missing phpx module '${moduleId}'.`);
             }

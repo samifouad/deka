@@ -576,7 +576,8 @@ fn generate_db_artifacts(cwd: &Path, source: &Path, models: &[ModelDef]) -> Resu
 
 fn render_index_phpx() -> String {
     format!(
-        "{}import {{ createClient }} from './client'\nimport {{ Meta }} from './meta'\n\nexport const db = createClient(Meta)\n",
+        "{}import {{ connect, close, selectMany, selectOne, insertOne, updateWhere, deleteWhere, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }} from '@/db/client'\n\
+export {{ connect, close, selectMany, selectOne, insertOne, updateWhere, deleteWhere, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }}\n",
         GENERATED_HEADER
     )
 }
@@ -585,12 +586,12 @@ fn render_client_phpx(models: &[ModelDef]) -> String {
     let mut model_map = String::new();
     for model in models {
         model_map.push_str(&format!(
-            "        '{}': {{ name: '{}' }},\n",
+            "        {}: {{ name: '{}' }},\n",
             model.name, model.name
         ));
     }
     format!(
-        "{}import {{ open_handle, query as db_query, exec as db_exec, rows as db_rows, begin as db_begin, commit as db_commit, rollback as db_rollback }} from 'db'\n\
+        "{}import {{ open_handle, close as db_close, query as db_query, exec as db_exec, rows as db_rows, begin as db_begin, commit as db_commit, rollback as db_rollback }} from 'db'\n\
 import {{ result_ok, result_err, result_is_ok }} from 'core/result'\n\n\
 function quote_ident($name) {{\n\
     return '\"' . str_replace('\"', '\"\"', '' . $name) . '\"'\n\
@@ -662,10 +663,10 @@ export function ilike($column, $value) {{\n\
 export function isNull($column) {{\n\
     return {{ kind: 'isNull', column: $column }}\n\
 }}\n\n\
-export function and(...$parts) {{\n\
+export function andWhere(...$parts) {{\n\
     return {{ kind: 'and', parts: $parts }}\n\
 }}\n\n\
-export function or(...$parts) {{\n\
+export function orWhere(...$parts) {{\n\
     return {{ kind: 'or', parts: $parts }}\n\
 }}\n\n\
 export function asc($column) {{\n\
@@ -682,6 +683,9 @@ export function offset($value) {{\n\
 }}\n\n\
 export function connect($driver, $config) {{\n\
     return open_handle($driver, $config)\n\
+}}\n\n\
+export function close($handle) {{\n\
+    return db_close($handle)\n\
 }}\n\n\
 export function selectMany($handle, $model, $where = null, $order = null, $limit = null, $offset = null) {{\n\
     $table = model_table($model)\n\
@@ -792,28 +796,22 @@ export function transaction($handle, $fn) {{\n\
     return result_ok($result)\n\
 }}\n\n\
 export function createClient($meta) {{\n\
-    function not_implemented($method) {{\n\
-        return {{ ok: false, error: 'db client method not implemented yet: ' . $method }}\n\
-    }}\n\
     return {{\n\
-        $meta: $meta,\n\
-        $models: {{\n{}        }},\n\
+        meta: $meta,\n\
+        models: {{\n{}        }},\n\
         connect: connect,\n\
+        close: close,\n\
         selectMany: selectMany,\n\
         selectOne: selectOne,\n\
         insertOne: insertOne,\n\
         updateWhere: updateWhere,\n\
         deleteWhere: deleteWhere,\n\
         transaction: transaction,\n\
-        select: function() {{ return not_implemented('select') }},\n\
-        insert: function($model) {{ return not_implemented('insert') }},\n\
-        update: function($model) {{ return not_implemented('update') }},\n\
-        delete: function($model) {{ return not_implemented('delete') }},\n\
         eq: eq,\n\
         ilike: ilike,\n\
         isNull: isNull,\n\
-        and: and,\n\
-        or: or,\n\
+        andWhere: andWhere,\n\
+        orWhere: orWhere,\n\
         asc: asc,\n\
         desc: desc,\n\
         limit: limit,\n\
@@ -1251,10 +1249,8 @@ struct User {
         let models = extract_struct_models(source, "inline.phpx".to_string()).expect("models");
         let client = super::render_client_phpx(&models);
         assert!(client.contains("export function createClient"));
-        assert!(client.contains("insert: function($model)"));
-        assert!(client.contains("select: function()"));
-        assert!(client.contains("update: function($model)"));
-        assert!(client.contains("delete: function($model)"));
+        assert!(client.contains("export function close"));
+        assert!(client.contains("connect: connect"));
         assert!(client.contains("transaction: transaction"));
         assert!(client.contains("selectMany: selectMany"));
         assert!(client.contains("insertOne: insertOne"));

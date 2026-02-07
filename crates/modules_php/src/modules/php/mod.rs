@@ -3188,7 +3188,16 @@ fn op_php_file_exists(#[string] path: String) -> bool {
 #[string]
 fn op_php_path_resolve(#[string] base: String, #[string] path: String) -> String {
     if let Some(stripped) = path.strip_prefix("@/") {
-        if let Ok(root) = std::env::var("PHPX_MODULE_ROOT") {
+        let root = std::env::var("PHPX_MODULE_ROOT")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| {
+                std::env::current_dir()
+                    .ok()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default()
+            });
+        if !root.is_empty() {
             return std::path::Path::new(&root)
                 .join(stripped)
                 .to_string_lossy()

@@ -6,8 +6,8 @@ use serde_json::Value;
 use super::{ErrorKind, Severity, ValidationError};
 use crate::validation::exports::{parse_export_function, parse_export_list_line};
 use crate::validation::imports::{
-    consume_comment_line, frontmatter_bounds, parse_import_line, strip_php_tags_inline, ImportKind,
-    ImportSpec,
+    ImportKind, ImportSpec, consume_comment_line, frontmatter_bounds, parse_import_line,
+    strip_php_tags_inline,
 };
 
 #[derive(Debug, Clone)]
@@ -62,7 +62,10 @@ pub fn validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationErr
         if spec.kind != ImportKind::Wasm {
             continue;
         }
-        if spec.from.starts_with('@') && !spec.from.starts_with("@/") && !is_valid_user_module(&spec.from) {
+        if spec.from.starts_with('@')
+            && !spec.from.starts_with("@/")
+            && !is_valid_user_module(&spec.from)
+        {
             errors.push(wasm_error(
                 spec.line,
                 spec.column,
@@ -119,11 +122,7 @@ impl ModuleGraph {
                     1,
                     1,
                     1,
-                    format!(
-                        "Failed to read module '{}': {}",
-                        module_id,
-                        err
-                    ),
+                    format!("Failed to read module '{}': {}", module_id, err),
                     "Ensure the module file exists and is readable.",
                 ));
                 return;
@@ -136,7 +135,10 @@ impl ModuleGraph {
             if spec.kind == ImportKind::Wasm {
                 continue;
             }
-            if spec.from.starts_with('@') && !spec.from.starts_with("@/") && !is_valid_user_module(&spec.from) {
+            if spec.from.starts_with('@')
+                && !spec.from.starts_with("@/")
+                && !is_valid_user_module(&spec.from)
+            {
                 errors.push(module_error(
                     spec.line,
                     spec.column,
@@ -345,7 +347,10 @@ pub(crate) fn resolve_modules_root(file_path: &str) -> Option<PathBuf> {
         }
     }
     for ancestor in dir.ancestors() {
-        if ancestor.file_name().is_some_and(|name| name == "php_modules") {
+        if ancestor
+            .file_name()
+            .is_some_and(|name| name == "php_modules")
+        {
             return Some(ancestor.to_path_buf());
         }
         let candidate = ancestor.join("php_modules");
@@ -444,18 +449,30 @@ fn resolve_import_target(
     let is_relative = raw.starts_with('.');
     let is_project_alias = raw.starts_with("@/");
     let spec_path = raw.strip_prefix("@/").unwrap_or(raw);
-    let base_dir = if is_relative {
-        Path::new(current_file_path)
-            .parent()
-            .map(PathBuf::from)
+    let mut base_dirs: Vec<PathBuf> = Vec::new();
+    if is_relative {
+        if let Some(parent) = Path::new(current_file_path).parent() {
+            base_dirs.push(parent.to_path_buf());
+        }
     } else if is_project_alias {
-        modules_root
-            .and_then(|root| root.parent().map(PathBuf::from))
-    } else {
-        modules_root.map(PathBuf::from)
+        if let Some(project_root) = modules_root.and_then(|root| root.parent()) {
+            base_dirs.push(project_root.to_path_buf());
+        }
+        if let Ok(root) = std::env::var("PHPX_MODULE_ROOT") {
+            let root = root.trim();
+            if !root.is_empty() {
+                base_dirs.push(PathBuf::from(root));
+            }
+        }
+        if let Ok(cwd) = std::env::current_dir() {
+            base_dirs.push(cwd);
+        }
+    } else if let Some(root) = modules_root {
+        base_dirs.push(root.to_path_buf());
     }
-    .ok_or_else(|| {
-        module_error(
+
+    if base_dirs.is_empty() {
+        return Err(module_error(
             1,
             1,
             raw.len().max(1),
@@ -464,16 +481,18 @@ fn resolve_import_target(
                 raw, current_file_path
             ),
             "Create php_modules/ or run `deka init`.",
-        )
-    })?;
+        ));
+    }
 
-    let base_path = base_dir.join(spec_path);
     let mut candidates = Vec::new();
-    if raw.ends_with(".phpx") {
-        candidates.push(base_path.clone());
-    } else {
-        candidates.push(base_path.with_extension("phpx"));
-        candidates.push(base_path.join("index.phpx"));
+    for base_dir in &base_dirs {
+        let base_path = base_dir.join(spec_path);
+        if raw.ends_with(".phpx") {
+            candidates.push(base_path.clone());
+        } else {
+            candidates.push(base_path.with_extension("phpx"));
+            candidates.push(base_path.join("index.phpx"));
+        }
     }
     if !is_relative && !is_project_alias {
         if let Some(root) = modules_root {
@@ -485,7 +504,7 @@ fn resolve_import_target(
     for candidate in candidates {
         if candidate.exists() {
             if is_project_alias {
-                if let Some(project_root) = modules_root.and_then(|root| root.parent()) {
+                for project_root in &base_dirs {
                     if let Ok(rel) = candidate.strip_prefix(project_root) {
                         let rel = rel.to_string_lossy().replace('\\', "/");
                         let module_id = format!("@/{}", module_id_from_rel(&rel));
@@ -561,10 +580,7 @@ fn resolve_wasm_target(
             .unwrap_or(modules_root)
             .to_path_buf()
     } else if is_project_alias {
-        modules_root
-            .parent()
-            .unwrap_or(modules_root)
-            .to_path_buf()
+        modules_root.parent().unwrap_or(modules_root).to_path_buf()
     } else {
         modules_root.to_path_buf()
     };
@@ -585,7 +601,11 @@ fn resolve_wasm_target(
             raw.len().max(1),
             format!(
                 "Wasm import must resolve inside {} ({}: {}).",
-                if is_project_alias { "project root" } else { "php_modules/" },
+                if is_project_alias {
+                    "project root"
+                } else {
+                    "php_modules/"
+                },
                 current_file_path,
                 raw
             ),
@@ -671,10 +691,7 @@ fn validate_wasm_manifest(
             spec.line,
             spec.column,
             spec.from.len().max(1),
-            format!(
-                "Missing wasm module binary {}.",
-                module_path.display()
-            ),
+            format!("Missing wasm module binary {}.", module_path.display()),
             "Build the wasm module or update deka.json.",
         ));
     }
@@ -689,10 +706,7 @@ fn validate_wasm_manifest(
             spec.line,
             spec.column,
             spec.from.len().max(1),
-            format!(
-                "Missing wasm stub file {}.",
-                stub_path.display()
-            ),
+            format!("Missing wasm stub file {}.", stub_path.display()),
             "Generate stubs with `deka wasm stubs`.",
         ));
         return;
@@ -705,11 +719,7 @@ fn validate_wasm_manifest(
                 spec.line,
                 spec.column,
                 spec.from.len().max(1),
-                format!(
-                    "Failed to read wasm stub {}: {}",
-                    stub_path.display(),
-                    err
-                ),
+                format!("Failed to read wasm stub {}: {}", stub_path.display(), err),
                 "Ensure the stub file is readable.",
             ));
             return;
@@ -750,10 +760,7 @@ fn is_valid_user_module(raw: &str) -> bool {
         && parts.iter().all(|part| !part.trim().is_empty())
 }
 
-fn format_available_modules(
-    modules: &HashSet<String>,
-    prefix: &str,
-) -> Option<String> {
+fn format_available_modules(modules: &HashSet<String>, prefix: &str) -> Option<String> {
     if modules.is_empty() {
         return None;
     }

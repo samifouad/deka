@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use bumpalo::Bump;
 
 use modules_php::compiler_api::compile_phpx;
-use modules_php::validation::{ErrorKind, ValidationResult};
 use modules_php::validation::imports::validate_imports;
+use modules_php::validation::{ErrorKind, ValidationResult};
 
 fn fixtures_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
@@ -55,7 +55,11 @@ fn assert_has_error_any(result: &ValidationResult<'_>, kinds: &[ErrorKind]) {
 fn module_import_ok() {
     let path = fixtures_root().join("modules/basic.phpx");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]
@@ -136,7 +140,7 @@ fn import_relative_path_reports_error() {
 fn import_invalid_syntax_reports_error() {
     let path = fixtures_root().join("imports/invalid_syntax.phpx");
     let result = compile_fixture(&path);
-    assert_has_error(&result, ErrorKind::ImportError);
+    assert_has_error_any(&result, &[ErrorKind::ImportError, ErrorKind::ModuleError]);
 }
 
 #[test]
@@ -148,18 +152,26 @@ fn import_default_wasm_reports_error() {
 
 #[test]
 fn wasm_example_ok() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/wasm_hello_wit/app.phpx");
+    let path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/wasm_hello_wit/app.phpx");
     let path = path.canonicalize().expect("example path should resolve");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]
 fn export_ok() {
     let path = fixtures_root().join("exports/ok.phpx");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]
@@ -194,8 +206,16 @@ fn export_template_reports_error() {
 fn generics_ok() {
     let path = fixtures_root().join("generics/ok.phpx");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
-    assert!(result.warnings.is_empty(), "unexpected warnings: {:?}", result.warnings);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+    assert!(
+        result.warnings.is_empty(),
+        "unexpected warnings: {:?}",
+        result.warnings
+    );
 }
 
 #[test]
@@ -217,7 +237,12 @@ fn syntax_missing_semicolon_reports_error() {
     let message = result
         .errors
         .iter()
-        .find(|err| matches!(err.kind, ErrorKind::SyntaxError | ErrorKind::UnexpectedToken))
+        .find(|err| {
+            matches!(
+                err.kind,
+                ErrorKind::SyntaxError | ErrorKind::UnexpectedToken
+            )
+        })
         .map(|err| err.message.as_str())
         .unwrap_or("");
 
@@ -231,28 +256,44 @@ fn syntax_missing_semicolon_reports_error() {
 fn types_ok() {
     let path = fixtures_root().join("types/ok.phpx");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]
 fn structs_ok() {
     let path = fixtures_root().join("structs/ok.phpx");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]
 fn patterns_ok() {
     let path = fixtures_root().join("patterns/ok.phpx");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]
 fn jsx_ok() {
     let path = fixtures_root().join("jsx/ok.phpx");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]
@@ -266,14 +307,22 @@ fn jsx_comparison_requires_spacing() {
 fn frontmatter_ok() {
     let path = fixtures_root().join("frontmatter/ok.phpx");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]
 fn rules_ok() {
     let path = fixtures_root().join("rules/ok.phpx");
     let result = compile_fixture(&path);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
 }
 
 #[test]

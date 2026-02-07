@@ -13,7 +13,7 @@
 - [ ] User defines models in `types/index.phpx` (or another file).
 - [x] User runs `deka db generate types/index.phpx` or `deka db generate types/`.
 - [x] CLI resolves/validates model input and generates initial `db/*`.
-- [ ] App imports generated client via `@/db`.
+- [x] App imports generated client via `@/db`.
 - [x] User applies migrations with `deka db migrate`.
 - [x] User inspects generation status with `deka db info` (initial implementation).
 
@@ -70,14 +70,14 @@
 - [x] Phase 2: Annotation parser/AST support + parser tests.
 - [ ] Phase 3: Validation + LSP support for annotations and model relations.
 - [ ] Phase 4: ORM IR + Postgres migration generator.
-- [ ] Phase 5: Generated client implementation + `@/db` import path.
-- [ ] Phase 6: Linkhash migration to generated client.
+- [x] Phase 5: Generated client implementation + `@/db` import path.
+- [x] Phase 6: Linkhash migration to generated client.
 - [ ] Phase 7: Test hardening across parser/validation/generator/CLI/runtime.
 
 ## Acceptance Criteria
 
 - [x] `deka db generate types/` resolves and validates `types/index.phpx`.
-- [ ] Generated client imports via `@/db` in app code.
+- [x] Generated client imports via `@/db` in app code.
 - [ ] `deka db migrate` applies pending migrations and records state.
 - [ ] LSP shows clear diagnostics/completions for model annotations.
-- [ ] Linkhash reads/writes via generated Postgres client in primary flows.
+- [x] Linkhash reads/writes via generated Postgres client in primary flows.
