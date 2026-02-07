@@ -609,8 +609,8 @@ fn generate_db_artifacts(cwd: &Path, source: &Path, models: &[ModelDef]) -> Resu
 
 fn render_index_phpx() -> String {
     format!(
-        "{}import {{ connect, close, select, selectMany, selectOne, insert, insertOne, update, updateWhere, deleteQuery, deleteWhere, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }} from '@/db/client'\n\
-export {{ connect, close, select, selectMany, selectOne, insert, insertOne, update, updateWhere, deleteQuery, deleteWhere, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }}\n",
+        "{}import {{ connect, close, select, selectMany, selectOne, insert, insertOne, update, updateWhere, deleteQuery, deleteWhere, loadRelation, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }} from '@/db/client'\n\
+export {{ connect, close, select, selectMany, selectOne, insert, insertOne, update, updateWhere, deleteQuery, deleteWhere, loadRelation, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }}\n",
         GENERATED_HEADER
     )
 }
@@ -897,6 +897,56 @@ function delete_builder($handle, $model, $where) {{\n\
 export function deleteQuery($handle, $model) {{\n\
     return delete_builder($handle, $model, null)\n\
 }}\n\n\
+function model_meta($meta, $model) {{\n\
+    if (!is_array($meta) || !array_key_exists('models', $meta)) {{\n\
+        return null\n\
+    }}\n\
+    $name = model_name($model)\n\
+    if ($name === null || !array_key_exists($name, $meta['models'])) {{\n\
+        return null\n\
+    }}\n\
+    return $meta['models'][$name]\n\
+}}\n\n\
+function relation_meta($meta, $model, $field) {{\n\
+    $m = model_meta($meta, $model)\n\
+    if ($m === null || !is_array($m) || !array_key_exists('relations', $m) || !is_array($m['relations'])) {{\n\
+        return null\n\
+    }}\n\
+    foreach ($m['relations'] as $rel) {{\n\
+        if (is_array($rel) && array_key_exists('field', $rel) && $rel['field'] === $field) {{\n\
+            return $rel\n\
+        }}\n\
+    }}\n\
+    return null\n\
+}}\n\n\
+export function loadRelation($handle, $meta, $model, $row, $field) {{\n\
+    if (!is_array($row)) {{\n\
+        return result_err('loadRelation expects row array')\n\
+    }}\n\
+    $rel = relation_meta($meta, $model, $field)\n\
+    if ($rel === null) {{\n\
+        return result_err('unknown relation')\n\
+    }}\n\
+    if (!array_key_exists('kind', $rel) || !array_key_exists('model', $rel) || !array_key_exists('foreignKey', $rel)) {{\n\
+        return result_err('invalid relation metadata')\n\
+    }}\n\
+    $kind = $rel['kind']\n\
+    $target = $rel['model']\n\
+    $fk = $rel['foreignKey']\n\
+    if ($kind === 'hasMany') {{\n\
+        if (!array_key_exists('id', $row)) {{\n\
+            return result_err('source row missing id')\n\
+        }}\n\
+        return selectMany($handle, $target, eq($fk, $row['id']))\n\
+    }}\n\
+    if ($kind === 'belongsTo' || $kind === 'hasOne') {{\n\
+        if (!array_key_exists($fk, $row)) {{\n\
+            return result_err('source row missing foreign key')\n\
+        }}\n\
+        return selectOne($handle, $target, eq('id', $row[$fk]))\n\
+    }}\n\
+    return result_err('unsupported relation kind')\n\
+}}\n\n\
 export function transaction($handle, $fn) {{\n\
     $started = db_begin($handle)\n\
     if (!result_is_ok($started)) {{\n\
@@ -931,6 +981,7 @@ export function createClient($meta, $handle = null) {{\n\
         updateWhere: updateWhere,\n\
         'delete': fn($model) => deleteQuery($handle, $model),\n\
         deleteWhere: deleteWhere,\n\
+        loadRelation: fn($model, $row, $field) => loadRelation($handle, $meta, $model, $row, $field),\n\
         transaction: transaction,\n\
         eq: eq,\n\
         ilike: ilike,\n\
@@ -1528,6 +1579,7 @@ struct User {
         assert!(client.contains("export function select"));
         assert!(client.contains("export function update"));
         assert!(client.contains("export function deleteQuery"));
+        assert!(client.contains("export function loadRelation"));
         assert!(client.contains("connect: connect"));
         assert!(client.contains("withHandle: fn($nextHandle) => createClient($meta, $nextHandle)"));
         assert!(client.contains("transaction: transaction"));
@@ -1537,6 +1589,7 @@ struct User {
         assert!(client.contains("insert: fn($model) => insert($handle, $model)"));
         assert!(client.contains("update: fn($model) => update($handle, $model)"));
         assert!(client.contains("'delete': fn($model) => deleteQuery($handle, $model)"));
+        assert!(client.contains("loadRelation: fn($model, $row, $field) => loadRelation($handle, $meta, $model, $row, $field)"));
         assert!(client.contains("ilike: ilike"));
         assert!(client.contains("isNull: isNull"));
         assert!(client.contains("asc: asc"));
