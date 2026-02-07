@@ -49,14 +49,6 @@ function resolveServerCommand(context) {
     }
   }
 
-  const dekaBin = findInPath(process.platform === 'win32' ? 'deka.exe' : 'deka')
-  if (dekaBin) {
-    return {
-      command: dekaBin,
-      args: ['lsp']
-    }
-  }
-
   const lspBin = findInPath(process.platform === 'win32' ? 'phpx_lsp.exe' : 'phpx_lsp')
   if (lspBin) {
     return {
@@ -75,10 +67,16 @@ function resolveServerCommand(context) {
       ]
   for (const candidate of manualCandidates) {
     if (fs.existsSync(candidate)) {
-      if (candidate.endsWith('/deka')) {
-        return { command: candidate, args: ['lsp'] }
-      }
       return { command: candidate, args }
+    }
+  }
+
+  // Wrapper fallback if direct binary is not discoverable.
+  const dekaBin = findInPath(process.platform === 'win32' ? 'deka.exe' : 'deka')
+  if (dekaBin) {
+    return {
+      command: dekaBin,
+      args: ['lsp']
     }
   }
 

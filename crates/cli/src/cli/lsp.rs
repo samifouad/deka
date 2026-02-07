@@ -65,6 +65,7 @@ pub fn cmd(context: &Context) {
         }
         Err(err) => {
             stdio::error("cli", &format!("failed to start phpx_lsp: {}", err));
+            std::process::exit(1);
         }
     }
 }
