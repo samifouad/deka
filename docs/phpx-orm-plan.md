@@ -59,6 +59,7 @@
 - [ ] `db.select()->from(Model)->where(...)->many()`
 - [ ] `db.update(Model)->set(...)->where(...)->returning()->many()`
 - [ ] `db.delete(Model)->where(...)->exec()`
+- [x] Generated client includes runnable non-fluent helpers: `selectMany`, `selectOne`, `insertOne`, `updateWhere`, `deleteWhere`, `transaction`.
 - [x] Predicates/helpers scaffolded in generated client: `eq`, `and`, `or` (+ shape placeholders for richer query builder).
 - [ ] Predicates/helpers: `ilike`, `isNull`, `asc`, `desc`, `limit`, `offset`.
 - [ ] Transaction API.
