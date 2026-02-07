@@ -48,8 +48,8 @@
 - [x] Add struct field annotations (`@id`, `@unique`, etc.) in PHPX parser.
 - [x] Store annotations in AST as metadata (not runtime object lowering).
 - [x] Add annotation validation rules (unknown, duplicate, target mismatch, bad args).
-- [ ] Add LSP completions/signature help/hover for annotations.
-- [ ] Add LSP diagnostics for annotation and relation errors.
+- [x] Add LSP completions/signature help/hover for annotations.
+- [x] Add LSP diagnostics for annotation errors (via typechecker diagnostics pipeline).
 - [ ] Add `@/` alias support in runtime resolver, parser/typechecker, CLI, and LSP.
 
 ## Drizzle-Style Client DX

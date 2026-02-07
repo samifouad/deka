@@ -114,6 +114,7 @@ fn collect_struct_definitions(program: &Program, source: &str) -> HashMap<String
                     let entry = PropertyEntry {
                         name,
                         default: *default,
+                        annotations: &[],
                         span: *span,
                     };
                     handle_struct_field(&entry, &struct_name, &mut fields, source, &mut errors);

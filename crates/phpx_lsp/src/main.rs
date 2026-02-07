@@ -13,7 +13,7 @@ use php_rs::parser::span::Span;
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams, CompletionResponse, Diagnostic,
     DiagnosticOptions, DiagnosticServerCapabilities, DiagnosticSeverity, DidChangeTextDocumentParams,
-    DidOpenTextDocumentParams, DocumentSymbol, DocumentSymbolParams, Hover, HoverContents,
+    DidOpenTextDocumentParams, Documentation, DocumentSymbol, DocumentSymbolParams, Hover, HoverContents,
     InitializeParams, InitializeResult, InitializedParams, Location, MarkupContent, MarkupKind,
     InsertTextFormat, MessageType, OneOf, Position, Range, ReferenceParams, RenameParams, ServerCapabilities, SymbolKind, TextDocumentSyncCapability,
     TextDocumentSyncKind, TextEdit, Url, WorkspaceEdit,
@@ -188,6 +188,9 @@ impl LanguageServer for Backend {
             }
         }
         if hover_text.is_none() {
+            hover_text = hover_for_annotation(&text, offset);
+        }
+        if hover_text.is_none() {
             hover_text = hover_from_import(&text, offset);
         }
 
@@ -232,6 +235,9 @@ impl LanguageServer for Backend {
         }
 
         if let Some(items) = completion_for_import(&text, &file_path, offset) {
+            return Ok(Some(CompletionResponse::Array(items)));
+        }
+        if let Some(items) = completion_for_annotation(&text, offset) {
             return Ok(Some(CompletionResponse::Array(items)));
         }
 
@@ -1371,6 +1377,36 @@ fn hover_from_import(source: &str, offset: usize) -> Option<String> {
     None
 }
 
+fn hover_for_annotation(source: &str, offset: usize) -> Option<String> {
+    let name = annotation_name_at_offset(source, offset)?;
+    let (_, detail) = annotation_catalog()
+        .into_iter()
+        .find(|(label, _)| *label == name.as_str())?;
+    Some(format!("```php\n@{}\n```\n{}", name, detail))
+}
+
+fn annotation_name_at_offset(source: &str, offset: usize) -> Option<String> {
+    let bytes = source.as_bytes();
+    if offset > bytes.len() {
+        return None;
+    }
+    let mut start = offset.min(bytes.len());
+    while start > 0 && is_ident_char(bytes[start - 1]) {
+        start -= 1;
+    }
+    let mut end = offset.min(bytes.len());
+    while end < bytes.len() && is_ident_char(bytes[end]) {
+        end += 1;
+    }
+    if start >= end {
+        return None;
+    }
+    if start == 0 || bytes[start - 1] != b'@' {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&bytes[start..end]).to_string())
+}
+
 
 fn definition_for_import_module(
     source: &str,
@@ -1852,6 +1888,65 @@ fn completion_for_import(source: &str, file_path: &str, offset: usize) -> Option
     Some(items)
 }
 
+fn completion_for_annotation(source: &str, offset: usize) -> Option<Vec<CompletionItem>> {
+    let line_start = source[..offset.min(source.len())]
+        .rfind('\n')
+        .map(|idx| idx + 1)
+        .unwrap_or(0);
+    let prefix = &source[line_start..offset.min(source.len())];
+    let at = prefix.rfind('@')?;
+    let typed = &prefix[at + 1..];
+    if typed.chars().any(|ch| !(ch == '_' || ch.is_ascii_alphanumeric())) {
+        return None;
+    }
+
+    let mut items = Vec::new();
+    for (name, detail) in annotation_catalog() {
+        if !typed.is_empty() && !name.starts_with(typed) {
+            continue;
+        }
+        let (insert_text, insert_text_format) = match name {
+            "index" => (
+                Some("index(${1:\"idx_name\"})".to_string()),
+                Some(InsertTextFormat::SNIPPET),
+            ),
+            "map" => (
+                Some("map(${1:\"column_name\"})".to_string()),
+                Some(InsertTextFormat::SNIPPET),
+            ),
+            "default" => (
+                Some("default(${1:value})".to_string()),
+                Some(InsertTextFormat::SNIPPET),
+            ),
+            _ => (Some(name.to_string()), None),
+        };
+        items.push(CompletionItem {
+            label: format!("@{}", name),
+            kind: Some(CompletionItemKind::PROPERTY),
+            detail: Some("struct field annotation".to_string()),
+            documentation: Some(Documentation::MarkupContent(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: detail.to_string(),
+            })),
+            insert_text,
+            insert_text_format,
+            ..CompletionItem::default()
+        });
+    }
+    Some(items)
+}
+
+fn annotation_catalog() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("id", "Primary key marker. No arguments."),
+        ("unique", "Unique constraint marker. No arguments."),
+        ("autoIncrement", "Auto-increment marker. Requires an `int` field."),
+        ("index", "Secondary index marker. Optional string index name argument."),
+        ("map", "Column mapping marker. Requires a string column name."),
+        ("default", "Default value marker. Requires one argument."),
+    ]
+}
+
 fn completion_for_dot(
     index: &SymbolIndex,
     source: &[u8],
@@ -2313,5 +2408,22 @@ mod tests {
             "$user",
         );
         assert_eq!(refs.len(), 3);
+    }
+
+    #[test]
+    fn provides_annotation_completion_items() {
+        let src = "struct User {\n    $id: int @a\n}\n";
+        let offset = src.find("@a").expect("annotation") + 2;
+        let items = completion_for_annotation(src, offset).expect("annotation completion");
+        assert!(items.iter().any(|item| item.label == "@autoIncrement"));
+    }
+
+    #[test]
+    fn provides_annotation_hover_docs() {
+        let src = "struct User { $id: int @autoIncrement; }";
+        let offset = src.find("autoIncrement").expect("annotation");
+        let hover = hover_for_annotation(src, offset).expect("annotation hover");
+        assert!(hover.contains("@autoIncrement"));
+        assert!(hover.contains("Requires an `int` field"));
     }
 }
