@@ -2,9 +2,12 @@ const vscode = require('vscode')
 const { LanguageClient, TransportKind } = require('vscode-languageclient/node')
 const fs = require('fs')
 const path = require('path')
+const os = require('os')
 
 /** @type {LanguageClient | null} */
 let client = null
+/** @type {vscode.OutputChannel | null} */
+let output = null
 
 function findInPath(bin) {
   const envPath = process.env.PATH || ''
@@ -62,6 +65,23 @@ function resolveServerCommand(context) {
     }
   }
 
+  // Common local install fallbacks when VS Code PATH differs from shell PATH.
+  const home = os.homedir()
+  const manualCandidates = process.platform === 'win32'
+    ? []
+    : [
+        path.join(home, '.bun', 'bin', 'deka'),
+        path.join(home, '.local', 'bin', 'phpx_lsp')
+      ]
+  for (const candidate of manualCandidates) {
+    if (fs.existsSync(candidate)) {
+      if (candidate.endsWith('/deka')) {
+        return { command: candidate, args: ['lsp'] }
+      }
+      return { command: candidate, args }
+    }
+  }
+
   return {
     command: 'deka',
     args: ['lsp']
@@ -69,7 +89,20 @@ function resolveServerCommand(context) {
 }
 
 async function startClient(context) {
+  if (!output) {
+    output = vscode.window.createOutputChannel('PHPX')
+    context.subscriptions.push(output)
+  }
   const server = resolveServerCommand(context)
+  output.appendLine(`[phpx] starting language server: ${server.command} ${server.args.join(' ')}`)
+
+  // Early check for absolute/bundled paths to surface obvious launch issues.
+  if (path.isAbsolute(server.command) && !fs.existsSync(server.command)) {
+    const msg = `PHPX LSP binary not found: ${server.command}`
+    output.appendLine(`[phpx] error: ${msg}`)
+    vscode.window.showErrorMessage(msg)
+    return
+  }
 
   const serverOptions = {
     run: {
@@ -86,6 +119,8 @@ async function startClient(context) {
 
   const clientOptions = {
     documentSelector: [{ scheme: 'file', language: 'phpx' }],
+    outputChannel: output,
+    traceOutputChannel: output,
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher('**/*.phpx')
     }
@@ -98,7 +133,17 @@ async function startClient(context) {
     clientOptions
   )
 
-  context.subscriptions.push(client.start())
+  client.onDidChangeState((event) => {
+    output.appendLine(`[phpx] client state changed: ${event.oldState} -> ${event.newState}`)
+  })
+
+  try {
+    context.subscriptions.push(client.start())
+  } catch (err) {
+    const msg = `Failed to start PHPX language server: ${String(err)}`
+    output.appendLine(`[phpx] error: ${msg}`)
+    vscode.window.showErrorMessage(msg)
+  }
 }
 
 async function restartClient(context) {

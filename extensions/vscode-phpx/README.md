@@ -34,6 +34,13 @@ Override in VS Code settings if needed:
 
 - `PHPX: Restart Language Server`
 
+## Troubleshooting
+
+- Open `Output` panel and select `PHPX` to inspect server launch logs.
+- If VS Code PATH differs from shell, set:
+  - `"phpx.lsp.path": "/Users/<you>/Projects/deka/deka/target/release/phpx_lsp"`
+- After rebuilding LSP, run `PHPX: Restart Language Server`.
+
 ## Development
 
 1. Open `extensions/vscode-phpx` in VS Code
