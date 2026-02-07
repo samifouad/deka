@@ -48,6 +48,7 @@
 - [x] Add optional preflight/base reset toggle.
 - [x] Generate deduped CSS during SSR and cache in project `.cache`.
 - [x] Document compatibility matrix and unsupported classes.
+: See `docs/utility-css-compat.md`.
 
 ### 5) Tooling and LSP
 
