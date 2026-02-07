@@ -4509,6 +4509,7 @@ dependencies = [
  "bumpalo",
  "deka-validation",
  "deno_core",
+ "getrandom 0.2.17",
  "mysql 26.0.1",
  "native-tls",
  "php-rs",

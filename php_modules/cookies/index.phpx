@@ -1,0 +1,104 @@
+function option_value($options, $key, $fallback = null) {
+  if (is_array($options) && array_key_exists($key, $options)) {
+    return $options[$key]
+  }
+  if (is_object($options) && isset($options->{$key})) {
+    return $options->{$key}
+  }
+  return $fallback
+}
+
+function bool_option($options, $key, $fallback = false) {
+  return (bool) option_value($options, $key, $fallback)
+}
+
+function cookie_encode($value) {
+  return rawurlencode('' . $value)
+}
+
+function same_site_value($value) {
+  $v = strtolower(trim('' . $value))
+  if ($v === 'strict') {
+    return 'Strict'
+  }
+  if ($v === 'none') {
+    return 'None'
+  }
+  return 'Lax'
+}
+
+export function all() {
+  if (isset($_COOKIE) && is_array($_COOKIE)) {
+    return $_COOKIE
+  }
+  return []
+}
+
+export function has($name) {
+  $key = '' . $name
+  return isset($_COOKIE) && is_array($_COOKIE) && array_key_exists($key, $_COOKIE)
+}
+
+export function get($name, $fallback = null) {
+  $key = '' . $name
+  if (has($key)) {
+    return $_COOKIE[$key]
+  }
+  return $fallback
+}
+
+export function build_set_cookie($name, $value, $options = []) {
+  $key = '' . $name
+  $cookie = $key . '=' . cookie_encode($value)
+
+  $path = option_value($options, 'path', '/')
+  if ($path !== null && $path !== '') {
+    $cookie = $cookie . '; Path=' . $path
+  }
+
+  $domain = option_value($options, 'domain', null)
+  if ($domain !== null && $domain !== '') {
+    $cookie = $cookie . '; Domain=' . $domain
+  }
+
+  $max_age = option_value($options, 'max_age', null)
+  if ($max_age !== null && $max_age !== '') {
+    $cookie = $cookie . '; Max-Age=' . (int) $max_age
+  }
+
+  $expires = option_value($options, 'expires', null)
+  if ($expires !== null && $expires !== '') {
+    if (is_numeric($expires)) {
+      $cookie = $cookie . '; Expires=' . gmdate('D, d M Y H:i:s', (int) $expires) . ' GMT'
+    } else {
+      $cookie = $cookie . '; Expires=' . $expires
+    }
+  }
+
+  if (bool_option($options, 'secure', true)) {
+    $cookie = $cookie . '; Secure'
+  }
+  if (bool_option($options, 'http_only', true)) {
+    $cookie = $cookie . '; HttpOnly'
+  }
+
+  $same_site = option_value($options, 'same_site', 'Lax')
+  if ($same_site !== null && $same_site !== '') {
+    $cookie = $cookie . '; SameSite=' . same_site_value($same_site)
+  }
+
+  return $cookie
+}
+
+export function set_header($name, $value, $options = []) {
+  $line = build_set_cookie($name, $value, $options)
+  header('Set-Cookie: ' . $line, false)
+  return $line
+}
+
+export function clear_header($name, $options = []) {
+  $opts = is_array($options) ? $options : []
+  $opts['max_age'] = 0
+  $opts['expires'] = 0
+  return set_header($name, '', $opts)
+}

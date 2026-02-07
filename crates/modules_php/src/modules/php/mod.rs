@@ -1148,6 +1148,22 @@ fn op_php_sha256(#[string] data: String) -> String {
 }
 
 #[op2]
+#[buffer]
+fn op_php_random_bytes(#[number] len: i64) -> Vec<u8> {
+    if len <= 0 {
+        return Vec::new();
+    }
+    if len > (1024 * 1024) {
+        return Vec::new();
+    }
+    let mut out = vec![0u8; len as usize];
+    if getrandom::getrandom(&mut out).is_err() {
+        return Vec::new();
+    }
+    out
+}
+
+#[op2]
 #[serde]
 fn op_php_read_env() -> HashMap<String, String> {
     let mut merged = HashMap::new();
@@ -3401,6 +3417,7 @@ deno_core::extension!(
         op_php_write_file_sync,
         op_php_mkdirs,
         op_php_sha256,
+        op_php_random_bytes,
         op_php_read_env,
         op_php_db_call_proto,
         op_php_db_proto_encode,

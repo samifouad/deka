@@ -2648,7 +2648,7 @@
         },
         "core/bridge": {
           "src": "php_modules/core/bridge.phpx",
-          "hash": "sha256:19dcc044e20db8ea5e797f2f1e940bcfd8e70f9585385497fe0abf241cbee739",
+          "hash": "sha256:e667d797126da00527c0e5951f7640e6dc4ad01bdae403e65cc050278912d7c7",
           "cache": "php_modules/.cache/phpx/core/bridge.php",
           "compiler": "phpx-cache-v1",
           "deps": [],
@@ -2673,6 +2673,57 @@
             "close",
             "read_file",
             "write_file"
+          ]
+        },
+        "cookies": {
+          "src": "php_modules/cookies/index.phpx",
+          "hash": "sha256:5197ca8c42aca946f656485163363768880ec08403d072038ecc15e919c489d7",
+          "cache": "php_modules/.cache/phpx/cookies/index.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [],
+          "exports": [
+            "all",
+            "has",
+            "get",
+            "build_set_cookie",
+            "set_header",
+            "clear_header"
+          ]
+        },
+        "jwt": {
+          "src": "php_modules/jwt/index.phpx",
+          "hash": "sha256:47da495f54de4f8de52ec0d54d50f41450da482df9cac79a4311bb330f6d9dde",
+          "cache": "php_modules/.cache/phpx/jwt/index.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [
+            "core/result",
+            "crypto",
+            "bytes",
+            "encoding/json"
+          ],
+          "exports": [
+            "sign",
+            "verify"
+          ]
+        },
+        "crypto": {
+          "src": "php_modules/crypto/index.phpx",
+          "hash": "sha256:c799cab3d67feaf6b77197902320c7ee19b037bb8d506df4564ead65c9b7cda5",
+          "cache": "php_modules/.cache/phpx/crypto/index.php",
+          "compiler": "phpx-cache-v1",
+          "deps": [
+            "bytes",
+            "core/result",
+            "core/bridge"
+          ],
+          "exports": [
+            "random_bytes_result",
+            "random_hex",
+            "sha256_hex",
+            "hmac_sha256_hex",
+            "hmac_sha256_bytes",
+            "secure_compare",
+            "uuid_v4"
           ]
         }
       }

@@ -6,6 +6,9 @@ export function bridge($kind, $action, $payload = {}) {
         $module = '__deka_net'
     } else if ($kind === 'fs') {
         $module = '__deka_fs'
+    } else if ($kind === 'crypto') {
+        $module = '__deka_db'
+        $action = 'crypto:' . $action
     }
 
     if ($module === null) {

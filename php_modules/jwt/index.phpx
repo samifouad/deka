@@ -1,0 +1,148 @@
+import { result_ok, result_err, result_is_ok } from 'core/result'
+import { hmac_sha256_bytes, secure_compare } from 'crypto'
+import { to_string as bytes_to_string } from 'bytes'
+import { json_encode, json_decode_result } from 'encoding/json'
+
+function b64url_encode($raw) {
+  return rtrim(str_replace(['+', '/'], ['-', '_'], base64_encode($raw)), '=')
+}
+
+function b64url_decode($value) {
+  $padded = '' . $value
+  $pad = strlen($padded) % 4
+  if ($pad > 0) {
+    $padded = $padded . str_repeat('=', 4 - $pad)
+  }
+  $decoded = base64_decode(str_replace(['-', '_'], ['+', '/'], $padded), true)
+  if ($decoded === false) {
+    return result_err('invalid base64url payload')
+  }
+  return result_ok($decoded)
+}
+
+function now_unix() {
+  return time()
+}
+
+function normalize_claims($payload, $options = []) {
+  $claims = is_array($payload) ? $payload : (array) $payload
+  if (is_array($options) && array_key_exists('iss', $options)) {
+    $claims['iss'] = $options['iss']
+  }
+  if (is_array($options) && array_key_exists('aud', $options)) {
+    $claims['aud'] = $options['aud']
+  }
+  if (is_array($options) && array_key_exists('sub', $options)) {
+    $claims['sub'] = $options['sub']
+  }
+  if (!array_key_exists('iat', $claims)) {
+    $claims['iat'] = now_unix()
+  }
+  if (is_array($options) && array_key_exists('exp_in', $options)) {
+    $claims['exp'] = now_unix() + (int) $options['exp_in']
+  }
+  if (is_array($options) && array_key_exists('exp', $options)) {
+    $claims['exp'] = (int) $options['exp']
+  }
+  return $claims
+}
+
+export function sign($payload, $secret, $options = []) {
+  $alg = is_array($options) && array_key_exists('alg', $options) ? strtoupper('' . $options['alg']) : 'HS256'
+  if ($alg !== 'HS256') {
+    return result_err('unsupported jwt alg: ' . $alg)
+  }
+
+  $header = {
+    alg: 'HS256',
+    typ: 'JWT'
+  }
+  $claims = normalize_claims($payload, $options)
+  $header_json = json_encode($header)
+  $claims_json = json_encode($claims)
+  if (!is_string($header_json) || !is_string($claims_json)) {
+    return result_err('failed to encode jwt parts')
+  }
+  $input = b64url_encode($header_json) . '.' . b64url_encode($claims_json)
+  $sig = bytes_to_string(hmac_sha256_bytes($input, $secret))
+  return result_ok($input . '.' . b64url_encode($sig))
+}
+
+function decode_parts($token) {
+  $parts = explode('.', '' . $token)
+  if (count($parts) !== 3) {
+    return result_err('invalid jwt format')
+  }
+  $h = b64url_decode($parts[0])
+  if (!result_is_ok($h)) {
+    return $h
+  }
+  $p = b64url_decode($parts[1])
+  if (!result_is_ok($p)) {
+    return $p
+  }
+  $s = b64url_decode($parts[2])
+  if (!result_is_ok($s)) {
+    return $s
+  }
+  $header_json = $h->value
+  $payload_json = $p->value
+  $header_res = json_decode_result($header_json, true)
+  if (!result_is_ok($header_res)) {
+    return result_err('invalid jwt header json')
+  }
+  $payload_res = json_decode_result($payload_json, true)
+  if (!result_is_ok($payload_res)) {
+    return result_err('invalid jwt payload json')
+  }
+  return result_ok({
+    header: $header_res->value,
+    payload: $payload_res->value,
+    signature_raw: $s->value,
+    signing_input: $parts[0] . '.' . $parts[1]
+  })
+}
+
+function validate_claims($claims, $options = []) {
+  $now = now_unix()
+  $leeway = is_array($options) && array_key_exists('leeway', $options) ? (int) $options['leeway'] : 0
+  if (is_array($claims) && array_key_exists('exp', $claims) && (int) $claims['exp'] + $leeway < $now) {
+    return result_err('jwt expired')
+  }
+  if (is_array($claims) && array_key_exists('nbf', $claims) && (int) $claims['nbf'] - $leeway > $now) {
+    return result_err('jwt not active yet')
+  }
+  if (is_array($options) && array_key_exists('iss', $options)) {
+    if (!array_key_exists('iss', $claims) || ('' . $claims['iss']) !== ('' . $options['iss'])) {
+      return result_err('jwt issuer mismatch')
+    }
+  }
+  if (is_array($options) && array_key_exists('aud', $options)) {
+    if (!array_key_exists('aud', $claims) || ('' . $claims['aud']) !== ('' . $options['aud'])) {
+      return result_err('jwt audience mismatch')
+    }
+  }
+  return result_ok(true)
+}
+
+export function verify($token, $secret, $options = []) {
+  $parts_res = decode_parts($token)
+  if (!result_is_ok($parts_res)) {
+    return $parts_res
+  }
+  $parts = $parts_res->value
+  $header = is_array($parts['header']) ? $parts['header'] : []
+  $payload = is_array($parts['payload']) ? $parts['payload'] : []
+  if (!array_key_exists('alg', $header) || strtoupper('' . $header['alg']) !== 'HS256') {
+    return result_err('unsupported jwt alg')
+  }
+  $expected_sig = bytes_to_string(hmac_sha256_bytes($parts['signing_input'], $secret))
+  if (!secure_compare($expected_sig, $parts['signature_raw'])) {
+    return result_err('invalid jwt signature')
+  }
+  $claims_check = validate_claims($payload, $options)
+  if (!result_is_ok($claims_check)) {
+    return $claims_check
+  }
+  return result_ok($payload)
+}
