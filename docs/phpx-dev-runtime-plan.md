@@ -79,9 +79,9 @@
 
 ### Phase D: Islands Scheduling
 
-- [ ] Directive parser + metadata emission.
-- [ ] Client scheduler (`load/idle/visible/media`).
-- [ ] Boundary-local remount fallback.
+- [x] Directive parser + metadata emission.
+- [x] Client scheduler (`load/idle/visible/media`).
+- [x] Boundary-local remount fallback.
 
 ### Phase E: Utility CSS Engine
 

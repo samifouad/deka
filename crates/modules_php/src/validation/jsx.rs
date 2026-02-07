@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
 use bumpalo::Bump;
+use php_rs::parser::ast::BinaryOp;
+use php_rs::parser::ast::visitor::{Visitor, walk_expr};
+use php_rs::parser::ast::{Expr, ExprId, JsxAttribute, JsxChild, Name, Program, Stmt};
 use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
-use php_rs::parser::ast::visitor::{walk_expr, Visitor};
-use php_rs::parser::ast::{Expr, ExprId, JsxAttribute, JsxChild, Name, Program, Stmt};
-use php_rs::parser::ast::BinaryOp;
 use php_rs::parser::span::Span;
 
 use super::{ErrorKind, Severity, ValidationError};
@@ -162,10 +162,7 @@ pub fn validate_template_section(source: &str, _file_path: &str) -> Vec<Validati
         let padding = std::cmp::min(info.line_text.len(), info.column.saturating_sub(1));
         let underline_length = std::cmp::max(
             1,
-            std::cmp::min(
-                err.span.len(),
-                info.line_text.len().saturating_sub(padding),
-            ),
+            std::cmp::min(err.span.len(), info.line_text.len().saturating_sub(padding)),
         );
         errors.push(ValidationError {
             kind: ErrorKind::JsxError,
@@ -190,7 +187,9 @@ struct JsxSyntaxValidator<'a> {
 impl<'ast> Visitor<'ast> for JsxSyntaxValidator<'_> {
     fn visit_expr(&mut self, expr: ExprId<'ast>) {
         match expr {
-            Expr::JsxElement { name, attributes, .. } => {
+            Expr::JsxElement {
+                name, attributes, ..
+            } => {
                 self.check_tag_name(name);
                 for attr in *attributes {
                     self.check_attribute(attr);
@@ -229,6 +228,15 @@ impl JsxSyntaxValidator<'_> {
                 self.source,
                 format!("Invalid JSX attribute name '{}'.", name),
                 "Use a valid attribute identifier.",
+            ));
+            return;
+        }
+        if name.contains(':') && !is_island_directive_attr(&name) {
+            self.errors.push(jsx_error(
+                attr.span,
+                self.source,
+                format!("Invalid JSX attribute name '{}'.", name),
+                "Only `client:*` directive attributes may use ':'.",
             ));
         }
     }
@@ -296,17 +304,18 @@ struct JsxExprValidator<'a> {
 impl<'ast> Visitor<'ast> for JsxExprValidator<'_> {
     fn visit_expr(&mut self, expr: ExprId<'ast>) {
         match expr {
-            Expr::Binary { left, op, right, .. } => {
+            Expr::Binary {
+                left, op, right, ..
+            } => {
                 if let Some(op_text) = comparison_operator(*op) {
-                    if let Some(span) = operator_span(self.source, left.span(), right.span(), op_text) {
+                    if let Some(span) =
+                        operator_span(self.source, left.span(), right.span(), op_text)
+                    {
                         if !has_spacing_around_operator(self.source, span, op_text) {
                             self.errors.push(jsx_error(
                                 span,
                                 self.source,
-                                format!(
-                                    "Add spaces around '{}' to avoid JSX ambiguity.",
-                                    op_text
-                                ),
+                                format!("Add spaces around '{}' to avoid JSX ambiguity.", op_text),
                                 "Use spaces around comparison operators inside JSX expressions.",
                             ));
                         }
@@ -353,7 +362,10 @@ struct JsxComponentValidator<'a> {
 
 impl<'ast> Visitor<'ast> for JsxComponentValidator<'_> {
     fn visit_expr(&mut self, expr: ExprId<'ast>) {
-        if let Expr::JsxElement { name, attributes, .. } = expr {
+        if let Expr::JsxElement {
+            name, attributes, ..
+        } = expr
+        {
             self.validate_element(name, attributes);
         }
         walk_expr(self, expr);
@@ -372,7 +384,10 @@ impl JsxComponentValidator<'_> {
         }
 
         let mut chars = last.chars();
-        let is_component = chars.next().map(|ch| ch.is_ascii_uppercase()).unwrap_or(false);
+        let is_component = chars
+            .next()
+            .map(|ch| ch.is_ascii_uppercase())
+            .unwrap_or(false);
         let has_uppercase = last.chars().any(|ch| ch.is_ascii_uppercase());
 
         if !is_component && has_uppercase {
@@ -385,6 +400,25 @@ impl JsxComponentValidator<'_> {
                     capitalize_jsx_name(last)
                 ),
                 "Use a capitalized component name for components.",
+            ));
+            return;
+        }
+
+        let directives: Vec<&JsxAttribute> = attributes
+            .iter()
+            .filter(|attr| {
+                token_text(attr.name, self.source)
+                    .map(|name| is_island_directive_attr(&name))
+                    .unwrap_or(false)
+            })
+            .collect();
+
+        if !is_component && !directives.is_empty() {
+            self.errors.push(jsx_error(
+                span_of_first_attr(directives[0]),
+                self.source,
+                "Island directives are only valid on components.".to_string(),
+                "Use `client:*` directives on a capitalized component tag.",
             ));
             return;
         }
@@ -403,7 +437,44 @@ impl JsxComponentValidator<'_> {
         }
 
         if is_component {
+            if directives.len() > 1 {
+                self.errors.push(jsx_error(
+                    name.span,
+                    self.source,
+                    "Only one island directive may be used per component.".to_string(),
+                    "Use one of: `client:load`, `client:idle`, `client:visible`, `client:media`, `client:only`.",
+                ));
+            }
+            for attr in directives {
+                self.validate_island_directive(attr);
+            }
             self.validate_props(last, attributes, name.span);
+        }
+    }
+
+    fn validate_island_directive(&mut self, attr: &JsxAttribute) {
+        let Some(name) = token_text(attr.name, self.source) else {
+            return;
+        };
+        if !(name == "client:media" || name == "clientMedia" || name == "client-media") {
+            return;
+        }
+        let Some(value) = attr.value else {
+            self.errors.push(jsx_error(
+                attr.span,
+                self.source,
+                "client:media requires a media query value.".to_string(),
+                "Provide a media query string, e.g. `client:media=\"(min-width: 768px)\"`.",
+            ));
+            return;
+        };
+        if !matches!(value, Expr::String { .. } | Expr::InterpolatedString { .. }) {
+            self.errors.push(jsx_error(
+                attr.span,
+                self.source,
+                "client:media requires a string value.".to_string(),
+                "Provide a media query string literal.",
+            ));
         }
     }
 
@@ -612,11 +683,38 @@ fn is_valid_attr_name(name: &str) -> bool {
         return false;
     }
     let mut chars = name.chars();
-    let Some(first) = chars.next() else { return false };
+    let Some(first) = chars.next() else {
+        return false;
+    };
     if !(first == '_' || first.is_ascii_alphabetic()) {
         return false;
     }
-    chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric() || ch == '-')
+    chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric() || ch == '-' || ch == ':')
+}
+
+fn is_island_directive_attr(name: &str) -> bool {
+    matches!(
+        name,
+        "client:load"
+            | "clientLoad"
+            | "client-load"
+            | "client:idle"
+            | "clientIdle"
+            | "client-idle"
+            | "client:visible"
+            | "clientVisible"
+            | "client-visible"
+            | "client:media"
+            | "clientMedia"
+            | "client-media"
+            | "client:only"
+            | "clientOnly"
+            | "client-only"
+    )
+}
+
+fn span_of_first_attr(attr: &JsxAttribute) -> Span {
+    attr.span
 }
 
 fn capitalize_jsx_name(name: &str) -> String {

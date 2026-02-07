@@ -21,6 +21,11 @@ fn compile_fixture(path: &Path) -> ValidationResult<'static> {
     compile_phpx(&source, path.to_string_lossy().as_ref(), arena)
 }
 
+fn compile_source(source: &str, file_path: &str) -> ValidationResult<'static> {
+    let arena = Box::leak(Box::new(Bump::new()));
+    compile_phpx(source, file_path, arena)
+}
+
 fn assert_has_error(result: &ValidationResult<'_>, kind: ErrorKind) {
     assert!(
         result.errors.iter().any(|err| err.kind == kind),
@@ -445,6 +450,51 @@ fn struct_extra_field_reports_error() {
 fn jsx_unknown_component_reports_error() {
     let path = fixtures_root().join("jsx/unknown_component.phpx");
     let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::JsxError);
+}
+
+#[test]
+fn jsx_island_directive_on_component_ok() {
+    let source = r#"
+function Card($props) {
+    return <div>{$props.message}</div>
+}
+
+function Page() {
+    return <Card message="hello" clientLoad={true} />
+}
+"#;
+    let result = compile_source(source, "inline/island_ok.phpx");
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+}
+
+#[test]
+fn jsx_island_directive_on_dom_reports_error() {
+    let source = r#"
+function Page() {
+    return <div clientLoad={true}>x</div>
+}
+"#;
+    let result = compile_source(source, "inline/island_dom.phpx");
+    assert_has_error(&result, ErrorKind::JsxError);
+}
+
+#[test]
+fn jsx_island_media_requires_string() {
+    let source = r#"
+function Card($props) {
+    return <div>{$props.message}</div>
+}
+
+function Page() {
+    return <Card message="hello" clientMedia={123} />
+}
+"#;
+    let result = compile_source(source, "inline/island_media.phpx");
     assert_has_error(&result, ErrorKind::JsxError);
 }
 

@@ -23,6 +23,7 @@ export function createRoot($config = false) {
 
 export function renderToString($node) {
     __component_reset_node_id()
+    __component_reset_island_id()
     return __component_render_node($node);
 }
 
@@ -142,6 +143,7 @@ const createRoot = (config = {}) => {
     if (!payload || typeof payload.html !== "string") return;
     const container = getContainer(containerSelector || root.container);
     swapHtml(container, payload.html);
+    hydrateIslands(container);
     if (typeof payload.title === "string" && payload.title !== "") {
       document.title = payload.title;
     }
@@ -216,6 +218,71 @@ const createRoot = (config = {}) => {
 
   const initialContainer = getContainer(root.container);
   ensureLayout(initialContainer);
+  const scheduleByDirective = (el) => {
+    const mode = (el.getAttribute("data-client") || "load").toLowerCase();
+    const hydrate = () => {
+      if (el.dataset.dekaIslandHydrated === "1") return;
+      el.dataset.dekaIslandHydrated = "1";
+      el.dispatchEvent(new CustomEvent("deka:island:hydrate", { bubbles: true }));
+    };
+    if (mode === "idle") {
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(hydrate);
+      } else {
+        setTimeout(hydrate, 1);
+      }
+      return;
+    }
+    if (mode === "visible") {
+      if ("IntersectionObserver" in window) {
+        const io = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              io.disconnect();
+              hydrate();
+              break;
+            }
+          }
+        });
+        io.observe(el);
+      } else {
+        hydrate();
+      }
+      return;
+    }
+    if (mode === "media") {
+      const query = el.getAttribute("data-media") || "";
+      if (!query || !("matchMedia" in window)) {
+        hydrate();
+        return;
+      }
+      const mql = window.matchMedia(query);
+      const run = () => {
+        if (mql.matches) {
+          hydrate();
+        }
+      };
+      run();
+      if (mql.addEventListener) {
+        mql.addEventListener("change", run);
+      } else if (mql.addListener) {
+        mql.addListener(run);
+      }
+      return;
+    }
+    hydrate();
+  };
+  const hydrateIslands = (scope) => {
+    const root = scope || document;
+    const islands = root.querySelectorAll
+      ? root.querySelectorAll("[data-deka-island]")
+      : [];
+    for (const el of islands) {
+      scheduleByDirective(el);
+    }
+  };
+  window.__dekaHydrateIslands = hydrateIslands;
+  hydrateIslands(initialContainer || document);
 
   document.addEventListener("click", onClick);
   window.addEventListener("popstate", onPopState);
@@ -316,8 +383,11 @@ function __component_render_vnode($node) {
     }
 
     if (!is_string($type) && is_callable($type)) {
-        $next = $type($props);
-        return __component_render_node($next);
+        $island = __component_island_meta($type, $props);
+        $call_props = __component_strip_island_props($props);
+        $next = $type($call_props);
+        $html = __component_render_node($next);
+        return __component_wrap_island($html, $island);
     }
 
     if (is_string($type) && __component_is_component_name($type) && function_exists($type)) {
@@ -458,6 +528,158 @@ function __component_dev_enabled() {
     }
     $value = strtolower('' . $_ENV['DEKA_DEV']);
     return $value === '1' || $value === 'true' || $value === 'yes' || $value === 'on';
+}
+
+function __component_reset_island_id() {
+    $next = &__component_island_counter();
+    $next = 0;
+}
+
+function __component_next_island_id() {
+    $next = &__component_island_counter();
+    $next = $next + 1;
+    return 'deka-island-' . $next;
+}
+
+function &__component_island_counter() {
+    static $next = 0;
+    return $next;
+}
+
+function __component_island_meta($type, $props) {
+    $directive = __component_island_directive($props);
+    if ($directive === false) {
+        return false;
+    }
+    $name = __component_callable_name($type);
+    return {
+        id: __component_next_island_id(),
+        directive: $directive.directive,
+        media: $directive.media,
+        only: $directive.only,
+        name: $name,
+    };
+}
+
+function __component_island_directive($props) {
+    $candidates = [
+        ['client:load', 'load'],
+        ['clientLoad', 'load'],
+        ['client-load', 'load'],
+        ['client:idle', 'idle'],
+        ['clientIdle', 'idle'],
+        ['client-idle', 'idle'],
+        ['client:visible', 'visible'],
+        ['clientVisible', 'visible'],
+        ['client-visible', 'visible'],
+        ['client:media', 'media'],
+        ['clientMedia', 'media'],
+        ['client-media', 'media'],
+        ['client:only', 'load'],
+        ['clientOnly', 'load'],
+        ['client-only', 'load'],
+    ];
+    $found = false;
+    $directive = 'load';
+    $media = '';
+    $only = false;
+    foreach ($candidates as $row) {
+        $key = $row[0];
+        $mode = $row[1];
+        $val = __component_prop_value($props, $key);
+        if ($val === false) {
+            continue;
+        }
+        $found = true;
+        $directive = $mode;
+        if ($key === 'client:only' || $key === 'clientOnly' || $key === 'client-only') {
+            $only = true;
+        }
+        if ($mode === 'media' && is_string($val) && $val !== '') {
+            $media = $val;
+        }
+    }
+    if (!$found) {
+        return false;
+    }
+    return {
+        directive: $directive,
+        media: $media,
+        only: $only,
+    };
+}
+
+function __component_prop_value($props, $key) {
+    if (is_array($props)) {
+        return array_key_exists($key, $props) ? $props[$key] : false;
+    }
+    if (is_object($props)) {
+        if ($key === 'clientLoad' && isset($props.clientLoad)) return $props.clientLoad;
+        if ($key === 'clientIdle' && isset($props.clientIdle)) return $props.clientIdle;
+        if ($key === 'clientVisible' && isset($props.clientVisible)) return $props.clientVisible;
+        if ($key === 'clientMedia' && isset($props.clientMedia)) return $props.clientMedia;
+        if ($key === 'clientOnly' && isset($props.clientOnly)) return $props.clientOnly;
+    }
+    return false;
+}
+
+function __component_strip_island_props($props) {
+    if (!is_array($props) && !is_object($props)) {
+        return $props;
+    }
+    $drop = [
+        'client:load',
+        'clientLoad',
+        'client-load',
+        'client:idle',
+        'clientIdle',
+        'client-idle',
+        'client:visible',
+        'clientVisible',
+        'client-visible',
+        'client:media',
+        'clientMedia',
+        'client-media',
+        'client:only',
+        'clientOnly',
+        'client-only',
+    ];
+    $out = {};
+    foreach ($props as $k => $v) {
+        if (in_array($k, $drop, true)) {
+            continue;
+        }
+        $out->{$k} = $v;
+    }
+    return $out;
+}
+
+function __component_wrap_island($html, $island) {
+    if ($island === false) {
+        return $html;
+    }
+    if ($island.only) {
+        $html = '';
+    }
+    $attrs = '';
+    $attrs .= ' data-deka-island="1"';
+    $attrs .= ' data-deka-island-id="' . __component_escape_attr($island.id) . '"';
+    $attrs .= ' data-component="' . __component_escape_attr($island.name) . '"';
+    $attrs .= ' data-client="' . __component_escape_attr($island.directive) . '"';
+    if ($island.media !== '') {
+        $attrs .= ' data-media="' . __component_escape_attr($island.media) . '"';
+    }
+    return '<deka-island' . $attrs . '>' . $html . '</deka-island>';
+}
+
+function __component_callable_name($type) {
+    if (is_string($type)) {
+        return ltrim($type, '\\');
+    }
+    if (is_array($type) && count($type) >= 2 && is_string($type[1])) {
+        return $type[1];
+    }
+    return 'Component';
 }
 
 function __component_reset_node_id() {

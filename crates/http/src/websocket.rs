@@ -26,6 +26,7 @@ struct HmrSnapshot {
     selector: String,
     container_html: String,
     node_html: HashMap<String, String>,
+    island_html: HashMap<String, String>,
 }
 static HMR_REGISTRY: OnceLock<Mutex<HashMap<u64, HmrEntry>>> = OnceLock::new();
 static HMR_RUNTIME_STATE: OnceLock<Arc<RuntimeState>> = OnceLock::new();
@@ -210,6 +211,7 @@ async fn render_hmr_payload(
 fn build_patch_from_snapshot(path: &str, changed_paths: &[String], selector: &str, html: &str) -> String {
     let snapshots = HMR_SNAPSHOTS.get_or_init(|| Mutex::new(HashMap::new()));
     let new_map = collect_deka_nodes(html);
+    let new_islands = collect_islands(html);
     let mut ops = Vec::new();
     if let Ok(mut guard) = snapshots.lock() {
         if let Some(prev) = guard.get(path) {
@@ -249,6 +251,39 @@ fn build_patch_from_snapshot(path: &str, changed_paths: &[String], selector: &st
                             }));
                         }
                     }
+                } else if structure_changed && !prev.island_html.is_empty() && !new_islands.is_empty() {
+                    let mut changed_islands = Vec::new();
+                    let mut islands_stable = true;
+                    for id in prev.island_html.keys() {
+                        if !new_islands.contains_key(id) {
+                            islands_stable = false;
+                            break;
+                        }
+                    }
+                    if islands_stable {
+                        for (id, next_html) in &new_islands {
+                            match prev.island_html.get(id) {
+                                Some(prev_html) if prev_html == next_html => {}
+                                Some(_) => changed_islands.push(id.clone()),
+                                None => {
+                                    islands_stable = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if islands_stable && !changed_islands.is_empty() && changed_islands.len() <= 16 {
+                        changed_islands.sort();
+                        for id in changed_islands {
+                            if let Some(next_html) = new_islands.get(&id) {
+                                ops.push(serde_json::json!({
+                                    "op": "set_html",
+                                    "selector": format!("[data-deka-island-id=\"{}\"]", id),
+                                    "html": next_html,
+                                }));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -258,6 +293,7 @@ fn build_patch_from_snapshot(path: &str, changed_paths: &[String], selector: &st
                 selector: selector.to_string(),
                 container_html: html.to_string(),
                 node_html: new_map,
+                island_html: new_islands,
             },
         );
     }
@@ -370,6 +406,30 @@ fn collect_deka_nodes(container_html: &str) -> HashMap<String, String> {
         if !id.is_empty() {
             if let Some(inner) =
                 extract_element_inner_by_attr(container_html, "data-deka-id", id, abs)
+            {
+                out.insert(id.to_string(), inner);
+            }
+        }
+        offset = id_end + 1;
+    }
+    out
+}
+
+fn collect_islands(container_html: &str) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    let mut offset = 0usize;
+    let needle = "data-deka-island-id=\"";
+    while let Some(pos) = container_html[offset..].find(needle) {
+        let abs = offset + pos;
+        let id_start = abs + needle.len();
+        let Some(id_end_rel) = container_html[id_start..].find('"') else {
+            break;
+        };
+        let id_end = id_start + id_end_rel;
+        let id = &container_html[id_start..id_end];
+        if !id.is_empty() {
+            if let Some(inner) =
+                extract_element_inner_by_attr(container_html, "data-deka-island-id", id, abs)
             {
                 out.insert(id.to_string(), inner);
             }
