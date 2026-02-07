@@ -1599,6 +1599,25 @@ struct User {
     }
 
     #[test]
+    fn generated_client_load_relation_logic_covers_relation_kinds() {
+        let source = r#"
+struct User {
+  $id: int @id @autoIncrement
+}
+"#;
+        let models = extract_struct_models(source, "inline.phpx".to_string()).expect("models");
+        let client = super::render_client_phpx(&models);
+
+        assert!(client.contains("export function loadRelation"));
+        assert!(client.contains("if ($kind === 'hasMany')"));
+        assert!(client.contains("return selectMany($handle, $target, eq($fk, $row['id']))"));
+        assert!(client.contains("if ($kind === 'belongsTo' || $kind === 'hasOne')"));
+        assert!(client.contains("return selectOne($handle, $target, eq('id', $row[$fk]))"));
+        assert!(client.contains("return result_err('unknown relation')"));
+        assert!(client.contains("return result_err('unsupported relation kind')"));
+    }
+
+    #[test]
     fn generated_schema_json_contains_db_names() {
         let source = r#"
 struct User {

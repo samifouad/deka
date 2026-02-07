@@ -66,6 +66,7 @@
 - [x] Predicates/helpers: `asc`, `desc`, `limit`, `offset`.
 - [x] Transaction API (non-fluent helper in generated client).
 - [x] Bound client supports fluent API via `createClient($meta, $handle)` and rebinding via `withHandle($handle)`.
+- [x] Generated client exposes relation loader helper: `loadRelation($model, $row, $field)` with `hasMany|belongsTo|hasOne` semantics based on `db/.generated/schema.json` relation metadata.
 
 ## Relation + Storage Rules (Current)
 
