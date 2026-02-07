@@ -4303,6 +4303,57 @@ function routeHostCall(kind, action, payload) {
             error: `unknown crypto action '${act}'`
         };
     }
+    if (kind === 'json') {
+        const act = String(action || '');
+        const req = payload || {};
+        if (act === 'encode') {
+            try {
+                const decoded = {
+                    ok: true,
+                    json: JSON.stringify(req.value ?? null)
+                };
+                return Object.entries(decoded || {});
+            } catch (err) {
+                const decoded = {
+                    ok: false,
+                    error: err && err.message ? err.message : String(err)
+                };
+                return Object.entries(decoded || {});
+            }
+        }
+        if (act === 'decode') {
+            try {
+                const src = String(req.json ?? '');
+                const decoded = {
+                    ok: true,
+                    value: JSON.parse(src)
+                };
+                return Object.entries(decoded || {});
+            } catch (err) {
+                const decoded = {
+                    ok: false,
+                    error: err && err.message ? err.message : String(err)
+                };
+                return Object.entries(decoded || {});
+            }
+        }
+        if (act === 'validate') {
+            try {
+                const src = String(req.json ?? '');
+                JSON.parse(src);
+                const decoded = { ok: true, valid: true };
+                return Object.entries(decoded || {});
+            } catch (_err) {
+                const decoded = { ok: true, valid: false };
+                return Object.entries(decoded || {});
+            }
+        }
+        const decoded = {
+            ok: false,
+            error: `unknown json action '${act}'`
+        };
+        return Object.entries(decoded || {});
+    }
     return {
         ok: false,
         error: `unknown bridge kind '${kind}'`
@@ -4381,6 +4432,8 @@ function phpWasmCall(modulePtr, moduleLen, exportPtr, exportLen, argsPtr, argsLe
                     const actionName = String(exportName || '');
                     if (actionName.startsWith('crypto:')) {
                         result = routeHostCall('crypto', actionName.slice('crypto:'.length), payload);
+                    } else if (actionName.startsWith('json:')) {
+                        result = routeHostCall('json', actionName.slice('json:'.length), payload);
                     } else {
                         result = routeHostCall('db', actionName, payload);
                     }
@@ -4389,7 +4442,12 @@ function phpWasmCall(modulePtr, moduleLen, exportPtr, exportLen, argsPtr, argsLe
                 } else if (isFsBridge || moduleId.includes('fs')) {
                     result = routeHostCall('fs', String(exportName || ''), payload);
                 } else if (isCryptoBridge || moduleId.includes('crypto')) {
-                    result = routeHostCall('crypto', String(exportName || ''), payload);
+                    const actionName = String(exportName || '');
+                    if (actionName.startsWith('json:')) {
+                        result = routeHostCall('json', actionName.slice('json:'.length), payload);
+                    } else {
+                        result = routeHostCall('crypto', actionName, payload);
+                    }
                 } else {
                     result = {
                         ok: false,

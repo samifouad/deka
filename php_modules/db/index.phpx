@@ -74,6 +74,19 @@ function normalize_rows($rows) {
     return $out
 }
 
+function normalize_param_value($value) {
+    if ($value === null) {
+        return null
+    }
+    if (is_bool($value)) {
+        return $value ? '1' : '0'
+    }
+    if (is_int($value) || is_float($value)) {
+        return '' . $value
+    }
+    return $value
+}
+
 function normalize_params($params) {
     if ($params === null) {
         return []
@@ -82,7 +95,7 @@ function normalize_params($params) {
     if (is_array($params)) {
         $vals = []
         foreach ($params as $v) {
-            $vals[] = $v
+            $vals[] = normalize_param_value($v)
         }
         return $vals
     }
@@ -90,12 +103,12 @@ function normalize_params($params) {
     if (is_object($params)) {
         $vals = []
         foreach ($params as $v) {
-            $vals[] = $v
+            $vals[] = normalize_param_value($v)
         }
         return $vals
     }
 
-    return [$params]
+    return [normalize_param_value($params)]
 }
 
 export function open($driver, $config) {
