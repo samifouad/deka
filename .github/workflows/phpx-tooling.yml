@@ -45,6 +45,8 @@ jobs:
         run: |
           PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js tests/phpx/foundation
           PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js tests/phpx/modules --skip=tests/phpx/modules/import_export.phpx
+      - name: Run runtime DB e2e (postgres+sqlite)
+        run: scripts/test-phpx-db-e2e.sh
 
   lsp_release_binaries:
     name: Release Binaries

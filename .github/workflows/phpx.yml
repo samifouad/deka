@@ -18,6 +18,6 @@ jobs:
       - name: Build PHP wasm
         run: cargo build -p php-rs --release --target wasm32-unknown-unknown --lib --no-default-features
       - name: Build CLI
-        run: cargo build -p cli
+        run: cargo build --release -p cli
       - name: Run PHPX fixtures
-        run: PHPX_BIN=target/debug/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js
+        run: PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js

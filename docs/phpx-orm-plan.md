@@ -82,13 +82,13 @@
 - [x] Phase 4: ORM IR + Postgres migration generator.
 - [x] Phase 5: Generated client implementation + `@/db` import path.
 - [x] Phase 6: Linkhash migration to generated client.
-- [ ] Phase 7: Test hardening across parser/validation/generator/CLI/runtime.
+- [x] Phase 7: Test hardening across parser/validation/generator/CLI/runtime.
   - [x] Parser/typechecker coverage for `@relation(...)`.
   - [x] LSP completion/hover coverage for relation annotations.
   - [x] Generator coverage for relation migration rules + schema metadata.
   - [x] CLI generation/migration state coverage in release tests.
   - [x] Runtime e2e DB test in local opt-in harness (`scripts/test-phpx-db-e2e.sh`).
-  - [ ] Runtime e2e DB test in CI (containerized DB service wiring).
+  - [x] Runtime e2e DB test in CI (`.github/workflows/phpx-tooling.yml`).
 
 ## Acceptance Criteria
 
