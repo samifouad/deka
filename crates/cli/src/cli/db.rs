@@ -392,6 +392,13 @@ struct FieldAnnotationDef {
     args: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+struct RelationSpec {
+    kind: String,
+    _model: String,
+    foreign_key: String,
+}
+
 impl FieldDef {
     fn annotation(&self, name: &str) -> Option<&FieldAnnotationDef> {
         self.annotations.iter().find(|ann| ann.name == name)
@@ -407,6 +414,27 @@ impl FieldDef {
             .map(|arg| unquote(arg))
             .filter(|name| !name.is_empty())
             .unwrap_or_else(|| self.name.clone())
+    }
+
+    fn relation_spec(&self) -> Option<RelationSpec> {
+        let ann = self.annotation("relation")?;
+        if ann.args.len() != 3 {
+            return None;
+        }
+        let kind = unquote(&ann.args[0]);
+        let model = unquote(&ann.args[1]);
+        let foreign_key = unquote(&ann.args[2]);
+        if kind.is_empty() || model.is_empty() || foreign_key.is_empty() {
+            return None;
+        }
+        if kind != "hasMany" && kind != "belongsTo" && kind != "hasOne" {
+            return None;
+        }
+        Some(RelationSpec {
+            kind,
+            _model: model,
+            foreign_key,
+        })
     }
 }
 
@@ -1165,6 +1193,16 @@ fn render_init_migration(models: &[ModelDef]) -> String {
         let mut defs: Vec<String> = Vec::new();
         let mut index_defs: Vec<String> = Vec::new();
         for field in &model.fields {
+            if let Some(relation) = field.relation_spec() {
+                if relation.kind == "belongsTo" {
+                    let index_name = format!("idx_{}_{}", table, relation.foreign_key);
+                    index_defs.push(format!(
+                        "CREATE INDEX IF NOT EXISTS \"{}\" ON \"{}\" (\"{}\");",
+                        index_name, table, relation.foreign_key
+                    ));
+                }
+                continue;
+            }
             let (sql_ty, nullable) = map_sql_type(&field.ty);
             let db_name = field.mapped_name();
             let mut def = if field.has_annotation("autoIncrement") {
@@ -1292,6 +1330,10 @@ fn to_table_name(model_name: &str) -> String {
 
 fn map_sql_type(ty: &str) -> (&'static str, bool) {
     let trimmed = ty.trim();
+    let lowered = trimmed.to_ascii_lowercase();
+    if lowered == "array" || lowered.starts_with("array<") {
+        return ("JSONB", false);
+    }
     if let Some(inner) = trimmed
         .strip_prefix("Option<")
         .and_then(|s| s.strip_suffix('>'))
@@ -1378,6 +1420,22 @@ struct User {
         assert!(migration.contains("\"email_address\" TEXT NOT NULL UNIQUE"));
         assert!(migration.contains("\"age\" BIGINT DEFAULT 18"));
         assert!(migration.contains("CREATE INDEX IF NOT EXISTS \"users_name_idx\""));
+    }
+
+    #[test]
+    fn migration_relation_field_is_virtual_and_belongsto_fk_is_indexed() {
+        let source = r#"
+struct Post {
+  $id: int @id @autoIncrement
+  $authorId: int
+  $author: User @relation("belongsTo", "User", "authorId")
+}
+"#;
+        let models = extract_struct_models(source, "inline.phpx".to_string()).expect("models");
+        let migration = super::render_init_migration(&models);
+        assert!(migration.contains("\"authorId\" BIGINT NOT NULL"));
+        assert!(!migration.contains("\"author\" TEXT"));
+        assert!(migration.contains("CREATE INDEX IF NOT EXISTS \"idx_posts_authorId\""));
     }
 
     #[test]
@@ -1546,6 +1604,17 @@ struct User {
         let (ty, nullable) = super::map_sql_type("Option<int>");
         assert_eq!(ty, "BIGINT");
         assert!(nullable);
+    }
+
+    #[test]
+    fn maps_array_types_to_jsonb() {
+        let (ty_plain, nullable_plain) = super::map_sql_type("array");
+        assert_eq!(ty_plain, "JSONB");
+        assert!(!nullable_plain);
+
+        let (ty_applied, nullable_applied) = super::map_sql_type("array<string>");
+        assert_eq!(ty_applied, "JSONB");
+        assert!(!nullable_applied);
     }
 
     #[test]

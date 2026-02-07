@@ -50,6 +50,13 @@ Runtime notes:
 - Legacy top-level paths `postgres`, `mysql`, and `sqlite` remain as compatibility proxies.
 - Shared contract helpers live in `db` (`open_handle`, `rows`, `query_one`, `affected_rows`).
 
+## ORM annotations (PHPX structs)
+- Canonical relation syntax is `@relation("hasMany|belongsTo|hasOne", "Model", "foreignKey")`.
+- `@relation(...)` fields are virtual relation metadata and are not emitted as table columns.
+- `@relation("hasMany", ...)` requires an `array<...>` field type.
+- `@relation("belongsTo", ..., "foreignKey")` auto-generates an index for the foreign key in generated Postgres migrations.
+- Non-relation `array<T>` fields map to `JSONB` in generated Postgres migrations.
+
 ## Semicolons (PHPX)
 - Semicolons are optional in `.phpx` (JS-style automatic semicolon insertion).
 - A line terminator ends a statement unless the expression clearly continues

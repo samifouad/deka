@@ -48,6 +48,8 @@
 - [x] Add struct field annotations (`@id`, `@unique`, etc.) in PHPX parser.
 - [x] Store annotations in AST as metadata (not runtime object lowering).
 - [x] Add annotation validation rules (unknown, duplicate, target mismatch, bad args).
+- [x] Add canonical relation annotation `@relation("hasMany|belongsTo|hasOne", "Model", "foreignKey")`.
+- [x] Validate relation annotation args and shape constraints (`hasMany` requires `array<...>` field type).
 - [x] Add LSP completions/signature help/hover for annotations.
 - [x] Add LSP diagnostics for annotation errors (via typechecker diagnostics pipeline).
 - [x] Add `@/` alias support in typechecker and LSP.
@@ -65,11 +67,18 @@
 - [x] Transaction API (non-fluent helper in generated client).
 - [x] Bound client supports fluent API via `createClient($meta, $handle)` and rebinding via `withHandle($handle)`.
 
+## Relation + Storage Rules (Current)
+
+- [x] `@relation(...)` fields are virtual relation metadata, not physical columns.
+- [x] `@relation("belongsTo", ..., "<fk>")` auto-generates an index for the foreign key on the owning table.
+- [x] `array<T>` fields without `@relation(...)` are persisted as `JSONB` in Postgres migrations.
+- [x] `array<Struct>` should use explicit `@relation(...)`; otherwise it is treated as data and stored as `JSONB`.
+
 ## Rollout
 
 - [x] Phase 1: CLI command scaffolding (`db generate/migrate/info/flush`) and path resolution.
 - [x] Phase 2: Annotation parser/AST support + parser tests.
-- [ ] Phase 3: Validation + LSP support for annotations and model relations.
+- [x] Phase 3: Validation + LSP support for annotations and model relations.
 - [ ] Phase 4: ORM IR + Postgres migration generator.
 - [x] Phase 5: Generated client implementation + `@/db` import path.
 - [x] Phase 6: Linkhash migration to generated client.

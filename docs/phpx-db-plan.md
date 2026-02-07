@@ -60,6 +60,11 @@ Errors use:
 - `db/postgres|db/sqlite|db/mysql`:
   - `connect/query/query_one/exec/begin/commit/rollback/close`
 
+## ORM Mapping Notes (Current)
+- `array<T>` model fields map to `JSONB` in generated Postgres migrations.
+- Relation fields should use `@relation(...)` and are treated as virtual (not emitted as table columns).
+- `@relation("belongsTo", ..., "<fk>")` triggers generated FK index SQL on the owning table.
+
 ## PHPX Usage Example
 ```php
 import { connect, query_one, close } from 'db/postgres';
@@ -87,8 +92,8 @@ close($conn->value);
 ```
 
 ## Linkhash Integration Pattern
-- Keep Linkhash-specific repository code as a project module under `linkhash/php_modules/linkhash_db`.
-- Depend only on `postgres` package from that module.
+- Linkhash should import database modules directly from project `php_modules`.
+- Use `db` for shared primitives and `db/postgres` for PostgreSQL ergonomics.
 - Return `Result` for connect/query_one style calls, and arrays for list-returning queries.
 
 ## Pooling/Reuse
@@ -105,4 +110,4 @@ close($conn->value);
 ## Next Steps
 1. Add statement prepare/cache and richer type decoding.
 2. Add metrics/introspection for active handles and query timings. ✅
-3. Expand `linkhash_db` from read-path methods to full write-path repository methods.
+3. Expand Linkhash write-path repository coverage using direct `db/*` modules.

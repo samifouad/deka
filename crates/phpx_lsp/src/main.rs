@@ -1925,6 +1925,10 @@ fn completion_for_annotation(source: &str, offset: usize) -> Option<Vec<Completi
                 Some("default(${1:value})".to_string()),
                 Some(InsertTextFormat::SNIPPET),
             ),
+            "relation" => (
+                Some("relation(${1:\"hasMany\"}, ${2:\"Model\"}, ${3:\"foreignKey\"})".to_string()),
+                Some(InsertTextFormat::SNIPPET),
+            ),
             _ => (Some(name.to_string()), None),
         };
         items.push(CompletionItem {
@@ -1951,6 +1955,10 @@ fn annotation_catalog() -> Vec<(&'static str, &'static str)> {
         ("index", "Secondary index marker. Optional string index name argument."),
         ("map", "Column mapping marker. Requires a string column name."),
         ("default", "Default value marker. Requires one argument."),
+        (
+            "relation",
+            "Relation marker. Requires three string arguments: relation kind (`hasMany|belongsTo|hasOne`), model name, foreign key.",
+        ),
     ]
 }
 
@@ -2449,10 +2457,11 @@ mod tests {
 
     #[test]
     fn provides_annotation_completion_items() {
-        let src = "struct User {\n    $id: int @a\n}\n";
-        let offset = src.find("@a").expect("annotation") + 2;
+        let src = "struct User {\n    $id: int @\n}\n";
+        let offset = src.find('@').expect("annotation") + 1;
         let items = completion_for_annotation(src, offset).expect("annotation completion");
         assert!(items.iter().any(|item| item.label == "@autoIncrement"));
+        assert!(items.iter().any(|item| item.label == "@relation"));
     }
 
     #[test]
