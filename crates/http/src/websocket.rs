@@ -22,8 +22,14 @@ struct HmrEntry {
     sender: mpsc::UnboundedSender<Message>,
     path: String,
 }
+struct HmrSnapshot {
+    selector: String,
+    container_html: String,
+    node_html: HashMap<String, String>,
+}
 static HMR_REGISTRY: OnceLock<Mutex<HashMap<u64, HmrEntry>>> = OnceLock::new();
 static HMR_RUNTIME_STATE: OnceLock<Arc<RuntimeState>> = OnceLock::new();
+static HMR_SNAPSHOTS: OnceLock<Mutex<HashMap<String, HmrSnapshot>>> = OnceLock::new();
 
 pub fn set_hmr_runtime_state(state: Arc<RuntimeState>) {
     let _ = HMR_RUNTIME_STATE.set(state);
@@ -175,7 +181,7 @@ async fn render_hmr_payload(
         return reload_payload(changed_paths);
     }
     if let Some(html) = partial_html_from_response(&response) {
-        return patch_payload(changed_paths, "#app", &html);
+        return build_patch_from_snapshot(path, changed_paths, "#app", &html);
     }
 
     let response = execute_request_parts(
@@ -193,12 +199,82 @@ async fn render_hmr_payload(
         return reload_payload(changed_paths);
     }
     if let Some(html) = extract_container_inner_html(&response.body, "app") {
-        return patch_payload(changed_paths, "#app", &html);
+        return build_patch_from_snapshot(path, changed_paths, "#app", &html);
     }
     if let Some(html) = extract_container_inner_html(&response.body, "body") {
-        return patch_payload(changed_paths, "body", &html);
+        return build_patch_from_snapshot(path, changed_paths, "body", &html);
     }
     reload_payload(changed_paths)
+}
+
+fn build_patch_from_snapshot(path: &str, changed_paths: &[String], selector: &str, html: &str) -> String {
+    let snapshots = HMR_SNAPSHOTS.get_or_init(|| Mutex::new(HashMap::new()));
+    let new_map = collect_deka_nodes(html);
+    let mut ops = Vec::new();
+    if let Ok(mut guard) = snapshots.lock() {
+        if let Some(prev) = guard.get(path) {
+            if prev.selector == selector
+                && prev.container_html != html
+                && !prev.node_html.is_empty()
+                && !new_map.is_empty()
+            {
+                let mut changed_ids = Vec::new();
+                let mut structure_changed = false;
+                for id in prev.node_html.keys() {
+                    if !new_map.contains_key(id) {
+                        structure_changed = true;
+                        break;
+                    }
+                }
+                if !structure_changed {
+                    for (id, next_html) in &new_map {
+                        match prev.node_html.get(id) {
+                            Some(prev_html) if prev_html == next_html => {}
+                            Some(_) => changed_ids.push(id.clone()),
+                            None => {
+                                structure_changed = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if !structure_changed && !changed_ids.is_empty() && changed_ids.len() <= 32 {
+                    changed_ids.sort();
+                    for id in changed_ids {
+                        if let Some(next_html) = new_map.get(&id) {
+                            ops.push(serde_json::json!({
+                                "op": "set_html",
+                                "selector": format!("[data-deka-id=\"{}\"]", id),
+                                "html": next_html,
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+        guard.insert(
+            path.to_string(),
+            HmrSnapshot {
+                selector: selector.to_string(),
+                container_html: html.to_string(),
+                node_html: new_map,
+            },
+        );
+    }
+    if ops.is_empty() {
+        ops.push(serde_json::json!({
+            "op": "set_html",
+            "selector": selector,
+            "html": html,
+        }));
+    }
+    serde_json::json!({
+        "type": "patch",
+        "schema": 1,
+        "paths": changed_paths,
+        "ops": ops,
+    })
+    .to_string()
 }
 
 fn partial_html_from_response(response: &engine::ResponseEnvelope) -> Option<String> {
@@ -216,22 +292,6 @@ fn partial_html_from_response(response: &engine::ResponseEnvelope) -> Option<Str
         .get("html")
         .and_then(|v| v.as_str())
         .map(|v| v.to_string())
-}
-
-fn patch_payload(changed_paths: &[String], selector: &str, html: &str) -> String {
-    serde_json::json!({
-        "type": "patch",
-        "schema": 1,
-        "paths": changed_paths,
-        "ops": [
-            {
-                "op": "set_html",
-                "selector": selector,
-                "html": html,
-            }
-        ],
-    })
-    .to_string()
 }
 
 fn reload_payload(changed_paths: &[String]) -> String {
@@ -293,6 +353,71 @@ fn read_tag_name(fragment: &str) -> Option<String> {
     } else {
         Some(out)
     }
+}
+
+fn collect_deka_nodes(container_html: &str) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    let mut offset = 0usize;
+    let needle = "data-deka-id=\"";
+    while let Some(pos) = container_html[offset..].find(needle) {
+        let abs = offset + pos;
+        let id_start = abs + needle.len();
+        let Some(id_end_rel) = container_html[id_start..].find('"') else {
+            break;
+        };
+        let id_end = id_start + id_end_rel;
+        let id = &container_html[id_start..id_end];
+        if !id.is_empty() {
+            if let Some(inner) =
+                extract_element_inner_by_attr(container_html, "data-deka-id", id, abs)
+            {
+                out.insert(id.to_string(), inner);
+            }
+        }
+        offset = id_end + 1;
+    }
+    out
+}
+
+fn extract_element_inner_by_attr(
+    html: &str,
+    attr_name: &str,
+    attr_value: &str,
+    hint_pos: usize,
+) -> Option<String> {
+    let needle = format!("{}=\"{}\"", attr_name, attr_value);
+    let attr_pos = if hint_pos < html.len() && html[hint_pos..].starts_with(&needle) {
+        hint_pos
+    } else {
+        html.find(&needle)?
+    };
+    let start_tag = html[..attr_pos].rfind('<')?;
+    let open_end_rel = html[start_tag..].find('>')?;
+    let open_end = start_tag + open_end_rel;
+    let tag_name = read_tag_name(&html[start_tag + 1..open_end])?;
+    let close_tag = format!("</{}>", tag_name);
+    let open_tag_prefix = format!("<{}", tag_name);
+    let mut depth = 1usize;
+    let mut cursor = open_end + 1;
+    while cursor < html.len() {
+        let next_open = html[cursor..].find(&open_tag_prefix).map(|v| cursor + v);
+        let next_close = html[cursor..].find(&close_tag).map(|v| cursor + v);
+        match (next_open, next_close) {
+            (Some(o), Some(c)) if o < c => {
+                depth += 1;
+                cursor = o + open_tag_prefix.len();
+            }
+            (_, Some(c)) => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(html[open_end + 1..c].to_string());
+                }
+                cursor = c + close_tag.len();
+            }
+            _ => break,
+        }
+    }
+    None
 }
 
 pub fn send_text(id: u64, message: String) -> Result<(), String> {
