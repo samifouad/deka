@@ -461,9 +461,15 @@ fn json_to_pg_param(value: &serde_json::Value) -> Box<dyn ToSql + Sync> {
         serde_json::Value::Bool(v) => Box::new(*v),
         serde_json::Value::Number(v) => {
             if let Some(i) = v.as_i64() {
-                Box::new(i)
+                if (i32::MIN as i64..=i32::MAX as i64).contains(&i) {
+                    Box::new(i as i32)
+                } else {
+                    Box::new(i)
+                }
             } else if let Some(u) = v.as_u64() {
-                if u <= i64::MAX as u64 {
+                if u <= i32::MAX as u64 {
+                    Box::new(u as i32)
+                } else if u <= i64::MAX as u64 {
                     Box::new(u as i64)
                 } else {
                     Box::new(u as f64)

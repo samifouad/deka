@@ -656,18 +656,38 @@ function model_table($model) {{\n\
     }}\n\
     return $table\n\
 }}\n\n\
+function field_value($obj, $key, $fallback = null) {{\n\
+    if (is_array($obj) && array_key_exists($key, $obj)) {{\n\
+        return $obj[$key]\n\
+    }}\n\
+    if (is_object($obj) && isset($obj->{{$key}})) {{\n\
+        return $obj->{{$key}}\n\
+    }}\n\
+    if (isset($obj[$key])) {{\n\
+        return $obj[$key]\n\
+    }}\n\
+    return $fallback\n\
+}}\n\n\
 function compile_predicate($expr, &$params) {{\n\
-    if ($expr === null || !is_array($expr) || !array_key_exists('kind', $expr)) {{\n\
+    if ($expr === null) {{\n\
         return ''\n\
     }}\n\
-    $kind = $expr['kind']\n\
+    $kind = field_value($expr, 'kind', null)\n\
+    if (!is_string($kind) || $kind === '') {{\n\
+        return ''\n\
+    }}\n\
     if ($kind === 'eq') {{\n\
-        $params[] = $expr['value']\n\
-        return quote_ident($expr['column']) . ' = $' . count($params)\n\
+        $column = field_value($expr, 'column', null)\n\
+        if (!is_string($column) || $column === '') {{\n\
+            return ''\n\
+        }}\n\
+        $params[] = field_value($expr, 'value', null)\n\
+        return quote_ident($column) . ' = $' . count($params)\n\
     }}\n\
     if ($kind === 'and' || $kind === 'or') {{\n\
+        $parts = field_value($expr, 'parts', [])\n\
         $parts_sql = []\n\
-        foreach ($expr['parts'] as $part) {{\n\
+        foreach ($parts as $part) {{\n\
             $inner = compile_predicate($part, $params)\n\
             if ($inner !== '') {{\n\
                 $parts_sql[] = '(' . $inner . ')'\n\
@@ -679,34 +699,42 @@ function compile_predicate($expr, &$params) {{\n\
         return implode($kind === 'and' ? ' AND ' : ' OR ', $parts_sql)\n\
     }}\n\
     if ($kind === 'ilike') {{\n\
-        $params[] = $expr['value']\n\
-        return quote_ident($expr['column']) . ' ILIKE $' . count($params)\n\
+        $column = field_value($expr, 'column', null)\n\
+        if (!is_string($column) || $column === '') {{\n\
+            return ''\n\
+        }}\n\
+        $params[] = field_value($expr, 'value', null)\n\
+        return quote_ident($column) . ' ILIKE $' . count($params)\n\
     }}\n\
     if ($kind === 'isNull') {{\n\
-        return quote_ident($expr['column']) . ' IS NULL'\n\
+        $column = field_value($expr, 'column', null)\n\
+        if (!is_string($column) || $column === '') {{\n\
+            return ''\n\
+        }}\n\
+        return quote_ident($column) . ' IS NULL'\n\
     }}\n\
     return ''\n\
 }}\n\n\
 export function eq($column, $value) {{\n\
-    return {{ kind: 'eq', column: $column, value: $value }}\n\
+    return [ 'kind' => 'eq', 'column' => $column, 'value' => $value ]\n\
 }}\n\n\
 export function ilike($column, $value) {{\n\
-    return {{ kind: 'ilike', column: $column, value: $value }}\n\
+    return [ 'kind' => 'ilike', 'column' => $column, 'value' => $value ]\n\
 }}\n\n\
 export function isNull($column) {{\n\
-    return {{ kind: 'isNull', column: $column }}\n\
+    return [ 'kind' => 'isNull', 'column' => $column ]\n\
 }}\n\n\
 export function andWhere(...$parts) {{\n\
-    return {{ kind: 'and', parts: $parts }}\n\
+    return [ 'kind' => 'and', 'parts' => $parts ]\n\
 }}\n\n\
 export function orWhere(...$parts) {{\n\
-    return {{ kind: 'or', parts: $parts }}\n\
+    return [ 'kind' => 'or', 'parts' => $parts ]\n\
 }}\n\n\
 export function asc($column) {{\n\
-    return {{ column: $column, dir: 'ASC' }}\n\
+    return [ 'column' => $column, 'dir' => 'ASC' ]\n\
 }}\n\n\
 export function desc($column) {{\n\
-    return {{ column: $column, dir: 'DESC' }}\n\
+    return [ 'column' => $column, 'dir' => 'DESC' ]\n\
 }}\n\n\
 export function limit($value) {{\n\
     return (int) $value\n\
@@ -720,7 +748,48 @@ export function connect($driver, $config) {{\n\
 export function close($handle) {{\n\
     return db_close($handle)\n\
 }}\n\n\
-export function selectMany($handle, $model, $where = null, $order = null, $limit = null, $offset = null) {{\n\
+function normalize_includes($includes) {{\n\
+    if ($includes === null) {{\n\
+        return []\n\
+    }}\n\
+    if (is_string($includes) && $includes !== '') {{\n\
+        return [$includes]\n\
+    }}\n\
+    if (is_array($includes)) {{\n\
+        return $includes\n\
+    }}\n\
+    return []\n\
+}}\n\n\
+function apply_includes_to_row($handle, $meta, $model, $row, $includes) {{\n\
+    if (!is_array($row)) {{\n\
+        return result_err('include expects row array')\n\
+    }}\n\
+    $out = $row\n\
+    foreach (normalize_includes($includes) as $field) {{\n\
+        $loaded = loadRelation($handle, $meta, $model, $row, $field)\n\
+        if (!result_is_ok($loaded)) {{\n\
+            return $loaded\n\
+        }}\n\
+        $out[$field] = $loaded->value\n\
+    }}\n\
+    return result_ok($out)\n\
+}}\n\n\
+function apply_includes_to_rows($handle, $meta, $model, $rows, $includes) {{\n\
+    $fields = normalize_includes($includes)\n\
+    if (count($fields) === 0) {{\n\
+        return result_ok($rows)\n\
+    }}\n\
+    $out = []\n\
+    foreach ($rows as $row) {{\n\
+        $one = apply_includes_to_row($handle, $meta, $model, $row, $fields)\n\
+        if (!result_is_ok($one)) {{\n\
+            return $one\n\
+        }}\n\
+        $out[] = $one->value\n\
+    }}\n\
+    return result_ok($out)\n\
+}}\n\n\
+export function selectMany($handle, $meta, $model, $where = null, $order = null, $limit = null, $offset = null, $includes = null) {{\n\
     $table = model_table($model)\n\
     if ($table === null) {{\n\
         return result_err('unknown model')\n\
@@ -731,12 +800,12 @@ export function selectMany($handle, $model, $where = null, $order = null, $limit
     if ($where_sql !== '') {{\n\
         $sql = $sql . ' WHERE ' . $where_sql\n\
     }}\n\
-    if ($order !== null && is_array($order) && array_key_exists('column', $order)) {{\n\
+    if ($order !== null && (is_array($order) || is_object($order)) && field_value($order, 'column', null) !== null) {{\n\
         $dir = 'ASC'\n\
-        if (array_key_exists('dir', $order) && strtoupper($order['dir']) === 'DESC') {{\n\
+        if (strtoupper('' . field_value($order, 'dir', 'ASC')) === 'DESC') {{\n\
             $dir = 'DESC'\n\
         }}\n\
-        $sql = $sql . ' ORDER BY ' . quote_ident($order['column']) . ' ' . $dir\n\
+        $sql = $sql . ' ORDER BY ' . quote_ident('' . field_value($order, 'column', '')) . ' ' . $dir\n\
     }}\n\
     if ($limit !== null) {{\n\
         $sql = $sql . ' LIMIT ' . (int) $limit\n\
@@ -744,10 +813,14 @@ export function selectMany($handle, $model, $where = null, $order = null, $limit
     if ($offset !== null) {{\n\
         $sql = $sql . ' OFFSET ' . (int) $offset\n\
     }}\n\
-    return db_rows(db_query($handle, $sql, $params))\n\
+    $rows = db_rows(db_query($handle, $sql, $params))\n\
+    if (!result_is_ok($rows)) {{\n\
+        return $rows\n\
+    }}\n\
+    return apply_includes_to_rows($handle, $meta, $model, $rows->value, $includes)\n\
 }}\n\n\
-export function selectOne($handle, $model, $where = null) {{\n\
-    $rows = selectMany($handle, $model, $where, null, 1, null)\n\
+export function selectOne($handle, $meta, $model, $where = null, $includes = null) {{\n\
+    $rows = selectMany($handle, $meta, $model, $where, null, 1, null, $includes)\n\
     if (!result_is_ok($rows)) {{\n\
         return $rows\n\
     }}\n\
@@ -761,19 +834,24 @@ export function insertOne($handle, $model, $row, $returning = false) {{\n\
     if ($table === null) {{\n\
         return result_err('unknown model')\n\
     }}\n\
-    if (!is_array($row) || count($row) === 0) {{\n\
-        return result_err('insert row must be non-empty array')\n\
+    if (!is_array($row) && !is_object($row)) {{\n\
+        return result_err('insert row must be non-empty array|object')\n\
     }}\n\
-    $cols = array_keys($row)\n\
+    $cols = []\n\
     $values = []\n\
     $holders = []\n\
+    $quoted = []\n\
     $idx = 1\n\
-    foreach ($cols as $col) {{\n\
+    foreach ($row as $col => $value) {{\n\
+        $cols[] = $col\n\
+        $quoted[] = quote_ident($col)\n\
         $holders[] = '$' . $idx\n\
-        $values[] = $row[$col]\n\
+        $values[] = $value\n\
         $idx += 1\n\
     }}\n\
-    $quoted = array_map(fn($c) => quote_ident($c), $cols)\n\
+    if (count($cols) === 0) {{\n\
+        return result_err('insert row must be non-empty array|object')\n\
+    }}\n\
     $sql = 'INSERT INTO ' . quote_ident($table) . ' (' . implode(', ', $quoted) . ') VALUES (' . implode(', ', $holders) . ')'\n\
     if ($returning) {{\n\
         $sql = $sql . ' RETURNING *'\n\
@@ -786,14 +864,17 @@ export function updateWhere($handle, $model, $patch, $where = null, $returning =
     if ($table === null) {{\n\
         return result_err('unknown model')\n\
     }}\n\
-    if (!is_array($patch) || count($patch) === 0) {{\n\
-        return result_err('update patch must be non-empty array')\n\
+    if (!is_array($patch) && !is_object($patch)) {{\n\
+        return result_err('update patch must be non-empty array|object')\n\
     }}\n\
     $params = []\n\
     $sets = []\n\
     foreach ($patch as $col => $value) {{\n\
         $params[] = $value\n\
         $sets[] = quote_ident($col) . ' = $' . count($params)\n\
+    }}\n\
+    if (count($sets) === 0) {{\n\
+        return result_err('update patch must be non-empty array|object')\n\
     }}\n\
     $sql = 'UPDATE ' . quote_ident($table) . ' SET ' . implode(', ', $sets)\n\
     $where_sql = compile_predicate($where, $params)\n\
@@ -849,19 +930,20 @@ export function insert($handle, $model) {{\n\
         'values': fn($row) => insert_values_builder($handle, $model, $row)\n\
     }}\n\
 }}\n\n\
-function select_builder($handle, $model, $where, $order, $take, $skip) {{\n\
+function select_builder($handle, $meta, $model, $where, $order, $take, $skip, $includes) {{\n\
     return {{\n\
-        'where': fn($expr) => select_builder($handle, $model, $expr, $order, $take, $skip),\n\
-        'orderBy': fn($expr) => select_builder($handle, $model, $where, $expr, $take, $skip),\n\
-        'limit': fn($value) => select_builder($handle, $model, $where, $order, $value, $skip),\n\
-        'offset': fn($value) => select_builder($handle, $model, $where, $order, $take, $value),\n\
-        'many': fn() => selectMany($handle, $model, $where, $order, $take, $skip),\n\
-        'one': fn() => selectOne($handle, $model, $where)\n\
+        'where': fn($expr) => select_builder($handle, $meta, $model, $expr, $order, $take, $skip, $includes),\n\
+        'orderBy': fn($expr) => select_builder($handle, $meta, $model, $where, $expr, $take, $skip, $includes),\n\
+        'limit': fn($value) => select_builder($handle, $meta, $model, $where, $order, $value, $skip, $includes),\n\
+        'offset': fn($value) => select_builder($handle, $meta, $model, $where, $order, $take, $value, $includes),\n\
+        'include': fn($fields) => select_builder($handle, $meta, $model, $where, $order, $take, $skip, $fields),\n\
+        'many': fn() => selectMany($handle, $meta, $model, $where, $order, $take, $skip, $includes),\n\
+        'one': fn() => selectOne($handle, $meta, $model, $where, $includes)\n\
     }}\n\
 }}\n\n\
-export function select($handle) {{\n\
+export function select($handle, $meta) {{\n\
     return {{\n\
-        'from': fn($model) => select_builder($handle, $model, null, null, null, null)\n\
+        'from': fn($model) => select_builder($handle, $meta, $model, null, null, null, null, null)\n\
     }}\n\
 }}\n\n\
 function update_set_builder($handle, $model, $patch, $where, $returning) {{\n\
@@ -937,13 +1019,13 @@ export function loadRelation($handle, $meta, $model, $row, $field) {{\n\
         if (!array_key_exists('id', $row)) {{\n\
             return result_err('source row missing id')\n\
         }}\n\
-        return selectMany($handle, $target, eq($fk, $row['id']))\n\
+        return selectMany($handle, $meta, $target, eq($fk, $row['id']), null, null, null, null)\n\
     }}\n\
     if ($kind === 'belongsTo' || $kind === 'hasOne') {{\n\
         if (!array_key_exists($fk, $row)) {{\n\
             return result_err('source row missing foreign key')\n\
         }}\n\
-        return selectOne($handle, $target, eq('id', $row[$fk]))\n\
+        return selectOne($handle, $meta, $target, eq('id', $row[$fk]), null)\n\
     }}\n\
     return result_err('unsupported relation kind')\n\
 }}\n\n\
@@ -972,9 +1054,9 @@ export function createClient($meta, $handle = null) {{\n\
         withHandle: fn($nextHandle) => createClient($meta, $nextHandle),\n\
         connect: connect,\n\
         close: close,\n\
-        select: fn() => select($handle),\n\
-        selectMany: selectMany,\n\
-        selectOne: selectOne,\n\
+        select: fn() => select($handle, $meta),\n\
+        selectMany: fn($model, $where = null, $order = null, $limit = null, $offset = null, $includes = null) => selectMany($handle, $meta, $model, $where, $order, $limit, $offset, $includes),\n\
+        selectOne: fn($model, $where = null, $includes = null) => selectOne($handle, $meta, $model, $where, $includes),\n\
         insert: fn($model) => insert($handle, $model),\n\
         insertOne: insertOne,\n\
         update: fn($model) => update($handle, $model),\n\
@@ -1580,12 +1662,14 @@ struct User {
         assert!(client.contains("export function update"));
         assert!(client.contains("export function deleteQuery"));
         assert!(client.contains("export function loadRelation"));
+        assert!(client.contains("function field_value"));
+        assert!(client.contains("if ($expr === null)"));
         assert!(client.contains("connect: connect"));
         assert!(client.contains("withHandle: fn($nextHandle) => createClient($meta, $nextHandle)"));
         assert!(client.contains("transaction: transaction"));
-        assert!(client.contains("selectMany: selectMany"));
+        assert!(client.contains("selectMany: fn($model, $where = null, $order = null, $limit = null, $offset = null, $includes = null) => selectMany($handle, $meta, $model, $where, $order, $limit, $offset, $includes)"));
         assert!(client.contains("insertOne: insertOne"));
-        assert!(client.contains("select: fn() => select($handle)"));
+        assert!(client.contains("select: fn() => select($handle, $meta)"));
         assert!(client.contains("insert: fn($model) => insert($handle, $model)"));
         assert!(client.contains("update: fn($model) => update($handle, $model)"));
         assert!(client.contains("'delete': fn($model) => deleteQuery($handle, $model)"));
@@ -1610,9 +1694,9 @@ struct User {
 
         assert!(client.contains("export function loadRelation"));
         assert!(client.contains("if ($kind === 'hasMany')"));
-        assert!(client.contains("return selectMany($handle, $target, eq($fk, $row['id']))"));
+        assert!(client.contains("return selectMany($handle, $meta, $target, eq($fk, $row['id']), null, null, null, null)"));
         assert!(client.contains("if ($kind === 'belongsTo' || $kind === 'hasOne')"));
-        assert!(client.contains("return selectOne($handle, $target, eq('id', $row[$fk]))"));
+        assert!(client.contains("return selectOne($handle, $meta, $target, eq('id', $row[$fk]), null)"));
         assert!(client.contains("return result_err('unknown relation')"));
         assert!(client.contains("return result_err('unsupported relation kind')"));
     }
