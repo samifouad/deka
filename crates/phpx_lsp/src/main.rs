@@ -1873,7 +1873,14 @@ fn completion_for_import(source: &str, file_path: &str, offset: usize) -> Option
     let prefix = &before_cursor[quote_pos + 1..];
 
     let root = find_php_modules_root(Path::new(file_path))?;
-    let modules = list_php_modules(&root);
+    let modules = if prefix.starts_with("@/") {
+        list_project_modules(root.parent()?)
+            .into_iter()
+            .map(|name| format!("@/{}", name))
+            .collect::<Vec<_>>()
+    } else {
+        list_php_modules(&root)
+    };
     let mut items = Vec::new();
     for module in modules {
         if !prefix.is_empty() && !module.starts_with(prefix) {
@@ -2093,8 +2100,38 @@ fn list_php_modules(root: &Path) -> Vec<String> {
     modules
 }
 
+fn list_project_modules(project_root: &Path) -> Vec<String> {
+    let mut modules = Vec::new();
+    let Ok(entries) = fs::read_dir(project_root) else {
+        return modules;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') || name == "php_modules" || name == "target" || name == "node_modules" {
+            continue;
+        }
+        if path.is_dir() {
+            modules.push(name);
+        } else if path.is_file() {
+            if let Some(ext) = path.extension().and_then(|ext| ext.to_str()) {
+                if ext == "phpx" || ext == "php" {
+                    modules.push(name);
+                }
+            }
+        }
+    }
+    modules.sort();
+    modules
+}
+
 fn resolve_module_file(root: &Path, module_spec: &str, is_wasm: bool) -> Option<PathBuf> {
-    let base = root.join(module_spec);
+    let base = if let Some(rest) = module_spec.strip_prefix("@/") {
+        let project_root = root.parent()?;
+        project_root.join(rest)
+    } else {
+        root.join(module_spec)
+    };
     if base.is_file() {
         return Some(base);
     }
@@ -2425,5 +2462,18 @@ mod tests {
         let hover = hover_for_annotation(src, offset).expect("annotation hover");
         assert!(hover.contains("@autoIncrement"));
         assert!(hover.contains("Requires an `int` field"));
+    }
+
+    #[test]
+    fn resolves_project_alias_module_file() {
+        let dir = temp_dir("phpx_lsp_alias_resolve");
+        let php_modules = dir.join("php_modules");
+        let db = dir.join("db");
+        fs::create_dir_all(&php_modules).expect("mkdir php_modules");
+        fs::create_dir_all(&db).expect("mkdir db");
+        fs::write(db.join("index.phpx"), "export const x = 1").expect("write module");
+
+        let resolved = resolve_module_file(&php_modules, "@/db", false).expect("resolve alias");
+        assert_eq!(resolved, db.join("index.phpx"));
     }
 }
