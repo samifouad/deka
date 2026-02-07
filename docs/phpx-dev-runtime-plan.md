@@ -18,28 +18,28 @@
 
 ### 1) Dev Server Core
 
-- [ ] Add `--dev` flag to `serve`.
-- [ ] Enable watch mode automatically when `--dev` is set.
-- [ ] Start HMR websocket endpoint in dev mode.
-- [ ] Inject dev client bootstrap into HTML responses in dev mode only.
-- [ ] Keep `serve` output stable for production mode.
+- [x] Add `--dev` flag to `serve`.
+- [x] Enable watch mode automatically when `--dev` is set.
+- [x] Start HMR websocket endpoint in dev mode.
+- [x] Inject dev client bootstrap into HTML responses in dev mode only.
+- [x] Keep `serve` output stable for production mode.
 
 ### 2) HTML-Wide HMR (Not Islands-Only)
 
-- [ ] Assign stable deterministic node ids (`deka*`) for rendered output.
-- [ ] Keep ids stable across renders when structure is unchanged.
-- [ ] Compute server-side DOM diffs on file changes.
-- [ ] Send granular patch operations over HMR WS.
-- [ ] Apply node/subtree patches on client without full route replacement.
-- [ ] Preserve focus, scroll, and form state where possible.
-- [ ] Escalate to subtree replace, then hard reload only as last resort.
+- [x] Assign stable deterministic node ids (`deka*`) for rendered output.
+- [x] Keep ids stable across renders when structure is unchanged.
+- [x] Compute server-side DOM diffs on file changes.
+- [x] Send granular patch operations over HMR WS.
+- [x] Apply node/subtree patches on client without full route replacement.
+- [x] Preserve focus, scroll, and form state where possible.
+- [x] Escalate to subtree replace, then hard reload only as last resort.
 
 ### 3) Islands and Hydration Scheduling
 
-- [ ] Support directives: `client:load`, `client:idle`, `client:visible`, `client:media`, `client:only`.
-- [ ] Keep island boundaries explicit and metadata-driven.
-- [ ] Let non-island HTML still receive HMR patches.
-- [ ] Maintain client scheduling behavior independent from HMR patch transport.
+- [x] Support directives: `client:load`, `client:idle`, `client:visible`, `client:media`, `client:only`.
+- [x] Keep island boundaries explicit and metadata-driven.
+- [x] Let non-island HTML still receive HMR patches.
+- [x] Maintain client scheduling behavior independent from HMR patch transport.
 
 ### 4) Utility CSS Runtime (Tailwind-Compatible Surface)
 
@@ -99,8 +99,8 @@
 
 ## Acceptance Criteria
 
-- [ ] `deka serve` never enables watcher/HMR/dev client behavior.
-- [ ] `deka serve --dev` enables watch + HMR transport.
+- [x] `deka serve` never enables watcher/HMR/dev client behavior.
+- [x] `deka serve --dev` enables watch + HMR transport.
 - [ ] Editing a template updates changed DOM nodes without full route replacement.
 - [ ] Islands hydrate by directive schedule while non-island DOM still supports HMR.
 - [x] Tailwind-style utility classes can be used without separate build tooling.

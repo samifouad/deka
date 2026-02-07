@@ -158,21 +158,38 @@ fn ensure_phpx_module_root(handler_path: &str) {
 }
 
 fn watch_enabled(context: &Context) -> bool {
-    if context.args.flags.contains_key("--watch") || context.args.flags.contains_key("-W") {
-        return true;
-    }
-    std::env::var("DEKA_WATCH")
-        .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
-        .unwrap_or(false)
+    flag_or_env_truthy(&context.args.flags, "--watch", Some("-W"), "DEKA_WATCH")
 }
 
 fn dev_enabled(context: &Context) -> bool {
-    if context.args.flags.contains_key("--dev") {
+    flag_or_env_truthy(&context.args.flags, "--dev", None, "DEKA_DEV")
+}
+
+fn flag_or_env_truthy(
+    flags: &std::collections::HashMap<String, bool>,
+    long_flag: &str,
+    short_flag: Option<&str>,
+    env_var: &str,
+) -> bool {
+    if flags.contains_key(long_flag) {
         return true;
     }
-    std::env::var("DEKA_DEV")
-        .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
+    if let Some(short) = short_flag {
+        if flags.contains_key(short) {
+            return true;
+        }
+    }
+    env_truthy(env_var)
+}
+
+fn env_truthy(var: &str) -> bool {
+    std::env::var(var)
+        .map(|value| is_truthy(&value))
         .unwrap_or(false)
+}
+
+fn is_truthy(value: &str) -> bool {
+    matches!(value, "1" | "true" | "yes" | "on")
 }
 
 fn perf_mode_enabled() -> bool {
@@ -547,4 +564,37 @@ fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>, dev_mode: bool) -
     });
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{flag_or_env_truthy, is_truthy};
+    use std::collections::HashMap;
+
+    #[test]
+    fn truthy_parser_matches_expected_values() {
+        assert!(is_truthy("1"));
+        assert!(is_truthy("true"));
+        assert!(is_truthy("yes"));
+        assert!(is_truthy("on"));
+        assert!(!is_truthy("0"));
+        assert!(!is_truthy("false"));
+        assert!(!is_truthy("off"));
+    }
+
+    #[test]
+    fn flag_overrides_env_for_watch_or_dev() {
+        let mut flags = HashMap::new();
+        flags.insert("--dev".to_string(), true);
+        assert!(flag_or_env_truthy(&flags, "--dev", None, "DEKA_DEV"));
+
+        let mut watch_flags = HashMap::new();
+        watch_flags.insert("-W".to_string(), true);
+        assert!(flag_or_env_truthy(
+            &watch_flags,
+            "--watch",
+            Some("-W"),
+            "DEKA_WATCH"
+        ));
+    }
 }

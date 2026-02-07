@@ -162,8 +162,12 @@ async fn handle_request(
 
 fn dev_mode_enabled() -> bool {
     std::env::var("DEKA_DEV")
-        .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
+        .map(|value| is_truthy(&value))
         .unwrap_or(false)
+}
+
+fn is_truthy(value: &str) -> bool {
+    matches!(value, "1" | "true" | "yes" | "on")
 }
 
 fn is_html_response(headers: &std::collections::HashMap<String, String>) -> bool {
@@ -198,7 +202,7 @@ fn inject_hmr_client(html: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::inject_hmr_client;
+    use super::{inject_hmr_client, is_truthy};
 
     #[test]
     fn injects_before_body_close() {
@@ -213,5 +217,24 @@ mod tests {
         let html = "<html><body><script id=\"__deka_hmr_client\"></script></body></html>";
         let out = inject_hmr_client(html);
         assert_eq!(out.matches("__deka_hmr_client").count(), 1);
+    }
+
+    #[test]
+    fn hmr_client_includes_state_preservation_hooks() {
+        let html = "<html><body><div id=\"app\"><input id=\"x\" value=\"1\" /></div></body></html>";
+        let out = inject_hmr_client(html);
+        assert!(out.contains("selectionStart"));
+        assert!(out.contains("window.scrollTo"));
+        assert!(out.contains("__dekaHydrateIslands"));
+    }
+
+    #[test]
+    fn truthy_parser_matches_expected_values() {
+        assert!(is_truthy("1"));
+        assert!(is_truthy("true"));
+        assert!(is_truthy("yes"));
+        assert!(is_truthy("on"));
+        assert!(!is_truthy("false"));
+        assert!(!is_truthy("0"));
     }
 }
