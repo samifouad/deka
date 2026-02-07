@@ -9,7 +9,12 @@ compile = { path = "../compile" }
 core = { path ="../core" }
 stdio = { path = "../stdio" }
 introspect = { path = "../introspect" }
+loop = { path = "../loop" }
+wasm_cli = { path = "../wasm_cli" }
 pm = { workspace = true }
 anyhow = "1.0"
 serde_json = "1.0"
 tokio = { version = "1.35", features = ["rt-multi-thread"] }
+postgres = "0.19"
+php-rs = { path = "../php-rs" }
+bumpalo = "3.12"
