@@ -2,10 +2,10 @@
 
 ## Goals
 
-- [ ] Use PHPX `struct` models as the schema source of truth.
-- [ ] Avoid a separate Prisma-like schema DSL.
-- [ ] Generate app-owned ORM client files into project `db/` (not `php_modules/`).
-- [ ] Support Drizzle-style query builder DX.
+- [x] Use PHPX `struct` models as the schema source of truth.
+- [x] Avoid a separate Prisma-like schema DSL.
+- [x] Generate app-owned ORM client files into project `db/` (not `php_modules/`).
+- [x] Support Drizzle-style query builder DX.
 - [ ] Support first-class IDE feedback (parser, validator, LSP).
 
 ## Canonical Flow
@@ -80,5 +80,5 @@
 - [x] `deka db generate types/` resolves and validates `types/index.phpx`.
 - [x] Generated client imports via `@/db` in app code.
 - [x] `deka db migrate` applies pending migrations and records state.
-- [ ] LSP shows clear diagnostics/completions for model annotations.
+- [x] LSP shows clear diagnostics/completions for model annotations.
 - [x] Linkhash reads/writes via generated Postgres client in primary flows.
