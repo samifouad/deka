@@ -96,12 +96,13 @@
 - [x] Unit coverage for server snapshot patch generation (`websocket.rs`).
 - [x] Unit payload-size baseline (granular patch vs full replace payload).
 - [x] Documentation and migration notes (`docs/utility-css-compat.md`).
+: Browser-level state preservation e2e remains the only open hardening test.
 
 ## Acceptance Criteria
 
 - [x] `deka serve` never enables watcher/HMR/dev client behavior.
 - [x] `deka serve --dev` enables watch + HMR transport.
-- [ ] Editing a template updates changed DOM nodes without full route replacement.
+- [x] Editing a template updates changed DOM nodes without full route replacement.
 - [ ] Islands hydrate by directive schedule while non-island DOM still supports HMR.
 - [x] Tailwind-style utility classes can be used without separate build tooling.
 
