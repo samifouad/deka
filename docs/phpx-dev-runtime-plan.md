@@ -75,7 +75,7 @@
 
 - [x] Stable DOM id assignment.
 - [ ] Server diff generation and patch payload schema.
-- [ ] Client patch applier with state-preserving heuristics.
+- [x] Client patch applier with state-preserving heuristics.
 
 ### Phase D: Islands Scheduling
 
