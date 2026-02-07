@@ -328,7 +328,11 @@ fn resolve_generate_input(cwd: &Path, input: Option<&String>) -> Result<PathBuf,
         .map(String::as_str)
         .filter(|s| !s.trim().is_empty())
         .unwrap_or("types/index.phpx");
-    let candidate = cwd.join(raw);
+    let candidate = if let Some(stripped) = raw.strip_prefix("@/") {
+        cwd.join(stripped)
+    } else {
+        cwd.join(raw)
+    };
     resolve_model_entry(&candidate, raw)
 }
 
@@ -898,7 +902,8 @@ fn map_sql_type(ty: &str) -> (&'static str, bool) {
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_struct_models, resolve_model_entry};
+    use super::{extract_struct_models, resolve_generate_input, resolve_model_entry};
+    use std::fs;
     use std::path::Path;
 
     #[test]
@@ -906,6 +911,19 @@ mod tests {
         let err = resolve_model_entry(Path::new("missing/thing.phpx"), "missing/thing.phpx")
             .expect_err("expected missing path to fail");
         assert!(err.contains("model input not found"));
+    }
+
+    #[test]
+    fn resolves_project_alias_path() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let types_dir = dir.path().join("types");
+        fs::create_dir_all(&types_dir).expect("create types");
+        let model = types_dir.join("index.phpx");
+        fs::write(&model, "struct User { $id: int @id }").expect("write model");
+
+        let input = "@/types".to_string();
+        let resolved = resolve_generate_input(dir.path(), Some(&input)).expect("resolve");
+        assert_eq!(resolved, model);
     }
 
     #[test]

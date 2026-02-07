@@ -1,14 +1,14 @@
 // Minimal PHP runtime module - no heavy dependencies
 
-use deno_core::op2;
-use php_rs::parser::ast::{ClassKind, ClassMember, Program, Stmt, Type as AstType};
-use php_rs::parser::lexer::Lexer;
-use php_rs::parser::parser::{Parser, ParserMode};
-use php_rs::parser::lexer::token::Token;
 use bumpalo::Bump;
+use deno_core::op2;
 use mysql::prelude::Queryable;
 use mysql::{OptsBuilder, Params as MyParams, Pool as MyPool, Value as MyValue};
 use native_tls::{TlsConnector, TlsStream};
+use php_rs::parser::ast::{ClassKind, ClassMember, Program, Stmt, Type as AstType};
+use php_rs::parser::lexer::Lexer;
+use php_rs::parser::lexer::token::Token;
+use php_rs::parser::parser::{Parser, ParserMode};
 use postgres::{Client, NoTls, types::ToSql};
 use prost::Message as ProstMessage;
 use rusqlite::types::ValueRef as SqliteValueRef;
@@ -80,16 +80,35 @@ enum WitType {
     F64,
     Char,
     String,
-    List { element: Box<WitType> },
-    Record { fields: Vec<WitField> },
-    Tuple { items: Vec<WitType> },
-    Option { some: Box<WitType> },
-    Result { ok: Option<Box<WitType>>, err: Option<Box<WitType>> },
-    Enum { cases: Vec<String> },
-    Flags { flags: Vec<String> },
-    Variant { cases: Vec<WitVariantCase> },
+    List {
+        element: Box<WitType>,
+    },
+    Record {
+        fields: Vec<WitField>,
+    },
+    Tuple {
+        items: Vec<WitType>,
+    },
+    Option {
+        some: Box<WitType>,
+    },
+    Result {
+        ok: Option<Box<WitType>>,
+        err: Option<Box<WitType>>,
+    },
+    Enum {
+        cases: Vec<String>,
+    },
+    Flags {
+        flags: Vec<String>,
+    },
+    Variant {
+        cases: Vec<WitVariantCase>,
+    },
     Resource,
-    Unsupported { detail: String },
+    Unsupported {
+        detail: String,
+    },
 }
 
 #[derive(serde::Serialize)]
@@ -111,17 +130,40 @@ struct WitVariantCase {
 enum BridgeType {
     Unknown,
     Mixed,
-    Primitive { name: String },
-    Array { element: Option<Box<BridgeType>> },
+    Primitive {
+        name: String,
+    },
+    Array {
+        element: Option<Box<BridgeType>>,
+    },
     Object,
-    ObjectShape { fields: Vec<BridgeField> },
-    Struct { name: String, fields: Vec<BridgeField> },
-    Enum { name: String },
-    Union { types: Vec<BridgeType> },
-    Option { inner: Option<Box<BridgeType>> },
-    Result { ok: Option<Box<BridgeType>>, err: Option<Box<BridgeType>> },
-    Applied { base: String, args: Vec<BridgeType> },
-    TypeParam { name: String },
+    ObjectShape {
+        fields: Vec<BridgeField>,
+    },
+    Struct {
+        name: String,
+        fields: Vec<BridgeField>,
+    },
+    Enum {
+        name: String,
+    },
+    Union {
+        types: Vec<BridgeType>,
+    },
+    Option {
+        inner: Option<Box<BridgeType>>,
+    },
+    Result {
+        ok: Option<Box<BridgeType>>,
+        err: Option<Box<BridgeType>>,
+    },
+    Applied {
+        base: String,
+        args: Vec<BridgeType>,
+    },
+    TypeParam {
+        name: String,
+    },
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -311,13 +353,15 @@ fn bridge_proto_metrics() -> &'static Mutex<HashMap<String, BridgeProtoMetric>> 
 
 fn record_bridge_proto_metric(kind: &str, req_len: usize, resp_len: usize, elapsed_us: u64) {
     if let Ok(mut metrics) = bridge_proto_metrics().lock() {
-        let metric = metrics.entry(kind.to_string()).or_insert(BridgeProtoMetric {
-            calls: 0,
-            total_req_bytes: 0,
-            total_resp_bytes: 0,
-            total_us: 0,
-            avg_us: 0,
-        });
+        let metric = metrics
+            .entry(kind.to_string())
+            .or_insert(BridgeProtoMetric {
+                calls: 0,
+                total_req_bytes: 0,
+                total_resp_bytes: 0,
+                total_us: 0,
+                avg_us: 0,
+            });
         metric.calls += 1;
         metric.total_req_bytes = metric.total_req_bytes.saturating_add(req_len as u64);
         metric.total_resp_bytes = metric.total_resp_bytes.saturating_add(resp_len as u64);
@@ -364,7 +408,10 @@ where
         let url = if password.is_empty() {
             format!("postgres://{}@{}:{}/{}", user, host, cfg.port, database)
         } else {
-            format!("postgres://{}:{}@{}:{}/{}", user, password, host, cfg.port, database)
+            format!(
+                "postgres://{}:{}@{}:{}/{}",
+                user, password, host, cfg.port, database
+            )
         };
 
         let mut client = match Client::connect(&dsn, NoTls) {
@@ -380,7 +427,9 @@ where
         f(&mut client)
     })
     .join()
-    .map_err(|_| deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked")))?
+    .map_err(|_| {
+        deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked"))
+    })?
 }
 
 fn json_to_pg_param(value: &serde_json::Value) -> Box<dyn ToSql + Sync> {
@@ -481,7 +530,9 @@ where
         f(&conn)
     })
     .join()
-    .map_err(|_| deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked")))?
+    .map_err(|_| {
+        deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked"))
+    })?
 }
 
 fn json_to_sqlite_value(value: &serde_json::Value) -> rusqlite::types::Value {
@@ -557,7 +608,9 @@ where
         f(&mut conn)
     })
     .join()
-    .map_err(|_| deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked")))?
+    .map_err(|_| {
+        deno_core::error::CoreError::from(std::io::Error::other("db worker thread panicked"))
+    })?
 }
 
 fn json_to_mysql_value(value: &serde_json::Value) -> MyValue {
@@ -748,7 +801,9 @@ impl<'a> TypeResolver<'a> {
                 BridgeType::ObjectShape { fields: out }
             }
             AstType::Applied { base, args } => {
-                let base_name = self.type_name(base).unwrap_or_else(|| "unknown".to_string());
+                let base_name = self
+                    .type_name(base)
+                    .unwrap_or_else(|| "unknown".to_string());
                 if let Some(alias) = self.aliases.get(&base_name).cloned() {
                     if alias.params.len() == args.len() {
                         let mut param_map = HashMap::new();
@@ -803,7 +858,7 @@ impl<'a> TypeResolver<'a> {
             "int" | "float" | "bool" | "string" | "null" => {
                 return Some(BridgeType::Primitive {
                     name: base.to_string(),
-                })
+                });
             }
             "array" => return Some(BridgeType::Array { element: None }),
             "object" => return Some(BridgeType::Object),
@@ -879,13 +934,7 @@ fn collect_aliases<'a>(
                 .iter()
                 .map(|param| token_text(source, param.name))
                 .collect::<Vec<_>>();
-            out.insert(
-                name_str,
-                TypeAliasInfo {
-                    params,
-                    ty: *ty,
-                },
-            );
+            out.insert(name_str, TypeAliasInfo { params, ty: *ty });
         }
     }
     out
@@ -898,7 +947,13 @@ fn collect_structs<'a>(
 ) -> HashMap<String, Vec<BridgeField>> {
     let mut out = HashMap::new();
     for stmt in program.statements.iter() {
-        let Stmt::Class { kind, name, members, .. } = stmt else {
+        let Stmt::Class {
+            kind,
+            name,
+            members,
+            ..
+        } = stmt
+        else {
             continue;
         };
         if *kind != ClassKind::Struct {
@@ -1148,10 +1203,7 @@ fn db_call_impl(
     args: serde_json::Value,
 ) -> Result<serde_json::Value, deno_core::error::CoreError> {
     let err = |msg: String| {
-        deno_core::error::CoreError::from(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            msg,
-        ))
+        deno_core::error::CoreError::from(std::io::Error::new(std::io::ErrorKind::Other, msg))
     };
 
     let args_obj = args.as_object().cloned().unwrap_or_default();
@@ -1263,7 +1315,10 @@ fn db_call_impl(
                         .trim_matches('\0')
                         .to_string();
                     (
-                        format!("mysql://{}:{}@{}:{}/{}", user, password, host, port, database),
+                        format!(
+                            "mysql://{}:{}@{}:{}/{}",
+                            user, password, host, port, database
+                        ),
                         DbDriverConfig::Mysql(MysqlConnConfig {
                             host,
                             port: port as u16,
@@ -1288,7 +1343,12 @@ fn db_call_impl(
                 if let Some(handle) = state.key_to_handle.get(&key).copied() {
                     drop(state);
                     if let Ok(mut state) = db_state().lock() {
-                        state.record_metric("open", &driver, started.elapsed().as_millis() as u64, false);
+                        state.record_metric(
+                            "open",
+                            &driver,
+                            started.elapsed().as_millis() as u64,
+                            false,
+                        );
                     }
                     return Ok(serde_json::json!({
                         "ok": true,
@@ -1540,12 +1600,8 @@ fn db_call_impl(
             // Transaction scope across multiple calls is not supported in stateless mode.
             Ok(serde_json::json!({ "ok": true }))
         }
-        "commit" => {
-            Ok(serde_json::json!({ "ok": true }))
-        }
-        "rollback" => {
-            Ok(serde_json::json!({ "ok": true }))
-        }
+        "commit" => Ok(serde_json::json!({ "ok": true })),
+        "rollback" => Ok(serde_json::json!({ "ok": true })),
         "close" => {
             let started = Instant::now();
             let handle = args_obj
@@ -1912,15 +1968,23 @@ fn db_json_response_to_proto(
     let action = match kind {
         DbProtoActionKind::Open => {
             let handle = resp.get("handle").and_then(|v| v.as_u64()).unwrap_or(0);
-            let reused = resp.get("reused").and_then(|v| v.as_bool()).unwrap_or(false);
-            Some(Action::Open(proto::bridge_v1::DbOpenResponse { handle, reused }))
+            let reused = resp
+                .get("reused")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            Some(Action::Open(proto::bridge_v1::DbOpenResponse {
+                handle,
+                reused,
+            }))
         }
         DbProtoActionKind::Query => {
-            let rows = db_json_rows_to_proto_rows(resp.get("rows").unwrap_or(&serde_json::Value::Null));
+            let rows =
+                db_json_rows_to_proto_rows(resp.get("rows").unwrap_or(&serde_json::Value::Null));
             Some(Action::Query(proto::bridge_v1::DbRowsResponse { rows }))
         }
         DbProtoActionKind::QueryOne => {
-            let mut rows = db_json_rows_to_proto_rows(resp.get("rows").unwrap_or(&serde_json::Value::Null));
+            let mut rows =
+                db_json_rows_to_proto_rows(resp.get("rows").unwrap_or(&serde_json::Value::Null));
             if rows.len() > 1 {
                 rows.truncate(1);
             }
@@ -1931,7 +1995,9 @@ fn db_json_response_to_proto(
                 .get("affected_rows")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
-            Some(Action::Exec(proto::bridge_v1::DbExecResponse { affected_rows }))
+            Some(Action::Exec(proto::bridge_v1::DbExecResponse {
+                affected_rows,
+            }))
         }
         DbProtoActionKind::Begin => Some(Action::Begin(proto::bridge_v1::DbUnitResponse { ok })),
         DbProtoActionKind::Commit => Some(Action::Commit(proto::bridge_v1::DbUnitResponse { ok })),
@@ -2008,7 +2074,10 @@ fn db_proto_response_to_json(resp: &proto::bridge_v1::DbResponse) -> serde_json:
     let mut out = serde_json::Map::new();
     out.insert("ok".to_string(), serde_json::Value::Bool(resp.ok));
     if !resp.error.is_empty() {
-        out.insert("error".to_string(), serde_json::Value::String(resp.error.clone()));
+        out.insert(
+            "error".to_string(),
+            serde_json::Value::String(resp.error.clone()),
+        );
     }
     if let Some(action) = resp.action.as_ref() {
         match action {
@@ -2041,9 +2110,15 @@ fn db_proto_response_to_json(resp: &proto::bridge_v1::DbResponse) -> serde_json:
                 );
                 let mut by_driver = serde_json::Map::new();
                 for item in &stats.handles_by_driver {
-                    by_driver.insert(item.driver.clone(), serde_json::Value::Number(item.count.into()));
+                    by_driver.insert(
+                        item.driver.clone(),
+                        serde_json::Value::Number(item.count.into()),
+                    );
                 }
-                out.insert("handles_by_driver".to_string(), serde_json::Value::Object(by_driver));
+                out.insert(
+                    "handles_by_driver".to_string(),
+                    serde_json::Value::Object(by_driver),
+                );
 
                 let mut metrics = serde_json::Map::new();
                 for metric in &stats.metrics {
@@ -2073,15 +2148,18 @@ fn db_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
     let response_json = db_call_impl(action, payload)?;
     let response = db_json_response_to_proto(&response_json, kind);
     let out = response.encode_to_vec();
-    record_bridge_proto_metric("db", request.len(), out.len(), started.elapsed().as_micros() as u64);
+    record_bridge_proto_metric(
+        "db",
+        request.len(),
+        out.len(),
+        started.elapsed().as_micros() as u64,
+    );
     Ok(out)
 }
 
 #[op2]
 #[buffer]
-fn op_php_db_call_proto(
-    #[buffer] request: &[u8],
-) -> Result<Vec<u8>, deno_core::error::CoreError> {
+fn op_php_db_call_proto(#[buffer] request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
     db_call_proto_impl(request)
 }
 
@@ -2110,10 +2188,7 @@ fn net_call_impl(
     args: serde_json::Value,
 ) -> Result<serde_json::Value, deno_core::error::CoreError> {
     let err = |msg: String| {
-        deno_core::error::CoreError::from(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            msg,
-        ))
+        deno_core::error::CoreError::from(std::io::Error::new(std::io::ErrorKind::Other, msg))
     };
 
     let args_obj = args.as_object().cloned().unwrap_or_default();
@@ -2125,12 +2200,11 @@ fn net_call_impl(
                 .unwrap_or("127.0.0.1")
                 .trim_matches('\0')
                 .to_string();
-            let port = args_obj
-                .get("port")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u16;
+            let port = args_obj.get("port").and_then(|v| v.as_u64()).unwrap_or(0) as u16;
             if port == 0 {
-                return Ok(serde_json::json!({ "ok": false, "error": "connect: missing or invalid port" }));
+                return Ok(
+                    serde_json::json!({ "ok": false, "error": "connect: missing or invalid port" }),
+                );
             }
             let timeout_ms = args_obj
                 .get("timeout_ms")
@@ -2158,10 +2232,7 @@ fn net_call_impl(
                 .get("handle")
                 .and_then(|v| v.as_u64())
                 .ok_or_else(|| err("set_deadline: missing handle".to_string()))?;
-            let millis = args_obj
-                .get("millis")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
+            let millis = args_obj.get("millis").and_then(|v| v.as_u64()).unwrap_or(0);
             let timeout = if millis == 0 {
                 None
             } else {
@@ -2171,7 +2242,9 @@ fn net_call_impl(
                 .lock()
                 .map_err(|_| err("net lock poisoned".to_string()))?;
             let Some(conn) = state.handles.get_mut(&handle) else {
-                return Ok(serde_json::json!({ "ok": false, "error": format!("set_deadline: unknown handle {}", handle) }));
+                return Ok(
+                    serde_json::json!({ "ok": false, "error": format!("set_deadline: unknown handle {}", handle) }),
+                );
             };
             let result = match conn {
                 NetConn::Tcp(stream) => stream
@@ -2184,7 +2257,9 @@ fn net_call_impl(
             };
             match result {
                 Ok(()) => Ok(serde_json::json!({ "ok": true })),
-                Err(e) => Ok(serde_json::json!({ "ok": false, "error": format!("set_deadline: {}", e) })),
+                Err(e) => {
+                    Ok(serde_json::json!({ "ok": false, "error": format!("set_deadline: {}", e) }))
+                }
             }
         }
         "read" => {
@@ -2201,7 +2276,9 @@ fn net_call_impl(
                 .lock()
                 .map_err(|_| err("net lock poisoned".to_string()))?;
             let Some(conn) = state.handles.get_mut(&handle) else {
-                return Ok(serde_json::json!({ "ok": false, "error": format!("read: unknown handle {}", handle) }));
+                return Ok(
+                    serde_json::json!({ "ok": false, "error": format!("read: unknown handle {}", handle) }),
+                );
             };
             let n = match conn {
                 NetConn::Tcp(stream) => stream.read(&mut buf),
@@ -2230,7 +2307,9 @@ fn net_call_impl(
                 .lock()
                 .map_err(|_| err("net lock poisoned".to_string()))?;
             let Some(conn) = state.handles.get_mut(&handle) else {
-                return Ok(serde_json::json!({ "ok": false, "error": format!("write: unknown handle {}", handle) }));
+                return Ok(
+                    serde_json::json!({ "ok": false, "error": format!("write: unknown handle {}", handle) }),
+                );
             };
             let result = match conn {
                 NetConn::Tcp(stream) => stream.write_all(&data),
@@ -2253,13 +2332,17 @@ fn net_call_impl(
                 .trim_matches('\0')
                 .to_string();
             if server_name.is_empty() {
-                return Ok(serde_json::json!({ "ok": false, "error": "tls_upgrade: missing server_name" }));
+                return Ok(
+                    serde_json::json!({ "ok": false, "error": "tls_upgrade: missing server_name" }),
+                );
             }
             let mut state = net_state()
                 .lock()
                 .map_err(|_| err("net lock poisoned".to_string()))?;
             let Some(conn) = state.handles.remove(&handle) else {
-                return Ok(serde_json::json!({ "ok": false, "error": format!("tls_upgrade: unknown handle {}", handle) }));
+                return Ok(
+                    serde_json::json!({ "ok": false, "error": format!("tls_upgrade: unknown handle {}", handle) }),
+                );
             };
             let tcp = match conn {
                 NetConn::Tcp(stream) => stream,
@@ -2267,7 +2350,9 @@ fn net_call_impl(
                     let new_handle = state.next_handle;
                     state.next_handle += 1;
                     state.handles.insert(new_handle, NetConn::Tls(stream));
-                    return Ok(serde_json::json!({ "ok": true, "handle": new_handle, "reused": true }));
+                    return Ok(
+                        serde_json::json!({ "ok": true, "handle": new_handle, "reused": true }),
+                    );
                 }
             };
             let connector = TlsConnector::new()
@@ -2279,7 +2364,9 @@ fn net_call_impl(
                     state.handles.insert(new_handle, NetConn::Tls(stream));
                     Ok(serde_json::json!({ "ok": true, "handle": new_handle }))
                 }
-                Err(e) => Ok(serde_json::json!({ "ok": false, "error": format!("tls_upgrade: {}", e) })),
+                Err(e) => {
+                    Ok(serde_json::json!({ "ok": false, "error": format!("tls_upgrade: {}", e) }))
+                }
             }
         }
         "close" => {
@@ -2324,7 +2411,10 @@ fn net_action_payload_to_proto_request(
                 .unwrap_or("127.0.0.1")
                 .to_string(),
             port: args.get("port").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-            timeout_ms: args.get("timeout_ms").and_then(|v| v.as_u64()).unwrap_or(5000),
+            timeout_ms: args
+                .get("timeout_ms")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(5000),
         }),
         "set_deadline" => Action::SetDeadline(proto::bridge_v1::NetDeadlineRequest {
             handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
@@ -2332,7 +2422,10 @@ fn net_action_payload_to_proto_request(
         }),
         "read" => Action::Read(proto::bridge_v1::NetReadRequest {
             handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
-            max_bytes: args.get("max_bytes").and_then(|v| v.as_u64()).unwrap_or(4096),
+            max_bytes: args
+                .get("max_bytes")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(4096),
         }),
         "write" => Action::Write(proto::bridge_v1::NetWriteRequest {
             handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
@@ -2353,7 +2446,12 @@ fn net_action_payload_to_proto_request(
         "close" => Action::Close(proto::bridge_v1::NetHandleRequest {
             handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
         }),
-        other => return Err(core_err(format!("unsupported net proto action '{}'", other))),
+        other => {
+            return Err(core_err(format!(
+                "unsupported net proto action '{}'",
+                other
+            )));
+        }
     };
     Ok(proto::bridge_v1::NetRequest {
         schema_version: 1,
@@ -2433,9 +2531,16 @@ fn net_json_response_to_proto(
     let action = match kind {
         NetProtoActionKind::Connect => Some(Action::Connect(proto::bridge_v1::NetHandleResponse {
             handle: resp.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
-            reused: resp.get("reused").and_then(|v| v.as_bool()).unwrap_or(false),
+            reused: resp
+                .get("reused")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
         })),
-        NetProtoActionKind::SetDeadline => Some(Action::SetDeadline(proto::bridge_v1::NetUnitResponse { ok })),
+        NetProtoActionKind::SetDeadline => {
+            Some(Action::SetDeadline(proto::bridge_v1::NetUnitResponse {
+                ok,
+            }))
+        }
         NetProtoActionKind::Read => Some(Action::Read(proto::bridge_v1::NetReadResponse {
             data: resp
                 .get("data")
@@ -2450,7 +2555,10 @@ fn net_json_response_to_proto(
         NetProtoActionKind::TlsUpgrade => {
             Some(Action::TlsUpgrade(proto::bridge_v1::NetHandleResponse {
                 handle: resp.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
-                reused: resp.get("reused").and_then(|v| v.as_bool()).unwrap_or(false),
+                reused: resp
+                    .get("reused")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
             }))
         }
         NetProtoActionKind::Close => Some(Action::Close(proto::bridge_v1::NetUnitResponse { ok })),
@@ -2469,7 +2577,10 @@ fn net_proto_response_to_json(resp: &proto::bridge_v1::NetResponse) -> serde_jso
     let mut out = serde_json::Map::new();
     out.insert("ok".to_string(), serde_json::Value::Bool(resp.ok));
     if !resp.error.is_empty() {
-        out.insert("error".to_string(), serde_json::Value::String(resp.error.clone()));
+        out.insert(
+            "error".to_string(),
+            serde_json::Value::String(resp.error.clone()),
+        );
     }
 
     if let Some(action) = resp.action.as_ref() {
@@ -2485,7 +2596,10 @@ fn net_proto_response_to_json(resp: &proto::bridge_v1::NetResponse) -> serde_jso
                 out.insert("ok".to_string(), serde_json::Value::Bool(unit.ok));
             }
             Action::Read(read) => {
-                out.insert("data".to_string(), serde_json::Value::String(read.data.clone()));
+                out.insert(
+                    "data".to_string(),
+                    serde_json::Value::String(read.data.clone()),
+                );
                 out.insert("eof".to_string(), serde_json::Value::Bool(read.eof));
             }
             Action::Write(write) => {
@@ -2508,15 +2622,18 @@ fn net_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::Core
     let response_json = net_call_impl(action, payload)?;
     let response = net_json_response_to_proto(&response_json, kind);
     let out = response.encode_to_vec();
-    record_bridge_proto_metric("net", request.len(), out.len(), started.elapsed().as_micros() as u64);
+    record_bridge_proto_metric(
+        "net",
+        request.len(),
+        out.len(),
+        started.elapsed().as_micros() as u64,
+    );
     Ok(out)
 }
 
 #[op2]
 #[buffer]
-fn op_php_net_call_proto(
-    #[buffer] request: &[u8],
-) -> Result<Vec<u8>, deno_core::error::CoreError> {
+fn op_php_net_call_proto(#[buffer] request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
     net_call_proto_impl(request)
 }
 
@@ -2545,10 +2662,7 @@ fn fs_call_impl(
     args: serde_json::Value,
 ) -> Result<serde_json::Value, deno_core::error::CoreError> {
     let err = |msg: String| {
-        deno_core::error::CoreError::from(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            msg,
-        ))
+        deno_core::error::CoreError::from(std::io::Error::new(std::io::ErrorKind::Other, msg))
     };
 
     let to_bytes = |value: Option<&serde_json::Value>| -> Vec<u8> {
@@ -2582,16 +2696,20 @@ fn fs_call_impl(
                 return Ok(serde_json::json!({ "ok": false, "error": "open: missing path" }));
             }
 
-            let mode = args_obj
-                .get("mode")
-                .and_then(|v| v.as_str())
-                .unwrap_or("r");
+            let mode = args_obj.get("mode").and_then(|v| v.as_str()).unwrap_or("r");
             let mut opts = OpenOptions::new();
             let read = mode.contains('r') || mode.contains('+');
-            let write = mode.contains('w') || mode.contains('a') || mode.contains('x') || mode.contains('c') || mode.contains('+');
+            let write = mode.contains('w')
+                || mode.contains('a')
+                || mode.contains('x')
+                || mode.contains('c')
+                || mode.contains('+');
             let append = mode.contains('a');
             let truncate = mode.contains('w');
-            let create = mode.contains('w') || mode.contains('a') || mode.contains('x') || mode.contains('c');
+            let create = mode.contains('w')
+                || mode.contains('a')
+                || mode.contains('x')
+                || mode.contains('c');
             let create_new = mode.contains('x');
 
             opts.read(read)
@@ -2766,7 +2884,10 @@ fn fs_action_payload_to_proto_request(
         }),
         "read" => Action::Read(proto::bridge_v1::FsReadRequest {
             handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
-            max_bytes: args.get("max_bytes").and_then(|v| v.as_u64()).unwrap_or(65536),
+            max_bytes: args
+                .get("max_bytes")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(65536),
         }),
         "write" => {
             let data = args
@@ -2777,7 +2898,11 @@ fn fs_action_payload_to_proto_request(
                         .map(|x| x.as_u64().unwrap_or(0).min(255) as u8)
                         .collect::<Vec<u8>>()
                 })
-                .or_else(|| args.get("data").and_then(|v| v.as_str()).map(|s| s.as_bytes().to_vec()))
+                .or_else(|| {
+                    args.get("data")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.as_bytes().to_vec())
+                })
                 .unwrap_or_default();
             Action::Write(proto::bridge_v1::FsWriteRequest {
                 handle: args.get("handle").and_then(|v| v.as_u64()).unwrap_or(0),
@@ -2803,7 +2928,11 @@ fn fs_action_payload_to_proto_request(
                         .map(|x| x.as_u64().unwrap_or(0).min(255) as u8)
                         .collect::<Vec<u8>>()
                 })
-                .or_else(|| args.get("data").and_then(|v| v.as_str()).map(|s| s.as_bytes().to_vec()))
+                .or_else(|| {
+                    args.get("data")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.as_bytes().to_vec())
+                })
                 .unwrap_or_default();
             Action::WriteFile(proto::bridge_v1::FsWriteFileRequest {
                 path: args
@@ -2914,7 +3043,10 @@ fn fs_json_response_to_proto(
                         .collect::<Vec<u8>>()
                 })
                 .unwrap_or_default();
-            Some(Action::ReadFile(proto::bridge_v1::FsReadResponse { data, eof: true }))
+            Some(Action::ReadFile(proto::bridge_v1::FsReadResponse {
+                data,
+                eof: true,
+            }))
         }
         FsProtoActionKind::WriteFile => {
             Some(Action::WriteFile(proto::bridge_v1::FsWriteResponse {
@@ -2935,12 +3067,18 @@ fn fs_proto_response_to_json(resp: &proto::bridge_v1::FsResponse) -> serde_json:
     let mut out = serde_json::Map::new();
     out.insert("ok".to_string(), serde_json::Value::Bool(resp.ok));
     if !resp.error.is_empty() {
-        out.insert("error".to_string(), serde_json::Value::String(resp.error.clone()));
+        out.insert(
+            "error".to_string(),
+            serde_json::Value::String(resp.error.clone()),
+        );
     }
     if let Some(action) = resp.action.as_ref() {
         match action {
             Action::Open(open) => {
-                out.insert("handle".to_string(), serde_json::Value::Number(open.handle.into()));
+                out.insert(
+                    "handle".to_string(),
+                    serde_json::Value::Number(open.handle.into()),
+                );
             }
             Action::Read(read) | Action::ReadFile(read) => {
                 out.insert(
@@ -2976,15 +3114,18 @@ fn fs_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
     let response_json = fs_call_impl(action, payload)?;
     let response = fs_json_response_to_proto(&response_json, kind);
     let out = response.encode_to_vec();
-    record_bridge_proto_metric("fs", request.len(), out.len(), started.elapsed().as_micros() as u64);
+    record_bridge_proto_metric(
+        "fs",
+        request.len(),
+        out.len(),
+        started.elapsed().as_micros() as u64,
+    );
     Ok(out)
 }
 
 #[op2]
 #[buffer]
-fn op_php_fs_call_proto(
-    #[buffer] request: &[u8],
-) -> Result<Vec<u8>, deno_core::error::CoreError> {
+fn op_php_fs_call_proto(#[buffer] request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreError> {
     fs_call_proto_impl(request)
 }
 
@@ -3046,6 +3187,15 @@ fn op_php_file_exists(#[string] path: String) -> bool {
 #[op2]
 #[string]
 fn op_php_path_resolve(#[string] base: String, #[string] path: String) -> String {
+    if let Some(stripped) = path.strip_prefix("@/") {
+        if let Ok(root) = std::env::var("PHPX_MODULE_ROOT") {
+            return std::path::Path::new(&root)
+                .join(stripped)
+                .to_string_lossy()
+                .to_string();
+        }
+    }
+
     let base_path = std::path::Path::new(&base);
     let target_path = std::path::Path::new(&path);
 
@@ -3060,7 +3210,9 @@ fn op_php_path_resolve(#[string] base: String, #[string] path: String) -> String
 
 #[op2]
 #[serde]
-fn op_php_read_dir(#[string] path: String) -> Result<Vec<PhpDirEntry>, deno_core::error::CoreError> {
+fn op_php_read_dir(
+    #[string] path: String,
+) -> Result<Vec<PhpDirEntry>, deno_core::error::CoreError> {
     let entries = std::fs::read_dir(&path).map_err(|e| {
         deno_core::error::CoreError::from(std::io::Error::new(
             e.kind(),
@@ -3116,18 +3268,16 @@ fn op_php_parse_wit(
                 ),
             )));
         }
-        *package
-            .worlds
-            .values()
-            .next()
-            .expect("worlds len checked")
+        *package.worlds.values().next().expect("worlds len checked")
     } else {
-        resolve.select_world(package_id, Some(world.trim())).map_err(|err| {
-            deno_core::error::CoreError::from(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to select world '{}': {}", world, err),
-            ))
-        })?
+        resolve
+            .select_world(package_id, Some(world.trim()))
+            .map_err(|err| {
+                deno_core::error::CoreError::from(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to select world '{}': {}", world, err),
+                ))
+            })?
     };
 
     let world = &resolve.worlds[world_id];
@@ -3261,7 +3411,8 @@ mod tests {
                 "config": config
             });
 
-            let json_res = db_call_impl("open".to_string(), payload.clone()).expect("json open failed");
+            let json_res =
+                db_call_impl("open".to_string(), payload.clone()).expect("json open failed");
             assert_ok(&json_res);
             let json_handle = json_res
                 .get("handle")
@@ -3273,8 +3424,8 @@ mod tests {
             let proto_bytes = proto_req.encode_to_vec();
             let proto_resp_bytes =
                 db_call_proto_impl(&proto_bytes).expect("proto open dispatch failed");
-            let proto_resp =
-                proto::bridge_v1::DbResponse::decode(proto_resp_bytes.as_slice()).expect("decode failed");
+            let proto_resp = proto::bridge_v1::DbResponse::decode(proto_resp_bytes.as_slice())
+                .expect("decode failed");
             let proto_json = db_proto_response_to_json(&proto_resp);
             assert_ok(&proto_json);
             let proto_handle = proto_json
@@ -3352,7 +3503,8 @@ mod tests {
             }),
         )
         .expect("proto query request build failed");
-        let proto_resp = db_call_proto_impl(&proto_req.encode_to_vec()).expect("proto query failed");
+        let proto_resp =
+            db_call_proto_impl(&proto_req.encode_to_vec()).expect("proto query failed");
         let proto_decoded =
             proto::bridge_v1::DbResponse::decode(proto_resp.as_slice()).expect("decode failed");
         let proto_json = db_proto_response_to_json(&proto_decoded);
@@ -3360,9 +3512,8 @@ mod tests {
 
         assert_eq!(json_query.get("rows"), proto_json.get("rows"));
 
-        let close_res =
-            db_call_impl("close".to_string(), serde_json::json!({ "handle": handle }))
-                .expect("close failed");
+        let close_res = db_call_impl("close".to_string(), serde_json::json!({ "handle": handle }))
+            .expect("close failed");
         assert_ok(&close_res);
         let _ = std::fs::remove_file(path);
     }
@@ -3376,34 +3527,30 @@ mod tests {
             "data": [0, 1, 2, 10, 127, 128, 200, 255]
         });
 
-        let json_write = fs_call_impl("write_file".to_string(), payload.clone()).expect("json write_file failed");
+        let json_write = fs_call_impl("write_file".to_string(), payload.clone())
+            .expect("json write_file failed");
         assert_ok(&json_write);
 
         let proto_write_req = fs_action_payload_to_proto_request("write_file", &payload)
             .expect("fs proto write request build failed");
-        let proto_write_resp =
-            fs_call_proto_impl(&proto_write_req.encode_to_vec()).expect("fs proto write_file dispatch failed");
-        let proto_write_decoded =
-            proto::bridge_v1::FsResponse::decode(proto_write_resp.as_slice()).expect("fs decode write response failed");
+        let proto_write_resp = fs_call_proto_impl(&proto_write_req.encode_to_vec())
+            .expect("fs proto write_file dispatch failed");
+        let proto_write_decoded = proto::bridge_v1::FsResponse::decode(proto_write_resp.as_slice())
+            .expect("fs decode write response failed");
         let proto_write_json = fs_proto_response_to_json(&proto_write_decoded);
         assert_ok(&proto_write_json);
 
-        let json_read = fs_call_impl(
-            "read_file".to_string(),
-            serde_json::json!({ "path": path }),
-        )
-        .expect("json read_file failed");
+        let json_read = fs_call_impl("read_file".to_string(), serde_json::json!({ "path": path }))
+            .expect("json read_file failed");
         assert_ok(&json_read);
 
-        let proto_read_req = fs_action_payload_to_proto_request(
-            "read_file",
-            &serde_json::json!({ "path": path }),
-        )
-        .expect("fs proto read request build failed");
-        let proto_read_resp =
-            fs_call_proto_impl(&proto_read_req.encode_to_vec()).expect("fs proto read_file dispatch failed");
-        let proto_read_decoded =
-            proto::bridge_v1::FsResponse::decode(proto_read_resp.as_slice()).expect("fs decode read response failed");
+        let proto_read_req =
+            fs_action_payload_to_proto_request("read_file", &serde_json::json!({ "path": path }))
+                .expect("fs proto read request build failed");
+        let proto_read_resp = fs_call_proto_impl(&proto_read_req.encode_to_vec())
+            .expect("fs proto read_file dispatch failed");
+        let proto_read_decoded = proto::bridge_v1::FsResponse::decode(proto_read_resp.as_slice())
+            .expect("fs decode read response failed");
         let proto_read_json = fs_proto_response_to_json(&proto_read_decoded);
         assert_ok(&proto_read_json);
 
@@ -3519,7 +3666,10 @@ mod tests {
                 .expect("decode read"),
         );
         assert_ok(&proto_read_json);
-        assert_eq!(proto_read_json.get("data").and_then(|v| v.as_str()), Some("pong"));
+        assert_eq!(
+            proto_read_json.get("data").and_then(|v| v.as_str()),
+            Some("pong")
+        );
 
         let proto_close_req = net_action_payload_to_proto_request(
             "close",
@@ -3637,7 +3787,10 @@ fn resolve_type_id(resolve: &Resolve, id: TypeId, visiting: &mut HashSet<TypeId>
             some: Box::new(resolve_type(resolve, inner, visiting)),
         },
         TypeDefKind::Result(res) => WitType::Result {
-            ok: res.ok.as_ref().map(|ty| Box::new(resolve_type(resolve, ty, visiting))),
+            ok: res
+                .ok
+                .as_ref()
+                .map(|ty| Box::new(resolve_type(resolve, ty, visiting))),
             err: res
                 .err
                 .as_ref()
@@ -3658,7 +3811,10 @@ fn resolve_type_id(resolve: &Resolve, id: TypeId, visiting: &mut HashSet<TypeId>
                 .iter()
                 .map(|case| WitVariantCase {
                     name: case.name.clone(),
-                    ty: case.ty.as_ref().map(|ty| resolve_type(resolve, ty, visiting)),
+                    ty: case
+                        .ty
+                        .as_ref()
+                        .map(|ty| resolve_type(resolve, ty, visiting)),
                 })
                 .collect(),
         },
