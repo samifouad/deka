@@ -177,6 +177,11 @@ fn cmd_migrate(_context: &Context) {
 
     match apply_migrations(&mut client, &migration_files, &applied, "db migrate") {
         Ok((applied_now, skipped)) => {
+            if let Ok(latest_applied) = load_applied_migrations(&mut client) {
+                if let Err(err) = persist_migration_state(&db_dir, &latest_applied, applied_now, skipped) {
+                    error("db migrate", &format!("migration state write failed: {}", err));
+                }
+            }
             log(
                 "db migrate",
                 &format!("done: applied={}, skipped={}", applied_now, skipped),
@@ -1109,6 +1114,47 @@ fn apply_migrations(
     Ok((applied_now, skipped))
 }
 
+fn persist_migration_state(
+    db_dir: &Path,
+    applied_versions: &std::collections::HashSet<String>,
+    applied_now: usize,
+    skipped: usize,
+) -> Result<(), String> {
+    let state_path = db_dir.join("_state.json");
+    let mut state = if state_path.is_file() {
+        let raw = fs::read_to_string(&state_path)
+            .map_err(|err| format!("failed to read {}: {}", state_path.display(), err))?;
+        serde_json::from_str::<serde_json::Value>(&raw).unwrap_or_else(|_| json!({}))
+    } else {
+        json!({})
+    };
+
+    if !state.is_object() {
+        state = json!({});
+    }
+
+    let mut versions = applied_versions.iter().cloned().collect::<Vec<_>>();
+    versions.sort();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    if let Some(obj) = state.as_object_mut() {
+        obj.insert("migration_last_run_unix".to_string(), json!(now));
+        obj.insert("migration_applied_total".to_string(), json!(versions.len()));
+        obj.insert("migration_last_applied_count".to_string(), json!(applied_now));
+        obj.insert("migration_last_skipped_count".to_string(), json!(skipped));
+        obj.insert("migration_applied_versions".to_string(), json!(versions));
+    }
+
+    let rendered = serde_json::to_string_pretty(&state)
+        .map_err(|err| format!("failed to render migration state json: {}", err))?;
+    fs::write(&state_path, rendered)
+        .map_err(|err| format!("failed to write {}: {}", state_path.display(), err))?;
+    Ok(())
+}
+
 fn render_init_migration(models: &[ModelDef]) -> String {
     let mut out = String::new();
     out.push_str("-- AUTO-GENERATED MIGRATION - DO NOT EDIT MANUALLY\n");
@@ -1264,7 +1310,9 @@ fn map_sql_type(ty: &str) -> (&'static str, bool) {
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_struct_models, resolve_generate_input, resolve_model_entry};
+    use super::{
+        extract_struct_models, persist_migration_state, resolve_generate_input, resolve_model_entry,
+    };
     use php_rs::parser::lexer::Lexer;
     use php_rs::parser::parser::{Parser, ParserMode};
     use std::fs;
@@ -1504,5 +1552,47 @@ struct User {
     fn table_name_is_snake_plural() {
         assert_eq!(super::to_table_name("User"), "users");
         assert_eq!(super::to_table_name("PackageVersion"), "package_versions");
+    }
+
+    #[test]
+    fn migration_state_is_persisted_to_state_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db_dir = dir.path().join("db");
+        fs::create_dir_all(&db_dir).expect("mkdir db");
+        let state_path = db_dir.join("_state.json");
+        fs::write(
+            &state_path,
+            r#"{
+  "version": 1,
+  "source": "types/index.phpx"
+}"#,
+        )
+        .expect("write state");
+
+        let applied = ["0001_init.sql".to_string(), "0002_users.sql".to_string()]
+            .into_iter()
+            .collect::<std::collections::HashSet<_>>();
+        persist_migration_state(&db_dir, &applied, 1, 0).expect("persist");
+
+        let raw = fs::read_to_string(&state_path).expect("read");
+        let value: serde_json::Value = serde_json::from_str(&raw).expect("json");
+        assert_eq!(value.get("version").and_then(|v| v.as_i64()), Some(1));
+        assert_eq!(
+            value.get("migration_applied_total").and_then(|v| v.as_u64()),
+            Some(2)
+        );
+        assert_eq!(
+            value
+                .get("migration_last_applied_count")
+                .and_then(|v| v.as_u64()),
+            Some(1)
+        );
+        assert_eq!(
+            value
+                .get("migration_applied_versions")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.len()),
+            Some(2)
+        );
     }
 }

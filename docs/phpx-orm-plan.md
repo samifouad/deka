@@ -79,6 +79,6 @@
 
 - [x] `deka db generate types/` resolves and validates `types/index.phpx`.
 - [x] Generated client imports via `@/db` in app code.
-- [ ] `deka db migrate` applies pending migrations and records state.
+- [x] `deka db migrate` applies pending migrations and records state.
 - [ ] LSP shows clear diagnostics/completions for model annotations.
 - [x] Linkhash reads/writes via generated Postgres client in primary flows.
