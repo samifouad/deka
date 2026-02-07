@@ -93,6 +93,7 @@
 ### Phase F: Hardening
 
 - [ ] End-to-end tests for HMR state preservation.
+- [x] Unit coverage for server snapshot patch generation (`websocket.rs`).
 - [ ] Performance baseline for patch path vs full reload.
 - [ ] Documentation and migration notes.
 

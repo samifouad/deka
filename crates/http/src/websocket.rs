@@ -653,3 +653,76 @@ async fn emit_event(
         )
         .await;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::build_patch_from_snapshot;
+    use serde_json::Value;
+
+    fn parse(payload: &str) -> Value {
+        serde_json::from_str(payload).expect("valid json payload")
+    }
+
+    #[test]
+    fn first_snapshot_uses_container_replace() {
+        let payload = build_patch_from_snapshot(
+            "/__hmr_test_first",
+            &["main.phpx".to_string()],
+            "#app",
+            "<div data-deka-id=\"a\">Hello</div>",
+        );
+        let json = parse(&payload);
+        assert_eq!(json["type"], "patch");
+        assert_eq!(json["ops"].as_array().map(|v| v.len()), Some(1));
+        assert_eq!(json["ops"][0]["op"], "set_html");
+        assert_eq!(json["ops"][0]["selector"], "#app");
+    }
+
+    #[test]
+    fn stable_structure_produces_granular_node_patch() {
+        let path = "/__hmr_test_granular";
+        let first = build_patch_from_snapshot(
+            path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<div data-deka-id=\"a\">Hello</div><span data-deka-id=\"b\">World</span>",
+        );
+        let first_json = parse(&first);
+        assert_eq!(first_json["ops"][0]["selector"], "#app");
+
+        let second = build_patch_from_snapshot(
+            path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<div data-deka-id=\"a\">Hello 2</div><span data-deka-id=\"b\">World</span>",
+        );
+        let second_json = parse(&second);
+        assert_eq!(second_json["ops"].as_array().map(|v| v.len()), Some(1));
+        assert_eq!(second_json["ops"][0]["selector"], "[data-deka-id=\"a\"]");
+        assert_eq!(second_json["ops"][0]["html"], "Hello 2");
+    }
+
+    #[test]
+    fn structural_changes_fallback_to_island_patch_when_possible() {
+        let path = "/__hmr_test_island";
+        let _ = build_patch_from_snapshot(
+            path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<deka-island data-deka-island-id=\"i1\"><div data-deka-id=\"n1\">A</div></deka-island>",
+        );
+        let payload = build_patch_from_snapshot(
+            path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<deka-island data-deka-island-id=\"i1\"><section data-deka-id=\"n2\">B</section></deka-island>",
+        );
+        let json = parse(&payload);
+        assert_eq!(json["ops"].as_array().map(|v| v.len()), Some(1));
+        assert_eq!(json["ops"][0]["selector"], "[data-deka-island-id=\"i1\"]");
+        assert_eq!(
+            json["ops"][0]["html"],
+            "<section data-deka-id=\"n2\">B</section>"
+        );
+    }
+}
