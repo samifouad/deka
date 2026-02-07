@@ -852,6 +852,7 @@ impl SymbolIndex {
         None
     }
 
+    #[allow(deprecated)]
     fn document_symbols(&self, line_index: &LineIndex) -> Vec<DocumentSymbol> {
         let mut symbols = Vec::new();
         for func in &self.functions {
