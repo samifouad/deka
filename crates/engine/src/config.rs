@@ -24,25 +24,83 @@ pub struct ServeConfig {
 
 impl ServeConfig {
     pub fn load(directory: &std::path::Path) -> Self {
-        let config_path = directory.join("serve.json");
-        if !config_path.exists() {
-            return Self::default();
+        let deka_json_path = directory.join("deka.json");
+        if let Some(config) = load_serve_from_deka_json(&deka_json_path) {
+            return config;
         }
 
-        let contents = match std::fs::read_to_string(&config_path) {
-            Ok(contents) => contents,
-            Err(err) => {
-                tracing::warn!("Failed to read {}: {}", config_path.display(), err);
-                return Self::default();
-            }
-        };
+        // Backward compatibility: keep reading serve.json if present.
+        let legacy_path = directory.join("serve.json");
+        load_legacy_serve_json(&legacy_path).unwrap_or_default()
+    }
+}
 
-        match serde_json::from_str::<ServeConfig>(&contents) {
-            Ok(config) => config,
+fn load_serve_from_deka_json(path: &std::path::Path) -> Option<ServeConfig> {
+    if !path.exists() {
+        return None;
+    }
+
+    let contents = match std::fs::read_to_string(path) {
+        Ok(contents) => contents,
+        Err(err) => {
+            tracing::warn!("Failed to read {}: {}", path.display(), err);
+            return None;
+        }
+    };
+
+    let root: serde_json::Value = match serde_json::from_str(&contents) {
+        Ok(value) => value,
+        Err(err) => {
+            tracing::warn!("Failed to parse {}: {}", path.display(), err);
+            return None;
+        }
+    };
+
+    if let Some(serve) = root.get("serve") {
+        match serde_json::from_value::<ServeConfig>(serve.clone()) {
+            Ok(config) => return Some(config),
             Err(err) => {
-                tracing::warn!("Failed to parse {}: {}", config_path.display(), err);
-                Self::default()
+                tracing::warn!(
+                    "Failed to parse {}.serve: {}",
+                    path.display(),
+                    err
+                );
+                return None;
             }
+        }
+    }
+
+    // Optional convenience: allow top-level serve keys in deka.json.
+    match serde_json::from_value::<ServeConfig>(root) {
+        Ok(config)
+            if config.entry.is_some()
+                || config.mode.is_some()
+                || config.directory_listing.is_some() =>
+        {
+            Some(config)
+        }
+        _ => None,
+    }
+}
+
+fn load_legacy_serve_json(path: &std::path::Path) -> Option<ServeConfig> {
+    if !path.exists() {
+        return None;
+    }
+
+    let contents = match std::fs::read_to_string(path) {
+        Ok(contents) => contents,
+        Err(err) => {
+            tracing::warn!("Failed to read {}: {}", path.display(), err);
+            return None;
+        }
+    };
+
+    match serde_json::from_str::<ServeConfig>(&contents) {
+        Ok(config) => Some(config),
+        Err(err) => {
+            tracing::warn!("Failed to parse {}: {}", path.display(), err);
+            None
         }
     }
 }
@@ -145,6 +203,7 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
     // Directory: search for index files in priority order
     let index_files = [
         "index.php",
+        "index.phpx",
         "index.html",
         "index.js",
         "index.ts",
@@ -180,7 +239,7 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
 fn detect_mode(path: &std::path::Path) -> ServeMode {
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         match ext {
-            "php" => ServeMode::Php,
+            "php" | "phpx" => ServeMode::Php,
             "js" | "ts" | "mjs" | "mts" => ServeMode::Js,
             "html" | "htm" => ServeMode::Static,
             _ => ServeMode::Static,
