@@ -1173,6 +1173,8 @@ fn map_sql_type(ty: &str) -> (&'static str, bool) {
 #[cfg(test)]
 mod tests {
     use super::{extract_struct_models, resolve_generate_input, resolve_model_entry};
+    use php_rs::parser::lexer::Lexer;
+    use php_rs::parser::parser::{Parser, ParserMode};
     use std::fs;
     use std::path::Path;
 
@@ -1300,6 +1302,94 @@ struct User {
         assert!(dir.path().join("db/_state.json").exists());
         assert!(dir.path().join("db/migrations/0001_init.sql").exists());
         assert!(dir.path().join("db/.generated/schema.json").exists());
+    }
+
+    #[test]
+    fn generated_index_phpx_is_parser_safe() {
+        let source = r#"
+struct User {
+  $id: int @id @autoIncrement
+  $email: string @unique
+}
+"#;
+        let models = extract_struct_models(source, "types/index.phpx".to_string()).expect("models");
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let source_path = dir.path().join("types").join("index.phpx");
+        fs::create_dir_all(source_path.parent().expect("parent")).expect("mkdir");
+        fs::write(&source_path, source).expect("write source");
+        super::generate_db_artifacts(dir.path(), &source_path, &models).expect("generated");
+
+        let generated = fs::read_to_string(dir.path().join("db/index.phpx")).expect("read index");
+        let generated = mask_module_syntax_for_parser(&generated);
+        let arena = bumpalo::Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(generated.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        assert!(
+            program.errors.is_empty(),
+            "generated index parse errors: {:?}",
+            program.errors
+        );
+    }
+
+    #[test]
+    fn generated_client_phpx_is_parser_safe() {
+        let source = r#"
+struct User {
+  $id: int @id @autoIncrement
+  $email: string @unique
+}
+"#;
+        let models = extract_struct_models(source, "types/index.phpx".to_string()).expect("models");
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let source_path = dir.path().join("types").join("index.phpx");
+        fs::create_dir_all(source_path.parent().expect("parent")).expect("mkdir");
+        fs::write(&source_path, source).expect("write source");
+        super::generate_db_artifacts(dir.path(), &source_path, &models).expect("generated");
+
+        let generated =
+            fs::read_to_string(dir.path().join("db/client.phpx")).expect("read client");
+        let generated = mask_module_syntax_for_parser(&generated);
+        let arena = bumpalo::Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(generated.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        assert!(
+            program.errors.is_empty(),
+            "generated client parse errors: {:?}",
+            program.errors
+        );
+    }
+
+    fn mask_module_syntax_for_parser(source: &str) -> String {
+        let mut out = String::with_capacity(source.len());
+        for segment in source.split_inclusive('\n') {
+            let trimmed = segment.trim();
+            let masked = trimmed.starts_with("import ")
+                || trimmed.starts_with("export {")
+                || (trimmed.starts_with("export ") && !trimmed.starts_with("export function"));
+            if masked {
+                out.push_str(
+                    &segment
+                        .chars()
+                        .map(|ch| if ch == '\n' { '\n' } else { ' ' })
+                        .collect::<String>(),
+                );
+                continue;
+            }
+            if trimmed.starts_with("export function") {
+                if let Some(idx) = segment.find("export") {
+                    out.push_str(&segment[..idx]);
+                    out.push_str("      ");
+                    out.push_str(&segment[idx + 6..]);
+                    continue;
+                }
+            }
+            out.push_str(segment);
+        }
+        out
     }
 
     #[test]
