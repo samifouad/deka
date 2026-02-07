@@ -1,6 +1,6 @@
 [
   "core/*",
-  "json",
+  "encoding/json",
   "string/*",
   "array/*"
 ]

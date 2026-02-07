@@ -2,7 +2,7 @@
 
 ## Goals
 
-- [ ] Use Bluesky OAuth as the primary user identity for linkhash.
+- [x] Use Bluesky OAuth as the primary user identity for linkhash.
 - [ ] Map Bluesky handle to package namespace (`@handle/package`).
 - [x] Introduce canonical immutable package IDs (`linkha.sh/lh_<sha256(...)>`).
 - [x] Issue scoped publish tokens for CLI use (`read`, `read:write`, `read:write:delete`).
@@ -36,20 +36,20 @@
 - [x] random bytes/id helpers
 - [x] SHA-256 + HMAC-SHA256 helpers
 - [ ] `jwt` module
-- [ ] sign + verify JWT (HS256 first)
-- [ ] validate `exp`, `nbf`, `iat`, `iss`, `aud`
+- [x] sign + verify JWT (HS256 first)
+- [x] validate `exp`, `nbf`, `iat`, `iss`, `aud`
 - [x] `cookies` module
 - [x] ergonomic read from `$_COOKIE`
 - [x] safe `Set-Cookie` builder (`HttpOnly`, `Secure`, `SameSite`, `Path`, `Domain`, `Max-Age`)
 
 ### JWT blocker note
 
-- [ ] Fix `encoding/json` object decode stability (currently blocks reliable JWT claim decode/validation in PHPX runtime).
+- [x] Fix `encoding/json` object decode stability (unblocked JWT claim decode/validation in PHPX runtime).
 
 ## Linkhash OAuth + Token Flow
 
-- [ ] `/auth/login` redirect to Bluesky OAuth
-- [ ] `/auth/callback` code exchange + identity fetch
+- [x] `/auth/login` redirect to Bluesky OAuth
+- [x] `/auth/callback` code exchange + identity fetch
 - [x] local account/org mapping from Bluesky identity (dev-login path in place, Bluesky callback wiring pending)
 - [x] session cookie issuance and rotation
 - [x] PAT management (create/list/revoke) with scope + expiry
@@ -85,8 +85,11 @@
 - [x] Rotate session ID on login/privilege changes (fixation protection).
 - [x] Add session idle timeout + absolute timeout enforcement.
 - [ ] Enforce PKCE + OAuth state + nonce checks.
-- [ ] Add strict redirect URI allowlist.
-- [ ] Add CSRF protection for state-changing browser endpoints.
+- [x] Add strict redirect URI allowlist.
+- [x] Add CSRF protection for state-changing browser endpoints.
+
+Notes:
+- State-changing endpoints enforce `POST` and validate `X-CSRF-Token` against server-side session CSRF hash.
 - [x] One-time PAT reveal + hashed-at-rest token storage.
 - [ ] Add PAT last-used metadata + bulk revoke.
 - [ ] Add org role model (`owner`, `maintainer`, `publisher`, `viewer`).

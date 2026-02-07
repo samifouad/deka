@@ -1,19 +1,6 @@
 export function bridge($kind, $action, $payload = {}) {
-    $module = null
-    if ($kind === 'db') {
-        $module = '__deka_db'
-    } else if ($kind === 'net') {
-        $module = '__deka_net'
-    } else if ($kind === 'fs') {
-        $module = '__deka_fs'
-    } else if ($kind === 'crypto') {
-        $module = '__deka_db'
-        $action = 'crypto:' . $action
+    if (function_exists('__bridge')) {
+        return \__bridge($kind, $action, $payload)
     }
-
-    if ($module === null) {
-        return { ok: false, error: 'unknown bridge kind: ' . $kind }
-    }
-
-    return \__deka_wasm_call($module, $action, $payload)
+    return \__deka_wasm_call('__deka_' . ('' . $kind), '' . $action, $payload)
 }

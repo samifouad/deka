@@ -1,10 +1,83 @@
 import { result_ok, result_err } from 'core/result';
-import { reader_new, reader_eof, reader_peek_byte, reader_next_byte, reader_skip_ws } from 'core/reader';
-import { byte_is_digit, byte_is_hex } from 'core/byte';
+import { byte_is_digit, byte_is_hex, byte_is_whitespace } from 'core/byte';
 import { num_parse_int, num_parse_float } from 'core/num';
+import { bridge } from 'core/bridge';
 
 const __DEKA_JSON_ERROR_KEY = '__deka_json_last_error';
 const __DEKA_JSON_ERROR_MSG_KEY = '__deka_json_last_error_msg';
+
+function reader_new($input) {
+    return [
+        'input' => '' . $input,
+        'pos' => 0,
+        'len' => strlen('' . $input),
+    ];
+}
+
+function reader_eof($reader) {
+    return $reader['pos'] >= $reader['len'];
+}
+
+function reader_peek_byte($reader) {
+    if (reader_eof($reader)) {
+        return null;
+    }
+    return ord($reader['input'][$reader['pos']]);
+}
+
+function reader_next_byte(&$reader) {
+    $byte = reader_peek_byte($reader);
+    if ($byte !== null) {
+        $reader['pos'] += 1;
+    }
+    return $byte;
+}
+
+function reader_skip_ws(&$reader) {
+    while (!reader_eof($reader)) {
+        $byte = reader_peek_byte($reader);
+        if ($byte === null || !byte_is_whitespace($byte)) {
+            return;
+        }
+        $reader['pos'] += 1;
+    }
+}
+
+function __deka_json_to_assoc($value) {
+    $current = $value;
+    for ($i = 0; $i < 16; $i += 1) {
+        if (is_object($current)) {
+            $arr = (array) $current;
+            if (count($arr) === 1 && array_key_exists(0, $arr) && (is_object($arr[0]) || is_array($arr[0]))) {
+                $current = $arr[0];
+                continue;
+            }
+            if (count($arr) === 1 && array_key_exists('0', $arr) && (is_object($arr['0']) || is_array($arr['0']))) {
+                $current = $arr['0'];
+                continue;
+            }
+            $current = $arr;
+            continue;
+        }
+        if (is_array($current)) {
+            $out = [];
+            $is_entries = true;
+            foreach ($current as $entry) {
+                if (!is_array($entry) || count($entry) !== 2 || !is_string($entry[0])) {
+                    $is_entries = false;
+                    break;
+                }
+                $out[$entry[0]] = $entry[1];
+            }
+            if ($is_entries) {
+                return $out;
+            }
+            return $current;
+        }
+        return null;
+    }
+    return null;
+}
 
 /// docid: php/json/json_encode()
 /// <Function name="json_encode">
@@ -25,6 +98,14 @@ const __DEKA_JSON_ERROR_MSG_KEY = '__deka_json_last_error_msg';
 /// </Function>
 export function json_encode($value, $flags = 0, $depth = 512) {
     __deka_json_reset_error();
+    $host = __deka_json_to_assoc(bridge('json', 'encode', { value: $value, flags: $flags, depth: $depth }));
+    if (is_array($host) && array_key_exists('ok', $host)) {
+        if ($host['ok'] && array_key_exists('json', $host) && is_string($host['json'])) {
+            return $host['json'];
+        }
+        __deka_json_fail(JSON_ERROR_SYNTAX);
+        return false;
+    }
     $out = __deka_json_encode_value($value, $depth);
     if (__deka_json_has_error()) {
         return false;
@@ -51,6 +132,17 @@ export function json_encode($value, $flags = 0, $depth = 512) {
 /// </Function>
 export function json_decode($json, $assoc = false, $depth = 512, $flags = 0) {
     __deka_json_reset_error();
+    $host = __deka_json_to_assoc(bridge('json', 'decode', { json: '' . $json, assoc: $assoc, depth: $depth, flags: $flags }));
+    if (is_array($host) && array_key_exists('ok', $host)) {
+        if ($host['ok']) {
+            if (array_key_exists('value', $host)) {
+                return $host['value'];
+            }
+            return null;
+        }
+        __deka_json_fail(JSON_ERROR_SYNTAX);
+        return null;
+    }
     $json = '' . $json;
     $reader = reader_new($json);
     reader_skip_ws($reader);
@@ -137,6 +229,14 @@ export function json_last_error_msg() {
 /// </Function>
 export function json_validate($json, $depth = 512, $flags = 0) {
     __deka_json_reset_error();
+    $host = __deka_json_to_assoc(bridge('json', 'validate', { json: '' . $json, depth: $depth, flags: $flags }));
+    if (is_array($host) && array_key_exists('ok', $host) && $host['ok']) {
+        if (array_key_exists('valid', $host) && $host['valid']) {
+            return true;
+        }
+        __deka_json_fail(JSON_ERROR_SYNTAX);
+        return false;
+    }
     $json = '' . $json;
     $reader = reader_new($json);
     reader_skip_ws($reader);
@@ -498,7 +598,7 @@ function __deka_json_parse_number(&$reader) {
             $num .= chr(reader_next_byte($reader));
         }
     }
-    if (strpos($num, '.') !== false || stripos($num, 'e') !== false) {
+    if (strpos($num, '.') !== false || strpos(strtolower($num), 'e') !== false) {
         return num_parse_float($num);
     }
     return num_parse_int($num);
