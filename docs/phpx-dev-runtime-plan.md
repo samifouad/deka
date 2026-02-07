@@ -73,7 +73,7 @@
 
 ### Phase C: Granular DOM Patches
 
-- [ ] Stable DOM id assignment.
+- [x] Stable DOM id assignment.
 - [ ] Server diff generation and patch payload schema.
 - [ ] Client patch applier with state-preserving heuristics.
 

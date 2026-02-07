@@ -174,7 +174,7 @@ fn inject_hmr_client(html: &str) -> String {
     if html.contains(MARKER) {
         return html.to_string();
     }
-    const SCRIPT: &str = r#"<script id="__deka_hmr_client">(function(){try{var p=location.protocol==='https:'?'wss':'ws';var ws=new WebSocket(p+'://'+location.host+'/_deka/hmr');ws.onmessage=function(ev){try{var m=JSON.parse(ev.data||'{}');if(m.type==='reload'){location.reload();}}catch(_){location.reload();}};ws.onclose=function(){setTimeout(function(){location.reload();},300);};}catch(_){}})();</script>"#;
+    const SCRIPT: &str = r#"<script id="__deka_hmr_client">(function(){try{var p=location.protocol==='https:'?'wss':'ws';var ws=new WebSocket(p+'://'+location.host+'/_deka/hmr');function c(){return document.querySelector('#app');}async function h(){var n=c();if(!n){location.reload();return;}try{var r=await fetch(location.href,{headers:{'Accept':'text/html'},credentials:'same-origin',cache:'no-store'});if(!r.ok){location.reload();return;}var t=await r.text();var d=new DOMParser().parseFromString(t,'text/html');var m=d.querySelector('#app');if(!m){location.reload();return;}n.innerHTML=m.innerHTML;}catch(_){location.reload();}}ws.onmessage=function(ev){try{var m=JSON.parse(ev.data||'{}');if(m.type==='changed'){h();return;}if(m.type==='reload'){location.reload();return;}}catch(_){location.reload();}};ws.onclose=function(){setTimeout(function(){location.reload();},300);};}catch(_){}})();</script>"#;
 
     if let Some(idx) = html.rfind("</body>") {
         let mut out = String::with_capacity(html.len() + SCRIPT.len());

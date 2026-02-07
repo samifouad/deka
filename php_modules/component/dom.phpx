@@ -22,6 +22,7 @@ export function createRoot($config = false) {
 }
 
 export function renderToString($node) {
+    __component_reset_node_id()
     return __component_render_node($node);
 }
 
@@ -399,6 +400,7 @@ function __component_render_dom_element($tag, $props) {
     $children = false;
     $inner = false;
     $raw_text = __component_is_raw_text_tag($tag);
+    $has_dev_id = __component_has_dev_id_prop($props);
 
     if (is_array($props) || is_object($props)) {
         foreach ($props as $key => $value) {
@@ -433,6 +435,10 @@ function __component_render_dom_element($tag, $props) {
         }
     }
 
+    if (__component_dev_enabled() && !$has_dev_id) {
+        $attrs .= ' data-deka-id="' . __component_escape_attr(__component_next_node_id()) . '"';
+    }
+
     if ($inner !== false) {
         $body = $inner;
     } else if ($raw_text) {
@@ -444,6 +450,40 @@ function __component_render_dom_element($tag, $props) {
         return '<' . $tag . $attrs . '>';
     }
     return '<' . $tag . $attrs . '>' . $body . '</' . $tag . '>';
+}
+
+function __component_dev_enabled() {
+    if (!isset($_ENV['DEKA_DEV'])) {
+        return false;
+    }
+    $value = strtolower('' . $_ENV['DEKA_DEV']);
+    return $value === '1' || $value === 'true' || $value === 'yes' || $value === 'on';
+}
+
+function __component_reset_node_id() {
+    $next = &__component_node_counter();
+    $next = 0;
+}
+
+function __component_next_node_id() {
+    $next = &__component_node_counter();
+    $next = $next + 1;
+    return 'deka-' . $next;
+}
+
+function &__component_node_counter() {
+    static $next = 0;
+    return $next;
+}
+
+function __component_has_dev_id_prop($props) {
+    if (is_array($props)) {
+        return array_key_exists('dataDekaId', $props) || array_key_exists('data-deka-id', $props);
+    }
+    if (is_object($props)) {
+        return isset($props.dataDekaId);
+    }
+    return false;
 }
 
 function __component_attr_name($key) {
