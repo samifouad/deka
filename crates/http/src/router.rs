@@ -9,6 +9,7 @@ use axum::{
 };
 use base64::Engine;
 
+use crate::utility_css::inject_utility_css;
 use crate::websocket::{handle_hmr_websocket, handle_websocket, set_hmr_runtime_state};
 use engine::{RuntimeState, execute_request_parts};
 
@@ -102,8 +103,9 @@ async fn handle_request(
             }
 
             let mut response = Response::builder().status(response_envelope.status);
+            let is_html = is_html_response(&response_envelope.headers);
             let inject_dev_hmr = dev_mode_enabled()
-                && is_html_response(&response_envelope.headers)
+                && is_html
                 && response_envelope.body_base64.is_none()
                 && !response_envelope.body.is_empty();
 
@@ -136,6 +138,9 @@ async fn handle_request(
             } else {
                 if inject_dev_hmr {
                     response_envelope.body = inject_hmr_client(&response_envelope.body);
+                }
+                if is_html {
+                    response_envelope.body = inject_utility_css(&response_envelope.body);
                 }
                 response
                     .body(axum::body::Body::from(response_envelope.body))

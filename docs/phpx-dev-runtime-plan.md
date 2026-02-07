@@ -43,11 +43,11 @@
 
 ### 4) Utility CSS Runtime (Tailwind-Compatible Surface)
 
-- [ ] Introduce runtime-native utility CSS engine crate.
-- [ ] Start with core utility class compatibility and variant handling.
-- [ ] Add optional preflight/base reset toggle.
-- [ ] Generate deduped CSS during SSR and cache in project `.cache`.
-- [ ] Document compatibility matrix and unsupported classes.
+- [x] Introduce runtime-native utility CSS engine crate.
+- [x] Start with core utility class compatibility and variant handling.
+- [x] Add optional preflight/base reset toggle.
+- [x] Generate deduped CSS during SSR and cache in project `.cache`.
+- [x] Document compatibility matrix and unsupported classes.
 
 ### 5) Tooling and LSP
 
@@ -85,9 +85,9 @@
 
 ### Phase E: Utility CSS Engine
 
-- [ ] Utility parser + resolver + emitter.
-- [ ] Config file support (`deka.css.json` or equivalent).
-- [ ] SSR injection + cache integration.
+- [x] Utility parser + resolver + emitter.
+- [x] Config file support (`deka.css.json` or equivalent).
+- [x] SSR injection + cache integration.
 
 ### Phase F: Hardening
 
@@ -101,4 +101,20 @@
 - [ ] `deka serve --dev` enables watch + HMR transport.
 - [ ] Editing a template updates changed DOM nodes without full route replacement.
 - [ ] Islands hydrate by directive schedule while non-island DOM still supports HMR.
-- [ ] Tailwind-style utility classes can be used without separate build tooling.
+- [x] Tailwind-style utility classes can be used without separate build tooling.
+
+## Utility CSS Config
+
+Create `deka.css.json` at project root:
+
+```json
+{
+  "utility": {
+    "enabled": true,
+    "preflight": false
+  }
+}
+```
+
+- `enabled`: enables runtime utility CSS emission for HTML responses.
+- `preflight`: injects a minimal base/reset preflight when `true`.
