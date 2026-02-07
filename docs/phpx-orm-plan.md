@@ -64,6 +64,7 @@
 - [x] Generated client includes runnable non-fluent helpers: `selectMany`, `selectOne`, `insertOne`, `updateWhere`, `deleteWhere`, `transaction`.
 - [x] Predicates/helpers scaffolded in generated client: `eq`, `and`, `or` (+ shape placeholders for richer query builder).
 - [x] Predicates/helpers: `asc`, `desc`, `limit`, `offset`.
+- [x] Eager-loading support via `db.select()->from(Model)->include('relation')->many()` and low-level `$includes` argument in `selectMany/selectOne`.
 - [x] Transaction API (non-fluent helper in generated client).
 - [x] Bound client supports fluent API via `createClient($meta, $handle)` and rebinding via `withHandle($handle)`.
 - [x] Generated client exposes relation loader helper: `loadRelation($model, $row, $field)` with `hasMany|belongsTo|hasOne` semantics based on `db/.generated/schema.json` relation metadata.
@@ -90,8 +91,9 @@
   - [x] LSP completion/hover coverage for relation annotations.
   - [x] Generator coverage for relation migration rules + schema metadata.
   - [x] CLI generation/migration state coverage in release tests.
-  - [x] Runtime e2e DB test in local opt-in harness (`scripts/test-phpx-db-e2e.sh`).
-  - [x] Runtime e2e DB test in CI (`.github/workflows/phpx-tooling.yml`).
+- [x] Runtime e2e DB test in local opt-in harness (`scripts/test-phpx-db-e2e.sh`).
+- [x] Runtime e2e DB test in CI (`.github/workflows/phpx-tooling.yml`).
+- [x] Host DB stats include statement-cache metrics (`statement_cache_entries`, `statement_cache_hits`, `statement_cache_misses`).
 
 ## Acceptance Criteria
 
