@@ -234,7 +234,8 @@ impl LanguageServer for Backend {
             return Ok(Some(CompletionResponse::Array(items)));
         }
 
-        if let Some(items) = completion_for_import(&text, &file_path, offset) {
+        let workspace_roots = self.workspace_roots.read().await.clone();
+        if let Some(items) = completion_for_import(&text, &file_path, offset, &workspace_roots) {
             return Ok(Some(CompletionResponse::Array(items)));
         }
         if let Some(items) = completion_for_annotation(&text, offset) {
@@ -278,15 +279,16 @@ impl LanguageServer for Backend {
             return Ok(Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(loc)));
         }
 
+        let workspace_roots = self.workspace_roots.read().await.clone();
         if let Some(word) = word_at_offset(text.as_bytes(), offset) {
-            if let Some(loc) = definition_for_imported_symbol(&text, &file_path, &word) {
+            if let Some(loc) = definition_for_imported_symbol(&text, &file_path, &word, &workspace_roots) {
                 return Ok(Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(
                     loc,
                 )));
             }
         }
 
-        if let Some(loc) = definition_for_import_module(&text, &file_path, offset) {
+        if let Some(loc) = definition_for_import_module(&text, &file_path, offset, &workspace_roots) {
             return Ok(Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(loc)));
         }
 
@@ -1412,12 +1414,13 @@ fn definition_for_import_module(
     source: &str,
     file_path: &str,
     offset: usize,
+    workspace_roots: &[PathBuf],
 ) -> Option<Location> {
     let imports = parse_imports(source);
     for import in imports {
         if let Some(module_span) = import.module_span {
             if module_span.start <= offset && offset < module_span.end {
-                let root = find_php_modules_root(Path::new(file_path))?;
+                let root = find_php_modules_root(Path::new(file_path), workspace_roots)?;
                 let path = resolve_module_file(&root, &import.from, import.is_wasm)?;
                 let uri = Url::from_file_path(path).ok()?;
                 return Some(Location {
@@ -1437,13 +1440,14 @@ fn definition_for_imported_symbol(
     source: &str,
     file_path: &str,
     symbol: &str,
+    workspace_roots: &[PathBuf],
 ) -> Option<Location> {
     let imports = parse_imports(source);
     for import in imports {
         if import.local != symbol {
             continue;
         }
-        let root = find_php_modules_root(Path::new(file_path))?;
+        let root = find_php_modules_root(Path::new(file_path), workspace_roots)?;
         let path = resolve_module_file(&root, &import.from, import.is_wasm)?;
         let module_source = fs::read_to_string(&path).ok()?;
         let range = export_range_for_symbol(&module_source, &import.imported)
@@ -1825,7 +1829,12 @@ fn parse_exported_names(source: &str) -> Vec<ExportInfo> {
     exports
 }
 
-fn completion_for_import(source: &str, file_path: &str, offset: usize) -> Option<Vec<CompletionItem>> {
+fn completion_for_import(
+    source: &str,
+    file_path: &str,
+    offset: usize,
+    workspace_roots: &[PathBuf],
+) -> Option<Vec<CompletionItem>> {
     let line_index = LineIndex::new(source);
     let position = line_index.offset_to_position(offset);
     let line = position.line as usize;
@@ -1843,7 +1852,7 @@ fn completion_for_import(source: &str, file_path: &str, offset: usize) -> Option
     if let (Some(open), Some(close)) = (line_text.find('{'), line_text.find('}')) {
         if rel > open && rel <= close {
             let module_spec = parse_module_path(line_text)?;
-            let root = find_php_modules_root(Path::new(file_path))?;
+            let root = find_php_modules_root(Path::new(file_path), workspace_roots)?;
             let is_wasm = line_text.contains(" as wasm");
             let exports = module_exports(&root, &module_spec, is_wasm)?;
             let prefix_start = line_text[..rel].rfind(',').map(|idx| idx + 1).unwrap_or(open + 1);
@@ -1872,7 +1881,7 @@ fn completion_for_import(source: &str, file_path: &str, offset: usize) -> Option
     let quote_pos = before_cursor.rfind(&['\'', '"'][..])?;
     let prefix = &before_cursor[quote_pos + 1..];
 
-    let root = find_php_modules_root(Path::new(file_path))?;
+    let root = find_php_modules_root(Path::new(file_path), workspace_roots)?;
     let modules = if prefix.starts_with("@/") {
         list_project_modules(root.parent()?)
             .into_iter()
@@ -2056,7 +2065,7 @@ fn snippet_completion_items() -> Vec<CompletionItem> {
     ]
 }
 
-fn find_php_modules_root(start: &Path) -> Option<PathBuf> {
+fn find_php_modules_root(start: &Path, workspace_roots: &[PathBuf]) -> Option<PathBuf> {
     if let Ok(root) = std::env::var("PHPX_MODULE_ROOT") {
         let root_path = PathBuf::from(root);
         let candidate = root_path.join("php_modules");
@@ -2075,6 +2084,18 @@ fn find_php_modules_root(start: &Path) -> Option<PathBuf> {
         }
         if !current.pop() {
             break;
+        }
+    }
+    for workspace_root in workspace_roots {
+        let candidate = workspace_root.join("php_modules");
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+    }
+    if let Ok(current_dir) = std::env::current_dir() {
+        let candidate = current_dir.join("php_modules");
+        if candidate.is_dir() {
+            return Some(candidate);
         }
     }
     None
@@ -2484,5 +2505,19 @@ mod tests {
 
         let resolved = resolve_module_file(&php_modules, "@/db", false).expect("resolve alias");
         assert_eq!(resolved, db.join("index.phpx"));
+    }
+
+    #[test]
+    fn finds_php_modules_from_workspace_roots_fallback() {
+        let workspace = temp_dir("phpx_lsp_workspace_modules");
+        let php_modules = workspace.join("php_modules");
+        let project = workspace.join("apps").join("sample");
+        let file = project.join("main.phpx");
+        fs::create_dir_all(&php_modules).expect("mkdir php_modules");
+        fs::create_dir_all(&project).expect("mkdir project");
+        fs::write(&file, "import { x } from 'core/result'").expect("write file");
+
+        let resolved = find_php_modules_root(&file, std::slice::from_ref(&workspace)).expect("resolve modules");
+        assert_eq!(resolved, php_modules);
     }
 }
