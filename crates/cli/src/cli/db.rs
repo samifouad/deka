@@ -644,10 +644,23 @@ function compile_predicate($expr, &$params) {{\n\
         }}\n\
         return implode($kind === 'and' ? ' AND ' : ' OR ', $parts_sql)\n\
     }}\n\
+    if ($kind === 'ilike') {{\n\
+        $params[] = $expr['value']\n\
+        return quote_ident($expr['column']) . ' ILIKE $' . count($params)\n\
+    }}\n\
+    if ($kind === 'isNull') {{\n\
+        return quote_ident($expr['column']) . ' IS NULL'\n\
+    }}\n\
     return ''\n\
 }}\n\n\
 export function eq($column, $value) {{\n\
     return {{ kind: 'eq', column: $column, value: $value }}\n\
+}}\n\n\
+export function ilike($column, $value) {{\n\
+    return {{ kind: 'ilike', column: $column, value: $value }}\n\
+}}\n\n\
+export function isNull($column) {{\n\
+    return {{ kind: 'isNull', column: $column }}\n\
 }}\n\n\
 export function and(...$parts) {{\n\
     return {{ kind: 'and', parts: $parts }}\n\
@@ -778,6 +791,8 @@ export function createClient($meta) {{\n\
         update: function($model) {{ return not_implemented('update') }},\n\
         delete: function($model) {{ return not_implemented('delete') }},\n\
         eq: eq,\n\
+        ilike: ilike,\n\
+        isNull: isNull,\n\
         and: and,\n\
         or: or\n\
     }}\n\
@@ -1220,6 +1235,8 @@ struct User {
         assert!(client.contains("transaction: transaction"));
         assert!(client.contains("selectMany: selectMany"));
         assert!(client.contains("insertOne: insertOne"));
+        assert!(client.contains("ilike: ilike"));
+        assert!(client.contains("isNull: isNull"));
     }
 
     #[test]
