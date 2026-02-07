@@ -143,9 +143,13 @@ async function startClient(context) {
   })
 
   try {
-    context.subscriptions.push(client.start())
-    await client.onReady()
-    output.appendLine('[phpx] language server is ready')
+    const started = client.start()
+    if (started && typeof started.then === 'function') {
+      await started
+    } else if (started && typeof started.dispose === 'function') {
+      context.subscriptions.push(started)
+    }
+    output.appendLine(`[phpx] language server startup complete; state=${client.state}`)
   } catch (err) {
     const msg = `Failed to start PHPX language server: ${String(err)}`
     output.appendLine(`[phpx] error: ${msg}`)
