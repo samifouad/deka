@@ -576,8 +576,8 @@ fn generate_db_artifacts(cwd: &Path, source: &Path, models: &[ModelDef]) -> Resu
 
 fn render_index_phpx() -> String {
     format!(
-        "{}import {{ connect, close, selectMany, selectOne, insertOne, updateWhere, deleteWhere, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }} from '@/db/client'\n\
-export {{ connect, close, selectMany, selectOne, insertOne, updateWhere, deleteWhere, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }}\n",
+        "{}import {{ connect, close, select, selectMany, selectOne, insert, insertOne, update, updateWhere, deleteQuery, deleteWhere, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }} from '@/db/client'\n\
+export {{ connect, close, select, selectMany, selectOne, insert, insertOne, update, updateWhere, deleteQuery, deleteWhere, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset, createClient }}\n",
         GENERATED_HEADER
     )
 }
@@ -723,7 +723,7 @@ export function selectOne($handle, $model, $where = null) {{\n\
     }}\n\
     return result_ok($rows->value[0])\n\
 }}\n\n\
-export function insertOne($handle, $model, $row) {{\n\
+export function insertOne($handle, $model, $row, $returning = false) {{\n\
     $table = model_table($model)\n\
     if ($table === null) {{\n\
         return result_err('unknown model')\n\
@@ -742,9 +742,13 @@ export function insertOne($handle, $model, $row) {{\n\
     }}\n\
     $quoted = array_map(fn($c) => quote_ident($c), $cols)\n\
     $sql = 'INSERT INTO ' . quote_ident($table) . ' (' . implode(', ', $quoted) . ') VALUES (' . implode(', ', $holders) . ')'\n\
+    if ($returning) {{\n\
+        $sql = $sql . ' RETURNING *'\n\
+        return db_rows(db_query($handle, $sql, $values))\n\
+    }}\n\
     return db_exec($handle, $sql, $values)\n\
 }}\n\n\
-export function updateWhere($handle, $model, $patch, $where = null) {{\n\
+export function updateWhere($handle, $model, $patch, $where = null, $returning = false) {{\n\
     $table = model_table($model)\n\
     if ($table === null) {{\n\
         return result_err('unknown model')\n\
@@ -763,6 +767,10 @@ export function updateWhere($handle, $model, $patch, $where = null) {{\n\
     if ($where_sql !== '') {{\n\
         $sql = $sql . ' WHERE ' . $where_sql\n\
     }}\n\
+    if ($returning) {{\n\
+        $sql = $sql . ' RETURNING *'\n\
+        return db_rows(db_query($handle, $sql, $params))\n\
+    }}\n\
     return db_exec($handle, $sql, $params)\n\
 }}\n\n\
 export function deleteWhere($handle, $model, $where = null) {{\n\
@@ -777,6 +785,84 @@ export function deleteWhere($handle, $model, $where = null) {{\n\
         $sql = $sql . ' WHERE ' . $where_sql\n\
     }}\n\
     return db_exec($handle, $sql, $params)\n\
+}}\n\n\
+function insert_values_builder($handle, $model, $row) {{\n\
+    return {{\n\
+        'exec': fn() => insertOne($handle, $model, $row),\n\
+        'returning': fn() => insert_returning_builder($handle, $model, $row)\n\
+    }}\n\
+}}\n\n\
+function insert_returning_many($handle, $model, $row) {{\n\
+    return insertOne($handle, $model, $row, true)\n\
+}}\n\n\
+function insert_returning_one($handle, $model, $row) {{\n\
+    $rows = insertOne($handle, $model, $row, true)\n\
+    if (!result_is_ok($rows)) {{\n\
+        return $rows\n\
+    }}\n\
+    if (count($rows->value) === 0) {{\n\
+        return result_err('no rows')\n\
+    }}\n\
+    return result_ok($rows->value[0])\n\
+}}\n\n\
+function insert_returning_builder($handle, $model, $row) {{\n\
+    return {{\n\
+        'many': fn() => insert_returning_many($handle, $model, $row),\n\
+        'one': fn() => insert_returning_one($handle, $model, $row)\n\
+    }}\n\
+}}\n\n\
+export function insert($handle, $model) {{\n\
+    return {{\n\
+        'values': fn($row) => insert_values_builder($handle, $model, $row)\n\
+    }}\n\
+}}\n\n\
+function select_builder($handle, $model, $where, $order, $take, $skip) {{\n\
+    return {{\n\
+        'where': fn($expr) => select_builder($handle, $model, $expr, $order, $take, $skip),\n\
+        'orderBy': fn($expr) => select_builder($handle, $model, $where, $expr, $take, $skip),\n\
+        'limit': fn($value) => select_builder($handle, $model, $where, $order, $value, $skip),\n\
+        'offset': fn($value) => select_builder($handle, $model, $where, $order, $take, $value),\n\
+        'many': fn() => selectMany($handle, $model, $where, $order, $take, $skip),\n\
+        'one': fn() => selectOne($handle, $model, $where)\n\
+    }}\n\
+}}\n\n\
+export function select($handle) {{\n\
+    return {{\n\
+        'from': fn($model) => select_builder($handle, $model, null, null, null, null)\n\
+    }}\n\
+}}\n\n\
+function update_set_builder($handle, $model, $patch, $where, $returning) {{\n\
+    return {{\n\
+        'where': fn($expr) => update_set_builder($handle, $model, $patch, $expr, $returning),\n\
+        'returning': fn() => update_set_builder($handle, $model, $patch, $where, true),\n\
+        'exec': fn() => updateWhere($handle, $model, $patch, $where, false),\n\
+        'many': fn() => updateWhere($handle, $model, $patch, $where, $returning),\n\
+        'one': fn() => update_returning_one($handle, $model, $patch, $where)\n\
+    }}\n\
+}}\n\n\
+function update_returning_one($handle, $model, $patch, $where) {{\n\
+    $rows = updateWhere($handle, $model, $patch, $where, true)\n\
+    if (!result_is_ok($rows)) {{\n\
+        return $rows\n\
+    }}\n\
+    if (count($rows->value) === 0) {{\n\
+        return result_err('no rows')\n\
+    }}\n\
+    return result_ok($rows->value[0])\n\
+}}\n\n\
+export function update($handle, $model) {{\n\
+    return {{\n\
+        'set': fn($patch) => update_set_builder($handle, $model, $patch, null, false)\n\
+    }}\n\
+}}\n\n\
+function delete_builder($handle, $model, $where) {{\n\
+    return {{\n\
+        'where': fn($expr) => delete_builder($handle, $model, $expr),\n\
+        'exec': fn() => deleteWhere($handle, $model, $where)\n\
+    }}\n\
+}}\n\n\
+export function deleteQuery($handle, $model) {{\n\
+    return delete_builder($handle, $model, null)\n\
 }}\n\n\
 export function transaction($handle, $fn) {{\n\
     $started = db_begin($handle)\n\
@@ -795,16 +881,22 @@ export function transaction($handle, $fn) {{\n\
     }}\n\
     return result_ok($result)\n\
 }}\n\n\
-export function createClient($meta) {{\n\
+export function createClient($meta, $handle = null) {{\n\
     return {{\n\
         meta: $meta,\n\
+        handle: $handle,\n\
         models: {{\n{}        }},\n\
+        withHandle: fn($nextHandle) => createClient($meta, $nextHandle),\n\
         connect: connect,\n\
         close: close,\n\
+        select: fn() => select($handle),\n\
         selectMany: selectMany,\n\
         selectOne: selectOne,\n\
+        insert: fn($model) => insert($handle, $model),\n\
         insertOne: insertOne,\n\
+        update: fn($model) => update($handle, $model),\n\
         updateWhere: updateWhere,\n\
+        'delete': fn($model) => deleteQuery($handle, $model),\n\
         deleteWhere: deleteWhere,\n\
         transaction: transaction,\n\
         eq: eq,\n\
@@ -1252,10 +1344,19 @@ struct User {
         let client = super::render_client_phpx(&models);
         assert!(client.contains("export function createClient"));
         assert!(client.contains("export function close"));
+        assert!(client.contains("export function insert"));
+        assert!(client.contains("export function select"));
+        assert!(client.contains("export function update"));
+        assert!(client.contains("export function deleteQuery"));
         assert!(client.contains("connect: connect"));
+        assert!(client.contains("withHandle: fn($nextHandle) => createClient($meta, $nextHandle)"));
         assert!(client.contains("transaction: transaction"));
         assert!(client.contains("selectMany: selectMany"));
         assert!(client.contains("insertOne: insertOne"));
+        assert!(client.contains("select: fn() => select($handle)"));
+        assert!(client.contains("insert: fn($model) => insert($handle, $model)"));
+        assert!(client.contains("update: fn($model) => update($handle, $model)"));
+        assert!(client.contains("'delete': fn($model) => deleteQuery($handle, $model)"));
         assert!(client.contains("ilike: ilike"));
         assert!(client.contains("isNull: isNull"));
         assert!(client.contains("asc: asc"));

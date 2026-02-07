@@ -55,14 +55,15 @@
 
 ## Drizzle-Style Client DX
 
-- [ ] `db.insert(Model)->values(...)->returning()->one()`
-- [ ] `db.select()->from(Model)->where(...)->many()`
-- [ ] `db.update(Model)->set(...)->where(...)->returning()->many()`
-- [ ] `db.delete(Model)->where(...)->exec()`
+- [x] `db.insert(Model)->values(...)->returning()->one()`
+- [x] `db.select()->from(Model)->where(...)->many()`
+- [x] `db.update(Model)->set(...)->where(...)->returning()->many()`
+- [x] `db.delete(Model)->where(...)->exec()`
 - [x] Generated client includes runnable non-fluent helpers: `selectMany`, `selectOne`, `insertOne`, `updateWhere`, `deleteWhere`, `transaction`.
 - [x] Predicates/helpers scaffolded in generated client: `eq`, `and`, `or` (+ shape placeholders for richer query builder).
 - [x] Predicates/helpers: `asc`, `desc`, `limit`, `offset`.
 - [x] Transaction API (non-fluent helper in generated client).
+- [x] Bound client supports fluent API via `createClient($meta, $handle)` and rebinding via `withHandle($handle)`.
 
 ## Rollout
 
