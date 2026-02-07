@@ -668,10 +668,22 @@ export function and(...$parts) {{\n\
 export function or(...$parts) {{\n\
     return {{ kind: 'or', parts: $parts }}\n\
 }}\n\n\
+export function asc($column) {{\n\
+    return {{ column: $column, dir: 'ASC' }}\n\
+}}\n\n\
+export function desc($column) {{\n\
+    return {{ column: $column, dir: 'DESC' }}\n\
+}}\n\n\
+export function limit($value) {{\n\
+    return (int) $value\n\
+}}\n\n\
+export function offset($value) {{\n\
+    return (int) $value\n\
+}}\n\n\
 export function connect($driver, $config) {{\n\
     return open_handle($driver, $config)\n\
 }}\n\n\
-export function selectMany($handle, $model, $where = null, $limit = null, $offset = null) {{\n\
+export function selectMany($handle, $model, $where = null, $order = null, $limit = null, $offset = null) {{\n\
     $table = model_table($model)\n\
     if ($table === null) {{\n\
         return result_err('unknown model')\n\
@@ -682,6 +694,13 @@ export function selectMany($handle, $model, $where = null, $limit = null, $offse
     if ($where_sql !== '') {{\n\
         $sql = $sql . ' WHERE ' . $where_sql\n\
     }}\n\
+    if ($order !== null && is_array($order) && array_key_exists('column', $order)) {{\n\
+        $dir = 'ASC'\n\
+        if (array_key_exists('dir', $order) && strtoupper($order['dir']) === 'DESC') {{\n\
+            $dir = 'DESC'\n\
+        }}\n\
+        $sql = $sql . ' ORDER BY ' . quote_ident($order['column']) . ' ' . $dir\n\
+    }}\n\
     if ($limit !== null) {{\n\
         $sql = $sql . ' LIMIT ' . (int) $limit\n\
     }}\n\
@@ -691,7 +710,7 @@ export function selectMany($handle, $model, $where = null, $limit = null, $offse
     return db_rows(db_query($handle, $sql, $params))\n\
 }}\n\n\
 export function selectOne($handle, $model, $where = null) {{\n\
-    $rows = selectMany($handle, $model, $where, 1, null)\n\
+    $rows = selectMany($handle, $model, $where, null, 1, null)\n\
     if (!result_is_ok($rows)) {{\n\
         return $rows\n\
     }}\n\
@@ -794,7 +813,11 @@ export function createClient($meta) {{\n\
         ilike: ilike,\n\
         isNull: isNull,\n\
         and: and,\n\
-        or: or\n\
+        or: or,\n\
+        asc: asc,\n\
+        desc: desc,\n\
+        limit: limit,\n\
+        offset: offset\n\
     }}\n\
 }}\n",
         GENERATED_HEADER, model_map
@@ -1237,6 +1260,10 @@ struct User {
         assert!(client.contains("insertOne: insertOne"));
         assert!(client.contains("ilike: ilike"));
         assert!(client.contains("isNull: isNull"));
+        assert!(client.contains("asc: asc"));
+        assert!(client.contains("desc: desc"));
+        assert!(client.contains("limit: limit"));
+        assert!(client.contains("offset: offset"));
     }
 
     #[test]
