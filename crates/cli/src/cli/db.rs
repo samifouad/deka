@@ -1074,6 +1074,32 @@ struct User {
     }
 
     #[test]
+    fn generate_db_artifacts_writes_expected_files() {
+        let source = r#"
+struct User {
+  $id: int @id @autoIncrement
+  $email: string @unique
+}
+"#;
+        let models = extract_struct_models(source, "types/index.phpx".to_string()).expect("models");
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let source_path = dir.path().join("types").join("index.phpx");
+        fs::create_dir_all(source_path.parent().expect("parent")).expect("mkdir");
+        fs::write(&source_path, source).expect("write source");
+
+        let generated =
+            super::generate_db_artifacts(dir.path(), &source_path, &models).expect("generated");
+        assert_eq!(generated, 6);
+        assert!(dir.path().join("db/index.phpx").exists());
+        assert!(dir.path().join("db/client.phpx").exists());
+        assert!(dir.path().join("db/meta.phpx").exists());
+        assert!(dir.path().join("db/_state.json").exists());
+        assert!(dir.path().join("db/migrations/0001_init.sql").exists());
+        assert!(dir.path().join("db/.generated/schema.json").exists());
+    }
+
+    #[test]
     fn maps_option_types_to_nullable_sql() {
         let (ty, nullable) = super::map_sql_type("Option<int>");
         assert_eq!(ty, "BIGINT");
