@@ -62,7 +62,7 @@
 - [x] Generated client includes runnable non-fluent helpers: `selectMany`, `selectOne`, `insertOne`, `updateWhere`, `deleteWhere`, `transaction`.
 - [x] Predicates/helpers scaffolded in generated client: `eq`, `and`, `or` (+ shape placeholders for richer query builder).
 - [x] Predicates/helpers: `asc`, `desc`, `limit`, `offset`.
-- [ ] Transaction API.
+- [x] Transaction API (non-fluent helper in generated client).
 
 ## Rollout
 
