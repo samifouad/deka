@@ -83,6 +83,11 @@
 - [x] Phase 5: Generated client implementation + `@/db` import path.
 - [x] Phase 6: Linkhash migration to generated client.
 - [ ] Phase 7: Test hardening across parser/validation/generator/CLI/runtime.
+  - [x] Parser/typechecker coverage for `@relation(...)`.
+  - [x] LSP completion/hover coverage for relation annotations.
+  - [x] Generator coverage for relation migration rules + schema metadata.
+  - [x] CLI generation/migration state coverage in release tests.
+  - [ ] Runtime e2e DB test in automated suite (requires containerized DB in CI/local test harness).
 
 ## Acceptance Criteria
 
