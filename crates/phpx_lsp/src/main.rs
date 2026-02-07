@@ -40,19 +40,30 @@ impl Backend {
         let result = compile_phpx(text, &file_path, &arena);
         let mut diagnostics = Vec::new();
         let workspace_roots = self.workspace_roots.read().await.clone();
+        let unresolved_imports = unresolved_import_diagnostics(text, &file_path, &workspace_roots);
+        let unresolved_ranges: std::collections::HashSet<(u32, u32, u32, u32)> = unresolved_imports
+            .iter()
+            .map(|diag| {
+                (
+                    diag.range.start.line,
+                    diag.range.start.character,
+                    diag.range.end.line,
+                    diag.range.end.character,
+                )
+            })
+            .collect();
 
         for error in result.errors {
             diagnostics.push(diagnostic_from_error(&file_path, text, &error));
         }
 
         for warning in result.warnings {
+            if should_skip_unused_import_warning(&warning, &unresolved_ranges) {
+                continue;
+            }
             diagnostics.push(diagnostic_from_warning(&file_path, text, &warning));
         }
-        diagnostics.extend(unresolved_import_diagnostics(
-            text,
-            &file_path,
-            &workspace_roots,
-        ));
+        diagnostics.extend(unresolved_imports);
 
         self._client
             .publish_diagnostics(uri, diagnostics, None)
@@ -558,6 +569,23 @@ fn diagnostic_range(line: usize, column: usize, underline_length: usize) -> Rang
             character: end_char,
         },
     }
+}
+
+fn should_skip_unused_import_warning(
+    warning: &ValidationWarning,
+    unresolved_ranges: &std::collections::HashSet<(u32, u32, u32, u32)>,
+) -> bool {
+    if !warning.message.contains("Unused import") {
+        return false;
+    }
+    let range = diagnostic_range(warning.line, warning.column, warning.underline_length);
+    let key = (
+        range.start.line,
+        range.start.character,
+        range.end.line,
+        range.end.character,
+    );
+    unresolved_ranges.contains(&key)
 }
 
 struct LineIndex {
@@ -2742,5 +2770,38 @@ mod tests {
         let diagnostics =
             unresolved_import_diagnostics(source, file.to_str().expect("file"), std::slice::from_ref(&workspace));
         assert!(diagnostics.is_empty(), "diagnostics={diagnostics:?}");
+    }
+
+    #[test]
+    fn skips_unused_warning_when_unresolved_import_exists_at_same_span() {
+        let warning = ValidationWarning {
+            kind: modules_php::validation::ErrorKind::ImportError,
+            line: 1,
+            column: 10,
+            message: "Unused import 'stat'.".to_string(),
+            help_text: String::new(),
+            suggestion: None,
+            underline_length: 4,
+            severity: Severity::Warning,
+        };
+        let mut unresolved = std::collections::HashSet::new();
+        unresolved.insert((0, 9, 0, 13));
+        assert!(should_skip_unused_import_warning(&warning, &unresolved));
+    }
+
+    #[test]
+    fn keeps_non_unused_or_non_overlapping_warnings() {
+        let warning = ValidationWarning {
+            kind: modules_php::validation::ErrorKind::ImportError,
+            line: 1,
+            column: 10,
+            message: "Unused import 'stat'.".to_string(),
+            help_text: String::new(),
+            suggestion: None,
+            underline_length: 4,
+            severity: Severity::Warning,
+        };
+        let unresolved = std::collections::HashSet::new();
+        assert!(!should_skip_unused_import_warning(&warning, &unresolved));
     }
 }
