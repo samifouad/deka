@@ -61,6 +61,17 @@
 - [ ] `read:write` required for publish/update
 - [ ] `read:write:delete` required for delete/yank/owner mutation
 - [ ] unified scope checker reused by HTTP handlers and CLI auth validation
+- [ ] add package visibility model (`public`, `private`)
+- [ ] enforce private-package read access (`publisher`, `maintainer`) or scoped token
+
+### Role Policy (Locked)
+
+- `publisher` is the owner role (full control of org/package settings and release lifecycle)
+- `maintainer` has edit/publish access but cannot transfer ownership or delete org
+- `public` is read/view only access for public packages
+- package visibility:
+- `public` packages readable by anyone
+- `private` packages readable only by org `publisher`/`maintainer` or tokens with explicit private-read grant
 
 ## Framework Context Provider Model (Server-first)
 
@@ -92,10 +103,26 @@ Notes:
 - State-changing endpoints enforce `POST` and validate `X-CSRF-Token` against server-side session CSRF hash.
 - [x] One-time PAT reveal + hashed-at-rest token storage.
 - [x] Add PAT last-used metadata + bulk revoke.
-- [ ] Add org role model (`owner`, `maintainer`, `publisher`, `viewer`).
+- [ ] Add org role model (`publisher`, `maintainer`, `public`) with private package support.
 - [ ] Add reserved namespace policy.
 - [ ] Add auth/publish rate limiting and abuse guardrails.
 - [ ] Add immutable audit trail for auth + publish actions.
+
+### Reserved Namespace Defaults (Locked)
+
+- deny org/handle registration for:
+- `deka`, `linkhash`, `admin`, `support`, `system`, `root`, `security`, `api`, `auth`, `www`, `assets`, `cdn`, `status`, `ops`, `infra`, `help`, `docs`, `mail`, `postmaster`, `abuse`
+- deny package names for:
+- `core`, `runtime`, `php`, `phpx`, `stdlib`, `modules`, `internal`
+
+### Rate Limit Defaults (Locked)
+
+- auth start/callback:
+- `GET /api/auth/login`, `GET /api/auth/callback`: `30/min/IP`
+- token mutation:
+- `POST /api/auth/token/create`, `POST /api/auth/token/revoke`, `POST /api/auth/token/revoke-all`: `10/min/user`, `30/min/IP`
+- publish mutation:
+- publish/update/delete endpoints: `5/min/user`, `20/min/IP`
 
 ## Acceptance Criteria
 
