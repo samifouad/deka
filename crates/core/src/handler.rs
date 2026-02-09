@@ -176,6 +176,19 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         (PathBuf::from("."), ServeConfig::default())
     };
 
+    if !is_dir {
+        let mode = serve_config
+            .mode
+            .clone()
+            .unwrap_or_else(|| detect_mode(&abs_path));
+        return Ok(ResolvedHandler {
+            path: abs_path,
+            directory: handler_dir,
+            mode,
+            config: serve_config,
+        });
+    }
+
     if let Some(ref entry) = serve_config.entry {
         let entry_path = if Path::new(entry).is_absolute() {
             PathBuf::from(entry)
@@ -199,15 +212,14 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         });
     }
 
-    if !is_dir {
-        let mode = serve_config
-            .mode
-            .clone()
-            .unwrap_or_else(|| detect_mode(&abs_path));
+    // Convention: if an app/ folder exists, default to PHP app routing mode.
+    // The PHP bridge resolves page/layout routes from this directory at request time.
+    let app_dir = abs_path.join("app");
+    if app_dir.is_dir() {
         return Ok(ResolvedHandler {
-            path: abs_path,
+            path: abs_path.clone(),
             directory: handler_dir,
-            mode,
+            mode: serve_config.mode.clone().unwrap_or(ServeMode::Php),
             config: serve_config,
         });
     }
@@ -298,4 +310,61 @@ fn default_unlisted() -> Vec<String> {
 
 fn default_redirect_type() -> u16 {
     301
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(prefix: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("{}_{}", prefix, nonce));
+        fs::create_dir_all(&dir).expect("mkdir");
+        dir
+    }
+
+    #[test]
+    fn explicit_file_path_overrides_serve_entry() {
+        let dir = temp_dir("deka_handler_override");
+        let explicit = dir.join("simple.phpx");
+        let configured = dir.join("main.phpx");
+        fs::write(&explicit, "<?php echo 'simple';").expect("write explicit");
+        fs::write(&configured, "<?php echo 'main';").expect("write configured");
+        fs::write(dir.join("serve.json"), r#"{"entry":"main.phpx"}"#).expect("write config");
+
+        let resolved = resolve_handler_path(explicit.to_str().expect("path")).expect("resolve");
+        let resolved_canon = resolved.path.canonicalize().expect("resolved canonicalize");
+        let explicit_canon = explicit.canonicalize().expect("explicit canonicalize");
+        assert_eq!(resolved_canon, explicit_canon);
+    }
+
+    #[test]
+    fn directory_path_still_uses_serve_entry() {
+        let dir = temp_dir("deka_handler_entry");
+        let configured = dir.join("main.phpx");
+        fs::write(&configured, "<?php echo 'main';").expect("write configured");
+        fs::write(dir.join("serve.json"), r#"{"entry":"main.phpx"}"#).expect("write config");
+
+        let resolved = resolve_handler_path(dir.to_str().expect("path")).expect("resolve");
+        let resolved_canon = resolved.path.canonicalize().expect("resolved canonicalize");
+        let configured_canon = configured.canonicalize().expect("configured canonicalize");
+        assert_eq!(resolved_canon, configured_canon);
+    }
+
+    #[test]
+    fn app_directory_defaults_to_php_mode() {
+        let dir = temp_dir("deka_handler_app_router");
+        let app_dir = dir.join("app");
+        fs::create_dir_all(&app_dir).expect("mkdir app");
+        fs::write(app_dir.join("page.phpx"), "<?php echo 'ok';").expect("write page");
+
+        let resolved = resolve_handler_path(dir.to_str().expect("path")).expect("resolve");
+        assert!(resolved.path.is_dir());
+        assert!(matches!(resolved.mode, ServeMode::Php));
+    }
 }

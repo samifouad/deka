@@ -4797,6 +4797,210 @@ function normalizeRequestUrl(request) {
         return new URL('http://localhost/');
     }
 }
+const __phpServeRouteCache = new Map();
+function splitRequestPath(pathname) {
+    const clean = String(pathname || '/').split('?')[0].split('#')[0];
+    return clean.split('/').filter(Boolean).map((segment)=>{
+        try {
+            return decodeURIComponent(segment);
+        } catch (_err) {
+            return segment;
+        }
+    });
+}
+function safeReadDir(path) {
+    try {
+        return globalThis.fs.readdirSync(path, {
+            withFileTypes: true
+        }) || [];
+    } catch (_err) {
+        return null;
+    }
+}
+function isDirectoryPath(path) {
+    const entries = safeReadDir(path);
+    return Array.isArray(entries);
+}
+function fileExists(path) {
+    try {
+        return !!globalThis.fs.existsSync(path);
+    } catch (_err) {
+        return false;
+    }
+}
+function parseRouteToken(segment) {
+    const raw = String(segment || '');
+    const optionalCatchAll = raw.match(/^\[\[\.\.\.([A-Za-z_][A-Za-z0-9_]*)\]\]$/);
+    if (optionalCatchAll) {
+        return {
+            kind: 'optional_catchall',
+            name: optionalCatchAll[1]
+        };
+    }
+    const catchAll = raw.match(/^\[\.\.\.([A-Za-z_][A-Za-z0-9_]*)\]$/);
+    if (catchAll) {
+        return {
+            kind: 'catchall',
+            name: catchAll[1]
+        };
+    }
+    const param = raw.match(/^\[([A-Za-z_][A-Za-z0-9_]*)\]$/);
+    if (param) {
+        return {
+            kind: 'param',
+            name: param[1]
+        };
+    }
+    return {
+        kind: 'static',
+        value: raw
+    };
+}
+function routeSpecificity(tokens) {
+    let score = 0;
+    for (const token of tokens){
+        if (token.kind === 'static') score += 30;
+        else if (token.kind === 'param') score += 20;
+        else if (token.kind === 'catchall') score += 5;
+        else if (token.kind === 'optional_catchall') score += 4;
+    }
+    return score;
+}
+function matchRouteTokens(tokens, urlSegments) {
+    const params = {};
+    let i = 0;
+    let j = 0;
+    while(i < tokens.length){
+        const token = tokens[i];
+        if (token.kind === 'static') {
+            if (j >= urlSegments.length || urlSegments[j] !== token.value) return null;
+            i++;
+            j++;
+            continue;
+        }
+        if (token.kind === 'param') {
+            if (j >= urlSegments.length) return null;
+            params[token.name] = urlSegments[j];
+            i++;
+            j++;
+            continue;
+        }
+        if (token.kind === 'catchall') {
+            if (j >= urlSegments.length) return null;
+            const rest = urlSegments.slice(j);
+            params[token.name] = rest.join('/');
+            i++;
+            j = urlSegments.length;
+            continue;
+        }
+        if (token.kind === 'optional_catchall') {
+            const rest = urlSegments.slice(j);
+            params[token.name] = rest.join('/');
+            i++;
+            j = urlSegments.length;
+            continue;
+        }
+        return null;
+    }
+    if (j !== urlSegments.length) return null;
+    return params;
+}
+function buildAppRouteManifest(appDir) {
+    const cached = __phpServeRouteCache.get(appDir);
+    if (cached) return cached;
+    const pages = [];
+    const layouts = [];
+    const walk = (absDir, relSegments)=>{
+        const entries = safeReadDir(absDir);
+        if (!entries) return;
+        for (const entry of entries){
+            const isDir = typeof entry.isDirectory === 'function' ? entry.isDirectory() : !!entry.is_dir;
+            if (isDir) {
+                walk(globalThis.path.join(absDir, entry.name), relSegments.concat([
+                    entry.name
+                ]));
+                continue;
+            }
+            const fileName = String(entry.name || '');
+            if (!(fileName.endsWith('.phpx') || fileName.endsWith('.php'))) continue;
+            const noExt = fileName.replace(/\.(phpx|php)$/i, '');
+            let kind = 'page';
+            let routeSegments = relSegments.slice();
+            if (noExt === 'page' || noExt === 'index') {
+                kind = 'page';
+            } else if (noExt === 'layout') {
+                kind = 'layout';
+            } else {
+                routeSegments.push(noExt);
+                kind = 'page';
+            }
+            const tokens = routeSegments.map(parseRouteToken);
+            const route = {
+                kind,
+                file: globalThis.path.join(absDir, fileName),
+                routeSegments,
+                tokens,
+                score: routeSpecificity(tokens)
+            };
+            if (kind === 'layout') {
+                layouts.push(route);
+            } else {
+                pages.push(route);
+            }
+        }
+    };
+    walk(appDir, []);
+    pages.sort((a, b)=>{
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.tokens.length !== a.tokens.length) return b.tokens.length - a.tokens.length;
+        return a.file < b.file ? -1 : a.file > b.file ? 1 : 0;
+    });
+    layouts.sort((a, b)=>a.tokens.length - b.tokens.length);
+    const manifest = {
+        appDir,
+        pages,
+        layouts
+    };
+    __phpServeRouteCache.set(appDir, manifest);
+    return manifest;
+}
+function resolvePhpDirectoryRoute(rootDir, pathname) {
+    const appDir = globalThis.path.join(rootDir, 'app');
+    if (!isDirectoryPath(appDir)) {
+        return null;
+    }
+    const manifest = buildAppRouteManifest(appDir);
+    const urlSegments = splitRequestPath(pathname);
+    for (const route of manifest.pages){
+        const params = matchRouteTokens(route.tokens, urlSegments);
+        if (!params) continue;
+        const matchedLayouts = [];
+        for (const layoutRoute of manifest.layouts){
+            if (layoutRoute.tokens.length > route.tokens.length) continue;
+            const layoutParams = matchRouteTokens(layoutRoute.tokens, urlSegments.slice(0, route.tokens.length));
+            if (layoutParams === null) continue;
+            matchedLayouts.push(layoutRoute.file);
+        }
+        return {
+            file: route.file,
+            params,
+            layouts: matchedLayouts
+        };
+    }
+    for (const layoutRoute of manifest.layouts){
+        const params = matchRouteTokens(layoutRoute.tokens, urlSegments);
+        if (params) {
+            return {
+                file: layoutRoute.file,
+                params,
+                layouts: [
+                    layoutRoute.file
+                ]
+            };
+        }
+    }
+    return null;
+}
 function buildPrelude(request, filePath) {
     const url = normalizeRequestUrl(request);
     const headers = normalizeHeaders(request.headers || {});
@@ -4815,6 +5019,12 @@ function buildPrelude(request, filePath) {
             String(key),
             value == null ? '' : String(value)
         ]);
+    const routeParams = request && typeof request.__dekaRouteParams === 'object' && request.__dekaRouteParams ? Object.entries(request.__dekaRouteParams).map(([k, v])=>[
+            String(k),
+            v == null ? '' : String(v)
+        ]) : [];
+    const routeLayouts = request && Array.isArray(request.__dekaRouteLayouts) ? request.__dekaRouteLayouts.map((entry)=>String(entry)) : [];
+    const routePath = request && request.__dekaRoutePath ? String(request.__dekaRoutePath) : url.pathname || '/';
     const serverEntries = [
         [
             'REQUEST_METHOD',
@@ -4882,7 +5092,7 @@ function buildPrelude(request, filePath) {
         ],
         [
             'PATH_INFO',
-            ''
+            routePath
         ],
         [
             'REQUEST_TIME',
@@ -4901,6 +5111,18 @@ function buildPrelude(request, filePath) {
         serverEntries.push([
             'CONTENT_TYPE',
             contentType
+        ]);
+    }
+    if (routeParams.length) {
+        serverEntries.push([
+            'PHPX_ROUTE_PARAMS',
+            JSON.stringify(Object.fromEntries(routeParams))
+        ]);
+    }
+    if (routeLayouts.length) {
+        serverEntries.push([
+            'PHPX_ROUTE_LAYOUTS',
+            routeLayouts.join(',')
         ]);
     }
     if (contentLength) {
@@ -4940,6 +5162,11 @@ function buildPrelude(request, filePath) {
         }
     }
     prelude += buildArrayAssignments('$_GET', getEntries);
+    for (const [key, value] of routeParams){
+        const escapedKey = escapePhpString(key);
+        const escapedValue = escapePhpString(value);
+        prelude += `if (!array_key_exists('${escapedKey}', $_GET)) { $_GET['${escapedKey}'] = '${escapedValue}'; }\n`;
+    }
     prelude += buildArrayAssignments('$_POST', postEntries);
     prelude += buildArrayAssignments('$_COOKIE', cookieEntries);
     prelude += buildArrayAssignments('$_ENV', envEntries);
@@ -5137,7 +5364,30 @@ function servePhp(phpFile) {
                 const searchParams = url.searchParams || new URLSearchParams(url.search || '');
                 const wantsPartial = searchParams.get('partial') === '1' || String(accept).includes('text/x-phpx-fragment');
                 const defaultContentType = wantsPartial ? 'application/json; charset=utf-8' : 'text/html; charset=utf-8';
-                const result = runRequest(request, phpFile);
+                let targetFile = phpFile;
+                let routeParams = {};
+                let routeLayouts = [];
+                if (isDirectoryPath(phpFile)) {
+                    const resolved = resolvePhpDirectoryRoute(phpFile, url.pathname || '/');
+                    if (!resolved || !resolved.file || !fileExists(resolved.file)) {
+                        return new Response('Not Found', {
+                            status: 404,
+                            headers: {
+                                'Content-Type': 'text/plain; charset=utf-8'
+                            }
+                        });
+                    }
+                    targetFile = resolved.file;
+                    routeParams = resolved.params || {};
+                    routeLayouts = resolved.layouts || [];
+                }
+                const runtimeRequest = {
+                    ...request,
+                    __dekaRoutePath: url.pathname || '/',
+                    __dekaRouteParams: routeParams,
+                    __dekaRouteLayouts: routeLayouts
+                };
+                const result = runRequest(runtimeRequest, targetFile);
                 if (result && result.ok) {
                     const responseHeaders = {
                         'Content-Type': defaultContentType

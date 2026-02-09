@@ -141,7 +141,20 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         (PathBuf::from("."), ServeConfig::default())
     };
 
-    // If config has an entry override, use that
+    // Explicit file input always wins over config entry defaults.
+    if !is_dir {
+        let mode = serve_config
+            .mode
+            .clone()
+            .unwrap_or_else(|| detect_mode(&abs_path));
+        return Ok(ResolvedHandler {
+            path: abs_path,
+            mode,
+            config: serve_config,
+        });
+    }
+
+    // Directory input can use config entry defaults.
     if let Some(ref entry) = serve_config.entry {
         let entry_path = if std::path::Path::new(entry).is_absolute() {
             PathBuf::from(entry)
@@ -164,15 +177,13 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         });
     }
 
-    // If config has a mode override and we have a specific file, use that
-    if !is_dir {
-        let mode = serve_config
-            .mode
-            .clone()
-            .unwrap_or_else(|| detect_mode(&abs_path));
+    // Convention: if an app/ folder exists, default to PHP app routing mode.
+    // The PHP bridge resolves page/layout routes from this directory at request time.
+    let app_dir = abs_path.join("app");
+    if app_dir.is_dir() {
         return Ok(ResolvedHandler {
             path: abs_path,
-            mode,
+            mode: serve_config.mode.clone().unwrap_or(ServeMode::Php),
             config: serve_config,
         });
     }
@@ -362,4 +373,33 @@ fn expand_home_path(path: &str) -> PathBuf {
     }
 
     PathBuf::from(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(prefix: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("{}_{}", prefix, nonce));
+        fs::create_dir_all(&dir).expect("mkdir");
+        dir
+    }
+
+    #[test]
+    fn app_directory_defaults_to_php_mode() {
+        let dir = temp_dir("deka_engine_app_router");
+        let app_dir = dir.join("app");
+        fs::create_dir_all(&app_dir).expect("mkdir app");
+        fs::write(app_dir.join("page.phpx"), "<?php echo 'ok';").expect("write page");
+
+        let resolved = resolve_handler_path(dir.to_str().expect("path")).expect("resolve");
+        assert!(resolved.path.is_dir());
+        assert!(matches!(resolved.mode, ServeMode::Php));
+    }
 }
