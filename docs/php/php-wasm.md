@@ -41,7 +41,7 @@ php_modules/
 - `instance`: only `per_request` is supported right now.
 - `abi`: currently `deka-json` (JSON-in/JSON-out). WIT/component model will
   become the default later. `abi: "wit"` is supported with a limited type set
-  (see `docs/php-wasm-wit.md`).
+  (see `docs/php/php-wasm-wit.md`).
 
 **Tooling fields (used by stub generator + PHPX typecheck):**
 - `wit`: WIT file path (for planned component model + stub generation).
@@ -166,11 +166,11 @@ echo greet('Sami'); // "Hello, Sami!"
   but not the final design.
 - WIT/component model support will replace the JSON ABI in a later phase;
   keep `module.wit` alongside your wasm module so we can migrate cleanly.
-- Planned WIT/component model typing is documented in `docs/php-wasm-wit.md`.
+- Planned WIT/component model typing is documented in `docs/php/php-wasm-wit.md`.
 
 ## Developer workflow
 If you want the canonical ABI (`abi: "wit"`), use the WIT workflow documented
-in `docs/php-wasm-wit.md` (recommended, includes `deka wasm` CLI).
+in `docs/php/php-wasm-wit.md` (recommended, includes `deka wasm` CLI).
 
 For the JSON ABI (`abi: "deka-json"`), the minimal flow is:
 1) Provide `module.wasm` + `deka.json` under `php_modules/@user/<name>/`.

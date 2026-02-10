@@ -3,15 +3,15 @@
 This file is the single, merged list of all *pending* work items across the
 current PHPX effort. It is a union of the outstanding tasks from:
 
-- `docs/TASKS.md`
-- `docs/VALIDATION-STATUS.md`
-- `docs/PHPX-VALIDATION.md`
-- `docs/DX-TASKS.md`
+- `tasks/TASKS.md`
+- `tasks/VALIDATION-STATUS.md`
+- `tasks/PHPX-VALIDATION.md`
+- `tasks/DX-TASKS.md`
 
 Notes:
 - Items are grouped by area, but all pending tasks are included.
 - Where tasks were listed without checkboxes in the source docs (especially
-  `docs/VALIDATION-STATUS.md`), they are listed explicitly here.
+  `tasks/VALIDATION-STATUS.md`), they are listed explicitly here.
 - Duplicates are kept only when they add distinct detail.
 
 ## Process (applies to every task)
@@ -25,7 +25,7 @@ Notes:
 - Packaging note: ship `phpx_lsp` alongside `deka` in installers/scripts so `deka lsp`
   can exec it (or set `PHPX_LSP_BIN`).
 
-## Runtime + Language Hardening (from `docs/TASKS.md`)
+## Runtime + Language Hardening (from `tasks/TASKS.md`)
 1. [x] Fix namespaced struct coercion (type metadata should use fully-qualified struct names).
 2. [x] Resolve type aliases for applied types (e.g., `type Maybe<T> = Option<T>`).
 3. [x] Define `Result` array schema rules (`ok` boolean vs truthy) and align coercion.
@@ -41,7 +41,7 @@ Notes:
 13. [x] Audit core object helpers (`get_class`, `property_exists`, `method_exists`, `count`) for ObjectMap/Struct semantics and document/implement decisions.
 14. [x] Define object-literal equality semantics (`==`/`===`) and implement deep comparison.
 15. [x] Add tests for dot-unset + object-literal equality (value semantics).
-16. [x] Implement JSX validation pass (syntax/expressions/components) as outlined in `docs/PHPX-VALIDATION.md`.
+16. [x] Implement JSX validation pass (syntax/expressions/components) as outlined in `tasks/PHPX-VALIDATION.md`.
 17. [x] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
 18. [x] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
 19. [x] Decide on JSX whitespace normalization (current renderer trims text nodes).
@@ -60,17 +60,17 @@ Notes:
 32. [x] Read export signatures from `__PHPX_TYPES` registry (avoid namespace-scoped type vars).
 33. [x] Auto-add `core/option` + `core/result` as deps when referenced in PHPX modules.
 
-### Phase 7 Tests/Docs (from `docs/TASKS.md`, non-checkbox items)
+### Phase 7 Tests/Docs (from `tasks/TASKS.md`, non-checkbox items)
 1. [x] Add PHP<->PHPX bridge tests for `Option<T>` (null -> None, Some -> value, return mapping).
 2. [x] Add PHP<->PHPX bridge tests for `Result<T,E>` (Ok/Err return mapping; array/stdClass coercions).
 3. [x] Add PHP<->PHPX bridge tests for object/object-shape + struct param coercion (extra keys ignored).
 4. [x] Add runtime coverage for module isolation + unused import errors.
 5. [x] Add tests/docs for frontmatter templates + `<Hydration />`.
-6. [x] Deduplicate boundary coercion bullets in `docs/phpx-dx.md`.
+6. [x] Deduplicate boundary coercion bullets in `docs/phpx/phpx-dx.md`.
 
-## Validation System (from `docs/VALIDATION-STATUS.md` + `docs/PHPX-VALIDATION.md`)
+## Validation System (from `tasks/VALIDATION-STATUS.md` + `tasks/PHPX-VALIDATION.md`)
 
-### Validation status gaps (explicit in `docs/VALIDATION-STATUS.md`)
+### Validation status gaps (explicit in `tasks/VALIDATION-STATUS.md`)
 1. [x] Add `deka-validation` integration for parser errors (use formatter instead of basic text).
 2. [x] Extend `ParseError` to include `error_kind` and `help_text`.
 3. [x] Add PHPX error kinds (Syntax/Type/Import/Export/Null/OOP/JSX/etc.) for validation output.
@@ -78,7 +78,7 @@ Notes:
 5. [x] Return `ValidationResult { errors, warnings, ast }` instead of generic CoreError.
 6. [x] Map parser errors to PHPX validation errors.
 
-### Validation plan checklist (from `docs/PHPX-VALIDATION.md`)
+### Validation plan checklist (from `tasks/PHPX-VALIDATION.md`)
 1. [x] PHPX-VALIDATION:  Unclosed braces, brackets, parentheses
 2. [x] PHPX-VALIDATION:  Invalid tokens
 3. [x] PHPX-VALIDATION:  Unexpected end of file
@@ -296,7 +296,7 @@ Notes:
 215. [x] PHPX-VALIDATION:  `format_with_suggestion()` - Include code fix suggestions
 216. [x] PHPX-VALIDATION:  `format_with_docs_link()` - Add doc links
 
-## DX / Tooling (from `docs/DX-TASKS.md`)
+## DX / Tooling (from `tasks/DX-TASKS.md`)
 1. [x] DX-TASKS:  Create `tooling/tree-sitter-phpx/` directory
 2. [x] DX-TASKS:  Clone `tree-sitter-php` as starting point
 3. [x] DX-TASKS:  Rename project to `tree-sitter-phpx`
@@ -599,7 +599,7 @@ Notes:
 649:  - [x] JSX component
 650:  - [x] Frontmatter template
 156. [x] DX-TASKS:  Document snippet usage
-157. [x] DX-TASKS:  Create `docs/editor-support.md`:
+157. [x] DX-TASKS:  Create `docs/phpx/editor-support.md`:
 665:  - [x] Overview of tree-sitter and LSP
 666:  - [x] Installation for each editor (Zed, VSCode, Neovim, Helix)
 667:  - [x] Feature comparison matrix

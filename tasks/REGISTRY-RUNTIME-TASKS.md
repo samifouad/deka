@@ -12,7 +12,7 @@ This track is runtime/platform work that should be completed before linkhash app
 1. [x] Auth primitive quality pass (`php_modules/crypto`, `php_modules/jwt`, `php_modules/cookies`, `php_modules/auth`)
 1. [x] JWT sign/verify/claim timing behavior smoke tests (`tests/phpx/foundation/jwt_*`)
 1. [x] Cookies behavior smoke tests (`tests/phpx/foundation/cookies_*`)
-1. [x] Add missing module docs for auth primitives under `docs/php/` or `docs/phpx-dx.md`
+1. [x] Add missing module docs for auth primitives under `docs/php/` or `docs/phpx/phpx-dx.md`
 
 2. [x] Framework context provider model (server-first)
 1. [x] per-request context store in runtime/framework layer

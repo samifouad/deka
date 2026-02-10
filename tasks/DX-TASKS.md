@@ -662,7 +662,7 @@ Import Error: Missing type stubs for '@user/hello'
 **Duration**: 3-5 days
 
 ### Task 7.1: Write Comprehensive Documentation
-- [x] Create `docs/editor-support.md`:
+- [x] Create `docs/phpx/editor-support.md`:
   - [x] Overview of tree-sitter and LSP
   - [x] Installation for each editor (Zed, VSCode, Neovim, Helix)
   - [x] Feature comparison matrix

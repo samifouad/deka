@@ -183,7 +183,7 @@
   - ✅ phpx-to-phpx calls use raw impls (no overhead)
 - Phase 7: Tests + Docs — in progress (paused)
   - ✅ Add PHPX fixtures for object literals, structs, enums, Option/Result, module import
-  - ✅ Document new phpx syntax and typing rules (`docs/phpx-dx.md`, `PHPX_TYPES.md`)
+  - ✅ Document new phpx syntax and typing rules (`docs/phpx/phpx-dx.md`, `PHPX_TYPES.md`)
   - ⏳ Add module isolation + unused import runtime coverage
   - ✅ Add tests/docs for frontmatter templates + Hydration
 - Phase 10: Tooling (Editors) ⏳

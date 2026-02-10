@@ -48,7 +48,7 @@
 - [x] Add optional preflight/base reset toggle.
 - [x] Generate deduped CSS during SSR and cache in project `.cache`.
 - [x] Document compatibility matrix and unsupported classes.
-: See `docs/utility-css-compat.md`.
+: See `docs/phpx/utility-css-compat.md`.
 
 ### 5) Tooling and LSP
 
@@ -95,7 +95,7 @@
 - [ ] End-to-end tests for HMR state preservation. (Deferred by decision: keep unit/integration-only for now)
 - [x] Unit coverage for server snapshot patch generation (`websocket.rs`).
 - [x] Unit payload-size baseline (granular patch vs full replace payload).
-- [x] Documentation and migration notes (`docs/utility-css-compat.md`).
+- [x] Documentation and migration notes (`docs/phpx/utility-css-compat.md`).
 : Browser-level state preservation e2e remains the only open hardening test.
 
 ## Acceptance Criteria

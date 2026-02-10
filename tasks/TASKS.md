@@ -33,9 +33,9 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 - [x] Add PHP<->PHPX bridge tests for object/object-shape + struct param coercion (extra keys ignored).
 - [x] Add runtime coverage for module isolation + unused import errors.
 - [x] Add tests/docs for frontmatter templates + `<Hydration />`.
-- [x] Update `docs/VALIDATION-STATUS.md` to reflect current typechecker + PHPX rule coverage.
-- [x] Update `docs/PHPX-VALIDATION.md` checklists to mark implemented rules (structs, enums, module rules).
-- [x] Deduplicate boundary coercion bullets in `docs/phpx-dx.md`.
+- [x] Update `tasks/VALIDATION-STATUS.md` to reflect current typechecker + PHPX rule coverage.
+- [x] Update `tasks/PHPX-VALIDATION.md` checklists to mark implemented rules (structs, enums, module rules).
+- [x] Deduplicate boundary coercion bullets in `docs/phpx/phpx-dx.md`.
 
 ### Phase 4.x: Type System Hardening
 - [x] Add match expression inference (union of arm types) so `match` participates in return/assignment typing.
@@ -57,7 +57,7 @@ This file tracks the live phase/task status for the PHPX upgrade work.
 
 ### Phase 8: JSX + Component Core (hardening)
 - [x] Implement JSX validation pass (syntax/expressions/components) as outlined in
-  `docs/PHPX-VALIDATION.md`.
+  `tasks/PHPX-VALIDATION.md`.
 - [x] Enforce JSX expression rules (no statements; object literals require `{{ }}`).
 - [x] Add optional JSX/VNode type inference (e.g., `VNode` return type for components).
 - [x] Decide on JSX whitespace normalization (current renderer trims text nodes).
@@ -91,6 +91,6 @@ This file tracks the live phase/task status for the PHPX upgrade work.
   - `Result<T,E>` return -> `T` or `['ok' => false, 'error' => ...]`.
 
 ## References
-- Full plan/status: `docs/phpx-upgrade-plan.md`
-- DX + syntax summary: `docs/phpx-dx.md`
-- Cohesive stdlib architecture: `docs/phpx-stdlib-cohesion-plan.md`
+- Full plan/status: `docs/phpx/phpx-upgrade-plan.md`
+- DX + syntax summary: `docs/phpx/phpx-dx.md`
+- Cohesive stdlib architecture: `docs/phpx/phpx-stdlib-cohesion-plan.md`

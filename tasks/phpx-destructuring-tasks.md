@@ -26,7 +26,7 @@ This file tracks the PHPX destructuring rollout selected for implementation:
 7. [x] Enable foreach destructuring lowering in PHPX.
 8. [x] Allow object-literal destructuring targets in assignment parsing.
 9. [x] Extend emitter for deep nested object assignment destructuring.
-10. [ ] Extend typechecker/LSP hints for destructured binding names and default inference.
+10. [x] Extend typechecker/LSP hints for destructured binding names and default inference.
 11. [x] Add runtime behavior tests under `tests/phpx/` for function/loop/assignment destructuring.
 12. [x] Fix `cli run` PHPX runtime parity for destructuring fixtures.
 Notes: rebuilt embedded `php_rs.wasm` for `modules_php` and added PHPX ASI guard before newline `(` to prevent accidental call-chain parsing across statements.
@@ -34,6 +34,6 @@ Notes: rebuilt embedded `php_rs.wasm` for `modules_php` and added PHPX ASI guard
 ## Validation
 
 1. [x] `cargo test -p php-rs parser::parser::tests --release`
-2. [ ] `cargo test -p php-rs phpx::typeck::tests --release`
+2. [x] `cargo test -p php-rs phpx::typeck::tests --release`
 3. [x] Add and run targeted destructuring regression tests.
 4. [x] `target/release/cli run /tmp/phpx_suite/object_destructuring.phpx`

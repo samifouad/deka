@@ -175,9 +175,9 @@ enum Option {
 
 ## Related docs
 - `PHPX_TYPES.md` for detailed type mapping and rules.
-- `docs/php-modules.md` for module system details.
-- `docs/phpx-upgrade-plan.md` for phased status.
-- `docs/editor-support.md` for Zed/VSCode/Neovim/Helix setup.
+- `docs/php/php-modules.md` for module system details.
+- `docs/phpx/phpx-upgrade-plan.md` for phased status.
+- `docs/phpx/editor-support.md` for Zed/VSCode/Neovim/Helix setup.
 
 ## Supported features (summary)
 - Module system (`import`/`export`), explicit exports, and unused-import checks.

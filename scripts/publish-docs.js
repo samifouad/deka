@@ -3,10 +3,10 @@
  * Publish docs from the core repo into the website content tree.
  *
  * Usage:
- *   node scripts/publish-docs.js --manual docs --scan . --out ../deka-website/content/docs
+ *   node scripts/publish-docs.js --manual docs/php,docs/phpx --scan . --out ../deka-website/content/docs
  *
  * Flags:
- *   --manual   Source directory for hand-written docs (default: docs)
+ *   --manual   Source directories for hand-written docs (comma-separated, default: docs/php,docs/phpx)
  *   --scan     Directory to scan for docid comments (default: .)
  *   --map      Doc routing map (default: docs/docmap.json)
  *   --examples Directory for example files (default: examples)
@@ -38,7 +38,7 @@ function parseArgs(argv) {
   }
 
   return {
-    manual: args.get('--manual') || 'docs',
+    manual: args.get('--manual') || 'docs/php,docs/phpx',
     scan: args.get('--scan') || '.',
     map: args.get('--map') || 'docs/docmap.json',
     examples: args.get('--examples') || 'examples',
@@ -440,7 +440,11 @@ function main() {
     process.exit(1)
   }
 
-  const manualRoot = path.resolve(options.manual)
+  const manualRoots = String(options.manual)
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => path.resolve(value))
   const scanRoot = path.resolve(options.scan)
   const outRoot = path.resolve(options.out)
   const mapPath = options.map ? path.resolve(options.map) : null
@@ -449,7 +453,13 @@ function main() {
   const examplesMap = collectExamples(examplesRoot)
 
   console.log(`Publishing docs to ${outRoot}`)
-  copyManualDocs(manualRoot, outRoot, options.dryRun, docMap)
+  for (const manualRoot of manualRoots) {
+    const section = path.basename(manualRoot)
+    const isSectionRoot = section === 'php' || section === 'phpx' || section === 'js'
+    const manualOutRoot = isSectionRoot ? path.join(outRoot, section) : outRoot
+    const metaRoot = isSectionRoot ? path.dirname(manualRoot) : manualRoot
+    copyManualDocs(manualRoot, manualOutRoot, options.dryRun, docMap, metaRoot)
+  }
   extractCommentDocs(scanRoot, outRoot, options.force, options.dryRun, docMap, examplesMap)
 }
 

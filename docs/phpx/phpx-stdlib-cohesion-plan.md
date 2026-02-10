@@ -133,8 +133,8 @@ This is the execution tracker for replacing patchwork internals with first-class
 5. Commit only focused files per phase.
 
 ## Related Docs
-- `docs/phpx-db-plan.md`
-- `docs/phpx-upgrade-plan.md`
-- `docs/TASKS.md`
-- `docs/UNIFIED-TASKS.md`
-- `docs/phpx-stdlib-migration.md`
+- `docs/phpx/phpx-db-plan.md`
+- `docs/phpx/phpx-upgrade-plan.md`
+- `tasks/TASKS.md`
+- `tasks/UNIFIED-TASKS.md`
+- `docs/phpx/phpx-stdlib-migration.md`

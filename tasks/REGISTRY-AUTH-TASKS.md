@@ -4,8 +4,8 @@ This file is the umbrella view.
 
 Execution is now split into two explicit tracks:
 
-1. Runtime/platform-first track: `docs/REGISTRY-RUNTIME-TASKS.md`
-2. Linkhash app integration track: `docs/LINKHASH-IMPLEMENTATION-TASKS.md`
+1. Runtime/platform-first track: `tasks/REGISTRY-RUNTIME-TASKS.md`
+2. Linkhash app integration track: `tasks/LINKHASH-IMPLEMENTATION-TASKS.md`
 
 Current direction: finish runtime track first, then implement linkhash track.
 

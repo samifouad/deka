@@ -10,7 +10,7 @@ This document originally described an early gap analysis. The current runtime no
 - Type system checks are active (assignments, calls, returns, generics/inference paths).
 - Struct and enum/match validation is active in the checker/inference pipeline.
 
-Remaining gaps are mostly DX/editor integration and deeper LSP surfacing, tracked in `docs/UNIFIED-TASKS.md`.
+Remaining gaps are mostly DX/editor integration and deeper LSP surfacing, tracked in `tasks/UNIFIED-TASKS.md`.
 
 ## What We Have ✅
 
