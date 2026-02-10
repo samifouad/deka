@@ -90,7 +90,7 @@ Current direction: finish runtime track first, then implement linkhash track.
 - [x] `requireAuth()` guard helper
 - [x] `requireScope(...)` guard helper
 - [x] `useContext(...)` read helper for component render
-- [ ] context re-evaluation on partial navigation requests
+- [x] context re-evaluation on partial navigation requests
 - [x] minimal safe auth snapshot for hydration (no secrets/tokens)
 
 ## CLI + Registry Integration

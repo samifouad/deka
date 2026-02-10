@@ -1,6 +1,16 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
 import { createContext, ContextProvider, useContext as component_use_context } from 'component/core'
 
+function current_request_key() {
+  if (is_array($_SERVER) && array_key_exists('REQUEST_TIME_FLOAT', $_SERVER)) {
+    return '' . $_SERVER['REQUEST_TIME_FLOAT']
+  }
+  if (is_array($_SERVER) && array_key_exists('REQUEST_TIME', $_SERVER)) {
+    return '' . $_SERVER['REQUEST_TIME']
+  }
+  return 'no-request'
+}
+
 function to_assoc($value) {
   if (is_array($value)) {
     if (count($value) === 1 && array_key_exists(0, $value) && (is_array($value[0]) || is_object($value[0]))) {
@@ -28,7 +38,13 @@ function to_assoc($value) {
 }
 
 function &__framework_request_context_store() {
+  static $active_key = ''
   static $store = []
+  $request_key = current_request_key()
+  if ($active_key !== $request_key) {
+    $active_key = $request_key
+    $store = []
+  }
   return $store
 }
 
