@@ -26,11 +26,11 @@ This track is linkhash app/product work that consumes runtime capabilities.
 1. [x] install/download endpoints resolve artifact via backend by key
 1. [ ] parity tests for backend switch without API contract changes
 
-4. [ ] Auth/session/token product flow
-1. [ ] Bluesky OAuth callback final wiring + identity fetch path
-1. [ ] session issuance/rotation flow validation in app routes
-1. [ ] PAT create/list/revoke UX + API docs
-1. [ ] permission checks per role/scope for private/public packages
+4. [x] Auth/session/token product flow
+1. [x] Bluesky OAuth callback final wiring + identity fetch path
+1. [x] session issuance/rotation flow validation in app routes
+1. [x] PAT create/list/revoke UX + API docs
+1. [x] permission checks per role/scope for private/public packages
 
 5. [ ] CLI integration E2E against linkhash
 1. [ ] `deka publish` succeeds with PAT, fails with clear scope errors
