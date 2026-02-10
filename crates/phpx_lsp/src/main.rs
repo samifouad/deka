@@ -2,18 +2,19 @@ use bumpalo::Bump;
 use modules_php::compiler_api::compile_phpx;
 use modules_php::validation::{Severity, ValidationError, ValidationWarning};
 use php_rs::parser::ast::{
-    ClassKind, ClassMember, Expr, ExprId, Name, ObjectKey, Param, Program, Stmt, StmtId, Type,
+    BinaryOp, ClassKind, ClassMember, Expr, ExprId, Name, ObjectKey, Param, Program, Stmt,
+    StmtId, Type,
 };
 use php_rs::phpx::typeck::{ExternalFunctionSig, Type as PhpType};
 use php_rs::parser::lexer::token::Token;
 use php_rs::parser::span::Span;
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams, CompletionResponse, Diagnostic,
-    DiagnosticOptions, DiagnosticServerCapabilities, DiagnosticSeverity, DidChangeTextDocumentParams,
-    DidOpenTextDocumentParams, Documentation, DocumentSymbol, DocumentSymbolParams, Hover, HoverContents,
-    InitializeParams, InitializeResult, InitializedParams, Location, MarkupContent, MarkupKind,
-    InsertTextFormat, MessageType, OneOf, Position, Range, ReferenceParams, RenameParams, ServerCapabilities, SymbolKind, TextDocumentSyncCapability,
-    TextDocumentSyncKind, TextEdit, Url, WorkspaceEdit,
+    DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams, Documentation,
+    DocumentSymbol, DocumentSymbolParams, Hover, HoverContents, InitializeParams, InitializeResult,
+    InitializedParams, InsertTextFormat, Location, MarkupContent, MarkupKind, MessageType, OneOf,
+    Position, Range, ReferenceParams, RenameParams, ServerCapabilities, SymbolKind,
+    TextDocumentSyncCapability, TextDocumentSyncKind, TextEdit, Url, WorkspaceEdit,
 };
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use std::collections::HashMap;
@@ -54,6 +55,9 @@ impl Backend {
             .collect();
 
         for error in result.errors {
+            if should_skip_template_html_diagnostic(&error) {
+                continue;
+            }
             diagnostics.push(diagnostic_from_error(&file_path, text, &error));
         }
 
@@ -74,6 +78,15 @@ impl Backend {
         let docs = self.documents.read().await;
         docs.get(uri).cloned()
     }
+}
+
+fn should_skip_template_html_diagnostic(error: &ValidationError) -> bool {
+    // Frontmatter template sections intentionally allow HTML-style markup.
+    // Runtime handles this as template HTML, but compile-time JSX-style validation
+    // can emit false positives for opening/closing tag rules in editor feedback.
+    error
+        .help_text
+        .contains("Fix JSX/template syntax in the template section.")
 }
 
 #[tower_lsp::async_trait]
@@ -98,18 +111,19 @@ impl LanguageServer for Backend {
         }
         *self.workspace_roots.write().await = roots;
 
-        let diagnostics = DiagnosticOptions {
-            identifier: Some("phpx".to_string()),
-            ..DiagnosticOptions::default()
-        };
-
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
-                diagnostic_provider: Some(DiagnosticServerCapabilities::Options(diagnostics)),
                 hover_provider: Some(true.into()),
                 completion_provider: Some(CompletionOptions {
-                    trigger_characters: Some(vec!["'".to_string(), "\"".to_string(), ".".to_string(), "\\".to_string()]),
+                    trigger_characters: Some(vec![
+                        "'".to_string(),
+                        "\"".to_string(),
+                        ".".to_string(),
+                        "\\".to_string(),
+                        "<".to_string(),
+                        " ".to_string(),
+                    ]),
                     ..CompletionOptions::default()
                 }),
                 definition_provider: Some(OneOf::Left(true)),
@@ -245,6 +259,15 @@ impl LanguageServer for Backend {
             dot_items = completion_for_dot(&index, source, offset);
         });
         if let Some(items) = dot_items {
+            return Ok(Some(CompletionResponse::Array(items)));
+        }
+
+        let mut jsx_prop_items = None;
+        with_program(&text, &file_path, |program, source| {
+            let index = build_index(program, source);
+            jsx_prop_items = completion_for_jsx_props(&index, source, offset);
+        });
+        if let Some(items) = jsx_prop_items {
             return Ok(Some(CompletionResponse::Array(items)));
         }
 
@@ -636,6 +659,7 @@ where
 struct SymbolIndex {
     functions: Vec<FunctionInfo>,
     structs: Vec<StructInfo>,
+    interfaces: Vec<InterfaceInfo>,
     enums: Vec<EnumInfo>,
     type_aliases: Vec<TypeAliasInfo>,
     globals: Vec<VarInfo>,
@@ -647,6 +671,7 @@ struct FunctionInfo {
     name: String,
     span: Span,
     signature: String,
+    props_type: Option<String>,
     vars: Vec<VarInfo>,
     scope_span: Span,
 }
@@ -660,6 +685,13 @@ struct VarInfo {
 
 #[derive(Clone)]
 struct StructInfo {
+    name: String,
+    span: Span,
+    fields: Vec<FieldInfo>,
+}
+
+#[derive(Clone)]
+struct InterfaceInfo {
     name: String,
     span: Span,
     fields: Vec<FieldInfo>,
@@ -726,6 +758,32 @@ impl SymbolIndex {
                 if span_contains(field.span, offset) {
                     let ty = field.ty.clone().unwrap_or_else(|| "mixed".to_string());
                     return Some(format!("```php\n${}: {}\n```", field.name.trim_start_matches('$'), ty));
+                }
+            }
+        }
+
+        for iface in &self.interfaces {
+            if span_contains(iface.span, offset) {
+                let mut out = format!("```php\ninterface {} {{\n", iface.name);
+                for field in &iface.fields {
+                    let ty = field.ty.clone().unwrap_or_else(|| "mixed".to_string());
+                    out.push_str(&format!(
+                        "  ${}: {}\n",
+                        field.name.trim_start_matches('$'),
+                        ty
+                    ));
+                }
+                out.push_str("}\n```");
+                return Some(out);
+            }
+            for field in &iface.fields {
+                if span_contains(field.span, offset) {
+                    let ty = field.ty.clone().unwrap_or_else(|| "mixed".to_string());
+                    return Some(format!(
+                        "```php\n${}: {}\n```",
+                        field.name.trim_start_matches('$'),
+                        ty
+                    ));
                 }
             }
         }
@@ -825,6 +883,14 @@ impl SymbolIndex {
                 });
             }
         }
+        for iface in &self.interfaces {
+            if iface.name == word {
+                return Some(Location {
+                    uri: uri.clone(),
+                    range: span_to_range(iface.span, line_index),
+                });
+            }
+        }
         for en in &self.enums {
             if en.name == word {
                 return Some(Location {
@@ -888,6 +954,32 @@ impl SymbolIndex {
                 kind: SymbolKind::STRUCT,
                 range: span_to_range(strukt.span, line_index),
                 selection_range: span_to_range(strukt.span, line_index),
+                children: Some(fields),
+                deprecated: None,
+                tags: None,
+            });
+        }
+        for iface in &self.interfaces {
+            let fields = iface
+                .fields
+                .iter()
+                .map(|field| DocumentSymbol {
+                    name: field.name.trim_start_matches('$').to_string(),
+                    detail: field.ty.clone(),
+                    kind: SymbolKind::FIELD,
+                    range: span_to_range(field.span, line_index),
+                    selection_range: span_to_range(field.span, line_index),
+                    children: None,
+                    deprecated: None,
+                    tags: None,
+                })
+                .collect();
+            symbols.push(DocumentSymbol {
+                name: iface.name.clone(),
+                detail: Some("interface".to_string()),
+                kind: SymbolKind::INTERFACE,
+                range: span_to_range(iface.span, line_index),
+                selection_range: span_to_range(iface.span, line_index),
                 children: Some(fields),
                 deprecated: None,
                 tags: None,
@@ -981,6 +1073,15 @@ impl SymbolIndex {
                     .collect(),
             );
         }
+        if let Some(iface) = self.interfaces.iter().find(|i| i.name == ty) {
+            return Some(
+                iface
+                    .fields
+                    .iter()
+                    .map(|field| field.name.trim_start_matches('$').to_string())
+                    .collect(),
+            );
+        }
         if let Some(alias) = self.type_aliases.iter().find(|alias| alias.name == ty) {
             return self.fields_for_type(alias.ty.trim());
         }
@@ -1006,6 +1107,74 @@ impl SymbolIndex {
                     .trim_end_matches('?');
                 if !name.is_empty() {
                     fields.push(name.to_string());
+                }
+            }
+            return Some(fields);
+        }
+        None
+    }
+
+    fn component_prop_fields(&self, component: &str) -> Option<Vec<(String, Option<String>)>> {
+        let func = self.functions.iter().find(|func| func.name == component)?;
+        let ty = func.props_type.as_deref()?.trim();
+        self.fields_for_type_with_types(ty)
+    }
+
+    fn fields_for_type_with_types(&self, ty: &str) -> Option<Vec<(String, Option<String>)>> {
+        if let Some(strukt) = self.structs.iter().find(|s| s.name == ty) {
+            return Some(
+                strukt
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        (
+                            field.name.trim_start_matches('$').to_string(),
+                            field.ty.clone(),
+                        )
+                    })
+                    .collect(),
+            );
+        }
+        if let Some(iface) = self.interfaces.iter().find(|i| i.name == ty) {
+            return Some(
+                iface
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        (
+                            field.name.trim_start_matches('$').to_string(),
+                            field.ty.clone(),
+                        )
+                    })
+                    .collect(),
+            );
+        }
+        if let Some(alias) = self.type_aliases.iter().find(|alias| alias.name == ty) {
+            return self.fields_for_type_with_types(alias.ty.trim());
+        }
+        if let Some(inner) = ty.strip_prefix("Option<").and_then(|value| value.strip_suffix('>')) {
+            return self.fields_for_type_with_types(inner.trim());
+        }
+        if let Some(inner) = ty.strip_prefix("Result<").and_then(|value| value.strip_suffix('>')) {
+            let first = inner.split(',').next().unwrap_or(inner).trim();
+            return self.fields_for_type_with_types(first);
+        }
+        if let Some(inner) = ty.strip_prefix("Object<{").and_then(|value| value.strip_suffix("}>")) {
+            let mut fields = Vec::new();
+            for part in inner.split(',') {
+                let part = part.trim();
+                if part.is_empty() {
+                    continue;
+                }
+                let mut segments = part.split(':');
+                let name = segments
+                    .next()
+                    .unwrap_or(part)
+                    .trim()
+                    .trim_end_matches('?');
+                let ty = segments.next().map(|t| t.trim().to_string());
+                if !name.is_empty() {
+                    fields.push((name.to_string(), ty));
                 }
             }
             return Some(fields);
@@ -1056,6 +1225,9 @@ fn collect_stmt(stmt: StmtId, source: &[u8], index: &mut SymbolIndex) {
                 name: fn_name,
                 span: name.span,
                 signature,
+                props_type: params
+                    .first()
+                    .and_then(|param| param.ty.map(|ty| format_type(ty, source))),
                 vars,
                 scope_span: *span,
             });
@@ -1089,6 +1261,33 @@ fn collect_stmt(stmt: StmtId, source: &[u8], index: &mut SymbolIndex) {
                     fields,
                 });
             }
+        }
+        Stmt::Interface {
+            name,
+            members,
+            span: _,
+            ..
+        } => {
+            let iface_name = token_text(source, name);
+            let mut fields = Vec::new();
+            for member in *members {
+                if let ClassMember::Property { ty, entries, .. } = member {
+                    for entry in *entries {
+                        let field_name = token_text(source, entry.name);
+                        let field_ty = ty.map(|ty| format_type(ty, source));
+                        fields.push(FieldInfo {
+                            name: field_name,
+                            span: entry.name.span,
+                            ty: field_ty,
+                        });
+                    }
+                }
+            }
+            index.interfaces.push(InterfaceInfo {
+                name: iface_name,
+                span: name.span,
+                fields,
+            });
         }
         Stmt::Enum { name, members, span: _, .. } => {
             let enum_name = token_text(source, name);
@@ -1315,6 +1514,22 @@ fn infer_expr_type(expr: ExprId, source: &[u8]) -> Option<String> {
         Expr::StructLiteral { name, .. } => Some(name_text(source, name)),
         Expr::JsxElement { .. } | Expr::JsxFragment { .. } => Some("VNode".to_string()),
         Expr::Null { .. } => Some("null".to_string()),
+        Expr::Binary {
+            op: BinaryOp::Coalesce,
+            left,
+            right,
+            ..
+        } => {
+            let left_ty = infer_expr_type(left, source);
+            let right_ty = infer_expr_type(right, source);
+            match (left_ty, right_ty) {
+                (Some(left), Some(right)) if left == right => Some(left),
+                (Some(left), Some(right)) => Some(format!("{} | {}", left, right)),
+                (Some(left), None) => Some(left),
+                (None, Some(right)) => Some(right),
+                (None, None) => None,
+            }
+        }
         _ => None,
     }
 }
@@ -2169,6 +2384,126 @@ fn completion_for_dot(
     Some(items)
 }
 
+fn completion_for_jsx_props(
+    index: &SymbolIndex,
+    source: &[u8],
+    offset: usize,
+) -> Option<Vec<CompletionItem>> {
+    if offset == 0 || offset > source.len() {
+        return None;
+    }
+
+    let prefix = std::str::from_utf8(&source[..offset]).ok()?;
+    let lt = prefix.rfind('<')?;
+    let open = &prefix[lt + 1..];
+    if open.starts_with('/') || open.contains('>') {
+        return None;
+    }
+
+    let mut component = String::new();
+    for ch in open.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' || ch == '\\' {
+            component.push(ch);
+        } else {
+            break;
+        }
+    }
+    if component.is_empty() {
+        return None;
+    }
+    let simple = component.rsplit('\\').next().unwrap_or(&component);
+    if !simple
+        .chars()
+        .next()
+        .map(|c| c.is_ascii_uppercase())
+        .unwrap_or(false)
+    {
+        return None;
+    }
+
+    let expected = index.component_prop_fields(simple)?;
+    if expected.is_empty() {
+        return None;
+    }
+
+    let attrs_slice = &open[simple.len()..];
+    let typed_prefix = attrs_slice
+        .rsplit(|c: char| c.is_whitespace())
+        .next()
+        .unwrap_or("")
+        .trim_start_matches('{')
+        .trim_start_matches('/')
+        .split('=')
+        .next()
+        .unwrap_or("")
+        .trim();
+
+    let mut used = std::collections::HashSet::new();
+    for token in attrs_slice.split_whitespace() {
+        let name = token
+            .trim_start_matches('{')
+            .trim_start_matches('/')
+            .split('=')
+            .next()
+            .unwrap_or("")
+            .trim();
+        if !name.is_empty() {
+            used.insert(name.to_string());
+        }
+    }
+
+    let mut items = Vec::new();
+    for (field, field_ty) in expected {
+        if used.contains(&field) {
+            continue;
+        }
+        if !typed_prefix.is_empty() && !field.starts_with(typed_prefix) {
+            continue;
+        }
+        items.push(CompletionItem {
+            label: field.clone(),
+            kind: Some(CompletionItemKind::FIELD),
+            detail: field_ty.clone().map(|ty| format!("{}: {}", field, ty)),
+            documentation: field_ty.as_ref().map(|ty| {
+                Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: format!("`{}` expects type `{}`", field, ty),
+                })
+            }),
+            insert_text: Some(format!(
+                "{}={}",
+                field,
+                jsx_attr_default_value(field_ty.as_deref())
+            )),
+            ..CompletionItem::default()
+        });
+    }
+    if items.is_empty() {
+        return None;
+    }
+    Some(items)
+}
+
+fn jsx_attr_default_value(ty: Option<&str>) -> &'static str {
+    let Some(ty) = ty else {
+        return "\"\"";
+    };
+    let ty = ty.trim();
+    let core = if let Some(inner) = ty.strip_prefix("Option<").and_then(|v| v.strip_suffix('>')) {
+        inner.trim()
+    } else if let Some(inner) = ty.strip_prefix("Result<").and_then(|v| v.strip_suffix('>')) {
+        inner.split(',').next().unwrap_or(inner).trim()
+    } else {
+        ty
+    };
+
+    match core {
+        "int" | "float" => "{0}",
+        "bool" => "{false}",
+        _ => "\"\"",
+    }
+}
+
 fn builtin_completion_items() -> Vec<CompletionItem> {
     let mut items = Vec::new();
     for name in ["Option", "Result", "Object", "array", "int", "string", "bool", "float"] {
@@ -2735,6 +3070,97 @@ mod tests {
     }
 
     #[test]
+    fn completes_jsx_props_from_interface_shape() {
+        let source = "$v = <FullName />;\n";
+        let index = SymbolIndex {
+            functions: vec![FunctionInfo {
+                name: "FullName".to_string(),
+                span: Span::new(0, 8),
+                signature: "function FullName($props: NameProps): string".to_string(),
+                props_type: Some("NameProps".to_string()),
+                vars: Vec::new(),
+                scope_span: Span::new(0, source.len()),
+            }],
+            interfaces: vec![InterfaceInfo {
+                name: "NameProps".to_string(),
+                span: Span::new(0, 9),
+                fields: vec![
+                    FieldInfo {
+                        name: "$name".to_string(),
+                        span: Span::new(0, 5),
+                        ty: Some("string".to_string()),
+                    },
+                    FieldInfo {
+                        name: "$title".to_string(),
+                        span: Span::new(0, 6),
+                        ty: Some("string".to_string()),
+                    },
+                    FieldInfo {
+                        name: "$age".to_string(),
+                        span: Span::new(0, 4),
+                        ty: Some("int".to_string()),
+                    },
+                ],
+            }],
+            ..SymbolIndex::default()
+        };
+        let offset = source.find("/>").expect("/>");
+        let items = completion_for_jsx_props(&index, source.as_bytes(), offset).expect("completion");
+        let labels: Vec<String> = items.into_iter().map(|item| item.label).collect();
+        assert!(labels.iter().any(|label| label == "name"), "labels={labels:?}");
+        assert!(labels.iter().any(|label| label == "title"), "labels={labels:?}");
+        let items = completion_for_jsx_props(&index, source.as_bytes(), offset).expect("completion");
+        let name_item = items
+            .iter()
+            .find(|item| item.label == "name")
+            .expect("name item");
+        assert_eq!(name_item.detail.as_deref(), Some("name: string"));
+        assert_eq!(name_item.insert_text.as_deref(), Some("name=\"\""));
+        let age_item = items
+            .iter()
+            .find(|item| item.label == "age")
+            .expect("age item");
+        assert_eq!(age_item.insert_text.as_deref(), Some("age={0}"));
+    }
+
+    #[test]
+    fn jsx_props_completion_skips_already_used_props() {
+        let source = "$v = <FullName name=\"Bob\" />;\n";
+        let index = SymbolIndex {
+            functions: vec![FunctionInfo {
+                name: "FullName".to_string(),
+                span: Span::new(0, 8),
+                signature: "function FullName($props: NameProps): string".to_string(),
+                props_type: Some("NameProps".to_string()),
+                vars: Vec::new(),
+                scope_span: Span::new(0, source.len()),
+            }],
+            interfaces: vec![InterfaceInfo {
+                name: "NameProps".to_string(),
+                span: Span::new(0, 9),
+                fields: vec![
+                    FieldInfo {
+                        name: "$name".to_string(),
+                        span: Span::new(0, 5),
+                        ty: Some("string".to_string()),
+                    },
+                    FieldInfo {
+                        name: "$title".to_string(),
+                        span: Span::new(0, 6),
+                        ty: Some("string".to_string()),
+                    },
+                ],
+            }],
+            ..SymbolIndex::default()
+        };
+        let offset = source.find("/>").expect("/>");
+        let items = completion_for_jsx_props(&index, source.as_bytes(), offset).expect("completion");
+        let labels: Vec<String> = items.into_iter().map(|item| item.label).collect();
+        assert!(!labels.iter().any(|label| label == "name"), "labels={labels:?}");
+        assert!(labels.iter().any(|label| label == "title"), "labels={labels:?}");
+    }
+
+    #[test]
     fn reports_missing_named_import_export() {
         let workspace = temp_dir("phpx_lsp_missing_export");
         let php_modules = workspace.join("php_modules");
@@ -2774,6 +3200,163 @@ mod tests {
     }
 
     #[test]
+    fn diagnostics_reject_struct_typed_destructured_props_with_guidance() {
+        let source = r#"
+interface Ignored {}
+struct NameProps { $name: string }
+function FullName({ $name }: NameProps): string {
+  return $name
+}
+"#;
+        let arena = Bump::new();
+        let result = compile_phpx(source, "/tmp/props.phpx", &arena);
+        let diag_messages: Vec<String> = result
+            .errors
+            .iter()
+            .map(|error| diagnostic_from_error("/tmp/props.phpx", source, error).message)
+            .collect();
+        assert!(
+            diag_messages.iter().any(|m| {
+                m.contains("Destructured parameter") && m.contains("use interface")
+            }),
+            "messages={diag_messages:?}"
+        );
+    }
+
+    #[test]
+    fn diagnostics_accept_interface_typed_destructured_props() {
+        let source = r#"
+interface NameProps { $name: string }
+function FullName({ $name }: NameProps): string {
+  return $name
+}
+"#;
+        let arena = Bump::new();
+        let result = compile_phpx(source, "/tmp/props_ok.phpx", &arena);
+        let has_destructure_struct_error = result
+            .errors
+            .iter()
+            .any(|error| error.message.contains("Destructured parameter"));
+        assert!(
+            !has_destructure_struct_error,
+            "unexpected errors={:?}",
+            result.errors
+        );
+    }
+
+    #[test]
+    fn diagnostics_report_unknown_jsx_prop_with_suggestion() {
+        let source = r#"
+interface NameProps { $name: string; }
+function FullName($props: NameProps): string {
+  return $props.name;
+}
+$v = <FullName nam="Bob" />;
+"#;
+        let arena = Bump::new();
+        let result = compile_phpx(source, "/tmp/props_typo.phpx", &arena);
+        let messages: Vec<String> = result.errors.iter().map(|e| e.message.clone()).collect();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("Unknown prop 'nam'") && m.contains("did you mean 'name'")),
+            "messages={messages:?}"
+        );
+    }
+
+    #[test]
+    fn diagnostics_report_unknown_variable_with_suggestion() {
+        let source = r#"
+function fullName($name: string): string {
+  return $nam;
+}
+"#;
+        let arena = Bump::new();
+        let result = compile_phpx(source, "/tmp/var_typo.phpx", &arena);
+        let messages: Vec<String> = result.errors.iter().map(|e| e.message.clone()).collect();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("Unknown variable '$nam'") && m.contains("did you mean '$name'")),
+            "messages={messages:?}"
+        );
+    }
+
+    #[test]
+    fn diagnostics_report_missing_required_props_in_template_section() {
+        let source = r#"---
+interface NameProps {
+  $name: string;
+}
+function FullName($props: NameProps): string {
+  return $props.name;
+}
+---
+<div>
+  <FullName />
+</div>
+"#;
+        let arena = Bump::new();
+        let result = compile_phpx(source, "/tmp/template_missing_props.phpx", &arena);
+        let missing = result
+            .errors
+            .iter()
+            .find(|e| e.message.contains("Missing required prop 'name'"))
+            .expect("missing required prop diagnostic");
+        assert_eq!(missing.line, 10, "diagnostic={missing:?}");
+        assert!(missing.column >= 3, "diagnostic={missing:?}");
+        let messages: Vec<String> = result.errors.iter().map(|e| e.message.clone()).collect();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("Missing required prop 'name'") && m.contains("component 'FullName'")),
+            "messages={messages:?}"
+        );
+    }
+
+    #[test]
+    fn hover_shows_interface_shape() {
+        let source = "interface NameProps { $name: string; }\nfunction FullName($props: NameProps): string { return $props.name; }\n";
+        let file_path = "/tmp/hover_iface.phpx";
+        let arena = Bump::new();
+        let result = compile_phpx(source, file_path, &arena);
+        let program = result.ast.expect("ast");
+        let index = build_index(&program, source.as_bytes());
+        let offset = source.find("NameProps").expect("offset");
+        let hover = index.hover_at(offset).expect("hover");
+        assert!(
+            hover.contains("interface NameProps") && hover.contains("$name: string"),
+            "hover={hover}"
+        );
+    }
+
+    #[test]
+    fn index_infers_destructured_default_binding_type() {
+        let source = r#"
+function FullName({ age: $age = 18 }: Object<{ age: int }>): int {
+  return $age;
+}
+"#;
+        let arena = Bump::new();
+        let result = compile_phpx(source, "/tmp/destructure_default.phpx", &arena);
+        let program = result.ast.expect("ast");
+        let index = build_index(&program, source.as_bytes());
+        let function = index
+            .functions
+            .iter()
+            .find(|f| f.name == "FullName")
+            .expect("function");
+        let has_int_binding = function
+            .vars
+            .iter()
+            .any(|v| v.name == "$age" && v.ty.as_deref() == Some("int"));
+        assert!(
+            has_int_binding,
+            "expected at least one `$age` binding inferred as int"
+        );
+    }
+
+    #[test]
     fn skips_unused_warning_when_unresolved_import_exists_at_same_span() {
         let warning = ValidationWarning {
             kind: modules_php::validation::ErrorKind::ImportError,
@@ -2804,5 +3387,20 @@ mod tests {
         };
         let unresolved = std::collections::HashSet::new();
         assert!(!should_skip_unused_import_warning(&warning, &unresolved));
+    }
+
+    #[test]
+    fn skips_template_section_jsx_diagnostics() {
+        let err = ValidationError {
+            kind: modules_php::validation::ErrorKind::JsxError,
+            line: 12,
+            column: 5,
+            message: "Mismatched closing tag".to_string(),
+            help_text: "Fix JSX/template syntax in the template section.".to_string(),
+            suggestion: None,
+            underline_length: 4,
+            severity: Severity::Error,
+        };
+        assert!(should_skip_template_html_diagnostic(&err));
     }
 }
