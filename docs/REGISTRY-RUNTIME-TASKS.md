@@ -36,6 +36,6 @@ This track is runtime/platform work that should be completed before linkhash app
 
 ## Validation
 
-1. [ ] `cargo test -p php-rs --release` (targeted where practical; currently failing on pre-existing unrelated PHXP parser/typeck cases)
+1. [x] `cargo test -p php-rs --release`
 1. [x] `node tests/phpx/testrunner.js tests/phpx/foundation`
 1. [x] one release-build smoke run using `target/release/cli run <fixture>.phpx`
