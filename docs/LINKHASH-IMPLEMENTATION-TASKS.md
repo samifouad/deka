@@ -20,11 +20,11 @@ This track is linkhash app/product work that consumes runtime capabilities.
 1. [x] canonical route support (`/lh_<sha256...>`)
 1. [x] always return canonical id in API responses
 
-3. [ ] Metadata + artifact storage behavior
+3. [x] Metadata + artifact storage behavior
 1. [x] metadata/auth state fully in Postgres
 1. [x] artifact bytes via pluggable backend (`local` now, `r2` later)
 1. [x] install/download endpoints resolve artifact via backend by key
-1. [ ] parity tests for backend switch without API contract changes
+1. [x] parity tests for backend switch without API contract changes
 
 4. [x] Auth/session/token product flow
 1. [x] Bluesky OAuth callback final wiring + identity fetch path
@@ -41,4 +41,4 @@ This track is linkhash app/product work that consumes runtime capabilities.
 
 1. [x] User can login and publish a package in local dev.
 1. [x] Another project can install package using `deka install`.
-1. [ ] Private package access is denied without proper role/scope.
+1. [x] Private package access is denied without proper role/scope.
