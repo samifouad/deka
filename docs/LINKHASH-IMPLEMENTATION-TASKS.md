@@ -35,7 +35,7 @@ This track is linkhash app/product work that consumes runtime capabilities.
 5. [ ] CLI integration E2E against linkhash
 1. [ ] `deka publish` succeeds with PAT, fails with clear scope errors
 1. [ ] `deka install` can install published PHPX package from linkhash
-1. [ ] docs for local dev config and token setup
+1. [x] docs for local dev config and token setup
 
 ## Acceptance
 
