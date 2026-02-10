@@ -12,39 +12,39 @@ Current direction: finish runtime track first, then implement linkhash track.
 ## Goals
 
 - [x] Use Bluesky OAuth as the primary user identity for linkhash.
-- [ ] Map Bluesky handle to package namespace (`@handle/package`).
+- [x] Map Bluesky handle to package namespace (`@handle/package`).
 - [x] Introduce canonical immutable package IDs (`linkha.sh/lh_<sha256(...)>`).
 - [x] Issue scoped publish tokens for CLI use (`read`, `read:write`, `read:write:delete`).
 - [x] Provide first-class PHPX auth primitives (`crypto`, `jwt`, `cookies`, `auth`).
-- [ ] Add framework-level request context providers (React-like provider model, server-first).
+- [x] Add framework-level request context providers (React-like provider model, server-first).
 
 ## Artifact Storage (Local now, R2-ready)
 
-- [ ] Keep metadata/auth state in Postgres only.
-- [ ] Store package tarball bytes in pluggable artifact backend.
+- [x] Keep metadata/auth state in Postgres only.
+- [x] Store package tarball bytes in pluggable artifact backend.
 - [x] Implement `ARTIFACT_BACKEND=local|r2` config.
 - [x] Implement local backend as default (`ARTIFACT_LOCAL_ROOT`).
 - [x] Add R2 backend adapter interface and wire R2 config/envs.
 - [x] Persist artifact metadata in Postgres (`artifact_key`, `size_bytes`, `sha256`, `backend`, `mime`).
-- [ ] Ensure install/download endpoints resolve artifact by key through active backend.
+- [x] Ensure install/download endpoints resolve artifact by key through active backend.
 
 ## Canonical Package Identity
 
-- [ ] Define canonical hash input contract:
+- [x] Define canonical hash input contract:
 - [x] `lower(handle) + "/" + lower(package) + ":" + version + ":" + lock_hash`
 - [x] Compute `canonical_id = "lh_" + sha256(canonical_input)`.
 - [x] Persist canonical identity per published version (unique).
-- [ ] Support both URL forms:
-- [ ] Human alias `linkha.sh/@handle/package[@version]`
-- [ ] Canonical `linkha.sh/lh_<sha256...>`
-- [ ] Always resolve aliases to canonical identity in responses.
+- [x] Support both URL forms:
+- [x] Human alias `linkha.sh/@handle/package[@version]`
+- [x] Canonical `linkha.sh/lh_<sha256...>`
+- [x] Always resolve aliases to canonical identity in responses.
 
 ## Auth Primitives (Runtime + PHPX modules)
 
 - [x] `crypto` module
 - [x] random bytes/id helpers
 - [x] SHA-256 + HMAC-SHA256 helpers
-- [ ] `jwt` module
+- [x] `jwt` module
 - [x] sign + verify JWT (HS256 first)
 - [x] validate `exp`, `nbf`, `iat`, `iss`, `aud`
 - [x] `cookies` module
@@ -135,11 +135,11 @@ Notes:
 
 ## Acceptance Criteria
 
-- [ ] User logs in via Bluesky and gets a valid session in linkhash UI.
-- [ ] User can create PAT with explicit scopes and expiry.
-- [ ] `deka publish` succeeds with valid PAT and fails with clear scope errors otherwise.
-- [ ] `deka install` pulls published PHPX package from linkhash.
-- [ ] Published package versions can be addressed via canonical hash ID and alias routes.
-- [ ] Local artifact backend works in dev without R2.
-- [ ] Switching to R2 backend does not require changing publish/install API contracts.
-- [ ] Route-level provider guards correctly allow/deny access without client-side trust.
+- [x] User logs in via Bluesky and gets a valid session in linkhash UI.
+- [x] User can create PAT with explicit scopes and expiry.
+- [x] `deka publish` succeeds with valid PAT and fails with clear scope errors otherwise.
+- [x] `deka install` pulls published PHPX package from linkhash.
+- [x] Published package versions can be addressed via canonical hash ID and alias routes.
+- [x] Local artifact backend works in dev without R2.
+- [x] Switching to R2 backend does not require changing publish/install API contracts.
+- [x] Route-level provider guards correctly allow/deny access without client-side trust.
