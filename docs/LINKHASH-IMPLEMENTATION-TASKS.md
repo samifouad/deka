@@ -32,13 +32,13 @@ This track is linkhash app/product work that consumes runtime capabilities.
 1. [x] PAT create/list/revoke UX + API docs
 1. [x] permission checks per role/scope for private/public packages
 
-5. [ ] CLI integration E2E against linkhash
-1. [ ] `deka publish` succeeds with PAT, fails with clear scope errors
-1. [ ] `deka install` can install published PHPX package from linkhash
+5. [x] CLI integration E2E against linkhash
+1. [x] `deka publish` succeeds with PAT, fails with clear scope errors
+1. [x] `deka install` can install published PHPX package from linkhash
 1. [x] docs for local dev config and token setup
 
 ## Acceptance
 
-1. [ ] User can login and publish a package in local dev.
-1. [ ] Another project can install package using `deka install`.
+1. [x] User can login and publish a package in local dev.
+1. [x] Another project can install package using `deka install`.
 1. [ ] Private package access is denied without proper role/scope.
