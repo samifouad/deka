@@ -1,0 +1,71 @@
+import { result_ok, result_err, result_is_ok } from 'core/result'
+import { random_bytes_result, secure_compare } from 'crypto'
+import { to_array as bytes_to_array } from 'bytes'
+import { sign as jwt_sign, verify as jwt_verify } from 'jwt'
+
+function b64url_encode_bytes($bytes) {
+  $raw = ''
+  $arr = bytes_to_array($bytes)
+  foreach ($arr as $v) {
+    $raw = $raw . chr($v)
+  }
+  return rtrim(str_replace(['+', '/'], ['-', '_'], base64_encode($raw)), '=')
+}
+
+function random_b64url($len = 32) {
+  $n = (int) $len
+  if ($n <= 0) {
+    return result_err('length must be > 0')
+  }
+  $res = random_bytes_result($n)
+  if (!result_is_ok($res)) {
+    return $res
+  }
+  return result_ok(b64url_encode_bytes($res->value))
+}
+
+export function pkce_pair($verifier_len = 32) {
+  $verifier_res = random_b64url($verifier_len)
+  if (!result_is_ok($verifier_res)) {
+    return $verifier_res
+  }
+  $verifier = $verifier_res->value
+  $challenge = base64_encode(hash('sha256', $verifier, true))
+  $challenge = str_replace(['+', '/'], ['-', '_'], $challenge)
+  $challenge = rtrim($challenge, '=')
+  return result_ok({
+    verifier: $verifier,
+    challenge: $challenge,
+    method: 'S256'
+  })
+}
+
+export function new_state($len = 24) {
+  return random_b64url($len)
+}
+
+export function new_nonce($len = 24) {
+  return random_b64url($len)
+}
+
+export function sign_oauth_state($state, $nonce, $secret, $exp_in = 600, $extra = []) {
+  $payload = is_array($extra) ? $extra : []
+  $payload['state'] = '' . $state
+  $payload['nonce'] = '' . $nonce
+  return jwt_sign($payload, $secret, [ 'exp_in' => (int) $exp_in ])
+}
+
+export function verify_oauth_state($token, $secret, $expected_state, $expected_nonce, $options = []) {
+  $verify = jwt_verify($token, $secret, $options)
+  if (!result_is_ok($verify)) {
+    return $verify
+  }
+  $payload = is_array($verify->value) ? $verify->value : (array) $verify->value
+  if (!array_key_exists('state', $payload) || !secure_compare('' . $payload['state'], '' . $expected_state)) {
+    return result_err('oauth state mismatch')
+  }
+  if (!array_key_exists('nonce', $payload) || !secure_compare('' . $payload['nonce'], '' . $expected_nonce)) {
+    return result_err('oauth nonce mismatch')
+  }
+  return result_ok($payload)
+}

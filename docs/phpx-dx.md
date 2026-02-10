@@ -45,6 +45,14 @@ Runtime notes:
 - `tcp`: low-level socket operations (`connect`, `read`, `read_exact`, `write`, `set_deadline`, `close`).
 - `tls`: upgrades a tcp handle (`upgrade`) and provides `read`/`write`/`close`.
 
+## Auth primitives
+- `crypto`: random ids/bytes, SHA-256/HMAC, secure compare.
+- `jwt`: `sign`/`verify` with claim-time validation (`exp`, `nbf`, `iat`) and optional `iss`/`aud` checks.
+- `cookies`: safe cookie read/build/header helpers.
+- `auth`: shared OAuth helpers (`pkce_pair`, `new_state`, `new_nonce`, `sign_oauth_state`, `verify_oauth_state`).
+
+For usage examples, see `docs/php/auth/index.mdx`.
+
 ## Database modules
 - Canonical driver paths are `db/postgres`, `db/mysql`, and `db/sqlite`.
 - Legacy top-level paths `postgres`, `mysql`, and `sqlite` remain as compatibility proxies.

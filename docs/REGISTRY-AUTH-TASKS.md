@@ -1,12 +1,21 @@
 # Registry Auth + Context Tasks
 
+This file is the umbrella view.
+
+Execution is now split into two explicit tracks:
+
+1. Runtime/platform-first track: `docs/REGISTRY-RUNTIME-TASKS.md`
+2. Linkhash app integration track: `docs/LINKHASH-IMPLEMENTATION-TASKS.md`
+
+Current direction: finish runtime track first, then implement linkhash track.
+
 ## Goals
 
 - [x] Use Bluesky OAuth as the primary user identity for linkhash.
 - [ ] Map Bluesky handle to package namespace (`@handle/package`).
 - [x] Introduce canonical immutable package IDs (`linkha.sh/lh_<sha256(...)>`).
 - [x] Issue scoped publish tokens for CLI use (`read`, `read:write`, `read:write:delete`).
-- [ ] Provide first-class PHPX auth primitives (`crypto`, `jwt`, `cookies`).
+- [x] Provide first-class PHPX auth primitives (`crypto`, `jwt`, `cookies`, `auth`).
 - [ ] Add framework-level request context providers (React-like provider model, server-first).
 
 ## Artifact Storage (Local now, R2-ready)
@@ -57,12 +66,12 @@
 
 ## Registry Permission Model
 
-- [ ] anonymous `read` for package metadata/install endpoints
-- [ ] `read:write` required for publish/update
-- [ ] `read:write:delete` required for delete/yank/owner mutation
-- [ ] unified scope checker reused by HTTP handlers and CLI auth validation
-- [ ] add package visibility model (`public`, `private`)
-- [ ] enforce private-package read access (`publisher`, `maintainer`) or scoped token
+- [x] anonymous `read` for package metadata/install endpoints
+- [x] `read:write` required for publish/update
+- [x] `read:write:delete` required for delete/yank/owner mutation
+- [x] unified scope checker reused by HTTP handlers and CLI auth validation
+- [x] add package visibility model (`public`, `private`)
+- [x] enforce private-package read access (`publisher`, `maintainer`) or scoped token
 
 ### Role Policy (Locked)
 
@@ -86,16 +95,16 @@
 
 ## CLI + Registry Integration
 
-- [ ] `deka publish` uses `LINKHASH_TOKEN` PAT
-- [ ] `deka install` resolves PHPX ecosystem packages from linkhash registry
-- [ ] write PHP lock entries under `deka.lock.php`
-- [ ] docs for `.env` token setup and scope requirements
+- [x] `deka publish` uses `LINKHASH_TOKEN` PAT
+- [x] `deka install` resolves PHPX ecosystem packages from linkhash registry
+- [x] write PHP lock entries under shared `deka.lock` (`php` section)
+- [x] docs for `.env` token setup and scope requirements
 
 ## Hardening Pass (After Bulk Auth Build)
 
 - [x] Rotate session ID on login/privilege changes (fixation protection).
 - [x] Add session idle timeout + absolute timeout enforcement.
-- [ ] Enforce PKCE + OAuth state + nonce checks.
+- [x] Enforce PKCE + OAuth state + nonce checks.
 - [x] Add strict redirect URI allowlist.
 - [x] Add CSRF protection for state-changing browser endpoints.
 
@@ -103,10 +112,10 @@ Notes:
 - State-changing endpoints enforce `POST` and validate `X-CSRF-Token` against server-side session CSRF hash.
 - [x] One-time PAT reveal + hashed-at-rest token storage.
 - [x] Add PAT last-used metadata + bulk revoke.
-- [ ] Add org role model (`publisher`, `maintainer`, `public`) with private package support.
-- [ ] Add reserved namespace policy.
-- [ ] Add auth/publish rate limiting and abuse guardrails.
-- [ ] Add immutable audit trail for auth + publish actions.
+- [x] Add org role model (`publisher`, `maintainer`, `public`) with private package support.
+- [x] Add reserved namespace policy.
+- [x] Add auth/publish rate limiting and abuse guardrails.
+- [x] Add immutable audit trail for auth + publish actions.
 
 ### Reserved Namespace Defaults (Locked)
 

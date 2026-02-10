@@ -14,6 +14,7 @@ fn main() {
     cli::init::register(&mut registry);
     cli::install::register(&mut registry);
     cli::lsp::register(&mut registry);
+    cli::publish::register(&mut registry);
     cli::run::register(&mut registry);
     cli::serve::register(&mut registry);
     cli::self_cmd::register(&mut registry);
