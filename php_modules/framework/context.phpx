@@ -1,0 +1,112 @@
+import { result_ok, result_err, result_is_ok } from 'core/result'
+import { createContext, ContextProvider, useContext as component_use_context } from 'component/core'
+
+function to_assoc($value) {
+  if (is_array($value)) {
+    if (count($value) === 1 && array_key_exists(0, $value) && (is_array($value[0]) || is_object($value[0]))) {
+      return to_assoc($value[0])
+    }
+    if (count($value) === 1 && array_key_exists('0', $value) && (is_array($value['0']) || is_object($value['0']))) {
+      return to_assoc($value['0'])
+    }
+    return $value
+  }
+  if (is_object($value)) {
+    $out = []
+    foreach ($value as $k => $v) {
+      $out[$k] = $v
+    }
+    if (count($out) === 1 && array_key_exists(0, $out) && (is_array($out[0]) || is_object($out[0]))) {
+      return to_assoc($out[0])
+    }
+    if (count($out) === 1 && array_key_exists('0', $out) && (is_array($out['0']) || is_object($out['0']))) {
+      return to_assoc($out['0'])
+    }
+    return $out
+  }
+  return []
+}
+
+function &__framework_request_context_store() {
+  static $store = []
+  return $store
+}
+
+export function set_request_context($ctx) {
+  $store = &__framework_request_context_store()
+  $store = to_assoc($ctx)
+  return $store
+}
+
+export function request_context() {
+  $store = &__framework_request_context_store()
+  return $store
+}
+
+export function clear_request_context() {
+  $store = &__framework_request_context_store()
+  $store = []
+  return true
+}
+
+export function auth() {
+  $ctx = request_context()
+  if (array_key_exists('auth', $ctx)) {
+    $auth = to_assoc($ctx['auth'])
+    if (count($auth) > 0) {
+      return result_ok($auth)
+    }
+  }
+  return result_err('auth missing')
+}
+
+export function requireAuth() {
+  $res = auth()
+  if (!result_is_ok($res)) {
+    return result_err('unauthorized')
+  }
+  $auth = $res->value
+  $user_id = array_key_exists('user_id', $auth) ? $auth['user_id'] : null
+  if ($user_id === null || $user_id === '') {
+    return result_err('unauthorized')
+  }
+  return result_ok($auth)
+}
+
+export function requireScope($scope) {
+  $required = '' . $scope
+  $auth_res = requireAuth()
+  if (!result_is_ok($auth_res)) {
+    return $auth_res
+  }
+  $auth = $auth_res->value
+  $scopes = array_key_exists('scopes', $auth) && is_array($auth['scopes']) ? $auth['scopes'] : []
+  if (in_array($required, $scopes, true)) {
+    return result_ok($auth)
+  }
+  return result_err('forbidden: missing scope ' . $required)
+}
+
+export function auth_snapshot($auth) {
+  $src = is_array($auth) ? $auth : (array) $auth
+  $allowed = ['user_id', 'handle', 'scopes', 'org_id', 'session_id']
+  $out = []
+  foreach ($allowed as $key) {
+    if (array_key_exists($key, $src)) {
+      $out[$key] = $src[$key]
+    }
+  }
+  return $out
+}
+
+export function createRequestContext($default = null) {
+  return createContext($default)
+}
+
+export function RequestContextProvider($props) {
+  return ContextProvider($props)
+}
+
+export function useContext($ctx) {
+  return component_use_context($ctx)
+}

@@ -84,14 +84,14 @@ Current direction: finish runtime track first, then implement linkhash track.
 
 ## Framework Context Provider Model (Server-first)
 
-- [ ] per-request context store in runtime/framework layer
-- [ ] provider composition at route/layout boundary
-- [ ] `auth()` helper for current request auth state
-- [ ] `requireAuth()` guard helper
-- [ ] `requireScope(...)` guard helper
-- [ ] `useContext(...)` read helper for component render
+- [x] per-request context store in runtime/framework layer
+- [x] provider composition at route/layout boundary
+- [x] `auth()` helper for current request auth state
+- [x] `requireAuth()` guard helper
+- [x] `requireScope(...)` guard helper
+- [x] `useContext(...)` read helper for component render
 - [ ] context re-evaluation on partial navigation requests
-- [ ] minimal safe auth snapshot for hydration (no secrets/tokens)
+- [x] minimal safe auth snapshot for hydration (no secrets/tokens)
 
 ## CLI + Registry Integration
 

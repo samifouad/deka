@@ -15,14 +15,14 @@ This track is runtime/platform work that should be completed before linkhash app
 1. [x] Add missing module docs for auth primitives under `docs/php/` or `docs/phpx-dx.md`
 
 2. [ ] Framework context provider model (server-first)
-1. [ ] per-request context store in runtime/framework layer
+1. [x] per-request context store in runtime/framework layer
 1. [x] provider composition at route/layout boundary
-1. [ ] `auth()` helper for current request auth state
-1. [ ] `requireAuth()` guard helper
-1. [ ] `requireScope(...)` guard helper
+1. [x] `auth()` helper for current request auth state
+1. [x] `requireAuth()` guard helper
+1. [x] `requireScope(...)` guard helper
 1. [x] `useContext(...)` helper for component render
 1. [ ] context re-evaluation on partial navigation
-1. [ ] minimal safe auth snapshot for hydration (no secrets)
+1. [x] minimal safe auth snapshot for hydration (no secrets)
 
 3. [ ] Runtime-facing CLI glue for registry workflows
 1. [x] `deka publish` auth token plumbing (`LINKHASH_TOKEN`)
@@ -32,7 +32,7 @@ This track is runtime/platform work that should be completed before linkhash app
 
 4. [ ] Runtime hardening items
 1. [x] enforce PKCE + OAuth state + nonce checks in shared auth flow helpers
-1. [ ] runtime tests for auth failure modes and scope-denied paths
+1. [x] runtime tests for auth failure modes and scope-denied paths
 
 ## Validation
 
