@@ -1,7 +1,7 @@
 # Docs System
 
 This repo ships documentation into the website by combining:
-1) hand-written MD/MDX in `docs/`
+1) hand-written MD/MDX in `docs/php` and `docs/phpx`
 2) inline doc comments from source files (any extension)
 3) examples pulled from `examples/`
 
@@ -32,7 +32,7 @@ Example:
 - `name()` loses the trailing parentheses when building the slug.
 
 ## Manual docs
-- Hand-written pages live in `docs/` and are copied as-is.
+- Hand-written pages live in `docs/php` and `docs/phpx` and are copied as-is.
 - Frontmatter gets `category`, `categoryLabel`, and `categoryOrder` injected based on `docs/docmap.json`.
 
 ## Examples
@@ -44,8 +44,18 @@ Example:
 ## Publish pipeline
 From this repo:
 ```bash
-node scripts/publish-docs.js --manual docs --scan . --out ../deka-website/content/docs --force
+node scripts/publish-docs.js --manual docs/php,docs/phpx --scan . --out ../deka-website/content/docs --force
 ```
+
+Contributor test workflow (auto-publishes docs at end of PHPX test scripts):
+```bash
+scripts/test-runtime-dev.sh
+```
+
+Options:
+- `DEKA_TEST_SKIP_DOCS=1` to skip docs publish in contributor test scripts
+- `DEKA_DOCS_OUT=/custom/path` to override docs output
+- `DEKA_RUN_DB_E2E=1 scripts/test-runtime-dev.sh` to include DB E2E checks
 
 From `deka-website/`:
 ```bash

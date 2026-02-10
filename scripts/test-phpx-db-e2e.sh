@@ -3,6 +3,23 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+DEKA_DOCS_OUT="${DEKA_DOCS_OUT:-${REPO_ROOT}/../deka-website/content/docs}"
+
+publish_docs() {
+  if [[ "${DEKA_TEST_SKIP_DOCS:-0}" == "1" ]]; then
+    echo "[docs] skipped (DEKA_TEST_SKIP_DOCS=1)"
+    return
+  fi
+  if [[ ! -f "${REPO_ROOT}/scripts/publish-docs.js" ]]; then
+    return
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo "[docs] node is required to publish docs during tests" >&2
+    exit 1
+  fi
+  echo "[docs] publishing docs -> ${DEKA_DOCS_OUT}"
+  node "${REPO_ROOT}/scripts/publish-docs.js" --scan "${REPO_ROOT}" --out "${DEKA_DOCS_OUT}"
+}
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "docker is required for DB e2e tests"
@@ -95,5 +112,7 @@ PHPX_BIN="$PHPX_BIN" \
 PHPX_BIN_ARGS="$PHPX_BIN_ARGS" \
 bun tests/phpx/testrunner.js tests/phpx/db \
   --skip=tests/phpx/db/mysql_smoke.phpx,tests/phpx/db/wire_mysql_smoke.phpx,tests/phpx/db/wire_mysql_param_type_error.phpx,tests/phpx/db/contract_mysql.phpx
+
+publish_docs
 
 echo "[db-e2e] complete"
