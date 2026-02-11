@@ -719,6 +719,7 @@ function createRequire(options: {
       return { Buffer: BufferShim };
     }
     const resolved = resolveRequireSpecifier(
+      options.fs,
       options.cwdRef.value,
       options.projectRoot,
       specifier
@@ -861,7 +862,12 @@ function resolvePath(cwd: string, path: string): string {
   return normalizePath(`${cwd}/${path}`);
 }
 
-function resolveRequireSpecifier(cwd: string, projectRoot: string, specifier: string): string {
+function resolveRequireSpecifier(
+  fs: WosixFs,
+  cwd: string,
+  projectRoot: string,
+  specifier: string
+): string {
   if (specifier.startsWith("/")) {
     return normalizePath(specifier);
   }
@@ -871,7 +877,49 @@ function resolveRequireSpecifier(cwd: string, projectRoot: string, specifier: st
   if (specifier.startsWith("@/")) {
     return normalizePath(`${projectRoot}/${specifier.slice(2)}`);
   }
-  return normalizePath(`${projectRoot}/php_modules/${specifier}`);
+  const moduleRoot = normalizePath(`${projectRoot}/php_modules/${specifier}`);
+  return resolveBareModuleSpecifier({
+    fs,
+    moduleRoot,
+    projectRoot,
+    specifier,
+  });
+}
+
+function resolveBareModuleSpecifier(options: {
+  fs?: WosixFs;
+  moduleRoot: string;
+  projectRoot: string;
+  specifier: string;
+}): string {
+  const { fs, moduleRoot, projectRoot, specifier } = options;
+  if (!fs) {
+    return moduleRoot;
+  }
+  if (hasModuleEntry(fs, moduleRoot)) {
+    return moduleRoot;
+  }
+  const cacheRoot = normalizePath(`${projectRoot}/php_modules/.cache/${specifier}`);
+  if (hasModuleEntry(fs, cacheRoot)) {
+    return cacheRoot;
+  }
+  return moduleRoot;
+}
+
+function hasModuleEntry(fs: WosixFs, root: string): boolean {
+  const candidates = [
+    root,
+    `${root}.js`,
+    `${root}.json`,
+    `${root}/index.js`,
+    `${root}/index.json`,
+  ];
+  for (const candidate of candidates) {
+    if (fileType(fs, candidate) === "file") {
+      return true;
+    }
+  }
+  return false;
 }
 
 function resolveModuleFile(fs: WosixFs, path: string): string {

@@ -303,14 +303,31 @@ const fs = new MemoryFs();
 const container = await WebContainer.boot(createBindings(fs), { nodeRuntime: "shim" });
 await container.mount({
   project: {
+    "deka.lock": JSON.stringify({
+      lockfileVersion: 1,
+      php: {
+        packages: {
+          "cached-only": {
+            descriptor: "cached-only@1.0.0",
+            resolved: "local",
+            metadata: { source: "virtual-fs" },
+          },
+        },
+      },
+    }),
     "main.js":
-      "const util = require('@/lib/util'); const pkg = require('example'); require('fs').writeFileSync('/project/out.txt', util.msg + ':' + pkg.msg);",
+      "const util = require('@/lib/util'); const pkg = require('example'); const cached = require('cached-only'); const fs = require('fs'); const lock = JSON.parse(fs.readFileSync('/project/deka.lock', 'utf8')); fs.writeFileSync('/project/php_modules/.cache/runtime.json', JSON.stringify({ warmed: true })); fs.writeFileSync('/project/out.txt', util.msg + ':' + pkg.msg + ':' + cached.msg + ':' + lock.lockfileVersion);",
     lib: {
       "util.js": "module.exports = { msg: 'alias-ok' };",
     },
     php_modules: {
       example: {
         "index.js": "module.exports = { msg: 'module-ok' };",
+      },
+      ".cache": {
+        "cached-only": {
+          "index.js": "module.exports = { msg: 'cache-ok' };",
+        },
       },
     },
   },
@@ -320,6 +337,11 @@ const proc = await container.spawn("node", ["/project/main.js"], { cwd: "/projec
 await proc.wait();
 const out = await container.fs.readFile("/project/out.txt");
 const text = new TextDecoder().decode(out);
-assert(text === "alias-ok:module-ok", `unexpected output: ${text}`);
+assert(text === "alias-ok:module-ok:cache-ok:1", `unexpected output: ${text}`);
+
+const runtimeCache = new TextDecoder().decode(
+  await container.fs.readFile("/project/php_modules/.cache/runtime.json")
+);
+assert(runtimeCache.includes('"warmed":true'), `missing runtime cache marker: ${runtimeCache}`);
 
 console.log("wosix module graph smoke ok");

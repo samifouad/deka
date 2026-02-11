@@ -37,13 +37,13 @@ Scope: run PHPX inside browser via `wosix` host profile
 - [x] Add host adapter layer mapping PHPX runtime ops to `wosix` interfaces.
 - [x] Verify fs path maps to `wosix` in-memory/mounted filesystem.
 - [x] Verify process I/O maps to `wosix` stdio channels.
-- [ ] Verify module loading from virtual FS.
+- [x] Verify module loading from virtual FS.
 
 ## Module System + Imports
 
 - [x] Support `@/` alias against virtual project root in `wosix`.
 - [x] Resolve `php_modules/` via mounted/virtual tree, not disk-only assumptions.
-- [ ] Ensure generated cache/lock behaviors work in virtual FS mode.
+- [x] Ensure generated cache/lock behaviors work in virtual FS mode.
 - [x] Add tests for module graph load under `wosix`.
 
 ## Validation + LSP target awareness
@@ -63,9 +63,9 @@ Scope: run PHPX inside browser via `wosix` host profile
 
 - [ ] Runtime smoke tests in `wosix`:
   - [ ] basic PHPX eval
-  - [ ] imports/module graph
+  - [x] imports/module graph
   - [ ] JSX render-to-string
-  - [ ] filesystem read/write
+  - [x] filesystem read/write
 - [x] Negative tests: capability denied errors for blocked APIs.
 - [ ] Browser e2e: edit -> run -> output updates in playground.
 

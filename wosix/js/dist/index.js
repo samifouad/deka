@@ -1,4 +1,5 @@
-export { DekaBrowserRuntime, DekaBrowserServer } from "./deka_runtime";
+export { DekaBrowserRuntime, DekaBrowserServer } from "./deka_runtime.js";
+export { createPhpHostBridge, PhpHostBridge } from "./phpx_host_bridge.js";
 export class WebContainer {
     static async boot(bindings, options = {}) {
         const init = options.init ?? bindings.default;
@@ -192,7 +193,8 @@ class NodeShimRuntime {
         return proc;
     }
     runProcess(proc, args, options) {
-        const cwdRef = { value: normalizePath(options?.cwd ?? "/") };
+        const projectRoot = normalizePath(options?.cwd ?? "/");
+        const cwdRef = { value: projectRoot };
         const env = { ...(options?.env ?? {}) };
         const argv = ["node", ...args];
         const moduleCache = new Map();
@@ -223,6 +225,7 @@ class NodeShimRuntime {
         const require = createRequire({
             fs: this.fs,
             cwdRef,
+            projectRoot,
             decoder: this.decoder,
             encoder: this.encoder,
             moduleCache,
@@ -471,10 +474,7 @@ function createRequire(options) {
         if (specifier === "buffer") {
             return { Buffer: BufferShim };
         }
-        if (!specifier.startsWith(".") && !specifier.startsWith("/")) {
-            throw new Error(`Unsupported module: ${specifier}`);
-        }
-        const resolved = resolvePath(options.cwdRef.value, specifier);
+        const resolved = resolveRequireSpecifier(options.fs, options.cwdRef.value, options.projectRoot, specifier);
         const filename = resolveModuleFile(options.fs, resolved);
         const cached = options.moduleCache.get(filename);
         if (cached) {
@@ -574,6 +574,53 @@ function resolvePath(cwd, path) {
         return normalizePath(path);
     }
     return normalizePath(`${cwd}/${path}`);
+}
+function resolveRequireSpecifier(fs, cwd, projectRoot, specifier) {
+    if (specifier.startsWith("/")) {
+        return normalizePath(specifier);
+    }
+    if (specifier.startsWith("./") || specifier.startsWith("../")) {
+        return resolvePath(cwd, specifier);
+    }
+    if (specifier.startsWith("@/")) {
+        return normalizePath(`${projectRoot}/${specifier.slice(2)}`);
+    }
+    const moduleRoot = normalizePath(`${projectRoot}/php_modules/${specifier}`);
+    return resolveBareModuleSpecifier({
+        fs,
+        moduleRoot,
+        projectRoot,
+        specifier,
+    });
+}
+function resolveBareModuleSpecifier(options) {
+    const { fs, moduleRoot, projectRoot, specifier } = options;
+    if (!fs) {
+        return moduleRoot;
+    }
+    if (hasModuleEntry(fs, moduleRoot)) {
+        return moduleRoot;
+    }
+    const cacheRoot = normalizePath(`${projectRoot}/php_modules/.cache/${specifier}`);
+    if (hasModuleEntry(fs, cacheRoot)) {
+        return cacheRoot;
+    }
+    return moduleRoot;
+}
+function hasModuleEntry(fs, root) {
+    const candidates = [
+        root,
+        `${root}.js`,
+        `${root}.json`,
+        `${root}/index.js`,
+        `${root}/index.json`,
+    ];
+    for (const candidate of candidates) {
+        if (fileType(fs, candidate) === "file") {
+            return true;
+        }
+    }
+    return false;
 }
 function resolveModuleFile(fs, path) {
     const candidates = [
