@@ -82,5 +82,5 @@ Scope: run PHPX inside browser via `wosix` host profile
 ## Exit Criteria
 
 - [ ] PHPX runs in browser via `wosix` with module imports and JSX SSR output.
-- [ ] Capability errors are explicit and stable.
-- [ ] LSP can validate against `wosix` target mode.
+- [x] Capability errors are explicit and stable.
+- [x] LSP can validate against `wosix` target mode.
