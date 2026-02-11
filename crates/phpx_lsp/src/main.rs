@@ -2387,7 +2387,7 @@ fn target_capability_diagnostics(source: &str, target_mode: TargetMode) -> Vec<D
     let line_index = LineIndex::new(source);
     let mut diagnostics = Vec::new();
     for import in imports {
-        if let Some(reason) = wosix_capability_reason(&import.from) {
+        if let Some(block) = wosix_capability_block(&import.from) {
             diagnostics.push(Diagnostic {
                 range: span_to_range(import.module_span.unwrap_or(import.span), &line_index),
                 severity: Some(DiagnosticSeverity::ERROR),
@@ -2396,8 +2396,8 @@ fn target_capability_diagnostics(source: &str, target_mode: TargetMode) -> Vec<D
                 )),
                 source: Some("phpx".to_string()),
                 message: format!(
-                    "Target Capability Error: Module '{}' is unavailable for target 'wosix' ({reason}).",
-                    import.from
+                    "Target Capability Error: Module '{}' is unavailable for target 'wosix' ({}).\nhelp: {}",
+                    import.from, block.reason, block.suggestion
                 ),
                 ..Diagnostic::default()
             });
@@ -2406,7 +2406,12 @@ fn target_capability_diagnostics(source: &str, target_mode: TargetMode) -> Vec<D
     diagnostics
 }
 
-fn wosix_capability_reason(module_spec: &str) -> Option<&'static str> {
+struct CapabilityBlock {
+    reason: &'static str,
+    suggestion: &'static str,
+}
+
+fn wosix_capability_block(module_spec: &str) -> Option<CapabilityBlock> {
     if module_spec == "db"
         || module_spec.starts_with("db/")
         || module_spec == "postgres"
@@ -2416,14 +2421,20 @@ fn wosix_capability_reason(module_spec: &str) -> Option<&'static str> {
         || module_spec == "sqlite"
         || module_spec.starts_with("sqlite/")
     {
-        return Some("database host capability is disabled");
+        return Some(CapabilityBlock {
+            reason: "database host capability is disabled",
+            suggestion: "Run with `phpx.target = server` or move database access behind a server endpoint.",
+        });
     }
     if module_spec == "process"
         || module_spec.starts_with("process/")
         || module_spec == "env"
         || module_spec.starts_with("env/")
     {
-        return Some("process/env host capability is disabled");
+        return Some(CapabilityBlock {
+            reason: "process/env host capability is disabled",
+            suggestion: "Inject values through app config/context instead of reading process/env in `wosix`.",
+        });
     }
     None
 }
@@ -3127,6 +3138,7 @@ mod tests {
         assert_eq!(diagnostics.len(), 1, "diagnostics={diagnostics:?}");
         let first = &diagnostics[0];
         assert!(first.message.contains("db/postgres"), "message={}", first.message);
+        assert!(first.message.contains("help:"), "message={}", first.message);
         assert_eq!(
             first.code,
             Some(tower_lsp::lsp_types::NumberOrString::String(

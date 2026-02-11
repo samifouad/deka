@@ -50,7 +50,7 @@ Scope: run PHPX inside browser via `wosix` host profile
 
 - [x] Add target-mode setting for diagnostics: `phpx.target = server|wosix`.
 - [x] Emit capability-aware errors (forbidden modules/APIs in target host).
-- [ ] Keep suggestions actionable (e.g. alternate API or host config).
+- [x] Keep suggestions actionable (e.g. alternate API or host config).
 - [x] Add LSP tests for target-specific diagnostics.
 
 ## DX + Tooling
