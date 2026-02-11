@@ -41,12 +41,13 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 
 ## Phase C: Runtime + Module Loader
 
-- [ ] Add async completion path in internal bridge pipeline (no userland bridge exposure).
+- [x] Add async completion path in internal bridge pipeline (no userland bridge exposure).
 - [ ] Ensure module loader supports async initialization dependencies.
 - [x] Add deterministic TLA cycle detection with path details.
 - [x] `deka run` waits for module graph async completion.
 - [x] `deka serve` resolves graph before serving first request.
 - [ ] Tests: ordering, dependency waiting, cycle errors.
+  Note: module-scope `await` inside cached `php_modules/.cache/phpx/*.php` still parses in PHP mode; loader-side parse mode/caching semantics need adjustment before this can be completed end-to-end.
 
 ## Phase D: Std Module API split (Node-style)
 

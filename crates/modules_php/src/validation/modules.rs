@@ -393,7 +393,7 @@ fn collect_exports(source: &str, file_path: &str) -> HashSet<String> {
         if consume_comment_line(trimmed, &mut in_block_comment) {
             continue;
         }
-        if trimmed.starts_with("export function") {
+        if trimmed.starts_with("export function") || trimmed.starts_with("export async function") {
             if let Ok(spec) = parse_export_function(trimmed, line, idx + 1, file_path) {
                 exports.insert(spec.name);
             }

@@ -51,7 +51,7 @@ pub fn validate_exports(source: &str, file_path: &str, program: &Program) -> Vec
             continue;
         }
 
-        if trimmed.starts_with("export function") {
+        if trimmed.starts_with("export function") || trimmed.starts_with("export async function") {
             if is_template {
                 errors.push(export_error(
                     idx + 1,
@@ -184,6 +184,14 @@ pub(crate) fn parse_export_function(
         .strip_prefix("export")
         .unwrap_or(line)
         .trim_start()
+        .strip_prefix("async")
+        .map(|tail| tail.trim_start())
+        .unwrap_or_else(|| {
+            line.trim_start()
+                .strip_prefix("export")
+                .unwrap_or(line)
+                .trim_start()
+        })
         .strip_prefix("function")
         .ok_or_else(|| {
             export_error_with_suggestion(
@@ -191,7 +199,7 @@ pub(crate) fn parse_export_function(
                 find_column(raw_line, "export"),
                 line.trim().len(),
                 format!("Invalid export syntax in {}.", file_path),
-                "Use `export function name(...)`.",
+                "Use `export function name(...)` or `export async function name(...)`.",
                 Some("export function name() { }"),
             )
         })?
