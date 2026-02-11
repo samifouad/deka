@@ -532,7 +532,7 @@ const PHPX_MARKER = '/*__DEKA_PHPX__*/';
 const PHPX_INTERNAL_MARKER = '/*__DEKA_PHPX_INTERNAL__*/';
 const PHP_SAPI_MARKER_PREFIX = '/*__DEKA_PHP_SAPI:';
 const PHPX_CACHE_VERSION = 1;
-const PHPX_COMPILER_ID = 'phpx-cache-v1';
+const PHPX_COMPILER_ID = 'phpx-cache-v3';
 function buildSapiMarker(value) {
     return `${PHP_SAPI_MARKER_PREFIX}${value}__*/\n`;
 }
@@ -1860,10 +1860,10 @@ function compilePhpxSource(source, moduleId, options = {}) {
         throw new Error(`phpx namespaces are not supported yet (${moduleId}).`);
     }
     const exports = [];
-    const exportRegex = /export\s+function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/g;
-    working = working.replace(exportRegex, (_match, name)=>{
+    const exportRegex = /export\s+(async\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/g;
+    working = working.replace(exportRegex, (_match, asyncPrefix, name)=>{
         exports.push(name);
-        return `function ${name}(`;
+        return `${asyncPrefix || ''}function ${name}(`;
     });
     const stripTypes = options.stripTypes !== false;
     if (stripTypes) {
@@ -4798,6 +4798,7 @@ function normalizeRequestUrl(request) {
     }
 }
 const __phpServeRouteCache = new Map();
+const __phpServeApiCache = new Map();
 function splitRequestPath(pathname) {
     const clean = String(pathname || '/').split('?')[0].split('#')[0];
     return clean.split('/').filter(Boolean).map((segment)=>{
@@ -4816,6 +4817,19 @@ function safeReadDir(path) {
     } catch (_err) {
         return null;
     }
+}
+function isDirEntry(entry) {
+    if (!entry) return false;
+    if (typeof entry.isDirectory === 'function') return !!entry.isDirectory();
+    if (typeof entry.is_dir === 'boolean') return entry.is_dir;
+    if (typeof entry.isDir === 'boolean') return entry.isDir;
+    if (typeof entry.kind === 'string') return entry.kind === 'directory';
+    return false;
+}
+function isLikelyDirectory(absDir, entry) {
+    if (isDirEntry(entry)) return true;
+    const probe = safeReadDir(globalThis.path.join(absDir, String(entry && entry.name ? entry.name : '')));
+    return Array.isArray(probe);
 }
 function isDirectoryPath(path) {
     const entries = safeReadDir(path);
@@ -4914,7 +4928,7 @@ function buildAppRouteManifest(appDir) {
         const entries = safeReadDir(absDir);
         if (!entries) return;
         for (const entry of entries){
-            const isDir = typeof entry.isDirectory === 'function' ? entry.isDirectory() : !!entry.is_dir;
+            const isDir = isLikelyDirectory(absDir, entry);
             if (isDir) {
                 walk(globalThis.path.join(absDir, entry.name), relSegments.concat([
                     entry.name
@@ -4963,6 +4977,85 @@ function buildAppRouteManifest(appDir) {
     };
     __phpServeRouteCache.set(appDir, manifest);
     return manifest;
+}
+function buildApiRouteManifest(apiDir) {
+    const cached = __phpServeApiCache.get(apiDir);
+    if (cached) return cached;
+    const routes = [];
+    const walk = (absDir, relSegments)=>{
+        const entries = safeReadDir(absDir);
+        if (!entries) return;
+        for (const entry of entries){
+            const isDir = isLikelyDirectory(absDir, entry);
+            if (isDir) {
+                walk(globalThis.path.join(absDir, entry.name), relSegments.concat([
+                    entry.name
+                ]));
+                continue;
+            }
+            const fileName = String(entry.name || '');
+            if (!(fileName.endsWith('.phpx') || fileName.endsWith('.php'))) continue;
+            const noExt = fileName.replace(/\.(phpx|php)$/i, '');
+            const method = noExt.toUpperCase();
+            const isHttpVerb = [
+                'GET',
+                'POST',
+                'PUT',
+                'PATCH',
+                'DELETE',
+                'OPTIONS',
+                'HEAD'
+            ].includes(method);
+            const routeSegments = relSegments.slice();
+            if (!isHttpVerb && noExt !== 'index') {
+                routeSegments.push(noExt);
+            }
+            routes.push({
+                file: globalThis.path.join(absDir, fileName),
+                method: isHttpVerb ? method : 'ANY',
+                tokens: routeSegments.map(parseRouteToken),
+                score: routeSpecificity(routeSegments.map(parseRouteToken))
+            });
+        }
+    };
+    walk(apiDir, []);
+    routes.sort((a, b)=>{
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.tokens.length !== a.tokens.length) return b.tokens.length - a.tokens.length;
+        if (a.method !== b.method) {
+            if (a.method === 'ANY') return 1;
+            if (b.method === 'ANY') return -1;
+        }
+        return a.file < b.file ? -1 : a.file > b.file ? 1 : 0;
+    });
+    const manifest = {
+        apiDir,
+        routes
+    };
+    __phpServeApiCache.set(apiDir, manifest);
+    return manifest;
+}
+function resolvePhpApiRoute(rootDir, pathname, method) {
+    const path = String(pathname || '/');
+    if (!(path === '/api' || path.startsWith('/api/'))) {
+        return null;
+    }
+    const apiDir = globalThis.path.join(rootDir, 'api');
+    if (!isDirectoryPath(apiDir)) return null;
+    const manifest = buildApiRouteManifest(apiDir);
+    const cleanPath = path === '/api' ? '/' : path.slice('/api'.length) || '/';
+    const urlSegments = splitRequestPath(cleanPath);
+    const reqMethod = String(method || 'GET').toUpperCase();
+    for (const route of manifest.routes){
+        if (route.method !== 'ANY' && route.method !== reqMethod) continue;
+        const params = matchRouteTokens(route.tokens, urlSegments);
+        if (params === null) continue;
+        return {
+            file: route.file,
+            params
+        };
+    }
+    return null;
 }
 function resolvePhpDirectoryRoute(rootDir, pathname) {
     const appDir = globalThis.path.join(rootDir, 'app');
@@ -5363,12 +5456,14 @@ function servePhp(phpFile) {
                 const accept = headers.accept || headers.Accept || '';
                 const searchParams = url.searchParams || new URLSearchParams(url.search || '');
                 const wantsPartial = searchParams.get('partial') === '1' || String(accept).includes('text/x-phpx-fragment');
-                const defaultContentType = wantsPartial ? 'application/json; charset=utf-8' : 'text/html; charset=utf-8';
+                const isApiPath = String(url.pathname || '/').startsWith('/api');
+                const defaultContentType = isApiPath ? 'application/json; charset=utf-8' : wantsPartial ? 'application/json; charset=utf-8' : 'text/html; charset=utf-8';
                 let targetFile = phpFile;
                 let routeParams = {};
                 let routeLayouts = [];
                 if (isDirectoryPath(phpFile)) {
-                    const resolved = resolvePhpDirectoryRoute(phpFile, url.pathname || '/');
+                    const resolvedApi = resolvePhpApiRoute(phpFile, url.pathname || '/', request.method || 'GET');
+                    const resolved = resolvedApi || resolvePhpDirectoryRoute(phpFile, url.pathname || '/');
                     if (!resolved || !resolved.file || !fileExists(resolved.file)) {
                         return new Response('Not Found', {
                             status: 404,
