@@ -16,6 +16,6 @@ echo "[wosix-smoke] wasm artifact ready: $WASM_PATH"
 
 echo "[wosix-smoke] validating runtime host profile gating tests"
 cargo test -p php-rs --release runtime::context::tests::host_capabilities_for_wosix_limits_db_and_env -- --nocapture
-cargo test -p php-rs --release builtins::wasm::tests::bridge_is_gated_by_host_capability -- --nocapture
+cargo test -p phpx_lsp --release target_capability_diagnostics_block_db_modules_for_wosix -- --nocapture
 
 echo "[wosix-smoke] complete"
