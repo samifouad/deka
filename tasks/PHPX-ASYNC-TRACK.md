@@ -71,14 +71,14 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 - [x] Hovers/signatures for `async` and `Promise<T>`.
 - [x] JSX diagnostics for async component + `Suspense` requirements.
 - [x] Completion updates for async and sync API variants.
-- [ ] VS Code regression checks.
+- [x] VS Code regression checks.
 
 ## Phase G: Docs
 
-- [ ] Add `docs/phpx/general/async-await.mdx`.
-- [ ] Add top-level await section with cycle caveats and examples.
-- [ ] Add async JSX + `Suspense` usage examples.
-- [ ] Add PHP vs PHPX async behavior note.
+- [x] Add `docs/phpx/general/async-await.mdx`.
+- [x] Add top-level await section with cycle caveats and examples.
+- [x] Add async JSX + `Suspense` usage examples.
+- [x] Add PHP vs PHPX async behavior note.
 
 ## Exit Criteria
 
