@@ -28,7 +28,7 @@ Scope: run PHPX inside browser via `wosix` host profile
   - [x] `clock/random`
   - [x] `db`
   - [x] `wasm imports`
-  - Note: runtime gating is implemented; validation/LSP target-aware diagnostics are still pending.
+  - Note: runtime gating and LSP target-aware diagnostics for restricted imports are implemented; compiler validation pass is still pending.
 - [x] Ensure unsupported operations return structured capability errors.
 
 ## Runtime Integration
@@ -48,10 +48,10 @@ Scope: run PHPX inside browser via `wosix` host profile
 
 ## Validation + LSP target awareness
 
-- [ ] Add target-mode setting for diagnostics: `phpx.target = server|wosix`.
-- [ ] Emit capability-aware errors (forbidden modules/APIs in target host).
+- [x] Add target-mode setting for diagnostics: `phpx.target = server|wosix`.
+- [x] Emit capability-aware errors (forbidden modules/APIs in target host).
 - [ ] Keep suggestions actionable (e.g. alternate API or host config).
-- [ ] Add LSP tests for target-specific diagnostics.
+- [x] Add LSP tests for target-specific diagnostics.
 
 ## DX + Tooling
 

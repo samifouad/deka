@@ -29,6 +29,36 @@ struct Backend {
     _client: Client,
     documents: Arc<RwLock<HashMap<Url, String>>>,
     workspace_roots: Arc<RwLock<Vec<PathBuf>>>,
+    target_mode: Arc<RwLock<TargetMode>>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
+enum TargetMode {
+    #[default]
+    Server,
+    Wosix,
+}
+
+impl TargetMode {
+    fn from_initialize_params(params: &InitializeParams) -> Self {
+        let Some(options) = params.initialization_options.as_ref() else {
+            return Self::Server;
+        };
+        let Some(root) = options.as_object() else {
+            return Self::Server;
+        };
+        let Some(phpx) = root.get("phpx").and_then(|value| value.as_object()) else {
+            return Self::Server;
+        };
+        let Some(target) = phpx.get("target").and_then(|value| value.as_str()) else {
+            return Self::Server;
+        };
+        if target.eq_ignore_ascii_case("wosix") {
+            Self::Wosix
+        } else {
+            Self::Server
+        }
+    }
 }
 
 impl Backend {
@@ -37,6 +67,7 @@ impl Backend {
         let result = compile_phpx(text, file_path, &arena);
         let mut diagnostics = Vec::new();
         let workspace_roots = self.workspace_roots.read().await.clone();
+        let target_mode = *self.target_mode.read().await;
         let unresolved_imports = unresolved_import_diagnostics(text, file_path, &workspace_roots);
         let unresolved_ranges: std::collections::HashSet<(u32, u32, u32, u32)> = unresolved_imports
             .iter()
@@ -64,6 +95,7 @@ impl Backend {
             diagnostics.push(diagnostic_from_warning(file_path, text, &warning));
         }
         diagnostics.extend(unresolved_imports);
+        diagnostics.extend(target_capability_diagnostics(text, target_mode));
         diagnostics
     }
 
@@ -98,6 +130,8 @@ fn should_skip_template_html_diagnostic(error: &ValidationError) -> bool {
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, params: InitializeParams) -> tower_lsp::jsonrpc::Result<InitializeResult> {
+        let target_mode = TargetMode::from_initialize_params(&params);
+        *self.target_mode.write().await = target_mode;
         let mut roots = Vec::new();
         if let Some(folders) = params.workspace_folders {
             for folder in folders {
@@ -505,6 +539,7 @@ async fn main() {
         _client: client,
         documents: Arc::new(RwLock::new(HashMap::new())),
         workspace_roots: Arc::new(RwLock::new(Vec::new())),
+        target_mode: Arc::new(RwLock::new(TargetMode::default())),
     });
     Server::new(tokio::io::stdin(), tokio::io::stdout(), socket)
         .serve(service)
@@ -2339,6 +2374,60 @@ fn unresolved_import_diagnostics(
     diagnostics
 }
 
+fn target_capability_diagnostics(source: &str, target_mode: TargetMode) -> Vec<Diagnostic> {
+    if target_mode == TargetMode::Server {
+        return Vec::new();
+    }
+
+    let imports = parse_imports(source);
+    if imports.is_empty() {
+        return Vec::new();
+    }
+
+    let line_index = LineIndex::new(source);
+    let mut diagnostics = Vec::new();
+    for import in imports {
+        if let Some(reason) = wosix_capability_reason(&import.from) {
+            diagnostics.push(Diagnostic {
+                range: span_to_range(import.module_span.unwrap_or(import.span), &line_index),
+                severity: Some(DiagnosticSeverity::ERROR),
+                code: Some(tower_lsp::lsp_types::NumberOrString::String(
+                    "Target Capability Error".to_string(),
+                )),
+                source: Some("phpx".to_string()),
+                message: format!(
+                    "Target Capability Error: Module '{}' is unavailable for target 'wosix' ({reason}).",
+                    import.from
+                ),
+                ..Diagnostic::default()
+            });
+        }
+    }
+    diagnostics
+}
+
+fn wosix_capability_reason(module_spec: &str) -> Option<&'static str> {
+    if module_spec == "db"
+        || module_spec.starts_with("db/")
+        || module_spec == "postgres"
+        || module_spec.starts_with("postgres/")
+        || module_spec == "mysql"
+        || module_spec.starts_with("mysql/")
+        || module_spec == "sqlite"
+        || module_spec.starts_with("sqlite/")
+    {
+        return Some("database host capability is disabled");
+    }
+    if module_spec == "process"
+        || module_spec.starts_with("process/")
+        || module_spec == "env"
+        || module_spec.starts_with("env/")
+    {
+        return Some("process/env host capability is disabled");
+    }
+    None
+}
+
 fn completion_for_annotation(source: &str, offset: usize) -> Option<Vec<CompletionItem>> {
     let line_start = source[..offset.min(source.len())]
         .rfind('\n')
@@ -2972,6 +3061,7 @@ fn find_word_occurrences(source: &[u8], word: &str) -> Vec<Span> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -3011,6 +3101,45 @@ mod tests {
         assert_eq!(spans.len(), 2);
         assert_eq!(&src[spans[0].start..spans[0].end], "db/postgres");
         assert_eq!(&src[spans[1].start..spans[1].end], "db/postgres");
+    }
+
+    #[test]
+    fn target_mode_defaults_to_server() {
+        let params = InitializeParams::default();
+        assert_eq!(TargetMode::from_initialize_params(&params), TargetMode::Server);
+    }
+
+    #[test]
+    fn target_mode_reads_wosix_from_init_options() {
+        let mut params = InitializeParams::default();
+        params.initialization_options = Some(json!({
+            "phpx": {
+                "target": "wosix"
+            }
+        }));
+        assert_eq!(TargetMode::from_initialize_params(&params), TargetMode::Wosix);
+    }
+
+    #[test]
+    fn target_capability_diagnostics_block_db_modules_for_wosix() {
+        let source = "import { query } from 'db/postgres'\n";
+        let diagnostics = target_capability_diagnostics(source, TargetMode::Wosix);
+        assert_eq!(diagnostics.len(), 1, "diagnostics={diagnostics:?}");
+        let first = &diagnostics[0];
+        assert!(first.message.contains("db/postgres"), "message={}", first.message);
+        assert_eq!(
+            first.code,
+            Some(tower_lsp::lsp_types::NumberOrString::String(
+                "Target Capability Error".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn target_capability_diagnostics_allow_db_modules_for_server() {
+        let source = "import { query } from 'db/postgres'\n";
+        let diagnostics = target_capability_diagnostics(source, TargetMode::Server);
+        assert!(diagnostics.is_empty(), "diagnostics={diagnostics:?}");
     }
 
     #[test]
