@@ -145,6 +145,7 @@ try {
     });
     const executor = createPhpRuntimeWasmExecutor({
       moduleUrl: new URL("./vendor/wosix_js/php_runtime.js", import.meta.url).toString(),
+      bridge,
     });
     phpAdapterRef = createPhpRuntimeAdapter({ bridge, executor });
 

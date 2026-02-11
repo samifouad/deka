@@ -4,6 +4,8 @@ import type {
   PhpRunResult,
   PhpRuntimeExecutor,
 } from "./phpx_runtime_adapter.js";
+import type { PhpHostBridge } from "./phpx_host_bridge.js";
+import { configurePhpRuntimeHost } from "./env.js";
 
 type PhpRuntimeWasmExports = {
   memory: WebAssembly.Memory;
@@ -18,16 +20,19 @@ type PhpRuntimeWasmInit = (
 
 export type PhpRuntimeWasmExecutorOptions = {
   moduleUrl: string;
+  bridge: PhpHostBridge;
 };
 
 export class PhpRuntimeWasmExecutor implements PhpRuntimeExecutor {
   private readonly moduleUrl: string;
+  private readonly bridge: PhpHostBridge;
   private runtime: PhpRuntimeWasmExports | null = null;
   private readonly encoder = new TextEncoder();
   private readonly decoder = new TextDecoder();
 
   constructor(options: PhpRuntimeWasmExecutorOptions) {
     this.moduleUrl = options.moduleUrl;
+    this.bridge = options.bridge;
   }
 
   async run(source: string, mode: PhpRunMode, context: PhpRunContext): Promise<PhpRunResult> {
@@ -90,6 +95,54 @@ export class PhpRuntimeWasmExecutor implements PhpRuntimeExecutor {
     }
     const wasmUrl = this.moduleUrl.replace(/\.js$/, "_bg.wasm");
     this.runtime = await mod.default(wasmUrl);
+    configurePhpRuntimeHost({
+      getMemory: () => this.runtime?.memory ?? null,
+      alloc: (size: number) => {
+        if (!this.runtime) {
+          throw new Error("php runtime not initialized");
+        }
+        return this.runtime.php_alloc(size) >>> 0;
+      },
+      fsRead: (path: string) => {
+        const out = this.bridge.call({
+          kind: "fs",
+          action: "readFile",
+          payload: { path },
+        });
+        if (!out.ok || !out.value || typeof out.value !== "object") {
+          return null;
+        }
+        const data = (out.value as { data?: unknown }).data;
+        return toBytes(data);
+      },
+      fsExists: (path: string) => {
+        const out = this.bridge.call({
+          kind: "fs",
+          action: "stat",
+          payload: { path },
+        });
+        return out.ok;
+      },
+      hostCall: (kind: string, action: string, payload: unknown) => {
+        const out = this.bridge.call({
+          kind,
+          action,
+          payload: asRecord(payload),
+        });
+        if (out.ok) {
+          return out.value;
+        }
+        return { __deka_error: out.error };
+      },
+      wasmCall: (_moduleId: string, _exportName: string, _payload: unknown) => {
+        return {
+          __deka_error: "wasm host imports are not wired in browser runtime yet",
+        };
+      },
+      log: (_message: string) => {
+        // quiet in tests by default
+      },
+    });
     return this.runtime;
   }
 }
@@ -140,4 +193,33 @@ function readU32(bytes: Uint8Array, offset: number): number {
     (bytes[offset + 2] << 16) |
     (bytes[offset + 3] << 24)
   ) >>> 0;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function toBytes(input: unknown): Uint8Array | null {
+  if (input instanceof Uint8Array) return input;
+  if (ArrayBuffer.isView(input)) {
+    const view = input as ArrayBufferView;
+    return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+  }
+  if (input instanceof ArrayBuffer) {
+    return new Uint8Array(input);
+  }
+  if (Array.isArray(input)) {
+    const out = new Uint8Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      out[i] = Number(input[i]) & 0xff;
+    }
+    return out;
+  }
+  if (typeof input === "string") {
+    return new TextEncoder().encode(input);
+  }
+  return null;
 }
