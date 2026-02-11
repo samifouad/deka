@@ -27,6 +27,36 @@
         min-height: 180px;
         white-space: pre-wrap;
       }
+      .editor {
+        margin-top: 14px;
+        display: grid;
+        gap: 8px;
+      }
+      .editor textarea {
+        width: 100%;
+        min-height: 180px;
+        border-radius: 8px;
+        border: 1px solid #2b3441;
+        background: #0b0d10;
+        color: #e6edf3;
+        font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+      .editor button {
+        width: max-content;
+        border-radius: 8px;
+        border: 1px solid #3a4556;
+        background: #1b2330;
+        color: #e6edf3;
+        padding: 8px 14px;
+        cursor: pointer;
+      }
+      .editor button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
       .muted {
         color: #9aa4b2;
       }
@@ -38,6 +68,10 @@
       <p class="muted">
         Default runs the Node-like shim. Use <code>?demo=deka</code> for the Deka stub.
       </p>
+      <div class="editor" id="playground">
+        <textarea id="source">console.log('hello from wosix node shim')</textarea>
+        <button id="runBtn" type="button">Run</button>
+      </div>
       <div id="log" class="log">Booting...</div>
     </div>
     <script type="module" src="./main.js"></script>

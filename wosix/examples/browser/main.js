@@ -1,24 +1,65 @@
-import * as wasm from "../../crates/wosix-wasm/pkg/wosix_wasm.js";
-import { DekaBrowserRuntime, WebContainer } from "../../js/dist/index.js";
+import * as wasm from "./vendor/wosix_wasm/wosix_wasm.js";
+import { DekaBrowserRuntime, WebContainer } from "./vendor/wosix_js/index.js";
 
 const logEl = document.getElementById("log");
+const sourceEl = document.getElementById("source");
+const runBtn = document.getElementById("runBtn");
+const playgroundEl = document.getElementById("playground");
 const decoder = new TextDecoder();
 const params = new URLSearchParams(window.location.search);
 const nodeRuntime = params.get("node") === "wasm" ? "wasm" : "shim";
 const demo = params.get("demo") ?? "node";
+let containerRef = null;
 
 const log = (message) => {
   logEl.textContent += `\n${message}`;
 };
 
+const resetLog = (message) => {
+  logEl.textContent = message;
+};
+
+const runNodeScript = async () => {
+  if (!containerRef) {
+    throw new Error("container is not ready");
+  }
+  if (!(sourceEl instanceof HTMLTextAreaElement)) {
+    throw new Error("missing source editor");
+  }
+
+  const code = sourceEl.value;
+  await containerRef.mount({
+    "index.js": {
+      file: code,
+    },
+  });
+
+  const proc = await containerRef.spawn("node", ["index.js"]);
+  const status = await proc.exit();
+  const output = await proc.readOutput();
+
+  resetLog("Run complete.");
+  if (output && output.length > 0) {
+    log(decoder.decode(output));
+  } else {
+    log("(no output)");
+  }
+  log(`Exit code: ${status.code}`);
+};
+
 try {
-  logEl.textContent = "Loading wasm...";
+  resetLog("Loading wasm...");
   const container = await WebContainer.boot(wasm, {
     init: wasm.default,
     nodeRuntime,
     nodeWasm: nodeRuntime === "wasm" ? { url: "./node.wasm" } : undefined,
   });
+  containerRef = container;
+
   if (demo === "deka") {
+    if (playgroundEl instanceof HTMLElement) {
+      playgroundEl.style.display = "none";
+    }
     log("Demo: deka");
     await container.mount({
       "handler.js": {
@@ -35,28 +76,27 @@ try {
     log(`Deka response: ${response.status} ${text}`);
   } else {
     log(`Node runtime: ${nodeRuntime}`);
-    const greeting =
-      nodeRuntime === "wasm" ? "hello from wosix node wasm" : "hello from wosix node shim";
-    await container.mount({
-      "index.js": {
-        file: `console.log('${greeting}');`,
-      },
-    });
-    log("Mounted /index.js");
-
-    try {
-      const proc = await container.spawn("node", ["index.js"]);
-      const status = await proc.exit();
-      const output = await proc.readOutput();
-      if (output) {
-        log(decoder.decode(output));
-      } else {
-        log("No output from process.");
-      }
-      log(`Exit code: ${status.code}`);
-    } catch (err) {
-      log(`Spawn failed: ${err instanceof Error ? err.message : String(err)}`);
+    const greeting = nodeRuntime === "wasm"
+      ? "hello from wosix node wasm"
+      : "hello from wosix node shim";
+    if (sourceEl instanceof HTMLTextAreaElement) {
+      sourceEl.value = `console.log('${greeting}')`;
     }
+
+    if (runBtn instanceof HTMLButtonElement) {
+      runBtn.addEventListener("click", async () => {
+        runBtn.disabled = true;
+        try {
+          await runNodeScript();
+        } catch (err) {
+          resetLog("Run failed.");
+          log(err instanceof Error ? err.message : String(err));
+        } finally {
+          runBtn.disabled = false;
+        }
+      });
+    }
+
   }
 } catch (err) {
   log(`Error: ${err instanceof Error ? err.message : String(err)}`);

@@ -46,6 +46,7 @@ This script:
 1. builds `php-rs` for `wasm32-unknown-unknown` in `release`
 2. verifies the wasm artifact exists
 3. runs host-profile gating tests
+4. runs focused PHPX smoke cases (basic eval/imports/jsx/fs)
 
 Run the host-adapter bridge smoke checks:
 
@@ -57,6 +58,18 @@ This verifies:
 
 - capability denial behavior for blocked kinds (for example `db` in `wosix`)
 - fs action mapping (`readFile`, `writeFile`, `readdir`, `stat`) through the host adapter
+
+Run module graph smoke checks (`@/` alias, `php_modules`, cache fallback):
+
+```sh
+scripts/test-wosix-module-graph.sh
+```
+
+Run browser e2e for the playground (`edit -> run -> output update`):
+
+```sh
+scripts/test-wosix-playground-e2e.sh
+```
 
 ## Playground workflow
 
