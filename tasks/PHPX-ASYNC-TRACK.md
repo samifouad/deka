@@ -61,14 +61,14 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 - [ ] Permit components returning `Promise<VNode>`.
 - [ ] Add `Suspense` component with typed `fallback`.
 - [ ] Runtime behavior: fallback on unresolved subtree, resolved output on completion.
-- [ ] Validation: async component usage without `Suspense` errors with actionable hint.
+- [x] Validation: async component usage without `Suspense` errors with actionable hint.
 - [ ] Tests: async component render, nested async trees, fallback correctness.
 
 ## Phase F: LSP + Validation
 
 - [x] Diagnostics for invalid `await` usage/context.
 - [x] Hovers/signatures for `async` and `Promise<T>`.
-- [ ] JSX diagnostics for async component + `Suspense` requirements.
+- [x] JSX diagnostics for async component + `Suspense` requirements.
 - [x] Completion updates for async and sync API variants.
 - [ ] VS Code regression checks.
 

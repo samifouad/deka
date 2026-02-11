@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use bumpalo::Bump;
+use php_rs::phpx::typeck::check_program_with_path;
 use php_rs::parser::ast::BinaryOp;
 use php_rs::parser::ast::visitor::{Visitor, walk_expr};
 use php_rs::parser::ast::{Expr, ExprId, JsxAttribute, JsxChild, Name, Program, Stmt};
@@ -33,11 +34,17 @@ pub fn validate_jsx_expressions(program: &Program, source: &str) -> Vec<Validati
 
 pub fn validate_components(program: &Program, source: &str) -> Vec<ValidationError> {
     let mut known_components = collect_function_names(program, source);
+    let async_components = collect_async_function_names(program, source);
     known_components.extend(collect_imported_names(source));
+    known_components.insert("Link".to_string());
+    known_components.insert("ContextProvider".to_string());
+    known_components.insert("Suspense".to_string());
 
     let mut validator = JsxComponentValidator {
         source,
         known_components,
+        async_components,
+        suspense_depth: 0,
         errors: Vec::new(),
     };
     validator.visit_program(program);
@@ -128,20 +135,29 @@ pub fn validate_frontmatter(source: &str, file_path: &str) -> Vec<ValidationErro
 
 pub fn validate_template_section(source: &str, _file_path: &str) -> Vec<ValidationError> {
     let lines: Vec<&str> = source.lines().collect();
-    let Some((_, end)) = frontmatter_bounds(&lines) else {
+    let Some((start, end)) = frontmatter_bounds(&lines) else {
         return Vec::new();
     };
+    let frontmatter_lines: Vec<&str> = lines
+        .iter()
+        .skip(start + 1)
+        .take(end.saturating_sub(start + 1))
+        .copied()
+        .collect();
     let template_lines: Vec<&str> = lines.iter().skip(end + 1).copied().collect();
     if template_lines.iter().all(|line| line.trim().is_empty()) {
         return Vec::new();
     }
 
+    let frontmatter = frontmatter_lines.join("\n");
     let template = template_lines.join("\n");
-    let prefix = "function __phpx_template() {\n  return <__fragment__>\n";
-    let suffix = "\n  </__fragment__>;\n}\n";
-    let wrapped = format!("{prefix}{template}{suffix}");
+    let prefix = "\n$__phpx_template = <__fragment__>\n";
+    let suffix = "\n</__fragment__>;\n";
+    let wrapped = format!("{frontmatter}{prefix}{template}{suffix}");
 
+    let frontmatter_count = frontmatter.lines().count();
     let prefix_lines = prefix.lines().count();
+    let template_wrapped_start_line = frontmatter_count + prefix_lines + 1;
     let template_start_line = end + 2;
 
     let arena = Bump::new();
@@ -154,10 +170,10 @@ pub fn validate_template_section(source: &str, _file_path: &str) -> Vec<Validati
         let Some(info) = err.span.line_info(wrapped.as_bytes()) else {
             continue;
         };
-        if info.line <= prefix_lines {
+        if info.line < template_wrapped_start_line {
             continue;
         }
-        let template_line = info.line - prefix_lines;
+        let template_line = info.line - template_wrapped_start_line + 1;
         let original_line = template_start_line + template_line - 1;
         let padding = std::cmp::min(info.line_text.len(), info.column.saturating_sub(1));
         let underline_length = std::cmp::max(
@@ -176,7 +192,91 @@ pub fn validate_template_section(source: &str, _file_path: &str) -> Vec<Validati
         });
     }
 
+    if let Err(type_errors) = check_program_with_path(&program, wrapped.as_bytes(), None) {
+        for err in type_errors {
+            let Some(info) = err.span.line_info(wrapped.as_bytes()) else {
+                continue;
+            };
+            if info.line < template_wrapped_start_line {
+                continue;
+            }
+            let template_line = info.line - template_wrapped_start_line + 1;
+            let original_line = template_start_line + template_line - 1;
+            let mut line = original_line;
+            let mut column = info.column;
+            let mut underline_length = {
+                let padding = std::cmp::min(info.line_text.len(), info.column.saturating_sub(1));
+                std::cmp::max(
+                    1,
+                    std::cmp::min(err.span.len(), info.line_text.len().saturating_sub(padding)),
+                )
+            };
+            if let Some((tag_line, col, len)) = find_component_tag_location(
+                &err.message,
+                &lines,
+                template_start_line,
+                original_line,
+            ) {
+                line = tag_line;
+                column = col;
+                underline_length = len;
+            }
+            errors.push(ValidationError {
+                kind: ErrorKind::TypeError,
+                line,
+                column,
+                message: err.message,
+                help_text: "Fix template component props or expression typing.".to_string(),
+                suggestion: None,
+                underline_length,
+                severity: Severity::Error,
+            });
+        }
+    }
+
     errors
+}
+
+fn component_name_from_message(message: &str) -> Option<String> {
+    let marker = "component '";
+    let start = message.find(marker)? + marker.len();
+    let rest = &message[start..];
+    let end_rel = rest.find('\'')?;
+    let component = rest[..end_rel].trim();
+    if component.is_empty() {
+        return None;
+    }
+    Some(component.to_string())
+}
+
+fn find_component_tag_location(
+    message: &str,
+    lines: &[&str],
+    template_start_line: usize,
+    preferred_line: usize,
+) -> Option<(usize, usize, usize)> {
+    let component = component_name_from_message(message)?;
+    let needle = format!("<{}", component);
+    let mut best: Option<(usize, usize)> = None; // (line, col)
+    for line_no in template_start_line..=lines.len() {
+        let line_text = lines.get(line_no - 1).copied().unwrap_or("");
+        if let Some(idx) = line_text.find(&needle) {
+            let col = idx + 1; // 1-based
+            match best {
+                Some((best_line, _)) => {
+                    let best_dist = best_line.abs_diff(preferred_line);
+                    let this_dist = line_no.abs_diff(preferred_line);
+                    if this_dist < best_dist {
+                        best = Some((line_no, col));
+                    }
+                }
+                None => {
+                    best = Some((line_no, col));
+                }
+            }
+        }
+    }
+    best.map(|(line_no, col)| (line_no, col, needle.len()))
 }
 
 struct JsxSyntaxValidator<'a> {
@@ -357,30 +457,52 @@ impl<'ast> Visitor<'ast> for JsxExprValidator<'_> {
 struct JsxComponentValidator<'a> {
     source: &'a str,
     known_components: HashSet<String>,
+    async_components: HashSet<String>,
+    suspense_depth: usize,
     errors: Vec<ValidationError>,
 }
 
 impl<'ast> Visitor<'ast> for JsxComponentValidator<'_> {
     fn visit_expr(&mut self, expr: ExprId<'ast>) {
         if let Expr::JsxElement {
-            name, attributes, ..
-        } = expr
+            name,
+            attributes,
+            children,
+            ..
+        } = *expr
         {
-            self.validate_element(name, attributes);
+            let enters_suspense = self.validate_element(&name, attributes);
+            if enters_suspense {
+                self.suspense_depth += 1;
+            }
+            for attr in attributes.iter() {
+                if let Some(value) = attr.value {
+                    self.visit_expr(value);
+                }
+            }
+            for child in children.iter() {
+                if let JsxChild::Expr(inner) = *child {
+                    self.visit_expr(inner);
+                }
+            }
+            if enters_suspense {
+                self.suspense_depth = self.suspense_depth.saturating_sub(1);
+            }
+            return;
         }
         walk_expr(self, expr);
     }
 }
 
 impl JsxComponentValidator<'_> {
-    fn validate_element(&mut self, name: &Name, attributes: &[JsxAttribute]) {
+    fn validate_element(&mut self, name: &Name, attributes: &[JsxAttribute]) -> bool {
         let Some(raw) = name_to_string(name, self.source) else {
-            return;
+            return false;
         };
         let trimmed = raw.trim_start_matches('\\');
         let last = trimmed.rsplit('\\').next().unwrap_or(trimmed);
         if last.is_empty() {
-            return;
+            return false;
         }
 
         let mut chars = last.chars();
@@ -401,7 +523,7 @@ impl JsxComponentValidator<'_> {
                 ),
                 "Use a capitalized component name for components.",
             ));
-            return;
+            return false;
         }
 
         let directives: Vec<&JsxAttribute> = attributes
@@ -420,7 +542,7 @@ impl JsxComponentValidator<'_> {
                 "Island directives are only valid on components.".to_string(),
                 "Use `client:*` directives on a capitalized component tag.",
             ));
-            return;
+            return false;
         }
 
         if is_component && !self.known_components.contains(last) {
@@ -433,7 +555,7 @@ impl JsxComponentValidator<'_> {
                 ),
                 "Import the component or define a matching function.",
             ));
-            return;
+            return false;
         }
 
         if is_component {
@@ -448,8 +570,17 @@ impl JsxComponentValidator<'_> {
             for attr in directives {
                 self.validate_island_directive(attr);
             }
+            if self.async_components.contains(last) && self.suspense_depth == 0 && last != "Suspense" {
+                self.errors.push(jsx_error(
+                    name.span,
+                    self.source,
+                    format!("Async component '{}' must be wrapped in <Suspense>.", last),
+                    "Wrap this component in `<Suspense fallback={...}>...</Suspense>`.",
+                ));
+            }
             self.validate_props(last, attributes, name.span);
         }
+        is_component && last == "Suspense"
     }
 
     fn validate_island_directive(&mut self, attr: &JsxAttribute) {
@@ -515,6 +646,16 @@ impl JsxComponentValidator<'_> {
                     ));
                 }
             }
+            "Suspense" => {
+                if !attrs.contains("fallback") {
+                    self.errors.push(jsx_error(
+                        span,
+                        self.source,
+                        "Suspense requires prop 'fallback'.".to_string(),
+                        "Add a `fallback` prop, e.g. `<Suspense fallback={<div>Loading...</div>}>`.",
+                    ));
+                }
+            }
             _ => {}
         }
     }
@@ -526,6 +667,20 @@ fn collect_function_names(program: &Program, source: &str) -> HashSet<String> {
         if let Stmt::Function { name, .. } = stmt {
             if let Some(text) = token_text(name, source) {
                 names.insert(text);
+            }
+        }
+    }
+    names
+}
+
+fn collect_async_function_names(program: &Program, source: &str) -> HashSet<String> {
+    let mut names = HashSet::new();
+    for stmt in program.statements {
+        if let Stmt::Function { name, is_async, .. } = stmt {
+            if *is_async {
+                if let Some(text) = token_text(name, source) {
+                    names.insert(text);
+                }
             }
         }
     }
@@ -606,6 +761,58 @@ fn span_location(span: Span, source: &str) -> (usize, usize, usize) {
         (info.line, info.column, highlight_len)
     } else {
         (1, 1, 1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_components;
+    use bumpalo::Bump;
+    use php_rs::parser::lexer::Lexer;
+    use php_rs::parser::parser::{Parser, ParserMode};
+
+    #[test]
+    fn async_component_requires_suspense_wrapper() {
+        let source = r#"
+async function Card($props: Object<{ label: string }>): Promise<VNode> {
+    return <div>{$props.label}</div>
+}
+<div><Card label="x" /></div>
+"#;
+        let arena = Bump::new();
+        let mut parser = Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let errors = validate_components(&program, source);
+        assert!(
+            errors
+                .iter()
+                .any(|err| err.message.contains("must be wrapped in <Suspense>")),
+            "expected suspense wrapper error, got: {:?}",
+            errors
+        );
+    }
+
+    #[test]
+    fn suspense_with_fallback_allows_async_component() {
+        let source = r#"
+async function Card($props: Object<{ label: string }>): Promise<VNode> {
+    return <div>{$props.label}</div>
+}
+<Suspense fallback={<div>Loading</div>}>
+  <Card label="x" />
+</Suspense>
+"#;
+        let arena = Bump::new();
+        let mut parser = Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let errors = validate_components(&program, source);
+        assert!(
+            !errors
+                .iter()
+                .any(|err| err.message.contains("must be wrapped in <Suspense>")),
+            "unexpected suspense wrapper error: {:?}",
+            errors
+        );
     }
 }
 
