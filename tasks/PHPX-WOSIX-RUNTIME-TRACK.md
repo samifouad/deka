@@ -44,7 +44,7 @@ Scope: run PHPX inside browser via `wosix` host profile
 - [x] Support `@/` alias against virtual project root in `wosix`.
 - [x] Resolve `php_modules/` via mounted/virtual tree, not disk-only assumptions.
 - [ ] Ensure generated cache/lock behaviors work in virtual FS mode.
-- [ ] Add tests for module graph load under `wosix`.
+- [x] Add tests for module graph load under `wosix`.
 
 ## Validation + LSP target awareness
 

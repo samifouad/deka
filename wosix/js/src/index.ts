@@ -1,9 +1,14 @@
-export type { NodeWasmAdapter, NodeWasmExports } from "./node_wasm_adapter";
-import type { NodeWasmAdapter, NodeWasmExports } from "./node_wasm_adapter";
-export { DekaBrowserRuntime, DekaBrowserServer } from "./deka_runtime";
-export type { Handler, ServeOptions, RuntimeFs } from "./deka_runtime";
-export { createPhpHostBridge, PhpHostBridge } from "./phpx_host_bridge";
-export type { BridgeCallInput, BridgeCallOutput, HostCapabilities, HostTarget } from "./phpx_host_bridge";
+export type { NodeWasmAdapter, NodeWasmExports } from "./node_wasm_adapter.js";
+import type { NodeWasmAdapter, NodeWasmExports } from "./node_wasm_adapter.js";
+export { DekaBrowserRuntime, DekaBrowserServer } from "./deka_runtime.js";
+export type { Handler, ServeOptions, RuntimeFs } from "./deka_runtime.js";
+export { createPhpHostBridge, PhpHostBridge } from "./phpx_host_bridge.js";
+export type {
+  BridgeCallInput,
+  BridgeCallOutput,
+  HostCapabilities,
+  HostTarget,
+} from "./phpx_host_bridge.js";
 
 export type BootOptions = {
   init?: (module?: WebAssembly.Module | ArrayBuffer | Response) => Promise<unknown>;
