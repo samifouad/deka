@@ -130,4 +130,44 @@ const envGet = bridge.call({
 });
 assert(!envGet.ok, "process/env should be denied in wosix");
 
+const stdoutChunks = [];
+const stderrChunks = [];
+const stdinChunk = new TextEncoder().encode("input-bytes");
+const ioBridge = createPhpHostBridge({
+  fs,
+  target: "server",
+  projectRoot: "/project",
+  cwd: "/project",
+  env: { APP_ENV: "dev" },
+  stdio: {
+    writeStdout: (chunk) => stdoutChunks.push(chunk),
+    writeStderr: (chunk) => stderrChunks.push(chunk),
+    readStdin: () => stdinChunk,
+  },
+});
+
+const outWrite = ioBridge.call({
+  kind: "process",
+  action: "writeStdout",
+  payload: { data: "hello-stdout" },
+});
+assert(outWrite.ok, "stdout write should succeed");
+assert(stdoutChunks.length === 1, "stdout channel expected 1 chunk");
+
+const errWrite = ioBridge.call({
+  kind: "process",
+  action: "writeStderr",
+  payload: { data: "hello-stderr" },
+});
+assert(errWrite.ok, "stderr write should succeed");
+assert(stderrChunks.length === 1, "stderr channel expected 1 chunk");
+
+const stdinRead = ioBridge.call({
+  kind: "process",
+  action: "readStdin",
+  payload: { maxBytes: 64 },
+});
+assert(stdinRead.ok, "stdin read should succeed");
+assert(new TextDecoder().decode(stdinRead.value.data) === "input-bytes", "stdin read mismatch");
+
 console.log("phpx host bridge smoke ok");

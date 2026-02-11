@@ -36,6 +36,11 @@ export type PhpHostBridgeOptions = {
   cwd?: string;
   env?: Record<string, string>;
   capabilities?: Partial<HostCapabilities>;
+  stdio?: {
+    writeStdout?: (chunk: Uint8Array) => void;
+    writeStderr?: (chunk: Uint8Array) => void;
+    readStdin?: (maxBytes?: number) => Uint8Array | null;
+  };
 };
 
 const SERVER_CAPS: HostCapabilities = {
@@ -63,6 +68,7 @@ export class PhpHostBridge {
   private readonly env: Record<string, string>;
   private readonly target: HostTarget;
   private readonly caps: HostCapabilities;
+  private readonly stdio;
 
   constructor(options: PhpHostBridgeOptions) {
     this.fs = options.fs;
@@ -72,6 +78,7 @@ export class PhpHostBridge {
     this.target = options.target ?? "wosix";
     const base = this.target === "server" ? SERVER_CAPS : WOSIX_CAPS;
     this.caps = { ...base, ...(options.capabilities ?? {}) };
+    this.stdio = options.stdio;
   }
 
   call(input: BridgeCallInput): BridgeCallOutput {
@@ -91,9 +98,9 @@ export class PhpHostBridge {
       if (kind === "fs") {
         return { ok: true, value: this.callFs(action, payload) };
       }
-      if (kind === "process" || kind === "env") {
-        return { ok: true, value: this.callProcessEnv(action, payload) };
-      }
+    if (kind === "process" || kind === "env") {
+      return { ok: true, value: this.callProcessEnv(action, payload) };
+    }
       if (kind === "clock" || kind === "random") {
         return { ok: true, value: this.callClockRandom(kind, action, payload) };
       }
@@ -162,6 +169,21 @@ export class PhpHostBridge {
     }
     if (action === "envAll") {
       return { env: { ...this.env } };
+    }
+    if (action === "writeStdout") {
+      const chunk = toBytes(payload.data);
+      this.stdio?.writeStdout?.(chunk);
+      return { bytes: chunk.length };
+    }
+    if (action === "writeStderr") {
+      const chunk = toBytes(payload.data);
+      this.stdio?.writeStderr?.(chunk);
+      return { bytes: chunk.length };
+    }
+    if (action === "readStdin") {
+      const maxBytes = payload.maxBytes ? Number(payload.maxBytes) : undefined;
+      const data = this.stdio?.readStdin?.(maxBytes);
+      return { data: data ?? new Uint8Array(0) };
     }
     throw new Error(`unknown process/env action '${action}'`);
   }
