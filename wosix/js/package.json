@@ -7,7 +7,8 @@
   "types": "dist/index.d.ts",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "smoke:phpx-bridge": "npm run build && node scripts/phpx_host_bridge_smoke.mjs"
   },
   "devDependencies": {
     "typescript": "^5.5.4"

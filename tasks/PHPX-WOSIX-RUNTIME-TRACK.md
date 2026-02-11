@@ -34,8 +34,8 @@ Scope: run PHPX inside browser via `wosix` host profile
 ## Runtime Integration
 
 - [x] Build/pack php-rs runtime wasm artifact for `wosix` integration tests.
-- [ ] Add host adapter layer mapping PHPX runtime ops to `wosix` interfaces.
-- [ ] Verify fs path maps to `wosix` in-memory/mounted filesystem.
+- [x] Add host adapter layer mapping PHPX runtime ops to `wosix` interfaces.
+- [x] Verify fs path maps to `wosix` in-memory/mounted filesystem.
 - [ ] Verify process I/O maps to `wosix` stdio channels.
 - [ ] Verify module loading from virtual FS.
 
@@ -66,7 +66,7 @@ Scope: run PHPX inside browser via `wosix` host profile
   - [ ] imports/module graph
   - [ ] JSX render-to-string
   - [ ] filesystem read/write
-- [ ] Negative tests: capability denied errors for blocked APIs.
+- [x] Negative tests: capability denied errors for blocked APIs.
 - [ ] Browser e2e: edit -> run -> output updates in playground.
 
 ## Docs

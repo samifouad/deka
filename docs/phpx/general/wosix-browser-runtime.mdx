@@ -47,6 +47,17 @@ This script:
 2. verifies the wasm artifact exists
 3. runs host-profile gating tests
 
+Run the host-adapter bridge smoke checks:
+
+```sh
+scripts/test-wosix-host-bridge.sh
+```
+
+This verifies:
+
+- capability denial behavior for blocked kinds (for example `db` in `wosix`)
+- fs action mapping (`readFile`, `writeFile`, `readdir`, `stat`) through the host adapter
+
 ## Playground workflow
 
 Build and serve the browser playground:
