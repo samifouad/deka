@@ -36,6 +36,19 @@ http://localhost:5173/?demo=deka
 
 The stub loads a single CommonJS handler module and invokes `fetch()` on it.
 
+## PHPX in-browser testing
+Open:
+```
+http://localhost:5173/?demo=phpx
+```
+
+This path executes PHPX through the runtime adapter layer in `@deka/wosix-js`.
+The browser entry (`main.js`) does not import or instantiate `php-rs` directly;
+all runtime access goes through adapter APIs.
+
+Boundary and guardrails are tracked in:
+`tasks/PHPX-WOSIX-RUNTIME-BOUNDARY.md`.
+
 ## Node WASM testing
 Place a `node.wasm` file next to `index.html` and open:
 ```

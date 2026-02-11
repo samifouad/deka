@@ -9,6 +9,23 @@ export type {
   HostCapabilities,
   HostTarget,
 } from "./phpx_host_bridge.js";
+export {
+  PhpRuntimeAdapter,
+  createPhpRuntimeAdapter,
+  createPhpRuntimeAdapterFromBridgeOptions,
+} from "./phpx_runtime_adapter.js";
+export type {
+  PhpRunContext,
+  PhpRunDiagnostic,
+  PhpRunMode,
+  PhpRunResult,
+  PhpRuntimeAdapterOptions,
+} from "./phpx_runtime_adapter.js";
+export {
+  PhpRuntimeWasmExecutor,
+  createPhpRuntimeWasmExecutor,
+} from "./phpx_wasm_executor.js";
+export type { PhpRuntimeWasmExecutorOptions } from "./phpx_wasm_executor.js";
 
 export type BootOptions = {
   init?: (module?: WebAssembly.Module | ArrayBuffer | Response) => Promise<unknown>;

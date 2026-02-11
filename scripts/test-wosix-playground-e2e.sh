@@ -10,9 +10,22 @@ LOG_FILE="${WOSIX_E2E_LOG:-/tmp/deka-wosix-e2e.log}"
 PLAYWRIGHT_OUTPUT_DIR="${PLAYWRIGHT_OUTPUT_DIR:-/tmp/deka-wosix-playwright}"
 PLAYWRIGHT_INSTALL_TIMEOUT_MS="${PLAYWRIGHT_INSTALL_TIMEOUT_MS:-120000}"
 PLAYWRIGHT_DOWNLOAD_HOST="${PLAYWRIGHT_DOWNLOAD_HOST:-https://playwright.download.prss.microsoft.com}"
+INCLUDE_PHPX="${WOSIX_E2E_INCLUDE_PHPX:-0}"
 
 echo "[wosix-e2e] building demo assets"
 PORT="$PORT" "${ROOT_DIR}/scripts/run-wosix-playground.sh" --build-only
+
+if rg -n "vendor/php_rs|php_rs\\.js|php_rs_bg\\.wasm" "${ROOT_DIR}/wosix/examples/browser/main.js" >/dev/null 2>&1; then
+  echo "[wosix-e2e] architecture guard failed: browser demo imports php-rs directly."
+  echo "[wosix-e2e] use runtime adapter APIs instead of direct php-rs wasm wiring."
+  exit 1
+fi
+
+if rg -n "WebAssembly\\.instantiate|WebAssembly\\.instantiateStreaming" "${ROOT_DIR}/wosix/examples/browser/main.js" >/dev/null 2>&1; then
+  echo "[wosix-e2e] architecture guard failed: browser demo calls raw WebAssembly instantiate APIs."
+  echo "[wosix-e2e] wasm startup must stay behind runtime adapter abstractions."
+  exit 1
+fi
 
 echo "[wosix-e2e] serving browser demo at $URL"
 (
@@ -57,8 +70,14 @@ echo "[wosix-e2e] ensuring playwright chromium is installed"
 echo "[wosix-e2e] running playwright browser check"
 (
   cd "$E2E_DIR"
+  if [[ "$INCLUDE_PHPX" == "1" ]]; then
+    SPECS=("wosix_playground_e2e.spec.js" "wosix_phpx_e2e.spec.js")
+  else
+    SPECS=("wosix_playground_e2e.spec.js")
+    echo "[wosix-e2e] skipping phpx browser spec (set WOSIX_E2E_INCLUDE_PHPX=1 to include it)"
+  fi
   WOSIX_E2E_URL="$URL" \
-    npx playwright test wosix_playground_e2e.spec.js --workers=1 --reporter=line --output="$PLAYWRIGHT_OUTPUT_DIR"
+    npx playwright test "${SPECS[@]}" --workers=1 --reporter=line --output="$PLAYWRIGHT_OUTPUT_DIR"
 )
 
 echo "[wosix-e2e] complete"

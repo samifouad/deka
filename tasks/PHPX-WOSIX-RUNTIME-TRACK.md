@@ -67,7 +67,15 @@ Scope: run PHPX inside browser via `wosix` host profile
   - [x] JSX render-to-string
   - [x] filesystem read/write
 - [x] Negative tests: capability denied errors for blocked APIs.
-- [x] Browser e2e: edit -> run -> output updates in playground.
+- [x] Browser e2e: edit -> run -> output updates in playground (Node shim path).
+- [x] Browser e2e for PHPX path via runtime adapter (`WOSIX_E2E_INCLUDE_PHPX=1`).
+
+## Boundary Enforcement
+
+- [x] Added architecture guard against direct `php-rs` imports in browser demo code.
+- [x] Browser e2e defaults to stable path only; PHPX browser spec is opt-in.
+- [x] Runtime adapter path for PHPX browser execution.
+- [ ] Close `tasks/PHPX-WOSIX-RUNTIME-BOUNDARY.md`.
 
 ## Docs
 
@@ -82,5 +90,6 @@ Scope: run PHPX inside browser via `wosix` host profile
 ## Exit Criteria
 
 - [ ] PHPX runs in browser via `wosix` with module imports and JSX SSR output.
+  - Note: base PHPX execution is now live in browser via adapter + wasm executor.
 - [x] Capability errors are explicit and stable.
 - [x] LSP can validate against `wosix` target mode.

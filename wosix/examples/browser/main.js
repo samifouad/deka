@@ -1,5 +1,11 @@
 import * as wasm from "./vendor/wosix_wasm/wosix_wasm.js";
-import { DekaBrowserRuntime, WebContainer } from "./vendor/wosix_js/index.js";
+import {
+  DekaBrowserRuntime,
+  WebContainer,
+  createPhpHostBridge,
+  createPhpRuntimeAdapter,
+  createPhpRuntimeWasmExecutor,
+} from "./vendor/wosix_js/index.js";
 
 const logEl = document.getElementById("log");
 const sourceEl = document.getElementById("source");
@@ -10,6 +16,7 @@ const params = new URLSearchParams(window.location.search);
 const nodeRuntime = params.get("node") === "wasm" ? "wasm" : "shim";
 const demo = params.get("demo") ?? "node";
 let containerRef = null;
+let phpAdapterRef = null;
 
 const log = (message) => {
   logEl.textContent += `\n${message}`;
@@ -47,6 +54,52 @@ const runNodeScript = async () => {
   log(`Exit code: ${status.code}`);
 };
 
+const createNoopFs = () => ({
+  readFile() {
+    return new Uint8Array(0);
+  },
+  writeFile() {},
+  readdir() {
+    return [];
+  },
+  mkdir() {},
+  rm() {},
+  rename() {},
+  stat() {
+    return { size: 0, fileType: "dir" };
+  },
+});
+
+const runPhpxScript = async () => {
+  if (!(sourceEl instanceof HTMLTextAreaElement)) {
+    throw new Error("missing source editor");
+  }
+  if (!phpAdapterRef) {
+    throw new Error("php runtime adapter is not ready");
+  }
+
+  const result = await phpAdapterRef.run(sourceEl.value, "phpx", {
+    filename: "main.phpx",
+    cwd: "/",
+  });
+
+  resetLog("PHPX run complete.");
+  if (result.stdout) {
+    log(result.stdout.trimEnd());
+  }
+  if (result.stderr) {
+    log(`[stderr]\n${result.stderr.trimEnd()}`);
+  }
+  if (result.diagnostics?.length) {
+    for (const diag of result.diagnostics) {
+      log(`[${diag.severity}] ${diag.message}`);
+    }
+  }
+  if (!result.ok && !result.diagnostics?.length) {
+    log("[error] runtime returned not-ok without diagnostics");
+  }
+};
+
 try {
   resetLog("Loading wasm...");
   const container = await WebContainer.boot(wasm, {
@@ -74,6 +127,42 @@ try {
     const response = await server.fetch(new Request("http://localhost/"));
     const text = await response.text();
     log(`Deka response: ${response.status} ${text}`);
+  } else if (demo === "phpx") {
+    log("Demo: phpx");
+    if (sourceEl instanceof HTMLTextAreaElement) {
+      sourceEl.value = [
+        "/*__DEKA_PHPX__*/",
+        "$name = 'wosix'",
+        "echo 'hello from phpx in ' . $name . \"\\n\"",
+      ].join("\n");
+    }
+
+    const bridge = createPhpHostBridge({
+      fs: createNoopFs(),
+      target: "wosix",
+      projectRoot: "/",
+      cwd: "/",
+    });
+    const executor = createPhpRuntimeWasmExecutor({
+      moduleUrl: new URL("./vendor/wosix_js/php_runtime.js", import.meta.url).toString(),
+    });
+    phpAdapterRef = createPhpRuntimeAdapter({ bridge, executor });
+
+    if (runBtn instanceof HTMLButtonElement) {
+      runBtn.addEventListener("click", async () => {
+        runBtn.disabled = true;
+        try {
+          await runPhpxScript();
+        } catch (err) {
+          resetLog("Run failed.");
+          log(err instanceof Error ? err.message : String(err));
+        } finally {
+          runBtn.disabled = false;
+        }
+      });
+    }
+
+    await runPhpxScript();
   } else {
     log(`Node runtime: ${nodeRuntime}`);
     const greeting = nodeRuntime === "wasm"
