@@ -19,7 +19,7 @@ function normalize_result($raw) {
     return result_err('invalid tcp response')
 }
 
-export function connect($host, $port, $options = {}) {
+export function connectSync($host, $port, $options = {}) {
     $payload = {
         host: '' . $host,
         port: (int) $port,
@@ -35,11 +35,7 @@ export function connect($host, $port, $options = {}) {
     return result_ok((int) $res->value['handle'])
 }
 
-export function tcp_connect($host, $port, $options = {}) {
-    return connect($host, $port, $options)
-}
-
-export function read($handle, $max_bytes = 4096) {
+export function readSync($handle, $max_bytes = 4096) {
     $res = normalize_result(bridge('net', 'read', {
         handle: (int) $handle,
         max_bytes: (int) $max_bytes
@@ -53,15 +49,11 @@ export function read($handle, $max_bytes = 4096) {
     return result_ok($res->value['data'])
 }
 
-export function tcp_read($handle, $max_bytes = 4096) {
-    return read($handle, $max_bytes)
-}
-
-export function read_exact($handle, $count) {
+export function readExactSync($handle, $count) {
     $target = (int) $count
     $out = ''
     while (strlen($out) < $target) {
-        $chunk = read($handle, $target - strlen($out))
+        $chunk = readSync($handle, $target - strlen($out))
         if (!result_is_ok($chunk)) {
             return result_err($chunk->error)
         }
@@ -73,11 +65,7 @@ export function read_exact($handle, $count) {
     return result_ok($out)
 }
 
-export function tcp_read_exact($handle, $count) {
-    return read_exact($handle, $count)
-}
-
-export function write($handle, $data) {
+export function writeSync($handle, $data) {
     $res = normalize_result(bridge('net', 'write', {
         handle: (int) $handle,
         data: '' . $data
@@ -91,25 +79,70 @@ export function write($handle, $data) {
     return result_ok((int) $res->value['written'])
 }
 
-export function tcp_write($handle, $data) {
-    return write($handle, $data)
-}
-
-export function set_deadline($handle, $millis) {
+export function setDeadlineSync($handle, $millis) {
     return normalize_result(bridge('net', 'set_deadline', {
         handle: (int) $handle,
         millis: (int) $millis
     }))
 }
 
-export function tcp_set_deadline($handle, $millis) {
-    return set_deadline($handle, $millis)
-}
-
-export function close($handle) {
+export function closeSync($handle) {
     return normalize_result(bridge('net', 'close', { handle: (int) $handle }))
 }
 
+export function connect($host, $port, $options = {}) {
+    return connectSync($host, $port, $options)
+}
+
+export function read($handle, $max_bytes = 4096) {
+    return readSync($handle, $max_bytes)
+}
+
+export function readExact($handle, $count) {
+    return readExactSync($handle, $count)
+}
+
+export function write($handle, $data) {
+    return writeSync($handle, $data)
+}
+
+export function setDeadline($handle, $millis) {
+    return setDeadlineSync($handle, $millis)
+}
+
+export function close($handle) {
+    return closeSync($handle)
+}
+
+// Backward compatibility aliases.
+export function tcp_connect($host, $port, $options = {}) {
+    return connectSync($host, $port, $options)
+}
+
+export function tcp_read($handle, $max_bytes = 4096) {
+    return readSync($handle, $max_bytes)
+}
+
+export function read_exact($handle, $count) {
+    return readExactSync($handle, $count)
+}
+
+export function tcp_read_exact($handle, $count) {
+    return readExactSync($handle, $count)
+}
+
+export function tcp_write($handle, $data) {
+    return writeSync($handle, $data)
+}
+
+export function set_deadline($handle, $millis) {
+    return setDeadlineSync($handle, $millis)
+}
+
+export function tcp_set_deadline($handle, $millis) {
+    return setDeadlineSync($handle, $millis)
+}
+
 export function tcp_close($handle) {
-    return close($handle)
+    return closeSync($handle)
 }

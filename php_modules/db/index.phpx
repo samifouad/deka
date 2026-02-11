@@ -111,7 +111,7 @@ function normalize_params($params) {
     return [normalize_param_value($params)]
 }
 
-export function open($driver, $config) {
+export function openSync($driver, $config) {
     $raw = bridge('db', 'open', {
         driver: $driver,
         config: $config
@@ -119,11 +119,11 @@ export function open($driver, $config) {
     return normalize_result($raw)
 }
 
-export function open_handle($driver, $config) {
-    return extract_handle(open($driver, $config))
+export function openHandleSync($driver, $config) {
+    return extract_handle(openSync($driver, $config))
 }
 
-export function query($handle, $sql, $params = []) {
+export function querySync($handle, $sql, $params = []) {
     $safe_params = normalize_params($params)
     $raw = bridge('db', 'query', {
         handle: $handle,
@@ -137,8 +137,8 @@ export function rows($res) {
     return extract_rows($res)
 }
 
-export function query_one($handle, $sql, $params = []) {
-    $rows = rows(query($handle, $sql, normalize_params($params)))
+export function queryOneSync($handle, $sql, $params = []) {
+    $rows = rows(querySync($handle, $sql, normalize_params($params)))
     if (!result_is_ok($rows)) {
         return result_err($rows->error)
     }
@@ -148,7 +148,7 @@ export function query_one($handle, $sql, $params = []) {
     return result_ok($rows->value[0])
 }
 
-export function exec($handle, $sql, $params = []) {
+export function execSync($handle, $sql, $params = []) {
     $safe_params = normalize_params($params)
     $raw = bridge('db', 'exec', {
         handle: $handle,
@@ -170,22 +170,22 @@ export function affected_rows($res) {
     return result_ok((int) $res->value['affected_rows'])
 }
 
-export function begin($handle) {
+export function beginSync($handle) {
     $raw = bridge('db', 'begin', { handle: $handle })
     return normalize_result($raw)
 }
 
-export function commit($handle) {
+export function commitSync($handle) {
     $raw = bridge('db', 'commit', { handle: $handle })
     return normalize_result($raw)
 }
 
-export function rollback($handle) {
+export function rollbackSync($handle) {
     $raw = bridge('db', 'rollback', { handle: $handle })
     return normalize_result($raw)
 }
 
-export function close($handle) {
+export function closeSync($handle) {
     $raw = bridge('db', 'close', { handle: $handle })
     return normalize_result($raw)
 }
@@ -207,4 +207,53 @@ export function stats() {
         }
     }
     return $res
+}
+
+export function open($driver, $config) {
+    return openSync($driver, $config)
+}
+
+export function openHandle($driver, $config) {
+    return openHandleSync($driver, $config)
+}
+
+export function query($handle, $sql, $params = []) {
+    return querySync($handle, $sql, $params)
+}
+
+export function queryOne($handle, $sql, $params = []) {
+    return queryOneSync($handle, $sql, $params)
+}
+
+export function exec($handle, $sql, $params = []) {
+    return execSync($handle, $sql, $params)
+}
+
+export function begin($handle) {
+    return beginSync($handle)
+}
+
+export function commit($handle) {
+    return commitSync($handle)
+}
+
+export function rollback($handle) {
+    return rollbackSync($handle)
+}
+
+export function close($handle) {
+    return closeSync($handle)
+}
+
+// Backward compatibility aliases.
+export function open_handle($driver, $config) {
+    return openHandleSync($driver, $config)
+}
+
+export function query_one($handle, $sql, $params = []) {
+    return queryOneSync($handle, $sql, $params)
+}
+
+export function affectedRows($res) {
+    return affected_rows($res)
 }

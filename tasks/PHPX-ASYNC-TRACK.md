@@ -50,11 +50,11 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 
 ## Phase D: Std Module API split (Node-style)
 
-- [ ] `fs`: async default + `*Sync` pair (`readFile`/`readFileSync`, etc.).
-- [ ] `db/*`: async default + `*Sync` pair.
-- [ ] `net`: async default + `*Sync` pair where meaningful.
-- [ ] Keep PHP-facing APIs sync-only.
-- [ ] Tests: API parity and behavior consistency.
+- [x] `fs`: async default + `*Sync` pair (`readFile`/`readFileSync`, etc.).
+- [x] `db/*`: async default + `*Sync` pair.
+- [x] `net`: async default + `*Sync` pair where meaningful.
+- [x] Keep PHP-facing APIs sync-only.
+- [x] Tests: API parity and behavior consistency.
 
 ## Phase E: Async JSX
 

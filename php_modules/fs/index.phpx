@@ -38,7 +38,7 @@ function normalize_result($raw) {
     return result_err('invalid fs response')
 }
 
-export function open($path, $mode = 'r') {
+export function openSync($path, $mode = 'r') {
     $raw = bridge('fs', 'open', { path: $path, mode: $mode })
     $res = normalize_result($raw)
     if (!result_is_ok($res)) {
@@ -51,7 +51,7 @@ export function open($path, $mode = 'r') {
     return result_err('open succeeded without handle')
 }
 
-export function read($handle, $max_bytes = 65536) {
+export function readSync($handle, $max_bytes = 65536) {
     $raw = bridge('fs', 'read', { handle: $handle, max_bytes: $max_bytes })
     $res = normalize_result($raw)
     if (!result_is_ok($res)) {
@@ -75,18 +75,18 @@ export function read($handle, $max_bytes = 65536) {
     return result_err('read returned invalid payload')
 }
 
-export function write($handle, $bytes) {
+export function writeSync($handle, $bytes) {
     $arr = bytes_to_array($bytes)
     $raw = bridge('fs', 'write', { handle: $handle, data: $arr })
     return normalize_result($raw)
 }
 
-export function close($handle) {
+export function closeSync($handle) {
     $raw = bridge('fs', 'close', { handle: $handle })
     return normalize_result($raw)
 }
 
-export function read_file($path) {
+export function readFileSync($path) {
     $raw = bridge('fs', 'read_file', { path: $path })
     $res = normalize_result($raw)
     if (!result_is_ok($res)) {
@@ -103,8 +103,41 @@ export function read_file($path) {
     return result_err('read_file returned invalid payload')
 }
 
-export function write_file($path, $bytes) {
+export function writeFileSync($path, $bytes) {
     $arr = bytes_to_array($bytes)
     $raw = bridge('fs', 'write_file', { path: $path, data: $arr })
     return normalize_result($raw)
+}
+
+export function open($path, $mode = 'r') {
+    return openSync($path, $mode)
+}
+
+export function read($handle, $max_bytes = 65536) {
+    return readSync($handle, $max_bytes)
+}
+
+export function write($handle, $bytes) {
+    return writeSync($handle, $bytes)
+}
+
+export function close($handle) {
+    return closeSync($handle)
+}
+
+export function readFile($path) {
+    return readFileSync($path)
+}
+
+export function writeFile($path, $bytes) {
+    return writeFileSync($path, $bytes)
+}
+
+// Backward compatibility aliases.
+export function read_file($path) {
+    return readFileSync($path)
+}
+
+export function write_file($path, $bytes) {
+    return writeFileSync($path, $bytes)
 }

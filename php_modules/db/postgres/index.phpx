@@ -1,4 +1,4 @@
-import { open_handle, query as db_query, query_one as db_query_one, exec as db_exec, begin as db_begin, commit as db_commit, rollback as db_rollback, close as db_close } from 'db'
+import { openHandleSync, querySync as db_query_sync, queryOneSync as db_query_one_sync, execSync as db_exec_sync, beginSync as db_begin_sync, commitSync as db_commit_sync, rollbackSync as db_rollback_sync, closeSync as db_close_sync } from 'db'
 
 function normalize_config($config) {
   if (is_array($config)) {
@@ -30,34 +30,71 @@ function normalize_config($config) {
   }
 }
 
+export function connectSync($config) {
+  return openHandleSync('postgres', normalize_config($config))
+}
+
+export function querySync($handle, $sql, $params = []) {
+  return db_query_sync($handle, $sql, $params)
+}
+
+export function queryOneSync($handle, $sql, $params = []) {
+  return db_query_one_sync($handle, $sql, $params)
+}
+
+export function execSync($handle, $sql, $params = []) {
+  return db_exec_sync($handle, $sql, $params)
+}
+
+export function beginSync($handle) {
+  return db_begin_sync($handle)
+}
+
+export function commitSync($handle) {
+  return db_commit_sync($handle)
+}
+
+export function rollbackSync($handle) {
+  return db_rollback_sync($handle)
+}
+
+export function closeSync($handle) {
+  return db_close_sync($handle)
+}
+
 export function connect($config) {
-  return open_handle('postgres', normalize_config($config))
+  return connectSync($config)
 }
 
 export function query($handle, $sql, $params = []) {
-  return db_query($handle, $sql, $params)
+  return querySync($handle, $sql, $params)
 }
 
-export function query_one($handle, $sql, $params = []) {
-  return db_query_one($handle, $sql, $params)
+export function queryOne($handle, $sql, $params = []) {
+  return queryOneSync($handle, $sql, $params)
 }
 
 export function exec($handle, $sql, $params = []) {
-  return db_exec($handle, $sql, $params)
+  return execSync($handle, $sql, $params)
 }
 
 export function begin($handle) {
-  return db_begin($handle)
+  return beginSync($handle)
 }
 
 export function commit($handle) {
-  return db_commit($handle)
+  return commitSync($handle)
 }
 
 export function rollback($handle) {
-  return db_rollback($handle)
+  return rollbackSync($handle)
 }
 
 export function close($handle) {
-  return db_close($handle)
+  return closeSync($handle)
+}
+
+// Backward compatibility alias.
+export function query_one($handle, $sql, $params = []) {
+  return queryOneSync($handle, $sql, $params)
 }

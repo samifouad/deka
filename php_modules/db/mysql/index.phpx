@@ -1,5 +1,5 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { open_handle, query as db_query, query_one as db_query_one, exec as db_exec, begin as db_begin, commit as db_commit, rollback as db_rollback, close as db_close } from 'db'
+import { openHandleSync, querySync as db_query_sync, queryOneSync as db_query_one_sync, execSync as db_exec_sync, beginSync as db_begin_sync, commitSync as db_commit_sync, rollbackSync as db_rollback_sync, closeSync as db_close_sync } from 'db'
 import { tcp_connect, tcp_read_exact, tcp_write, tcp_close, tcp_set_deadline } from 'tcp'
 import { bytes_get } from 'core/bytes'
 
@@ -800,7 +800,7 @@ function __my_query_wire($conn, $sql) {
     return result_ok({ rows: $rows.value, affected_rows: count($rows.value) })
 }
 
-export function connect($config) {
+export function connectSync($config) {
     $prefer_wire = false
     if (is_array($config) && array_key_exists('prefer_wire', $config)) {
         $prefer_wire = !!$config['prefer_wire']
@@ -812,10 +812,10 @@ export function connect($config) {
         return __my_connect_wire($config)
     }
 
-    return open_handle('mysql', $config)
+    return openHandleSync('mysql', $config)
 }
 
-export function query($handle, $sql, $params = []) {
+export function querySync($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
             $res = __my_query_wire_prepared($handle, $sql, $params)
@@ -830,10 +830,10 @@ export function query($handle, $sql, $params = []) {
         }
         return result_ok({ rows: $res.value.rows })
     }
-    return db_query($handle, $sql, $params)
+    return db_query_sync($handle, $sql, $params)
 }
 
-export function query_one($handle, $sql, $params = []) {
+export function queryOneSync($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
             $res = __my_query_wire_prepared($handle, $sql, $params)
@@ -845,7 +845,7 @@ export function query_one($handle, $sql, $params = []) {
             }
             return result_err($res.error)
         }
-        $res = query($handle, $sql, $params)
+        $res = querySync($handle, $sql, $params)
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }
@@ -854,10 +854,10 @@ export function query_one($handle, $sql, $params = []) {
         }
         return result_ok($res.value.rows[0])
     }
-    return db_query_one($handle, $sql, $params)
+    return db_query_one_sync($handle, $sql, $params)
 }
 
-export function exec($handle, $sql, $params = []) {
+export function execSync($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
             $res = __my_query_wire_prepared($handle, $sql, $params)
@@ -872,47 +872,84 @@ export function exec($handle, $sql, $params = []) {
         }
         return result_ok({ affected_rows: $res.value.affected_rows })
     }
-    return db_exec($handle, $sql, $params)
+    return db_exec_sync($handle, $sql, $params)
 }
 
-export function begin($handle) {
+export function beginSync($handle) {
     if (__my_is_wire_handle($handle)) {
-        $res = exec($handle, 'START TRANSACTION', [])
+        $res = execSync($handle, 'START TRANSACTION', [])
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }
         return result_ok({ ok: true })
     }
-    return db_begin($handle)
+    return db_begin_sync($handle)
 }
 
-export function commit($handle) {
+export function commitSync($handle) {
     if (__my_is_wire_handle($handle)) {
-        $res = exec($handle, 'COMMIT', [])
+        $res = execSync($handle, 'COMMIT', [])
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }
         return result_ok({ ok: true })
     }
-    return db_commit($handle)
+    return db_commit_sync($handle)
 }
 
-export function rollback($handle) {
+export function rollbackSync($handle) {
     if (__my_is_wire_handle($handle)) {
-        $res = exec($handle, 'ROLLBACK', [])
+        $res = execSync($handle, 'ROLLBACK', [])
         if (!result_is_ok($res)) {
             return result_err($res.error)
         }
         return result_ok({ ok: true })
     }
-    return db_rollback($handle)
+    return db_rollback_sync($handle)
 }
 
-export function close($handle) {
+export function closeSync($handle) {
     if (__my_is_wire_handle($handle)) {
         $handle.seq = 0
         __my_send_packet($handle, chr(0x01))
         return tcp_close($handle.sock)
     }
-    return db_close($handle)
+    return db_close_sync($handle)
+}
+
+export function connect($config) {
+    return connectSync($config)
+}
+
+export function query($handle, $sql, $params = []) {
+    return querySync($handle, $sql, $params)
+}
+
+export function queryOne($handle, $sql, $params = []) {
+    return queryOneSync($handle, $sql, $params)
+}
+
+export function exec($handle, $sql, $params = []) {
+    return execSync($handle, $sql, $params)
+}
+
+export function begin($handle) {
+    return beginSync($handle)
+}
+
+export function commit($handle) {
+    return commitSync($handle)
+}
+
+export function rollback($handle) {
+    return rollbackSync($handle)
+}
+
+export function close($handle) {
+    return closeSync($handle)
+}
+
+// Backward compatibility alias.
+export function query_one($handle, $sql, $params = []) {
+    return queryOneSync($handle, $sql, $params)
 }
