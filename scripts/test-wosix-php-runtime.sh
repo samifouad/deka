@@ -18,4 +18,10 @@ echo "[wosix-smoke] validating runtime host profile gating tests"
 cargo test -p php-rs --release runtime::context::tests::host_capabilities_for_wosix_limits_db_and_env -- --nocapture
 cargo test -p phpx_lsp --release target_capability_diagnostics_block_db_modules_for_wosix -- --nocapture
 
+echo "[wosix-smoke] running focused PHPX runtime smoke cases"
+node tests/phpx/testrunner.js tests/phpx/objects/literals_basic.phpx
+node tests/phpx/testrunner.js tests/phpx/modules/import_export.phpx
+node tests/phpx/testrunner.js tests/phpx/jsx/render.phpx
+node tests/phpx/testrunner.js tests/phpx/foundation/fs_bytes_roundtrip.phpx
+
 echo "[wosix-smoke] complete"

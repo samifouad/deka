@@ -49,7 +49,7 @@ for (let i = 0; i < rawArgs.length; i += 1) {
 const suiteDir = path.resolve(repoRoot, suiteArg);
 const phpBinaryCandidate = process.env.PHPX_BIN
   ? path.resolve(process.env.PHPX_BIN)
-  : path.resolve(repoRoot, "target/release/php");
+  : path.resolve(repoRoot, "target/release/cli");
 const phpBinArgs = process.env.PHPX_BIN_ARGS
   ? process.env.PHPX_BIN_ARGS.split(" ").map((arg) => arg.trim()).filter(Boolean)
   : [];
@@ -81,8 +81,13 @@ async function collectPhpxFiles(dir) {
 }
 
 async function runBinary(binary, scriptPath) {
+  const base = path.basename(binary).toLowerCase();
+  const isCliRunner = base === "cli" || base === "deka";
+  const runtimeArgs = isCliRunner
+    ? ["run", ...phpBinArgs, scriptPath]
+    : [...phpBinArgs, scriptPath];
   return new Promise((resolve, reject) => {
-    const proc = spawn(binary, [...phpBinArgs, scriptPath], {
+    const proc = spawn(binary, runtimeArgs, {
       env: { ...process.env },
       cwd: repoRoot,
       stdio: ["ignore", "pipe", "pipe"],
@@ -178,12 +183,12 @@ async function resolvePhpBinary() {
   if (await exists(phpBinaryCandidate)) {
     return phpBinaryCandidate;
   }
-  const fallback = path.resolve(repoRoot, "target/debug/php");
-  if (await exists(fallback)) {
-    return fallback;
+  const releasePhpFallback = path.resolve(repoRoot, "target/release/php");
+  if (await exists(releasePhpFallback)) {
+    return releasePhpFallback;
   }
   throw new Error(
-    "phpx runner could not find the Deka PHP binary; build with 'cargo build --bin php' or set PHPX_BIN"
+    "phpx runner could not find a Deka runtime binary; build with 'cargo build -p cli --release' or set PHPX_BIN"
   );
 }
 
@@ -226,7 +231,19 @@ async function main() {
     process.exit(1);
   }
 
-  const files = (await collectPhpxFiles(suiteDir)).filter((filePath) => !shouldSkip(filePath));
+  const suiteStat = await stat(suiteDir);
+  let files = [];
+  if (suiteStat.isFile()) {
+    if (!suiteDir.endsWith(".phpx")) {
+      console.error(`${COLOR.red}Suite file must be a .phpx file: ${suiteDir}${COLOR.reset}`);
+      process.exit(1);
+    }
+    files = [suiteDir];
+  } else {
+    files = await collectPhpxFiles(suiteDir);
+  }
+
+  files = files.filter((filePath) => !shouldSkip(filePath));
   if (files.length === 0) {
     console.log("No PHPX files found.");
     return;

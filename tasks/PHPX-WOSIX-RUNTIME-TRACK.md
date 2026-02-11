@@ -62,9 +62,9 @@ Scope: run PHPX inside browser via `wosix` host profile
 ## Testing
 
 - [ ] Runtime smoke tests in `wosix`:
-  - [ ] basic PHPX eval
+  - [x] basic PHPX eval
   - [x] imports/module graph
-  - [ ] JSX render-to-string
+  - [x] JSX render-to-string
   - [x] filesystem read/write
 - [x] Negative tests: capability denied errors for blocked APIs.
 - [ ] Browser e2e: edit -> run -> output updates in playground.
