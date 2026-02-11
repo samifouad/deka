@@ -61,7 +61,7 @@ Scope: run PHPX inside browser via `wosix` host profile
 
 ## Testing
 
-- [ ] Runtime smoke tests in `wosix`:
+- [x] Runtime smoke tests in `wosix`:
   - [x] basic PHPX eval
   - [x] imports/module graph
   - [x] JSX render-to-string
