@@ -1,0 +1,15 @@
+async function makeTag($v: string): Promise<string> {
+  return $v
+}
+
+if (!isset($GLOBALS['__TEST_INIT_ORDER_ASYNC'])) {
+  $GLOBALS['__TEST_INIT_ORDER_ASYNC'] = array()
+}
+
+$tag = await makeTag('B')
+$GLOBALS['__TEST_INIT_DEP_TAG_ASYNC'] = $tag
+$GLOBALS['__TEST_INIT_ORDER_ASYNC'][] = $tag
+
+export function depTag() {
+  return $GLOBALS['__TEST_INIT_DEP_TAG_ASYNC']
+}

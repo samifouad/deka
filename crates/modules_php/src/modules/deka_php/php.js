@@ -501,9 +501,24 @@ function stripPhpxTypes(source) {
             i = advanceLineComment(input, i);
             continue;
         }
-        if (isKeywordAt(input, i, 'function')) {
+        let hasAsyncPrefix = false;
+        let fnStart = i;
+        let asyncWhitespace = '';
+        if (isKeywordAt(input, i, 'async')) {
+            const afterAsync = i + 5;
+            const ws = readWhitespace(input, afterAsync);
+            if (isKeywordAt(input, ws.end, 'function')) {
+                hasAsyncPrefix = true;
+                fnStart = ws.end;
+                asyncWhitespace = ws.text;
+            }
+        }
+        if (isKeywordAt(input, fnStart, 'function')) {
+            if (hasAsyncPrefix) {
+                out += 'async' + asyncWhitespace;
+            }
             out += 'function';
-            i += 8;
+            i = fnStart + 8;
             while(i < input.length){
                 const next = input[i];
                 if (next === '(') {
