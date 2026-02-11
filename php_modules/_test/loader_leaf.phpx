@@ -1,0 +1,9 @@
+if (!isset($GLOBALS['__TEST_INIT_ORDER'])) {
+  $GLOBALS['__TEST_INIT_ORDER'] = array()
+}
+
+$GLOBALS['__TEST_INIT_ORDER'][] = 'leaf'
+
+export function leafValue() {
+  return 'leaf'
+}

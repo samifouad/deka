@@ -47,7 +47,7 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 - [x] Add deterministic TLA cycle detection with path details.
 - [x] `deka run` waits for module graph async completion.
 - [x] `deka serve` resolves graph before serving first request.
-- [ ] Tests: ordering, dependency waiting, cycle errors.
+- [x] Tests: ordering, dependency waiting, cycle errors.
 
 ## Phase D: Std Module API split (Node-style)
 

@@ -1,0 +1,7 @@
+import { midValue } from './loader_mid.phpx'
+
+$GLOBALS['__TEST_INIT_ORDER'][] = 'root'
+
+export function initTrace() {
+  return implode(',', $GLOBALS['__TEST_INIT_ORDER']) . '|' . midValue()
+}

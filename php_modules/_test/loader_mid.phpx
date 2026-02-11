@@ -1,0 +1,7 @@
+import { leafValue } from './loader_leaf.phpx'
+
+$GLOBALS['__TEST_INIT_ORDER'][] = 'mid'
+
+export function midValue() {
+  return leafValue() . '-mid'
+}
