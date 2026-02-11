@@ -10,6 +10,8 @@ use php_rs::parser::lexer::token::Token;
 use php_rs::parser::span::Span;
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams, CompletionResponse, Diagnostic,
+    DiagnosticOptions, DiagnosticServerCapabilities, DocumentDiagnosticParams, DocumentDiagnosticReport,
+    DocumentDiagnosticReportResult, FullDocumentDiagnosticReport, RelatedFullDocumentDiagnosticReport,
     DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams, Documentation,
     DocumentSymbol, DocumentSymbolParams, Hover, HoverContents, InitializeParams, InitializeResult,
     InitializedParams, InsertTextFormat, Location, MarkupContent, MarkupKind, MessageType, OneOf,
@@ -30,18 +32,12 @@ struct Backend {
 }
 
 impl Backend {
-    async fn validate_document(&self, uri: Url, text: &str) {
-        let file_path = uri
-            .to_file_path()
-            .ok()
-            .and_then(|path| path.to_str().map(|path| path.to_string()))
-            .unwrap_or_else(|| uri.to_string());
-
+    async fn diagnostics_for_text(&self, text: &str, file_path: &str) -> Vec<Diagnostic> {
         let arena = Bump::new();
-        let result = compile_phpx(text, &file_path, &arena);
+        let result = compile_phpx(text, file_path, &arena);
         let mut diagnostics = Vec::new();
         let workspace_roots = self.workspace_roots.read().await.clone();
-        let unresolved_imports = unresolved_import_diagnostics(text, &file_path, &workspace_roots);
+        let unresolved_imports = unresolved_import_diagnostics(text, file_path, &workspace_roots);
         let unresolved_ranges: std::collections::HashSet<(u32, u32, u32, u32)> = unresolved_imports
             .iter()
             .map(|diag| {
@@ -58,16 +54,26 @@ impl Backend {
             if should_skip_template_html_diagnostic(&error) {
                 continue;
             }
-            diagnostics.push(diagnostic_from_error(&file_path, text, &error));
+            diagnostics.push(diagnostic_from_error(file_path, text, &error));
         }
 
         for warning in result.warnings {
             if should_skip_unused_import_warning(&warning, &unresolved_ranges) {
                 continue;
             }
-            diagnostics.push(diagnostic_from_warning(&file_path, text, &warning));
+            diagnostics.push(diagnostic_from_warning(file_path, text, &warning));
         }
         diagnostics.extend(unresolved_imports);
+        diagnostics
+    }
+
+    async fn validate_document(&self, uri: Url, text: &str) {
+        let file_path = uri
+            .to_file_path()
+            .ok()
+            .and_then(|path| path.to_str().map(|path| path.to_string()))
+            .unwrap_or_else(|| uri.to_string());
+        let diagnostics = self.diagnostics_for_text(text, &file_path).await;
 
         self._client
             .publish_diagnostics(uri, diagnostics, None)
@@ -126,6 +132,12 @@ impl LanguageServer for Backend {
                     ]),
                     ..CompletionOptions::default()
                 }),
+                diagnostic_provider: Some(DiagnosticServerCapabilities::Options(DiagnosticOptions {
+                    identifier: Some("phpx".to_string()),
+                    inter_file_dependencies: true,
+                    workspace_diagnostics: false,
+                    work_done_progress_options: Default::default(),
+                })),
                 definition_provider: Some(OneOf::Left(true)),
                 document_symbol_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
@@ -144,6 +156,35 @@ impl LanguageServer for Backend {
 
     async fn shutdown(&self) -> tower_lsp::jsonrpc::Result<()> {
         Ok(())
+    }
+
+    async fn diagnostic(
+        &self,
+        params: DocumentDiagnosticParams,
+    ) -> tower_lsp::jsonrpc::Result<DocumentDiagnosticReportResult> {
+        let uri = params.text_document.uri;
+        let text = if let Some(in_memory) = self.get_document(&uri).await {
+            in_memory
+        } else if let Ok(path) = uri.to_file_path() {
+            fs::read_to_string(path).unwrap_or_default()
+        } else {
+            String::new()
+        };
+        let file_path = uri
+            .to_file_path()
+            .ok()
+            .and_then(|path| path.to_str().map(|path| path.to_string()))
+            .unwrap_or_else(|| uri.to_string());
+        let diagnostics = self.diagnostics_for_text(&text, &file_path).await;
+        Ok(DocumentDiagnosticReportResult::Report(
+            DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
+                related_documents: None,
+                full_document_diagnostic_report: FullDocumentDiagnosticReport {
+                    result_id: None,
+                    items: diagnostics,
+                },
+            }),
+        ))
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
@@ -1201,6 +1242,7 @@ fn collect_stmt(stmt: StmtId, source: &[u8], index: &mut SymbolIndex) {
         }
         Stmt::Function {
             name,
+            is_async,
             params,
             return_type,
             body,
@@ -1209,7 +1251,7 @@ fn collect_stmt(stmt: StmtId, source: &[u8], index: &mut SymbolIndex) {
         } => {
             let fn_name = token_text(source, name);
             let signature =
-                format_function_signature(fn_name.as_str(), params, *return_type, source);
+                format_function_signature(fn_name.as_str(), params, *return_type, source, *is_async);
             let mut vars = Vec::new();
             for param in *params {
                 let param_name = token_text(source, param.name);
@@ -1539,8 +1581,13 @@ fn format_function_signature(
     params: &[Param],
     return_type: Option<&Type>,
     source: &[u8],
+    is_async: bool,
 ) -> String {
-    let mut sig = format!("function {}(", name);
+    let mut sig = if is_async {
+        format!("async function {}(", name)
+    } else {
+        format!("function {}(", name)
+    };
     let mut first = true;
     for param in params {
         if !first {
@@ -2528,7 +2575,19 @@ fn builtin_completion_items() -> Vec<CompletionItem> {
 
 fn stdlib_completion_items() -> Vec<CompletionItem> {
     let mut items = Vec::new();
-    for name in ["panic", "is_valid_element", "create_root"] {
+    for name in [
+        "panic",
+        "is_valid_element",
+        "create_root",
+        "readFile",
+        "readFileSync",
+        "writeFile",
+        "writeFileSync",
+        "connect",
+        "connectSync",
+        "query",
+        "querySync",
+    ] {
         items.push(CompletionItem {
             label: name.to_string(),
             kind: Some(CompletionItemKind::FUNCTION),

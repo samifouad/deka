@@ -27,7 +27,7 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 - [x] Add `async function` syntax in PHPX mode.
 - [x] Add `await <expr>` expression in PHPX mode.
 - [x] Allow top-level await in `.phpx` module scope.
-- [ ] Add parser errors for invalid await contexts in `.php` and non-async fn bodies.
+- [x] Add parser errors for invalid await contexts in `.php` and non-async fn bodies.
 - [x] Tests: valid/invalid parse cases for async/await/TLA.
 
 ## Phase B: Type System
@@ -36,14 +36,14 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 - [x] Type rule: `await Promise<T> -> T`.
 - [x] Type rule: `await` on non-promise is error.
 - [x] Type rule: async fn returns `Promise<T>`.
-- [ ] Inference: function containing `await` must be async (or emit error with fix).
-- [ ] Tests: `Promise<Result<T,E>>` handling and match-based flow.
+- [x] Inference: function containing `await` must be async (or emit error with fix).
+- [x] Tests: `Promise<Result<T,E>>` handling and match-based flow.
 
 ## Phase C: Runtime + Module Loader
 
 - [ ] Add async completion path in internal bridge pipeline (no userland bridge exposure).
 - [ ] Ensure module loader supports async initialization dependencies.
-- [ ] Add deterministic TLA cycle detection with path details.
+- [x] Add deterministic TLA cycle detection with path details.
 - [ ] `deka run` waits for module graph async completion.
 - [ ] `deka serve` resolves graph before serving first request.
 - [ ] Tests: ordering, dependency waiting, cycle errors.
@@ -66,10 +66,10 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 
 ## Phase F: LSP + Validation
 
-- [ ] Diagnostics for invalid `await` usage/context.
-- [ ] Hovers/signatures for `async` and `Promise<T>`.
+- [x] Diagnostics for invalid `await` usage/context.
+- [x] Hovers/signatures for `async` and `Promise<T>`.
 - [ ] JSX diagnostics for async component + `Suspense` requirements.
-- [ ] Completion updates for async and sync API variants.
+- [x] Completion updates for async and sync API variants.
 - [ ] VS Code regression checks.
 
 ## Phase G: Docs

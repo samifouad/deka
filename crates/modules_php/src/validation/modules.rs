@@ -1,6 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+use bumpalo::Bump;
+use php_rs::parser::ast::visitor::{Visitor, walk_expr};
+use php_rs::parser::ast::{Expr, ExprId, Program, Stmt};
+use php_rs::parser::lexer::Lexer;
+use php_rs::parser::parser::{Parser, ParserMode};
 use serde_json::Value;
 
 use super::{ErrorKind, Severity, ValidationError};
@@ -15,6 +20,7 @@ struct ModuleNode {
     module_id: String,
     imports: Vec<ImportEdge>,
     exports: HashSet<String>,
+    has_top_level_await: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -115,6 +121,19 @@ impl ModuleGraph {
         if self.nodes.contains_key(module_id) {
             return;
         }
+
+        // Insert a placeholder before traversing imports so recursive/cyclic
+        // graphs don't recurse forever while loading.
+        self.nodes.insert(
+            module_id.to_string(),
+            ModuleNode {
+                module_id: module_id.to_string(),
+                imports: Vec::new(),
+                exports: HashSet::new(),
+                has_top_level_await: false,
+            },
+        );
+
         let source = match std::fs::read_to_string(file_path) {
             Ok(src) => src,
             Err(err) => {
@@ -125,6 +144,7 @@ impl ModuleGraph {
                     format!("Failed to read module '{}': {}", module_id, err),
                     "Ensure the module file exists and is readable.",
                 ));
+                self.nodes.remove(module_id);
                 return;
             }
         };
@@ -173,14 +193,11 @@ impl ModuleGraph {
             exports.insert("Component".to_string());
         }
 
-        self.nodes.insert(
-            module_id.to_string(),
-            ModuleNode {
-                module_id: module_id.to_string(),
-                imports,
-                exports,
-            },
-        );
+        if let Some(node) = self.nodes.get_mut(module_id) {
+            node.imports = imports;
+            node.exports = exports;
+            node.has_top_level_await = has_top_level_await(&source);
+        }
     }
 
     fn collect_missing_exports(&self, errors: &mut Vec<ValidationError>) {
@@ -216,43 +233,115 @@ impl ModuleGraph {
     }
 
     fn detect_cycles(&self, errors: &mut Vec<ValidationError>) {
-        let mut visiting = HashSet::new();
+        let mut stack = Vec::new();
         let mut visited = HashSet::new();
+        let mut reported = HashSet::new();
 
         for module_id in self.nodes.keys() {
-            self.visit(module_id, &mut visiting, &mut visited, errors);
+            self.visit(module_id, &mut stack, &mut visited, &mut reported, errors);
         }
     }
 
     fn visit(
         &self,
         module_id: &str,
-        visiting: &mut HashSet<String>,
+        stack: &mut Vec<String>,
         visited: &mut HashSet<String>,
+        reported: &mut HashSet<String>,
         errors: &mut Vec<ValidationError>,
     ) {
         if visited.contains(module_id) {
             return;
         }
-        if visiting.contains(module_id) {
-            errors.push(module_error(
-                1,
-                1,
-                module_id.len().max(1),
-                format!("Cyclic phpx import detected at '{}'.", module_id),
-                "Break the cycle by removing one of the imports.",
-            ));
+        if let Some(pos) = stack.iter().position(|entry| entry == module_id) {
+            let mut cycle = stack[pos..].to_vec();
+            cycle.push(module_id.to_string());
+            let cycle_key = cycle.join(" -> ");
+            if !reported.insert(cycle_key.clone()) {
+                return;
+            }
+            let has_tla = cycle.iter().any(|id| {
+                self.nodes
+                    .get(id.as_str())
+                    .map(|node| node.has_top_level_await)
+                    .unwrap_or(false)
+            });
+            let (message, help) = if has_tla {
+                (
+                    format!(
+                        "Top-level await import cycle detected: {}",
+                        cycle_key
+                    ),
+                    "Break the async cycle by removing one import edge or by moving await out of module scope.",
+                )
+            } else {
+                (
+                    format!("Cyclic phpx import detected: {}", cycle_key),
+                    "Break the cycle by removing one of the imports.",
+                )
+            };
+            errors.push(module_error(1, 1, module_id.len().max(1), message, help));
             return;
         }
-        visiting.insert(module_id.to_string());
+        stack.push(module_id.to_string());
         if let Some(node) = self.nodes.get(module_id) {
             for edge in &node.imports {
-                self.visit(&edge.module_id, visiting, visited, errors);
+                self.visit(&edge.module_id, stack, visited, reported, errors);
             }
         }
-        visiting.remove(module_id);
+        stack.pop();
         visited.insert(module_id.to_string());
     }
+}
+
+struct AwaitFinder {
+    found: bool,
+}
+
+impl<'ast> Visitor<'ast> for AwaitFinder {
+    fn visit_expr(&mut self, expr: ExprId<'ast>) {
+        if self.found {
+            return;
+        }
+        if matches!(*expr, Expr::Await { .. }) {
+            self.found = true;
+            return;
+        }
+        walk_expr(self, expr);
+    }
+}
+
+fn expr_has_await(expr: ExprId<'_>) -> bool {
+    let mut finder = AwaitFinder { found: false };
+    finder.visit_expr(expr);
+    finder.found
+}
+
+fn stmt_is_tla_candidate(stmt: &Stmt<'_>) -> bool {
+    match stmt {
+        Stmt::Expression { expr, .. } => expr_has_await(*expr),
+        Stmt::Return { expr: Some(expr), .. } => expr_has_await(*expr),
+        Stmt::Echo { exprs, .. } => exprs.iter().any(|expr| expr_has_await(*expr)),
+        _ => false,
+    }
+}
+
+fn has_top_level_await(source: &str) -> bool {
+    let filtered = source
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            !(trimmed.starts_with("import ") || trimmed.starts_with("export "))
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let arena = Bump::new();
+    let mut parser = Parser::new_with_mode(Lexer::new(filtered.as_bytes()), &arena, ParserMode::Phpx);
+    let program: Program<'_> = parser.parse_program();
+    program
+        .statements
+        .iter()
+        .any(|stmt| stmt_is_tla_candidate(stmt))
 }
 
 fn collect_import_specs(source: &str, file_path: &str) -> Vec<ImportSpec> {
@@ -835,5 +924,91 @@ fn wasm_error(
         suggestion: None,
         underline_length: underline_length.max(1),
         severity: Severity::Error,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_module_resolution;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn make_temp_project(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("deka_modules_test_{name}_{nanos}"));
+        fs::create_dir_all(root.join("php_modules")).expect("create php_modules");
+        fs::write(root.join("deka.lock"), "{}").expect("write lockfile");
+        root
+    }
+
+    #[test]
+    fn detects_plain_module_cycles() {
+        let root = make_temp_project("plain_cycle");
+        let entry = root.join("main.phpx");
+        fs::write(&entry, "import { foo } from 'a'\n").expect("write entry");
+        fs::write(
+            root.join("php_modules/a.phpx"),
+            "import { bar } from 'b'\nexport function foo() { return 1 }\n",
+        )
+        .expect("write a");
+        fs::write(
+            root.join("php_modules/b.phpx"),
+            "import { foo } from 'a'\nexport function bar() { return 1 }\n",
+        )
+        .expect("write b");
+
+        let errors = validate_module_resolution(
+            &fs::read_to_string(&entry).expect("read entry"),
+            entry.to_string_lossy().as_ref(),
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|err| err.message.contains("Cyclic phpx import detected:")),
+            "expected plain cycle error, got: {:?}",
+            errors
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn detects_top_level_await_cycles_with_path() {
+        let root = make_temp_project("tla_cycle");
+        let entry = root.join("main.phpx");
+        fs::write(&entry, "import { foo } from 'a'\n").expect("write entry");
+        fs::write(
+            root.join("php_modules/a.phpx"),
+            "import { bar } from 'b'\nexport function foo() { return 1 }\n",
+        )
+        .expect("write a");
+        fs::write(
+            root.join("php_modules/b.phpx"),
+            "import { foo } from 'a'\n$v = await foo()\nexport function bar() { return 1 }\n",
+        )
+        .expect("write b");
+
+        let errors = validate_module_resolution(
+            &fs::read_to_string(&entry).expect("read entry"),
+            entry.to_string_lossy().as_ref(),
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|err| err.message.contains("Top-level await import cycle detected:")),
+            "expected top-level await cycle error, got: {:?}",
+            errors
+        );
+        assert!(
+            errors.iter().any(|err| err.message.contains("->")),
+            "expected cycle path details, got: {:?}",
+            errors
+        );
+
+        let _ = fs::remove_dir_all(root);
     }
 }
