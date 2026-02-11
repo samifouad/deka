@@ -375,7 +375,8 @@ class NodeShimRuntime implements NodeRuntime {
   }
 
   private runProcess(proc: NodeShimProcess, args: string[], options?: SpawnOptions) {
-    const cwdRef = { value: normalizePath(options?.cwd ?? "/") };
+    const projectRoot = normalizePath(options?.cwd ?? "/");
+    const cwdRef = { value: projectRoot };
     const env = { ...(options?.env ?? {}) };
     const argv = ["node", ...args];
     const moduleCache = new Map<string, ModuleRecord>();
@@ -406,6 +407,7 @@ class NodeShimRuntime implements NodeRuntime {
     const require = createRequire({
       fs: this.fs,
       cwdRef,
+      projectRoot,
       decoder: this.decoder,
       encoder: this.encoder,
       moduleCache,
@@ -687,6 +689,7 @@ function isNodeProgram(program: string): boolean {
 function createRequire(options: {
   fs: WosixFs;
   cwdRef: { value: string };
+  projectRoot: string;
   decoder: TextDecoder;
   encoder: TextEncoder;
   moduleCache: Map<string, ModuleRecord>;
@@ -708,10 +711,11 @@ function createRequire(options: {
     if (specifier === "buffer") {
       return { Buffer: BufferShim };
     }
-    if (!specifier.startsWith(".") && !specifier.startsWith("/")) {
-      throw new Error(`Unsupported module: ${specifier}`);
-    }
-    const resolved = resolvePath(options.cwdRef.value, specifier);
+    const resolved = resolveRequireSpecifier(
+      options.cwdRef.value,
+      options.projectRoot,
+      specifier
+    );
     const filename = resolveModuleFile(options.fs, resolved);
     const cached = options.moduleCache.get(filename);
     if (cached) {
@@ -848,6 +852,19 @@ function resolvePath(cwd: string, path: string): string {
     return normalizePath(path);
   }
   return normalizePath(`${cwd}/${path}`);
+}
+
+function resolveRequireSpecifier(cwd: string, projectRoot: string, specifier: string): string {
+  if (specifier.startsWith("/")) {
+    return normalizePath(specifier);
+  }
+  if (specifier.startsWith("./") || specifier.startsWith("../")) {
+    return resolvePath(cwd, specifier);
+  }
+  if (specifier.startsWith("@/")) {
+    return normalizePath(`${projectRoot}/${specifier.slice(2)}`);
+  }
+  return normalizePath(`${projectRoot}/php_modules/${specifier}`);
 }
 
 function resolveModuleFile(fs: WosixFs, path: string): string {
