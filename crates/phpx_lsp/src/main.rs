@@ -2506,7 +2506,17 @@ fn jsx_attr_default_value(ty: Option<&str>) -> &'static str {
 
 fn builtin_completion_items() -> Vec<CompletionItem> {
     let mut items = Vec::new();
-    for name in ["Option", "Result", "Object", "array", "int", "string", "bool", "float"] {
+    for name in [
+        "Option",
+        "Result",
+        "Promise",
+        "Object",
+        "array",
+        "int",
+        "string",
+        "bool",
+        "float",
+    ] {
         items.push(CompletionItem {
             label: name.to_string(),
             kind: Some(CompletionItemKind::TYPE_PARAMETER),
@@ -2536,6 +2546,17 @@ fn snippet_completion_items() -> Vec<CompletionItem> {
             insert_text: Some("function ${1:name}(${2:$arg}: ${3:string}): ${4:string} {\n    ${5:return ''}\n}".to_string()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             detail: Some("PHPX function template".to_string()),
+            ..CompletionItem::default()
+        },
+        CompletionItem {
+            label: "snippet:async-function".to_string(),
+            kind: Some(CompletionItemKind::SNIPPET),
+            insert_text: Some(
+                "async function ${1:name}(${2:$arg}: Promise<${3:string}>): Promise<${3:string}> {\n    return await ${2:$arg}\n}"
+                    .to_string(),
+            ),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            detail: Some("PHPX async function template".to_string()),
             ..CompletionItem::default()
         },
         CompletionItem {
