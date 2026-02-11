@@ -27,6 +27,12 @@ export function renderToString($node) {
     return __component_render_node($node);
 }
 
+export async function renderToStringAsync($node): Promise<string> {
+    __component_reset_node_id()
+    __component_reset_island_id()
+    return await __component_render_node_async($node)
+}
+
 export function renderToStream($node) {
     // Streaming is not wired yet; return a full string for now.
     return renderToString($node);
@@ -382,10 +388,21 @@ function __component_render_vnode($node) {
         return $out;
     }
 
+    if (__component_is_suspense_provider($type)) {
+        $fallback = __component_read_prop($props, 'fallback')
+        __component_push_suspense_fallback($fallback)
+        $out = __component_render_children(__component_read_children($props))
+        __component_pop_suspense_fallback()
+        return $out
+    }
+
     if (!is_string($type) && is_callable($type)) {
         $island = __component_island_meta($type, $props);
         $call_props = __component_strip_island_props($props);
         $next = $type($call_props);
+        if (__component_is_promise($next)) {
+            return __component_render_suspense_fallback()
+        }
         $html = __component_render_node($next);
         return __component_wrap_island($html, $island);
     }
@@ -394,6 +411,9 @@ function __component_render_vnode($node) {
         $island = __component_island_meta($type, $props)
         $call_props = __component_strip_island_props($props)
         $next = $type($call_props)
+        if (__component_is_promise($next)) {
+            return __component_render_suspense_fallback()
+        }
         $html = __component_render_node($next)
         return __component_wrap_island($html, $island)
     }
@@ -403,6 +423,56 @@ function __component_render_vnode($node) {
     }
 
     return __component_render_dom_element($type, $props);
+}
+
+async function __component_render_vnode_async($node): Promise<string> {
+    $type = $node.type
+    $props = $node.props
+
+    if (is_string($type) && $type === '__fragment__') {
+        return await __component_render_children_async(__component_read_children($props))
+    }
+
+    if (__component_is_context_provider($type)) {
+        $ctx = __component_read_prop($props, 'ctx')
+        $value = __component_read_prop($props, 'value')
+        __component_push_context($ctx, $value)
+        $out = await __component_render_children_async(__component_read_children($props))
+        __component_pop_context()
+        return $out
+    }
+
+    if (__component_is_suspense_provider($type)) {
+        return await __component_render_children_async(__component_read_children($props))
+    }
+
+    if (!is_string($type) && is_callable($type)) {
+        $island = __component_island_meta($type, $props)
+        $call_props = __component_strip_island_props($props)
+        $next = $type($call_props)
+        if (__component_is_promise($next)) {
+            $next = await $next
+        }
+        $html = await __component_render_node_async($next)
+        return __component_wrap_island($html, $island)
+    }
+
+    if (is_string($type) && __component_is_component_name($type) && function_exists($type)) {
+        $island = __component_island_meta($type, $props)
+        $call_props = __component_strip_island_props($props)
+        $next = $type($call_props)
+        if (__component_is_promise($next)) {
+            $next = await $next
+        }
+        $html = await __component_render_node_async($next)
+        return __component_wrap_island($html, $island)
+    }
+
+    if (!is_string($type)) {
+        return ''
+    }
+
+    return await __component_render_dom_element_async($type, $props)
 }
 
 function __component_render_children($children) {
@@ -417,6 +487,20 @@ function __component_render_children($children) {
         return $out;
     }
     return __component_render_node($children);
+}
+
+async function __component_render_children_async($children): Promise<string> {
+    if ($children === false) {
+        return ''
+    }
+    if (is_array($children)) {
+        $out = ''
+        foreach ($children as $child) {
+            $out .= await __component_render_node_async($child)
+        }
+        return $out
+    }
+    return await __component_render_node_async($children)
 }
 
 function __component_render_raw_children($children) {
@@ -459,13 +543,97 @@ function __component_read_prop($props, $key) {
     if (!is_object($props)) {
         return false;
     }
-    if ($key === 'ctx' && isset($props.ctx)) {
-        return $props.ctx;
-    }
-    if ($key === 'value' && isset($props.value)) {
-        return $props.value;
+    foreach ($props as $prop_key => $prop_value) {
+        if ($prop_key === $key) {
+            return $prop_value;
+        }
     }
     return false;
+}
+
+async function __component_render_node_async($node): Promise<string> {
+    if (__component_is_promise($node)) {
+        $node = await $node
+    }
+    if (isValidElement($node)) {
+        return await __component_render_vnode_async($node)
+    }
+    if (is_array($node)) {
+        $out = ''
+        foreach ($node as $child) {
+            $out .= await __component_render_node_async($child)
+        }
+        return $out
+    }
+    if (is_string($node) || is_int($node) || is_float($node)) {
+        return __component_escape_html('' . $node)
+    }
+    if (is_bool($node)) {
+        return ''
+    }
+    return ''
+}
+
+function __component_is_promise($value): bool {
+    if (function_exists('is_promise')) {
+        return is_promise($value)
+    }
+    return gettype($value) === 'unknown type'
+}
+
+function &__component_suspense_stack() {
+    static $stack = []
+    return $stack
+}
+
+function __component_push_suspense_fallback($node) {
+    $stack = &__component_suspense_stack()
+    $stack[] = $node
+}
+
+function __component_pop_suspense_fallback() {
+    $stack = &__component_suspense_stack()
+    array_pop($stack)
+}
+
+function __component_render_suspense_fallback() {
+    $stack = &__component_suspense_stack()
+    if (count($stack) === 0) {
+        return ''
+    }
+    return __component_render_node($stack[count($stack) - 1])
+}
+
+function __component_is_suspense_provider($type): bool {
+    if (is_string($type)) {
+        if ($type === 'Suspense' || $type === '__phpx_component_core\\Suspense') {
+            return true
+        }
+        $trim = ltrim($type, '\\')
+        if ($trim === 'Suspense') {
+            return true
+        }
+        if (strpos($trim, '\\Suspense') !== false) {
+            return true
+        }
+    }
+    if (!is_callable($type)) {
+        return false
+    }
+    $name = __component_callable_name($type)
+    if (!is_string($name)) {
+        return false
+    }
+    if ($name === 'Suspense') {
+        return true
+    }
+    if (strpos($name, '\\Suspense') !== false) {
+        return true
+    }
+    if (strpos($name, 'wrap_Suspense') !== false) {
+        return true
+    }
+    return false
 }
 
 function __component_render_dom_element($tag, $props) {
@@ -523,6 +691,64 @@ function __component_render_dom_element($tag, $props) {
         return '<' . $tag . $attrs . '>';
     }
     return '<' . $tag . $attrs . '>' . $body . '</' . $tag . '>';
+}
+
+async function __component_render_dom_element_async($tag, $props): Promise<string> {
+    $attrs = ''
+    $children = false
+    $inner = false
+    $raw_text = __component_is_raw_text_tag($tag)
+    $has_dev_id = __component_has_dev_id_prop($props)
+
+    if (is_array($props) || is_object($props)) {
+        foreach ($props as $key => $value) {
+            if ($key === 'children') {
+                $children = $value
+                continue
+            }
+            if ($key === 'dangerouslySetInnerHTML') {
+                $inner = __component_extract_inner_html($value)
+                continue
+            }
+            if ($key === 'key' || $key === 'ref') {
+                continue
+            }
+            if (__component_is_event_prop($key)) {
+                continue
+            }
+
+            $attr_name = __component_attr_name($key)
+            if ($attr_name === '') {
+                continue
+            }
+            $attr_value = __component_attr_value($key, $value)
+            if ($attr_value === false) {
+                continue
+            }
+            if ($attr_value === true) {
+                $attrs .= ' ' . $attr_name
+                continue
+            }
+            $attrs .= ' ' . $attr_name . '="' . __component_escape_attr('' . $attr_value) . '"'
+        }
+    }
+
+    if (__component_dev_enabled() && !$has_dev_id) {
+        $attrs .= ' data-deka-id="' . __component_escape_attr(__component_next_node_id()) . '"'
+    }
+
+    if ($inner !== false) {
+        $body = $inner
+    } else if ($raw_text) {
+        $body = __component_render_raw_children($children)
+    } else {
+        $body = await __component_render_children_async($children)
+    }
+
+    if (__component_is_void_tag($tag)) {
+        return '<' . $tag . $attrs . '>'
+    }
+    return '<' . $tag . $attrs . '>' . $body . '</' . $tag . '>'
 }
 
 function __component_dev_enabled() {

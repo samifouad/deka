@@ -59,11 +59,11 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 
 ## Phase E: Async JSX
 
-- [ ] Permit components returning `Promise<VNode>`.
-- [ ] Add `Suspense` component with typed `fallback`.
-- [ ] Runtime behavior: fallback on unresolved subtree, resolved output on completion.
+- [x] Permit components returning `Promise<VNode>`.
+- [x] Add `Suspense` component with typed `fallback`.
+- [x] Runtime behavior: fallback on unresolved subtree, resolved output on completion.
 - [x] Validation: async component usage without `Suspense` errors with actionable hint.
-- [ ] Tests: async component render, nested async trees, fallback correctness.
+- [x] Tests: async component render, nested async trees, fallback correctness.
 
 ## Phase F: LSP + Validation
 
