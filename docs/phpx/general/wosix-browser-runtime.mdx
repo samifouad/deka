@@ -1,0 +1,68 @@
+---
+title: "Wosix Browser Runtime"
+description: "Run PHPX in-browser with host capability gating tuned for the wosix runtime."
+section: "phpx"
+category: "general"
+categoryLabel: "Language"
+categoryOrder: 8
+---
+
+PHPX supports host-targeted diagnostics and runtime gating for browser execution through `wosix`.
+
+## Host targets
+
+- `server` (default): full runtime capabilities
+- `wosix`: browser-safe profile with selected capabilities disabled
+
+Set the target in editor/LSP initialization:
+
+```json
+{
+  "phpx": {
+    "target": "wosix"
+  }
+}
+```
+
+## Capability model
+
+In `wosix`, these capabilities are currently blocked:
+
+- database modules (`db/*`, `postgres`, `mysql`, `sqlite`)
+- process/env access (`process`, `env`)
+
+When blocked APIs are imported, LSP reports a `Target Capability Error` with an actionable help message.
+
+## Runtime smoke workflow
+
+Build and validate the PHP runtime wasm artifact:
+
+```sh
+scripts/test-wosix-php-runtime.sh
+```
+
+This script:
+
+1. builds `php-rs` for `wasm32-unknown-unknown` in `release`
+2. verifies the wasm artifact exists
+3. runs host-profile gating tests
+
+## Playground workflow
+
+Build and serve the browser playground:
+
+```sh
+scripts/run-wosix-playground.sh
+```
+
+Build only:
+
+```sh
+scripts/run-wosix-playground.sh --build-only
+```
+
+## Migration notes from server-only assumptions
+
+- keep database work on server endpoints and call from browser-safe modules
+- avoid process/env reads in browser-targeted code; inject config through context
+- keep shared domain logic in pure PHPX modules so both targets can reuse them

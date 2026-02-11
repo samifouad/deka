@@ -56,8 +56,8 @@ Scope: run PHPX inside browser via `wosix` host profile
 ## DX + Tooling
 
 - [x] Add developer script for `wosix` php runtime smoke run.
-- [ ] Add playground boot script/example using `wosix` with PHPX file tree.
-- [ ] Ensure docs explain host capabilities and limitations clearly.
+- [x] Add playground boot script/example using `wosix` with PHPX file tree.
+- [x] Ensure docs explain host capabilities and limitations clearly.
 
 ## Testing
 
@@ -71,9 +71,9 @@ Scope: run PHPX inside browser via `wosix` host profile
 
 ## Docs
 
-- [ ] Add `docs/phpx/general/wosix-browser-runtime.mdx`.
-- [ ] Document host model, capability matrix, and how to run demos.
-- [ ] Include migration notes from server-only assumptions.
+- [x] Add `docs/phpx/general/wosix-browser-runtime.mdx`.
+- [x] Document host model, capability matrix, and how to run demos.
+- [x] Include migration notes from server-only assumptions.
 
 ## Cross-track dependency
 
