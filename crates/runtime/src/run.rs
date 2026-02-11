@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use core::Context;
 use engine::{RuntimeEngine, config as runtime_config, set_engine};
+use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
 use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
@@ -76,6 +77,7 @@ async fn run_async(context: &Context) -> Result<(), String> {
     let is_php = lowered.ends_with(".php") || lowered.ends_with(".phpx");
     if is_php {
         ensure_phpx_module_root(&normalized);
+        validate_phpx_modules(&normalized)?;
     }
     let serve_mode = if is_php {
         runtime_config::ServeMode::Php
@@ -199,6 +201,32 @@ throw err;\
     // If a server is running, the promise won't resolve and execution won't complete
     // This matches Node.js/Bun/Deno behavior automatically
     Ok(())
+}
+
+fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {
+    if !handler_path.to_ascii_lowercase().ends_with(".phpx") {
+        return Ok(());
+    }
+    let source = std::fs::read_to_string(handler_path)
+        .map_err(|err| format!("Failed to read PHPX handler {}: {}", handler_path, err))?;
+    let errors = validate_module_resolution(&source, handler_path);
+    if errors.is_empty() {
+        return Ok(());
+    }
+    let mut out = String::new();
+    for error in errors.iter().take(3) {
+        out.push_str(&format_validation_error(&source, handler_path, error));
+    }
+    if errors.len() > 3 {
+        out.push_str(&format!(
+            "\n... plus {} additional module validation error(s)\n",
+            errors.len() - 3
+        ));
+    }
+    Err(format!(
+        "PHPX module graph validation failed for {}:\n{}",
+        handler_path, out
+    ))
 }
 
 fn ensure_phpx_module_root(handler_path: &str) {

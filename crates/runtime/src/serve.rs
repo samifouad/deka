@@ -7,6 +7,7 @@ use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
 use core::Context;
 use engine::{RuntimeEngine, RuntimeState, config as runtime_config, set_engine};
+use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
 use notify::Watcher;
 use pool::validation::{PoolWorkers, extract_pool_options};
 use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
@@ -47,6 +48,7 @@ async fn serve_async(context: &Context) -> Result<(), String> {
         matches!(resolved.mode, runtime_config::ServeMode::Static) && !is_static_dir;
     if matches!(resolved.mode, runtime_config::ServeMode::Php) {
         ensure_phpx_module_root(&handler_path);
+        validate_phpx_modules(&handler_path)?;
     }
     if std::env::var("HANDLER_PATH").is_err() {
         unsafe {
@@ -130,6 +132,32 @@ async fn serve_async(context: &Context) -> Result<(), String> {
     spawn_archive_task(&state, engine.archive());
 
     serve_listeners(state, &serve_options, perf_mode, server_pool_workers).await
+}
+
+fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {
+    if !handler_path.to_ascii_lowercase().ends_with(".phpx") {
+        return Ok(());
+    }
+    let source = std::fs::read_to_string(handler_path)
+        .map_err(|err| format!("Failed to read PHPX handler {}: {}", handler_path, err))?;
+    let errors = validate_module_resolution(&source, handler_path);
+    if errors.is_empty() {
+        return Ok(());
+    }
+    let mut out = String::new();
+    for error in errors.iter().take(3) {
+        out.push_str(&format_validation_error(&source, handler_path, error));
+    }
+    if errors.len() > 3 {
+        out.push_str(&format!(
+            "\n... plus {} additional module validation error(s)\n",
+            errors.len() - 3
+        ));
+    }
+    Err(format!(
+        "PHPX module graph validation failed for {}:\n{}",
+        handler_path, out
+    ))
 }
 
 fn ensure_phpx_module_root(handler_path: &str) {
