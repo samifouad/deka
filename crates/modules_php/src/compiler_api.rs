@@ -15,7 +15,8 @@ use crate::validation::jsx::{
     validate_template_section,
 };
 use crate::validation::modules::{
-    resolve_modules_root, validate_module_resolution, validate_wasm_imports,
+    resolve_modules_root, validate_module_resolution, validate_target_capabilities,
+    validate_wasm_imports,
 };
 use crate::validation::patterns::validate_match_exhaustiveness;
 use crate::validation::phpx_rules::{
@@ -85,6 +86,7 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
     errors.extend(validate_components(&program, source));
 
     errors.extend(validate_module_resolution(source, file_path));
+    errors.extend(validate_target_capabilities(source, file_path));
     errors.extend(validate_wasm_imports(source, file_path));
 
     errors.extend(validate_match_exhaustiveness(&program, source));

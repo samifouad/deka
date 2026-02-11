@@ -21,14 +21,14 @@ Scope: run PHPX inside browser via `wosix` host profile
 ## Host Profiles
 
 - [x] Define explicit host profile enum/config: `server`, `wosix`.
-- [ ] Add capability matrix consumed by runtime + validation:
+- [x] Add capability matrix consumed by runtime + validation:
   - [x] `fs`
   - [x] `net`
   - [x] `process/env`
   - [x] `clock/random`
   - [x] `db`
   - [x] `wasm imports`
-  - Note: runtime gating and LSP target-aware diagnostics for restricted imports are implemented; compiler validation pass is still pending.
+  - Note: runtime gating, compiler validation, and LSP target-aware diagnostics are all implemented for restricted imports.
 - [x] Ensure unsupported operations return structured capability errors.
 
 ## Runtime Integration

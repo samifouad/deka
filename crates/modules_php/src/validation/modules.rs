@@ -97,6 +97,40 @@ pub fn validate_wasm_imports(source: &str, file_path: &str) -> Vec<ValidationErr
     errors
 }
 
+pub fn validate_target_capabilities(source: &str, file_path: &str) -> Vec<ValidationError> {
+    let target = std::env::var("PHPX_TARGET")
+        .ok()
+        .or_else(|| std::env::var("DEKA_HOST_PROFILE").ok())
+        .unwrap_or_else(|| "server".to_string())
+        .to_ascii_lowercase();
+    if target != "wosix" {
+        return Vec::new();
+    }
+
+    let mut errors = Vec::new();
+    for spec in collect_import_specs(source, file_path) {
+        if spec.kind == ImportKind::Wasm {
+            continue;
+        }
+        if let Some((capability, reason, suggestion)) = wosix_capability_block(&spec.from) {
+            errors.push(module_error(
+                spec.line,
+                spec.column,
+                spec.from.len().max(1),
+                format!(
+                    "Target capability error: module '{}' is unavailable for target 'wosix' ({}).",
+                    spec.from, reason
+                ),
+                &format!(
+                    "Switch target or avoid {} APIs in browser-targeted modules. {}",
+                    capability, suggestion
+                ),
+            ));
+        }
+    }
+    errors
+}
+
 struct ModuleGraph {
     modules_root: Option<PathBuf>,
     available_modules: HashSet<String>,
@@ -879,6 +913,38 @@ fn is_valid_user_module(raw: &str) -> bool {
         && parts.iter().all(|part| !part.trim().is_empty())
 }
 
+fn wosix_capability_block(specifier: &str) -> Option<(&'static str, &'static str, &'static str)> {
+    if specifier == "db"
+        || specifier.starts_with("db/")
+        || specifier == "postgres"
+        || specifier.starts_with("postgres/")
+        || specifier == "mysql"
+        || specifier.starts_with("mysql/")
+        || specifier == "sqlite"
+        || specifier.starts_with("sqlite/")
+    {
+        return Some((
+            "db",
+            "database host capability is disabled",
+            "Move db access behind a server endpoint for wosix.",
+        ));
+    }
+
+    if specifier == "process"
+        || specifier.starts_with("process/")
+        || specifier == "env"
+        || specifier.starts_with("env/")
+    {
+        return Some((
+            "process/env",
+            "process/env host capability is disabled",
+            "Inject config through app context instead of reading process/env in wosix.",
+        ));
+    }
+
+    None
+}
+
 fn format_available_modules(modules: &HashSet<String>, prefix: &str) -> Option<String> {
     if modules.is_empty() {
         return None;
@@ -929,7 +995,7 @@ fn wasm_error(
 
 #[cfg(test)]
 mod tests {
-    use super::validate_module_resolution;
+    use super::{validate_module_resolution, validate_target_capabilities};
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1010,5 +1076,41 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn blocks_db_imports_for_wosix_target() {
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::set_var("PHPX_TARGET", "wosix");
+        }
+        let source = "import { query } from 'db/postgres'\n";
+        let errors = validate_target_capabilities(source, "main.phpx");
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::remove_var("PHPX_TARGET");
+        }
+        assert_eq!(errors.len(), 1, "expected one capability error: {:?}", errors);
+        assert!(
+            errors[0].message.contains("db/postgres"),
+            "expected module in message: {:?}",
+            errors
+        );
+    }
+
+    #[test]
+    fn allows_db_imports_for_server_target() {
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::remove_var("PHPX_TARGET");
+            std::env::set_var("DEKA_HOST_PROFILE", "server");
+        }
+        let source = "import { query } from 'db/postgres'\n";
+        let errors = validate_target_capabilities(source, "main.phpx");
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::remove_var("DEKA_HOST_PROFILE");
+        }
+        assert!(errors.is_empty(), "unexpected errors: {:?}", errors);
     }
 }
