@@ -274,7 +274,7 @@ fn should_skip_dir(path: &Path) -> bool {
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("");
-    matches!(name, "node_modules" | "target" | "dist" | ".git")
+    matches!(name, "target" | "dist" | ".git")
 }
 
 fn is_test_file(path: &Path) -> bool {

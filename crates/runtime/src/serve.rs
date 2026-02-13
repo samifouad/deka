@@ -43,20 +43,21 @@ async fn serve_async(context: &Context) -> Result<(), String> {
         .map_err(|err| format!("Failed to resolve handler path: {}", err))?;
 
     let handler_path = resolved.path.to_string_lossy().to_string();
-    let is_static_dir = resolved.path.is_dir();
-    let is_html_entry =
-        matches!(resolved.mode, runtime_config::ServeMode::Static) && !is_static_dir;
-    if matches!(resolved.mode, runtime_config::ServeMode::Php) {
-        ensure_phpx_module_root(&handler_path);
-        validate_phpx_modules(&handler_path)?;
+    if !matches!(resolved.mode, runtime_config::ServeMode::Php) {
+        return Err(format!(
+            "Serve mode in reboot MVP only supports .php and .phpx handlers: {}",
+            handler_path
+        ));
     }
+    ensure_phpx_module_root(&handler_path);
+    validate_phpx_modules(&handler_path)?;
     if std::env::var("HANDLER_PATH").is_err() {
         unsafe {
             std::env::set_var("HANDLER_PATH", &handler_path);
         }
     }
 
-    let handler_source = load_handler_source(&handler_path, &resolved.mode, is_static_dir)?;
+    let handler_source = load_handler_source(&handler_path, &resolved.mode)?;
 
     stdio_log::log("handler", &format!("loaded {}", handler_path));
     if dev_mode {
@@ -100,10 +101,7 @@ async fn serve_async(context: &Context) -> Result<(), String> {
 
     let handler_code = build_handler_code(
         &handler_path,
-        &handler_source,
         &resolved,
-        is_html_entry,
-        is_static_dir,
     );
 
     let perf_request_value = serde_json::json!({
@@ -223,25 +221,14 @@ fn perf_mode_enabled() -> bool {
 }
 
 fn load_handler_source(
-    handler_path: &str,
+    _handler_path: &str,
     mode: &runtime_config::ServeMode,
-    is_static_dir: bool,
 ) -> Result<String, String> {
-    if is_static_dir {
-        return Ok(String::new());
-    }
-
-    if matches!(mode, runtime_config::ServeMode::Static) {
-        return std::fs::read_to_string(handler_path)
-            .map_err(|err| format!("Failed to read static file from {}: {}", handler_path, err));
-    }
-
     if matches!(mode, runtime_config::ServeMode::Php) {
         return Ok(String::new());
     }
 
-    std::fs::read_to_string(handler_path)
-        .map_err(|err| format!("Failed to read handler from {}: {}", handler_path, err))
+    Err("Only PHP/PHPX serve mode is supported in reboot MVP".to_string())
 }
 
 fn configure_pools(
@@ -316,42 +303,14 @@ fn configure_pools(
 
 fn build_handler_code(
     handler_path: &str,
-    handler_source: &str,
-    resolved: &runtime_config::ResolvedHandler,
-    is_html_entry: bool,
-    is_static_dir: bool,
+    _resolved: &runtime_config::ResolvedHandler,
 ) -> String {
-    match resolved.mode {
-        runtime_config::ServeMode::Php => {
-            let php_file =
-                serde_json::to_string(handler_path).unwrap_or_else(|_| "\"\"".to_string());
-            format!(
-                "const app = globalThis.__dekaPhp.servePhp({});\nglobalThis.app = app;",
-                php_file
-            )
-        }
-        runtime_config::ServeMode::Static if is_static_dir => {
-            let dir = serde_json::to_string(handler_path).unwrap_or_else(|_| "\"\"".to_string());
-            let listing = resolved.config.directory_listing.unwrap_or(true);
-            format!(
-                "const app = globalThis.__dekaStatic.serveStaticDirectory({}, {{ directory_listing: {} }});\nglobalThis.app = app;",
-                dir, listing
-            )
-        }
-        runtime_config::ServeMode::Static if is_html_entry => {
-            let entry = serde_json::to_string(handler_path).unwrap_or_else(|_| "\"\"".to_string());
-            let content_json =
-                serde_json::to_string(handler_source).unwrap_or_else(|_| "\"\"".to_string());
-            format!(
-                "const app = globalThis.__dekaStatic.serveStatic({}, {});\nglobalThis.app = app;",
-                entry, content_json
-            )
-        }
-        _ => format!(
-            "const app = globalThis.__dekaLoadModule({});",
-            serde_json::to_string(handler_path).unwrap_or_else(|_| "\"\"".to_string())
-        ),
-    }
+    let php_file =
+        serde_json::to_string(handler_path).unwrap_or_else(|_| "\"\"".to_string());
+    format!(
+        "const app = globalThis.__dekaPhp.servePhp({});\nglobalThis.app = app;",
+        php_file
+    )
 }
 
 async fn serve_listeners(

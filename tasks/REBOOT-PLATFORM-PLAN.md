@@ -20,16 +20,16 @@ Deferred (post-MVP):
 
 ## Non-goals (MVP)
 
-- [ ] No Node/Bun compatibility layer.
+- [x] No Node/Bun compatibility layer (runtime run/serve paths stripped).
 - [x] No separate LSP runtime path from CLI (`deka lsp` now runs in-process).
-- [ ] No CLI/Desktop platform runtime work.
-- [ ] No JS/TS bundling pipeline in MVP (`deka build` hidden; `crates/bundler` removal pending).
+- [x] No CLI/Desktop platform runtime work.
+- [x] No JS/TS bundling pipeline in MVP (`deka build` removed; `crates/bundler` dropped from workspace).
 
 ## Locked decisions
 
 - [x] `introspect` is retained in reboot MVP.
 - [x] `loop` crate is excluded from reboot MVP.
-- [ ] `bundler` crate is dropped from reboot MVP.
+- [x] `bundler` crate is dropped from reboot MVP.
 
 ## Hard workflow rules
 

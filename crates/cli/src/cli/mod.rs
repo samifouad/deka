@@ -41,16 +41,6 @@ pub fn register_global_flags(registry: &mut Registry) {
         aliases: &["-d", "debug"],
         description: "enable debug logging",
     });
-    registry.add_flag(FlagSpec {
-        name: "--desktop",
-        aliases: &[],
-        description: "compile as desktop app (requires compile command)",
-    });
-    registry.add_flag(FlagSpec {
-        name: "--bundle",
-        aliases: &[],
-        description: "create platform-native bundle (macOS: .app, Windows: installer, Linux: AppImage)",
-    });
 }
 
 pub fn register_global_params(registry: &mut Registry) {
@@ -73,10 +63,6 @@ pub fn register_global_params(registry: &mut Registry) {
     registry.add_param(ParamSpec {
         name: "-o",
         description: "build output directory",
-    });
-    registry.add_param(ParamSpec {
-        name: "--name",
-        description: "app name for bundled apps",
     });
 }
 
