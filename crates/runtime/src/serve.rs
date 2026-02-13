@@ -11,6 +11,7 @@ use modules_php::validation::{format_validation_error, modules::validate_module_
 use notify::Watcher;
 use pool::validation::{PoolWorkers, extract_pool_options};
 use pool::{HandlerKey, PoolConfig};
+use runtime_core::env::flag_or_env_truthy;
 use stdio as stdio_log;
 use transport::{
     DnsOptions, HttpOptions, RedisOptions, TcpOptions, UdpOptions, UnixOptions, WsOptions,
@@ -185,33 +186,6 @@ fn watch_enabled(context: &Context) -> bool {
 
 fn dev_enabled(context: &Context) -> bool {
     flag_or_env_truthy(&context.args.flags, "--dev", None, "DEKA_DEV")
-}
-
-fn flag_or_env_truthy(
-    flags: &std::collections::HashMap<String, bool>,
-    long_flag: &str,
-    short_flag: Option<&str>,
-    env_var: &str,
-) -> bool {
-    if flags.contains_key(long_flag) {
-        return true;
-    }
-    if let Some(short) = short_flag {
-        if flags.contains_key(short) {
-            return true;
-        }
-    }
-    env_truthy(env_var)
-}
-
-fn env_truthy(var: &str) -> bool {
-    std::env::var(var)
-        .map(|value| is_truthy(&value))
-        .unwrap_or(false)
-}
-
-fn is_truthy(value: &str) -> bool {
-    matches!(value, "1" | "true" | "yes" | "on")
 }
 
 fn perf_mode_enabled() -> bool {
@@ -484,7 +458,8 @@ fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>, dev_mode: bool) -
 
 #[cfg(test)]
 mod tests {
-    use super::{flag_or_env_truthy, is_truthy};
+    use super::flag_or_env_truthy;
+    use runtime_core::env::is_truthy;
     use std::collections::HashMap;
 
     #[test]

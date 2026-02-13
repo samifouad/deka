@@ -5,21 +5,9 @@ use core::Context;
 use engine::{RuntimeEngine, config as runtime_config, set_engine};
 use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
 use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
+use runtime_core::process::parse_exit_code;
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
-fn parse_exit_code(message: &str) -> Option<i32> {
-    let marker = "DekaExit:";
-    let idx = message.find(marker)?;
-    let tail = &message[idx + marker.len()..];
-    let digits: String = tail
-        .chars()
-        .take_while(|ch| ch.is_ascii_digit() || *ch == '-')
-        .collect();
-    if digits.is_empty() {
-        return None;
-    }
-    digits.parse::<i32>().ok()
-}
 
 pub fn run(context: &Context) {
     let rt = tokio::runtime::Builder::new_multi_thread()

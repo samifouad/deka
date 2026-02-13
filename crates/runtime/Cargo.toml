@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 core = { path = "../core" }
+runtime_core = { path = "../runtime_core" }
 engine = { path = "../engine" }
 pool = { path = "../pool" }
 transport = { path = "../transport" }

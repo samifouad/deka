@@ -48,7 +48,7 @@ Deferred (post-MVP):
 
 ## Phase 2: Runtime Core Extraction
 
-- [ ] Extract host-agnostic runtime logic into `runtime_core`.
+- [x] Extract host-agnostic runtime logic into `runtime_core` (initial shared utilities).
 - [ ] Remove direct host/runtime globals from core execution path.
 - [ ] Ensure PHP/PHPX pipeline can run through injected platform contracts.
 - [ ] Keep module system behavior parity with current runtime where intended.
@@ -90,6 +90,6 @@ Deferred (post-MVP):
 
 - [x] Single `deka` binary ships runtime + LSP command.
 - [ ] `platform_server` and `platform_browser` are functional and tested.
-- [ ] No Node/Bun compatibility code remains in reboot repo.
+- [x] No Node/Bun compatibility code remains in reboot repo.
 - [ ] Runtime core contains no platform-specific glue.
 - [ ] Artifact versioning and stale detection are enforced.

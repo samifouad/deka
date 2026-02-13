@@ -4,6 +4,7 @@ members = [
     "crates/core",
     "crates/cli",
     "crates/runtime",
+    "crates/runtime_core",
     "crates/compile",
     "crates/stdio",
     "crates/http",

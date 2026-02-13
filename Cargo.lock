@@ -4943,12 +4943,17 @@ dependencies = [
  "notify",
  "num_cpus",
  "pool",
+ "runtime_core",
  "serde_json",
  "stdio",
  "tokio",
  "tracing",
  "transport",
 ]
+
+[[package]]
+name = "runtime_core"
+version = "0.1.0"
 
 [[package]]
 name = "rusqlite"

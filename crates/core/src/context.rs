@@ -24,7 +24,6 @@ pub struct HandlerContext {
     pub resolved: ResolvedHandler,
     pub static_config: StaticServeConfig,
     pub serve_config_path: Option<PathBuf>,
-    pub package_json_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -53,14 +52,12 @@ impl HandlerContext {
         let resolved = resolve_handler_path(&input)?;
         let static_config = StaticServeConfig::load(&resolved.directory);
         let serve_config_path = resolved.directory.join("serve.json");
-        let package_json_path = resolved.directory.join("package.json");
 
         Ok(Self {
             input,
             resolved,
             static_config,
             serve_config_path: serve_config_path.exists().then_some(serve_config_path),
-            package_json_path: package_json_path.exists().then_some(package_json_path),
         })
     }
 }
@@ -85,13 +82,11 @@ impl Context {
                     let resolved = resolve_handler_path(".").map_err(ContextError::HandlerResolve)?;
                     let static_config = StaticServeConfig::load(&resolved.directory);
                     let serve_config_path = resolved.directory.join("serve.json");
-                    let package_json_path = resolved.directory.join("package.json");
                     HandlerContext {
                         input: ".".to_string(),
                         resolved,
                         static_config,
                         serve_config_path: serve_config_path.exists().then_some(serve_config_path),
-                        package_json_path: package_json_path.exists().then_some(package_json_path),
                     }
                 } else {
                     return Err(ContextError::HandlerResolve(message));

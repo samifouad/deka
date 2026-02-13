@@ -167,7 +167,6 @@ pub fn execute(registry: &Registry) {
                             resolved,
                             static_config,
                             serve_config_path: None,
-                            package_json_path: None,
                         }
                     }
                 };
