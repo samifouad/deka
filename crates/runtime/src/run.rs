@@ -8,6 +8,7 @@ use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
 use runtime_core::env::{set_default_log_level_with, set_handler_path_with, set_runtime_args_with};
 use runtime_core::handler::{handler_input_with, is_html_entry, is_php_entry, normalize_handler_path};
 use runtime_core::modules::ensure_phpx_module_root_env_with;
+use runtime_core::php_pipeline::build_run_handler_code;
 use runtime_core::process::parse_exit_code;
 use runtime_core::validation::validate_phpx_handler_with;
 use crate::env::init_env;
@@ -66,30 +67,7 @@ async fn run_async(context: &Context) -> Result<(), String> {
     let _ = std::fs::read_to_string(&normalized)
         .map_err(|err| format!("Failed to read handler from {}: {}", normalized, err))?;
 
-    let php_file = serde_json::to_string(&normalized).unwrap_or_else(|_| "\"\"".to_string());
-    let handler_code = format!(
-        "const __dekaPhpFile = {php_file};\
-(async () => {{\
-  try {{\
-    const __dekaPhpResult = await globalThis.__dekaPhp.runFile(__dekaPhpFile);\
-    const __dekaPhpStdout = (__dekaPhpResult && __dekaPhpResult.stdout) ? __dekaPhpResult.stdout : \"\";\
-    if (__dekaPhpStdout) Deno.core.print(String(__dekaPhpStdout), false);\
-    let __dekaPhpStderr = (__dekaPhpResult && __dekaPhpResult.stderr) ? __dekaPhpResult.stderr : \"\";\
-    if (!__dekaPhpStderr && __dekaPhpResult && __dekaPhpResult.error) {{\
-      __dekaPhpStderr = String(__dekaPhpResult.error);\
-    }}\
-    if (__dekaPhpStderr) Deno.core.print(String(__dekaPhpStderr), true);\
-    const __dekaPhpOk = __dekaPhpResult && __dekaPhpResult.ok !== false;\
-    let __dekaPhpExit = (__dekaPhpResult && typeof __dekaPhpResult.exit_code === \"number\") ? __dekaPhpResult.exit_code : 0;\
-    if (!__dekaPhpOk && __dekaPhpExit === 0) __dekaPhpExit = 1;\
-    if (__dekaPhpExit) globalThis.__dekaExitCode = __dekaPhpExit;\
-  }} catch (err) {{\
-    const __dekaPhpMsg = err && (err.stack || err.message) ? (err.stack || err.message) : String(err);\
-    if (__dekaPhpMsg) Deno.core.print(String(__dekaPhpMsg) + \"\\n\", true);\
-    globalThis.__dekaExitCode = 1;\
-  }}\
-}})();",
-    );
+    let handler_code = build_run_handler_code(&normalized);
 
     let runtime_cfg = runtime_config::RuntimeConfig::load();
     let mut pool_config = PoolConfig::from_env();

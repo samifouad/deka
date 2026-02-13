@@ -13,6 +13,7 @@ use pool::validation::{PoolWorkers, extract_pool_options};
 use pool::{HandlerKey, PoolConfig};
 use runtime_core::env::{flag_or_env_truthy_with, set_dev_flag_with, set_handler_path_with};
 use runtime_core::modules::ensure_phpx_module_root_env_with;
+use runtime_core::php_pipeline::build_serve_handler_code;
 use runtime_core::validation::validate_phpx_handler_with;
 use stdio as stdio_log;
 use transport::{
@@ -253,12 +254,7 @@ fn build_handler_code(
     handler_path: &str,
     _resolved: &runtime_config::ResolvedHandler,
 ) -> String {
-    let php_file =
-        serde_json::to_string(handler_path).unwrap_or_else(|_| "\"\"".to_string());
-    format!(
-        "const app = globalThis.__dekaPhp.servePhp({});\nglobalThis.app = app;",
-        php_file
-    )
+    build_serve_handler_code(handler_path)
 }
 
 async fn serve_listeners(
