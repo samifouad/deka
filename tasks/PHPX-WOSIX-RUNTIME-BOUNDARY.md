@@ -26,18 +26,18 @@ Define and enforce the browser runtime boundary for PHPX in WOSIX so demos and t
   - [x] `meta: object`
 - [ ] Contract errors must be structured (no opaque string-only failures).
 - [x] Contract errors are structured (diagnostics + meta, no opaque string-only failures).
-- [ ] Contract must support host capability reporting.
+- [x] Contract must support host capability reporting.
 
 ## Capability Surface
 
-- [ ] Explicit host capability map for browser profile:
+- [x] Explicit host capability map for browser profile:
   - `fs`
   - `net/fetch`
   - `env`
   - `clock/random`
   - `db`
   - `wasm imports`
-- [ ] Capability-denied responses must map to actionable diagnostics.
+- [x] Capability-denied responses must map to actionable diagnostics.
 
 ## Guardrails
 
@@ -50,7 +50,7 @@ Define and enforce the browser runtime boundary for PHPX in WOSIX so demos and t
 
 - [x] Unit/smoke test runtime adapter response shape.
 - [x] Smoke test runtime adapter response shape (`npm run smoke:phpx-runtime-adapter`).
-- [ ] Integration test adapter + capability-denied handling.
+- [x] Integration test adapter + capability-denied handling.
 - [x] Browser e2e for PHPX path once adapter wiring lands.
 - [ ] Keep Node-shim e2e green throughout.
 

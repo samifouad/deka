@@ -4,6 +4,10 @@ export { DekaBrowserRuntime, DekaBrowserServer } from "./deka_runtime.js";
 export type { Handler, ServeOptions, RuntimeFs } from "./deka_runtime.js";
 export { createPhpHostBridge, PhpHostBridge } from "./phpx_host_bridge.js";
 export type { BridgeCallInput, BridgeCallOutput, HostCapabilities, HostTarget, } from "./phpx_host_bridge.js";
+export { PhpRuntimeAdapter, createPhpRuntimeAdapter, createPhpRuntimeAdapterFromBridgeOptions, } from "./phpx_runtime_adapter.js";
+export type { PhpRunContext, PhpRunDiagnostic, PhpRunMode, PhpRunResult, PhpRuntimeAdapterOptions, } from "./phpx_runtime_adapter.js";
+export { PhpRuntimeWasmExecutor, createPhpRuntimeWasmExecutor, } from "./phpx_wasm_executor.js";
+export type { PhpRuntimeWasmExecutorOptions } from "./phpx_wasm_executor.js";
 export type BootOptions = {
     init?: (module?: WebAssembly.Module | ArrayBuffer | Response) => Promise<unknown>;
     module?: WebAssembly.Module | ArrayBuffer | Response;

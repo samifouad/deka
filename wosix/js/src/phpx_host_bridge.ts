@@ -95,12 +95,21 @@ export class PhpHostBridge {
     }
 
     try {
+      if (kind === "host" && action === "capabilities") {
+        return {
+          ok: true,
+          value: {
+            target: this.target,
+            capabilities: this.capabilities(),
+          },
+        };
+      }
       if (kind === "fs") {
         return { ok: true, value: this.callFs(action, payload) };
       }
-    if (kind === "process" || kind === "env") {
-      return { ok: true, value: this.callProcessEnv(action, payload) };
-    }
+      if (kind === "process" || kind === "env") {
+        return { ok: true, value: this.callProcessEnv(action, payload) };
+      }
       if (kind === "clock" || kind === "random") {
         return { ok: true, value: this.callClockRandom(kind, action, payload) };
       }
@@ -112,6 +121,14 @@ export class PhpHostBridge {
       const message = err instanceof Error ? err.message : String(err);
       return { ok: false, error: `bridge error: ${message}` };
     }
+  }
+
+  capabilities(): HostCapabilities {
+    return { ...this.caps };
+  }
+
+  hostTarget(): HostTarget {
+    return this.target;
   }
 
   private callFs(action: string, payload: Record<string, unknown>): unknown {

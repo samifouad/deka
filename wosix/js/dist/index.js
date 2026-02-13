@@ -1,5 +1,7 @@
 export { DekaBrowserRuntime, DekaBrowserServer } from "./deka_runtime.js";
 export { createPhpHostBridge, PhpHostBridge } from "./phpx_host_bridge.js";
+export { PhpRuntimeAdapter, createPhpRuntimeAdapter, createPhpRuntimeAdapterFromBridgeOptions, } from "./phpx_runtime_adapter.js";
+export { PhpRuntimeWasmExecutor, createPhpRuntimeWasmExecutor, } from "./phpx_wasm_executor.js";
 export class WebContainer {
     static async boot(bindings, options = {}) {
         const init = options.init ?? bindings.default;
