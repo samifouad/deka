@@ -5950,6 +5950,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "platform_server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "platform",
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "plugin"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -55,7 +55,7 @@ Deferred (post-MVP):
 
 ## Phase 3: Server Platform
 
-- [ ] Implement `platform_server`.
+- [x] Implement `platform_server` (initial adapter scaffold).
 - [ ] Update Deno dependencies to latest stable.
 - [ ] Minimize direct Deno touchpoints to server platform adapter.
 - [ ] Restore parity for `deka run` and `deka serve` on server.
