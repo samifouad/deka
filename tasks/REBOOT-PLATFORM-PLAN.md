@@ -70,6 +70,7 @@ Deferred (post-MVP):
 - [x] Add host command-runtime injection in WOSIX JS and a `createDekaWasmCommandRuntime(...)` adapter.
 - [x] Wire demo vendor build to ship `deka_cli.wasm` and boot with wasm-based `deka` command runtime.
 - [x] Add smoke test for wasm deka command runtime (`npm run smoke:deka-wasm-runtime`).
+- [x] Add browser command runtime wrapper that handles `deka run <file>` via PHP runtime adapter and delegates other commands to wasm CLI runtime.
 - [ ] Run real `deka` process semantics in browser host.
 - [x] Keep strict module/network restrictions in browser adapter.
 

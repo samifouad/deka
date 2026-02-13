@@ -6,6 +6,7 @@ export { createPhpHostBridge, PhpHostBridge } from "./phpx_host_bridge.js";
 export type { BridgeCallInput, BridgeCallOutput, HostCapabilities, HostTarget, } from "./phpx_host_bridge.js";
 export { PhpRuntimeAdapter, createPhpRuntimeAdapter, createPhpRuntimeAdapterFromBridgeOptions, } from "./phpx_runtime_adapter.js";
 export type { PhpRunContext, PhpRunDiagnostic, PhpRunMode, PhpRunResult, PhpRuntimeAdapterOptions, } from "./phpx_runtime_adapter.js";
+import type { PhpRuntimeAdapter } from "./phpx_runtime_adapter.js";
 export { PhpRuntimeWasmExecutor, createPhpRuntimeWasmExecutor, } from "./phpx_wasm_executor.js";
 export type { PhpRuntimeWasmExecutorOptions } from "./phpx_wasm_executor.js";
 export type BootOptions = {
@@ -30,6 +31,13 @@ export type DekaWasmCommandRuntimeOptions = {
     wasmBytes?: ArrayBuffer | Uint8Array;
 };
 export declare function createDekaWasmCommandRuntime(options: DekaWasmCommandRuntimeOptions): CommandRuntime;
+export type DekaBrowserCommandRuntimeOptions = {
+    cliRuntime: CommandRuntime;
+    phpRuntime: PhpRuntimeAdapter;
+    projectRoot?: string;
+    defaultRunEntry?: string;
+};
+export declare function createDekaBrowserCommandRuntime(options: DekaBrowserCommandRuntimeOptions): CommandRuntime;
 export type NodeWasmOptions = {
     module?: WebAssembly.Module | ArrayBuffer | Response;
     url?: string;

@@ -61,6 +61,42 @@ export function createDekaWasmCommandRuntime(options) {
         };
     };
 }
+export function createDekaBrowserCommandRuntime(options) {
+    const decoder = new TextDecoder();
+    return async (args, spawnOptions, context) => {
+        if (args[0] === "run") {
+            const entry = normalizePath(args[1] ?? options.defaultRunEntry ?? "/main.phpx");
+            let source;
+            try {
+                const bytes = context.fs.readFile(entry);
+                source = decoder.decode(bytes);
+            }
+            catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                return {
+                    code: 1,
+                    stderr: `deka run: unable to read ${entry}: ${message}\n`,
+                };
+            }
+            const mode = entry.endsWith(".phpx") ? "phpx" : "php";
+            const result = await options.phpRuntime.run(source, mode, {
+                filename: entry,
+                cwd: dirname(entry),
+            });
+            const diagnostics = (result.diagnostics ?? [])
+                .map((diag) => `[${diag.severity}] ${diag.message}`)
+                .join("\n");
+            return {
+                code: result.ok ? 0 : 1,
+                stdout: result.stdout ?? "",
+                stderr: [result.stderr ?? "", diagnostics]
+                    .filter((part) => part.length > 0)
+                    .join(result.stderr && diagnostics ? "\n" : ""),
+            };
+        }
+        return options.cliRuntime(args, spawnOptions, context);
+    };
+}
 export class WebContainer {
     static async boot(bindings, options = {}) {
         const init = options.init ?? bindings.default;

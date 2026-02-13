@@ -1,6 +1,7 @@
 import * as wasm from "./vendor/wosix_wasm/wosix_wasm.js";
 import {
   WebContainer,
+  createDekaBrowserCommandRuntime,
   createDekaWasmCommandRuntime,
   createPhpHostBridge,
   createPhpRuntimeAdapter,
@@ -68,23 +69,6 @@ const runPhpxScript = async () => {
 
 try {
   resetLog("Loading wasm...");
-  await WebContainer.boot(wasm, {
-    init: wasm.default,
-    commandRuntimes: {
-      deka: createDekaWasmCommandRuntime({
-        wasmUrl: new URL("./vendor/wosix_js/deka_cli.wasm", import.meta.url).toString(),
-      }),
-    },
-  });
-  log("Demo: phpx");
-  if (sourceEl instanceof HTMLTextAreaElement) {
-    sourceEl.value = [
-      "/*__DEKA_PHPX__*/",
-      "$name = 'wosix'",
-      "echo 'hello from phpx in ' . $name . \"\\n\"",
-    ].join("\n");
-  }
-
   const bridge = createPhpHostBridge({
     fs: createNoopFs(),
     target: "wosix",
@@ -96,6 +80,27 @@ try {
     bridge,
   });
   phpAdapterRef = createPhpRuntimeAdapter({ bridge, executor });
+
+  await WebContainer.boot(wasm, {
+    init: wasm.default,
+    commandRuntimes: {
+      deka: createDekaBrowserCommandRuntime({
+        cliRuntime: createDekaWasmCommandRuntime({
+          wasmUrl: new URL("./vendor/wosix_js/deka_cli.wasm", import.meta.url).toString(),
+        }),
+        phpRuntime: phpAdapterRef,
+        projectRoot: "/",
+      }),
+    },
+  });
+  log("Demo: phpx");
+  if (sourceEl instanceof HTMLTextAreaElement) {
+    sourceEl.value = [
+      "/*__DEKA_PHPX__*/",
+      "$name = 'wosix'",
+      "echo 'hello from phpx in ' . $name . \"\\n\"",
+    ].join("\n");
+  }
 
   if (runBtn instanceof HTMLButtonElement) {
     runBtn.addEventListener("click", async () => {
