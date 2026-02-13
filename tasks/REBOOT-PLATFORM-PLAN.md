@@ -9,8 +9,8 @@ Reboot Deka around PHP/PHPX only, with a clean platform abstraction and a single
 
 MVP platforms:
 
-- [ ] `platform_server`
-- [ ] `platform_browser` (WOSIX)
+- [x] `platform_server`
+- [x] `platform_browser` (WOSIX)
 
 Deferred (post-MVP):
 
@@ -97,7 +97,7 @@ Deferred (post-MVP):
 ## Acceptance Criteria (MVP)
 
 - [x] Single `deka` binary ships runtime + LSP command.
-- [ ] `platform_server` and `platform_browser` are functional and tested.
+- [x] `platform_server` and `platform_browser` are functional and tested.
 - [x] No Node/Bun compatibility code remains in reboot repo.
 - [ ] Runtime core contains no platform-specific glue.
 - [x] Artifact versioning and stale detection are enforced.
