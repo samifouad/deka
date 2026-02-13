@@ -1066,7 +1066,6 @@ dependencies = [
  "compile",
  "core",
  "introspect",
- "loop",
  "php-rs",
  "pm",
  "postgres",

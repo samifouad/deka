@@ -9,7 +9,6 @@ compile = { path = "../compile" }
 core = { path ="../core" }
 stdio = { path = "../stdio" }
 introspect = { path = "../introspect" }
-loop = { path = "../loop" }
 wasm_cli = { path = "../wasm_cli" }
 pm = { workspace = true }
 anyhow = "1.0"
