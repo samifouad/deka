@@ -39,6 +39,8 @@ jobs:
         run: cargo build --release -p phpx_lsp
       - name: Build CLI
         run: cargo build --release -p cli
+      - name: Runtime parity/smoke checks
+        run: DEKA_NEW_BIN=target/release/cli scripts/parity-runtime.sh
       - name: Test phpx_lsp
         run: cargo test -p phpx_lsp
       - name: Run PHPX fixture suites

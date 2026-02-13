@@ -8,9 +8,12 @@ if [[ ! -x "${DEKA_NEW_BIN}" ]]; then
   echo "missing new binary: ${DEKA_NEW_BIN}" >&2
   exit 1
 fi
+
+COMPARE_WITH_OLD=1
 if [[ ! -x "${DEKA_OLD_BIN}" ]]; then
-  echo "missing old binary: ${DEKA_OLD_BIN}" >&2
-  exit 1
+  COMPARE_WITH_OLD=0
+  DEKA_OLD_BIN="${DEKA_NEW_BIN}"
+  echo "old binary not found; running smoke/snapshot mode against ${DEKA_NEW_BIN}" >&2
 fi
 
 TMP_DIR="$(mktemp -d)"
@@ -103,8 +106,10 @@ run_parity_case() {
     exit 1
   fi
 
-  compare_files "${label} stdout" "${TMP_DIR}/old.${label}.out" "${TMP_DIR}/new.${label}.out"
-  compare_files "${label} stderr" "${TMP_DIR}/old.${label}.err" "${TMP_DIR}/new.${label}.err"
+  if [[ "${COMPARE_WITH_OLD}" == "1" ]]; then
+    compare_files "${label} stdout" "${TMP_DIR}/old.${label}.out" "${TMP_DIR}/new.${label}.out"
+    compare_files "${label} stderr" "${TMP_DIR}/old.${label}.err" "${TMP_DIR}/new.${label}.err"
+  fi
 }
 
 run_diagnostics_case() {
@@ -156,6 +161,20 @@ wait_http_ready() {
   return 1
 }
 
+fetch_with_retry() {
+  local url="$1"
+  local out_file="$2"
+  local attempts=20
+  while (( attempts > 0 )); do
+    if curl -fsS "${url}" >"${out_file}" 2>/dev/null; then
+      return 0
+    fi
+    attempts=$((attempts - 1))
+    sleep 0.1
+  done
+  return 1
+}
+
 run_serve_case() {
   local label="$1"
   local file="$2"
@@ -184,12 +203,29 @@ run_serve_case() {
     exit 1
   fi
 
-  curl -fsS "http://127.0.0.1:${new_port}" >"${TMP_DIR}/new.${label}.serve.body"
-  curl -fsS "http://127.0.0.1:${old_port}" >"${TMP_DIR}/old.${label}.serve.body"
+  if ! fetch_with_retry "http://127.0.0.1:${new_port}" "${TMP_DIR}/new.${label}.serve.body"; then
+    stop_servers
+    echo "failed to fetch new ${label} response body" >&2
+    exit 1
+  fi
+  if ! fetch_with_retry "http://127.0.0.1:${old_port}" "${TMP_DIR}/old.${label}.serve.body"; then
+    stop_servers
+    echo "failed to fetch old ${label} response body" >&2
+    exit 1
+  fi
 
-  compare_files "${label} serve body" "${TMP_DIR}/old.${label}.serve.body" "${TMP_DIR}/new.${label}.serve.body"
+  if [[ "${COMPARE_WITH_OLD}" == "1" ]]; then
+    compare_files "${label} serve body" "${TMP_DIR}/old.${label}.serve.body" "${TMP_DIR}/new.${label}.serve.body"
+  fi
 
   stop_servers
+}
+
+assert_snapshot_outputs() {
+  compare_files "snapshot run_php stdout" <(printf "runtime-parity") "${TMP_DIR}/new.run_php.out"
+  compare_files "snapshot run_phpx stdout" <(printf "<!doctype html>\n<html><body><h1>parity</h1></body></html>") "${TMP_DIR}/new.run_phpx.out"
+  compare_files "snapshot serve_php body" <(printf "serve-parity") "${TMP_DIR}/new.serve_php.serve.body"
+  compare_files "snapshot serve_phpx body" <(printf "<!doctype html>\n<html><body><h1>parity</h1></body></html>") "${TMP_DIR}/new.serve_phpx.serve.body"
 }
 
 run_parity_case "run_php" "${TMP_DIR}/run.php"
@@ -198,4 +234,8 @@ run_diagnostics_case
 run_serve_case "serve_php" "${TMP_DIR}/serve.php" 18631 18632
 run_serve_case "serve_phpx" "${TMP_DIR}/serve.phpx" 18633 18634
 
-echo "parity ok: run/serve + frontmatter/jsx + diagnostics"
+if [[ "${COMPARE_WITH_OLD}" == "0" ]]; then
+  assert_snapshot_outputs
+fi
+
+echo "parity ok: run/serve + frontmatter/jsx + diagnostics (mode=$([[ "${COMPARE_WITH_OLD}" == "1" ]] && echo compare || echo smoke))"

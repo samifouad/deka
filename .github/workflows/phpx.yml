@@ -19,5 +19,7 @@ jobs:
         run: cargo build -p php-rs --release --target wasm32-unknown-unknown --lib --no-default-features
       - name: Build CLI
         run: cargo build --release -p cli
+      - name: Runtime parity/smoke checks
+        run: DEKA_NEW_BIN=target/release/cli scripts/parity-runtime.sh
       - name: Run PHPX fixtures
         run: PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js
