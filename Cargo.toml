@@ -21,7 +21,6 @@ members = [
     "crates/wit_phpx",
     "crates/wasm_cli",
     "crates/pm",
-    "crates/loop",
     "examples/wasm_hello_rust",
     "crates/phpx_lsp",
 ]

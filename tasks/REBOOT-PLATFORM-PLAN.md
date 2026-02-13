@@ -28,7 +28,7 @@ Deferred (post-MVP):
 ## Locked decisions
 
 - [ ] `introspect` is retained in reboot MVP.
-- [x] `loop` crate is excluded from reboot MVP CLI surface (workspace removal tracked separately).
+- [x] `loop` crate is excluded from reboot MVP.
 - [ ] `bundler` crate is dropped from reboot MVP.
 
 ## Hard workflow rules
