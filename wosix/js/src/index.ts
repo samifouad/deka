@@ -224,6 +224,18 @@ export class WebContainer {
       });
       return new Process(handle);
     }
+    if (program === "deka") {
+      const handle = new HostRuntimeProcess();
+      queueMicrotask(() => {
+        handle.writeStderr(
+          new TextEncoder().encode(
+            "deka: host runtime not configured in WebContainer.boot({ commandRuntimes })\n"
+          )
+        );
+        handle.finish({ code: 127 });
+      });
+      return new Process(handle);
+    }
     if (isNodeProgram(program)) {
       if (!this.nodeRuntime) {
         this.nodeRuntime = new NodeShimRuntime(this.innerFs);
