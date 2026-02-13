@@ -57,8 +57,8 @@ Deferred (post-MVP):
 
 - [x] Implement `platform_server` (initial adapter scaffold).
 - [ ] Update Deno dependencies to latest stable.
-- [ ] Minimize direct Deno touchpoints to server platform adapter.
-- [ ] Restore parity for `deka run` and `deka serve` on server.
+- [x] Minimize direct Deno touchpoints to server platform adapter.
+- [x] Restore parity for `deka run` and `deka serve` on server.
 
 ## Phase 4: Browser Platform (WOSIX)
 
