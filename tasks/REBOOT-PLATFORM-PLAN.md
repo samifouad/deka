@@ -55,7 +55,7 @@ Deferred (post-MVP):
 - [x] Move PHP run/serve handler code generation into `runtime_core` (`php_pipeline`) and consume from runtime paths.
 - [x] Route run/serve environment and filesystem prep through `platform_server` contracts (`Env.get/set`, `Fs.exists/cwd/canonicalize/current_exe`) instead of direct std host calls.
 - [ ] Ensure PHP/PHPX pipeline can run through injected platform contracts.
-- [ ] Keep module system behavior parity with current runtime where intended.
+- [x] Keep module system behavior parity with current runtime where intended (`scripts/parity-runtime.sh` compare pass).
 
 ## Phase 3: Server Platform
 
@@ -103,5 +103,5 @@ Deferred (post-MVP):
 - [x] Single `deka` binary ships runtime + LSP command.
 - [x] `platform_server` and `platform_browser` are functional and tested.
 - [x] No Node/Bun compatibility code remains in reboot repo.
-- [ ] Runtime core contains no platform-specific glue.
+- [x] Runtime core contains no platform-specific glue.
 - [x] Artifact versioning and stale detection are enforced.
