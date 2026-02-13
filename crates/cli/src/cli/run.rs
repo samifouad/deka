@@ -14,11 +14,6 @@ const COMMAND: CommandSpec = CommandSpec {
 pub fn register(registry: &mut Registry) {
     registry.add_command(COMMAND);
     registry.add_flag(FlagSpec {
-        name: "--deka",
-        aliases: &[],
-        description: "force execution with deka runtime (ignore node/bun shebang)",
-    });
-    registry.add_flag(FlagSpec {
         name: "--watch",
         aliases: &["-W"],
         description: "keep event loop alive (for long-running processes)",
@@ -33,9 +28,6 @@ pub fn cmd(context: &Context) {
 }
 
 fn try_run_deka_script(context: &Context) -> Option<i32> {
-    if context.args.flags.contains_key("--deka") {
-        return None;
-    }
     let first = context.args.positionals.first()?;
     if first.contains('/') || first.contains('\\') || first.starts_with('.') {
         return None;
