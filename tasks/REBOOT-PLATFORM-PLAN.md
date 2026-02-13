@@ -57,6 +57,7 @@ Deferred (post-MVP):
 
 - [x] Implement `platform_server` (initial adapter scaffold).
 - [ ] Update Deno dependencies to latest stable.
+- [ ] Port `pool` isolate/V8 interactions to latest Deno pinned-scope APIs (`JsRuntime::handle_scope` removal, `v8::PinScope` callsites).
 - [x] Minimize direct Deno touchpoints to server platform adapter.
 - [x] Restore parity for `deka run` and `deka serve` on server.
 
