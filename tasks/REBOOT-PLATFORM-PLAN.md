@@ -49,7 +49,7 @@ Deferred (post-MVP):
 ## Phase 2: Runtime Core Extraction
 
 - [x] Extract host-agnostic runtime logic into `runtime_core` (initial shared utilities).
-- [ ] Remove direct host/runtime globals from core execution path.
+- [x] Remove direct host/runtime globals from core execution path.
 - [ ] Ensure PHP/PHPX pipeline can run through injected platform contracts.
 - [ ] Keep module system behavior parity with current runtime where intended.
 

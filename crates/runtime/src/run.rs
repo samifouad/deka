@@ -5,8 +5,8 @@ use core::Context;
 use engine::{RuntimeEngine, config as runtime_config, set_engine};
 use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
 use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
-use runtime_core::env::{set_default_log_level, set_handler_path, set_runtime_args};
-use runtime_core::modules::ensure_phpx_module_root_env;
+use runtime_core::env::{set_default_log_level_with, set_handler_path_with, set_runtime_args_with};
+use runtime_core::modules::ensure_phpx_module_root_env_with;
 use runtime_core::process::parse_exit_code;
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
@@ -25,12 +25,16 @@ pub fn run(context: &Context) {
 
 async fn run_async(context: &Context) -> Result<(), String> {
     init_env();
-    set_default_log_level();
+    let env_get = |key: &str| std::env::var(key).ok();
+    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    set_default_log_level_with(&env_get, &mut env_set);
 
     let (handler_path, extra_args) = handler_input(context);
-    set_runtime_args(&extra_args);
+    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    set_runtime_args_with(&extra_args, &mut env_set, &|| std::env::args().next());
 
-    set_handler_path(&handler_path);
+    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    set_handler_path_with(&handler_path, &env_get, &mut env_set);
 
     let normalized = normalize_handler_path(&handler_path);
     if normalized.to_ascii_lowercase().ends_with(".html") {
@@ -48,7 +52,14 @@ async fn run_async(context: &Context) -> Result<(), String> {
             normalized
         ));
     }
-    ensure_phpx_module_root_env(&normalized);
+    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    ensure_phpx_module_root_env_with(
+        &normalized,
+        &|path| path.exists(),
+        &|| std::env::current_exe().ok(),
+        &env_get,
+        &mut env_set,
+    );
     validate_phpx_modules(&normalized)?;
     let serve_mode = runtime_config::ServeMode::Php;
 

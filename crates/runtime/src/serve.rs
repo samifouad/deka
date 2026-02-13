@@ -11,8 +11,8 @@ use modules_php::validation::{format_validation_error, modules::validate_module_
 use notify::Watcher;
 use pool::validation::{PoolWorkers, extract_pool_options};
 use pool::{HandlerKey, PoolConfig};
-use runtime_core::env::{flag_or_env_truthy, set_dev_flag, set_handler_path};
-use runtime_core::modules::ensure_phpx_module_root_env;
+use runtime_core::env::{flag_or_env_truthy_with, set_dev_flag_with, set_handler_path_with};
+use runtime_core::modules::ensure_phpx_module_root_env_with;
 use stdio as stdio_log;
 use transport::{
     DnsOptions, HttpOptions, RedisOptions, TcpOptions, UdpOptions, UnixOptions, WsOptions,
@@ -33,10 +33,12 @@ pub fn serve(context: &Context) {
 
 async fn serve_async(context: &Context) -> Result<(), String> {
     init_env();
+    let env_get = |key: &str| std::env::var(key).ok();
 
     let dev_mode = dev_enabled(context);
     let watch_enabled = watch_enabled(context) || dev_mode;
-    set_dev_flag(dev_mode);
+    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    set_dev_flag_with(dev_mode, &env_get, &mut env_set);
     let resolved = runtime_config::resolve_handler_path(&context.handler.input)
         .map_err(|err| format!("Failed to resolve handler path: {}", err))?;
 
@@ -47,9 +49,17 @@ async fn serve_async(context: &Context) -> Result<(), String> {
             handler_path
         ));
     }
-    ensure_phpx_module_root_env(&handler_path);
+    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    ensure_phpx_module_root_env_with(
+        &handler_path,
+        &|path| path.exists(),
+        &|| std::env::current_exe().ok(),
+        &env_get,
+        &mut env_set,
+    );
     validate_phpx_modules(&handler_path)?;
-    set_handler_path(&handler_path);
+    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    set_handler_path_with(&handler_path, &env_get, &mut env_set);
 
     let handler_source = load_handler_source(&handler_path, &resolved.mode)?;
 
@@ -146,11 +156,23 @@ fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {
 }
 
 fn watch_enabled(context: &Context) -> bool {
-    flag_or_env_truthy(&context.args.flags, "--watch", Some("-W"), "DEKA_WATCH")
+    flag_or_env_truthy_with(
+        &context.args.flags,
+        "--watch",
+        Some("-W"),
+        "DEKA_WATCH",
+        &|key| std::env::var(key).ok(),
+    )
 }
 
 fn dev_enabled(context: &Context) -> bool {
-    flag_or_env_truthy(&context.args.flags, "--dev", None, "DEKA_DEV")
+    flag_or_env_truthy_with(
+        &context.args.flags,
+        "--dev",
+        None,
+        "DEKA_DEV",
+        &|key| std::env::var(key).ok(),
+    )
 }
 
 fn perf_mode_enabled() -> bool {
@@ -423,7 +445,7 @@ fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>, dev_mode: bool) -
 
 #[cfg(test)]
 mod tests {
-    use super::flag_or_env_truthy;
+    use super::flag_or_env_truthy_with;
     use runtime_core::env::is_truthy;
     use std::collections::HashMap;
 
@@ -442,15 +464,22 @@ mod tests {
     fn flag_overrides_env_for_watch_or_dev() {
         let mut flags = HashMap::new();
         flags.insert("--dev".to_string(), true);
-        assert!(flag_or_env_truthy(&flags, "--dev", None, "DEKA_DEV"));
+        assert!(flag_or_env_truthy_with(
+            &flags,
+            "--dev",
+            None,
+            "DEKA_DEV",
+            &|_| None,
+        ));
 
         let mut watch_flags = HashMap::new();
         watch_flags.insert("-W".to_string(), true);
-        assert!(flag_or_env_truthy(
+        assert!(flag_or_env_truthy_with(
             &watch_flags,
             "--watch",
             Some("-W"),
-            "DEKA_WATCH"
+            "DEKA_WATCH",
+            &|_| None,
         ));
     }
 }
