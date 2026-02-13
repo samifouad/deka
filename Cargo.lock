@@ -1067,6 +1067,7 @@ dependencies = [
  "core",
  "introspect",
  "php-rs",
+ "phpx_lsp",
  "pm",
  "postgres",
  "runtime",

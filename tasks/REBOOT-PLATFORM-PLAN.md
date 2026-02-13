@@ -21,7 +21,7 @@ Deferred (post-MVP):
 ## Non-goals (MVP)
 
 - [ ] No Node/Bun compatibility layer.
-- [ ] No separate LSP binary.
+- [x] No separate LSP runtime path from CLI (`deka lsp` now runs in-process).
 - [ ] No CLI/Desktop platform runtime work.
 - [ ] No JS/TS bundling pipeline in MVP (`crates/bundler` dropped for reboot scope).
 
@@ -69,7 +69,7 @@ Deferred (post-MVP):
 
 ## Phase 5: CLI + LSP Unification
 
-- [ ] Move LSP implementation behind `deka lsp`.
+- [x] Move LSP implementation behind `deka lsp`.
 - [ ] Remove separate LSP binary packaging path.
 - [ ] Ensure same version lineage for runtime and LSP behavior.
 

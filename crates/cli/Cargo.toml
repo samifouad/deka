@@ -16,6 +16,7 @@ serde_json = "1.0"
 tokio = { version = "1.35", features = ["rt-multi-thread"] }
 postgres = "0.19"
 php-rs = { path = "../php-rs" }
+phpx_lsp = { path = "../phpx_lsp" }
 bumpalo = "3.12"
 
 [dev-dependencies]
