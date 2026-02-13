@@ -808,6 +808,7 @@ dependencies = [
  "pm",
  "postgres",
  "runtime",
+ "serde",
  "serde_json",
  "stdio",
  "tempfile",

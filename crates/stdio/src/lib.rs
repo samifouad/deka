@@ -27,8 +27,11 @@
 //! - `debug` - Verbose output
 
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::env;
 use std::sync::OnceLock;
+#[cfg(target_arch = "wasm32")]
+use std::sync::Mutex;
 
 mod terrace_font;
 
@@ -45,6 +48,7 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
+    #[cfg(not(target_arch = "wasm32"))]
     fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "error" => LogLevel::Error,
@@ -55,10 +59,50 @@ impl LogLevel {
 }
 
 static LOG_LEVEL: OnceLock<LogLevel> = OnceLock::new();
+#[cfg(target_arch = "wasm32")]
+static CAPTURED_OUTPUT: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+
+fn emit_line(line: &str) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        if let Some(lock) = CAPTURED_OUTPUT.get() {
+            if let Ok(mut guard) = lock.lock() {
+                if let Some(buf) = guard.as_mut() {
+                    buf.push_str(line);
+                    buf.push('\n');
+                    return;
+                }
+            }
+        }
+    }
+    eprintln!("{}", line);
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn begin_capture() {
+    let lock = CAPTURED_OUTPUT.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = lock.lock() {
+        *guard = Some(String::new());
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn end_capture() -> String {
+    let lock = CAPTURED_OUTPUT.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = lock.lock() {
+        return guard.take().unwrap_or_default();
+    }
+    String::new()
+}
 
 /// Get the current log level (cached from LOG_LEVEL env var)
 pub fn log_level() -> LogLevel {
     *LOG_LEVEL.get_or_init(|| {
+        #[cfg(target_arch = "wasm32")]
+        {
+            return LogLevel::Info;
+        }
+        #[cfg(not(target_arch = "wasm32"))]
         env::var("LOG_LEVEL")
             .map(|s| LogLevel::from_str(&s))
             .unwrap_or(LogLevel::Info)
@@ -89,7 +133,7 @@ pub fn is_info() -> bool {
 /// ```
 pub fn log(action: &str, message: &str) {
     if log_level() >= LogLevel::Info {
-        eprintln!("[{}] {}", action, message);
+        emit_line(&format!("[{}] {}", action, message));
     }
 }
 
@@ -102,7 +146,7 @@ pub fn log(action: &str, message: &str) {
 /// // Output: [build] compilation failed
 /// ```
 pub fn error(action: &str, message: &str) {
-    eprintln!("[{}] {}", action, message);
+    emit_line(&format!("[{}] {}", action, message));
 }
 
 /// Log a warning
@@ -114,13 +158,13 @@ pub fn error(action: &str, message: &str) {
 /// // Output: [warn] [cache] stale entries detected
 /// ```
 pub fn warn(name: &str, message: &str) {
-    eprintln!("[warn] [{}] {}", name, message);
+    emit_line(&format!("[warn] [{}] {}", name, message));
 }
 
 /// Log a simple warning without component name
 /// Format: `[warn] message`
 pub fn warn_simple(message: &str) {
-    eprintln!("[warn] {}", message);
+    emit_line(&format!("[warn] {}", message));
 }
 
 /// Log a status line with success/failure indicator
@@ -133,9 +177,9 @@ pub fn warn_simple(message: &str) {
 /// ```
 pub fn status(name: &str, message: &str, ok: bool) {
     if ok {
-        eprintln!("[ok] [{}] {}", name, message);
+        emit_line(&format!("[ok] [{}] {}", name, message));
     } else {
-        eprintln!("[fail] [{}] {}", name, message);
+        emit_line(&format!("[fail] [{}] {}", name, message));
     }
 }
 
@@ -150,14 +194,14 @@ pub fn status(name: &str, message: &str, ok: bool) {
 /// // ----------------------------------------
 /// ```
 pub fn header(title: &str) {
-    eprintln!();
-    eprintln!("{}", title);
-    eprintln!("{}", "-".repeat(40));
+    emit_line("");
+    emit_line(title);
+    emit_line(&"-".repeat(40));
 }
 
 /// Print a blank line
 pub fn blank() {
-    eprintln!();
+    emit_line("");
 }
 
 /// Success message
@@ -169,7 +213,7 @@ pub fn blank() {
 /// // Output: [ok] build complete
 /// ```
 pub fn success(message: &str) {
-    eprintln!("[ok] {}", message);
+    emit_line(&format!("[ok] {}", message));
 }
 
 /// Failure message
@@ -181,7 +225,7 @@ pub fn success(message: &str) {
 /// // Output: [fail] build failed
 /// ```
 pub fn fail(message: &str) {
-    eprintln!("[fail] {}", message);
+    emit_line(&format!("[fail] {}", message));
 }
 
 /// Info line with label
@@ -193,19 +237,19 @@ pub fn fail(message: &str) {
 /// // Output:   port       8506
 /// ```
 pub fn info(label: &str, value: &str) {
-    eprintln!("  {:<10} {}", label, value);
+    emit_line(&format!("  {:<10} {}", label, value));
 }
 
 /// Hint in subdued format
 /// Format: `  message`
 pub fn hint(message: &str) {
-    eprintln!("  {}", message);
+    emit_line(&format!("  {}", message));
 }
 
 /// Detail line with arrow
 /// Format: `    -> message`
 pub fn detail(message: &str) {
-    eprintln!("    -> {}", message);
+    emit_line(&format!("    -> {}", message));
 }
 
 /// Suggest a next step
@@ -217,13 +261,13 @@ pub fn detail(message: &str) {
 /// // Output:   -> start the server: npm run dev
 /// ```
 pub fn next_step(description: &str, command: &str) {
-    eprintln!("  -> {}: {}", description, command);
+    emit_line(&format!("  -> {}: {}", description, command));
 }
 
 /// Diagnostic warning
 /// Format: `[warn] [component] message`
 pub fn diagnostic(component: &str, message: &str) {
-    eprintln!("[warn] [{}] {}", component, message);
+    emit_line(&format!("[warn] [{}] {}", component, message));
 }
 
 // ============================================================
@@ -239,13 +283,13 @@ pub fn diagnostic(component: &str, message: &str) {
 /// ```
 pub fn debug(action: &str, message: &str) {
     if log_level() >= LogLevel::Debug {
-        eprintln!("[{}] {}", action, message);
+        emit_line(&format!("[{}] {}", action, message));
     }
 }
 
 /// Print a raw line (no formatting).
 pub fn raw(message: &str) {
-    eprintln!("{}", message);
+    emit_line(message);
 }
 
 /// Generate ASCII art banner in Tana brand style using the Terrace font.
@@ -273,7 +317,7 @@ pub fn ascii(text: &str) -> String {
 macro_rules! logf {
     ($action:expr, $($arg:tt)*) => {
         if $crate::log_level() >= $crate::LogLevel::Info {
-            eprintln!(concat!("[", $action, "] {}"), format!($($arg)*));
+            $crate::raw(&format!(concat!("[", $action, "] {}"), format!($($arg)*)));
         }
     };
 }
@@ -282,7 +326,7 @@ macro_rules! logf {
 #[macro_export]
 macro_rules! errorf {
     ($action:expr, $($arg:tt)*) => {
-        eprintln!(concat!("[", $action, "] {}"), format!($($arg)*));
+        $crate::raw(&format!(concat!("[", $action, "] {}"), format!($($arg)*)));
     };
 }
 
@@ -291,7 +335,7 @@ macro_rules! errorf {
 macro_rules! debugf {
     ($action:expr, $($arg:tt)*) => {
         if $crate::log_level() >= $crate::LogLevel::Debug {
-            eprintln!(concat!("[", $action, "] {}"), format!($($arg)*));
+            $crate::raw(&format!(concat!("[", $action, "] {}"), format!($($arg)*)));
         }
     };
 }

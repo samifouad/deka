@@ -2,6 +2,60 @@ export { DekaBrowserRuntime, DekaBrowserServer } from "./deka_runtime.js";
 export { createPhpHostBridge, PhpHostBridge } from "./phpx_host_bridge.js";
 export { PhpRuntimeAdapter, createPhpRuntimeAdapter, createPhpRuntimeAdapterFromBridgeOptions, } from "./phpx_runtime_adapter.js";
 export { PhpRuntimeWasmExecutor, createPhpRuntimeWasmExecutor, } from "./phpx_wasm_executor.js";
+export function createDekaWasmCommandRuntime(options) {
+    let runtimePromise = null;
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const ensureRuntime = async () => {
+        if (runtimePromise) {
+            return runtimePromise;
+        }
+        runtimePromise = (async () => {
+            const response = await fetch(options.wasmUrl);
+            if (!response.ok) {
+                throw new Error(`failed to load deka wasm cli: ${response.status}`);
+            }
+            const bytes = await response.arrayBuffer();
+            const { instance } = await WebAssembly.instantiate(bytes, {});
+            const exports = instance.exports;
+            if (!exports.memory ||
+                typeof exports.deka_wasm_alloc !== "function" ||
+                typeof exports.deka_wasm_free !== "function" ||
+                typeof exports.deka_wasm_run_json !== "function") {
+                throw new Error("invalid deka wasm cli exports");
+            }
+            return exports;
+        })();
+        return runtimePromise;
+    };
+    return async (args) => {
+        const runtime = await ensureRuntime();
+        const payload = encoder.encode(JSON.stringify({ args }));
+        const inPtr = runtime.deka_wasm_alloc(payload.length) >>> 0;
+        new Uint8Array(runtime.memory.buffer).set(payload, inPtr);
+        const packed = runtime.deka_wasm_run_json(inPtr, payload.length);
+        runtime.deka_wasm_free(inPtr, payload.length);
+        const outPtr = Number(packed & 0xffffffffn);
+        const outLen = Number((packed >> 32n) & 0xffffffffn);
+        const outBytes = new Uint8Array(runtime.memory.buffer, outPtr, outLen);
+        const outJson = decoder.decode(outBytes);
+        runtime.deka_wasm_free(outPtr, outLen);
+        let parsed = {};
+        try {
+            parsed = JSON.parse(outJson);
+        }
+        catch {
+            parsed = {
+                code: 1,
+                output: `failed to decode deka wasm output: ${outJson}`,
+            };
+        }
+        return {
+            code: parsed.code ?? 1,
+            stdout: parsed.output ?? "",
+        };
+    };
+}
 export class WebContainer {
     static async boot(bindings, options = {}) {
         const init = options.init ?? bindings.default;

@@ -1,5 +1,7 @@
 use core::Registry;
 use wasm_cli as wasm_cmd;
+#[cfg(target_arch = "wasm32")]
+use serde::{Deserialize, Serialize};
 
 pub mod cli;
 
@@ -28,4 +30,113 @@ pub fn build_registry() -> Registry {
 pub fn run() {
     let registry = build_registry();
     cli::execute(&registry);
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Debug, Deserialize)]
+struct WasmRunInput {
+    #[serde(default)]
+    args: Vec<String>,
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Debug, Serialize)]
+struct WasmRunOutput {
+    code: i32,
+    output: String,
+}
+
+#[cfg(target_arch = "wasm32")]
+fn run_for_wasm(args: Vec<String>) -> WasmRunOutput {
+    let registry = build_registry();
+    stdio::begin_capture();
+
+    let parsed = core::Args::collect(args, &registry);
+    if !parsed.errors.is_empty() {
+        let message = cli::format_parse_errors(&parsed.errors);
+        cli::error(Some(message.as_str()));
+        let output = stdio::end_capture();
+        return WasmRunOutput { code: 1, output };
+    }
+
+    let cmd = &parsed.args;
+    if cmd.commands.is_empty() {
+        if cmd.flags.is_empty() {
+            cli::help(&registry);
+            let output = stdio::end_capture();
+            return WasmRunOutput { code: 0, output };
+        }
+        if cmd.flags.contains_key("--help")
+            || cmd.flags.contains_key("-H")
+            || cmd.flags.contains_key("help")
+        {
+            cli::help(&registry);
+            let output = stdio::end_capture();
+            return WasmRunOutput { code: 0, output };
+        }
+        if cmd.flags.contains_key("--version")
+            || cmd.flags.contains_key("-V")
+            || cmd.flags.contains_key("version")
+        {
+            let verbose = cmd.flags.contains_key("--verbose");
+            cli::version(verbose);
+            let output = stdio::end_capture();
+            return WasmRunOutput { code: 0, output };
+        }
+        if cmd.flags.contains_key("--update")
+            || cmd.flags.contains_key("-U")
+            || cmd.flags.contains_key("update")
+        {
+            cli::update();
+            let output = stdio::end_capture();
+            return WasmRunOutput { code: 0, output };
+        }
+    }
+
+    cli::error(Some(
+        "browser wasm runtime currently supports: --help, --version, --update",
+    ));
+    let output = stdio::end_capture();
+    WasmRunOutput { code: 1, output }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(no_mangle)]
+pub extern "C" fn deka_wasm_alloc(size: u32) -> u32 {
+    let mut buffer = Vec::<u8>::with_capacity(size as usize);
+    let ptr = buffer.as_mut_ptr();
+    std::mem::forget(buffer);
+    ptr as u32
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(no_mangle)]
+pub extern "C" fn deka_wasm_free(ptr: u32, size: u32) {
+    if ptr == 0 {
+        return;
+    }
+    unsafe {
+        let _ = Vec::from_raw_parts(ptr as *mut u8, 0, size as usize);
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(no_mangle)]
+pub extern "C" fn deka_wasm_run_json(ptr: u32, len: u32) -> u64 {
+    let input_bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, len as usize) };
+    let input_str = std::str::from_utf8(input_bytes).unwrap_or("{\"args\":[]}");
+    let input: WasmRunInput = serde_json::from_str(input_str).unwrap_or(WasmRunInput {
+        args: Vec::new(),
+    });
+
+    let output = run_for_wasm(input.args);
+    let output_bytes = serde_json::to_vec(&output).unwrap_or_else(|_| {
+        b"{\"code\":1,\"output\":\"failed to serialize wasm cli output\"}".to_vec()
+    });
+
+    let mut boxed = output_bytes.into_boxed_slice();
+    let out_ptr = boxed.as_mut_ptr() as u32;
+    let out_len = boxed.len() as u32;
+    std::mem::forget(boxed);
+    ((out_len as u64) << 32) | out_ptr as u64
 }
