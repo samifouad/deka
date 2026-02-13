@@ -224,39 +224,14 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         });
     }
 
-    let package_json_path = abs_path.join("package.json");
-    if package_json_path.exists() {
-        if let Ok(contents) = std::fs::read_to_string(&package_json_path) {
-            if let Ok(package_json) = serde_json::from_str::<serde_json::Value>(&contents) {
-                if let Some(main) = package_json.get("main").and_then(|v| v.as_str()) {
-                    let main_path = abs_path.join(main);
-                    if main_path.exists() {
-                        let mode = serve_config
-                            .mode
-                            .clone()
-                            .unwrap_or_else(|| detect_mode(&main_path));
-                        return Ok(ResolvedHandler {
-                            path: main_path,
-                            directory: handler_dir,
-                            mode,
-                            config: serve_config,
-                        });
-                    }
-                }
-            }
-        }
-    }
-
     let index_files = [
         "index.php",
         "index.phpx",
         "index.html",
-        "index.js",
-        "index.ts",
-        "main.ts",
-        "main.js",
-        "handler.js",
-        "handler.ts",
+        "main.php",
+        "main.phpx",
+        "handler.php",
+        "handler.phpx",
     ];
 
     for index_file in &index_files {
@@ -287,7 +262,6 @@ fn detect_mode(path: &Path) -> ServeMode {
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         match ext {
             "php" | "phpx" => ServeMode::Php,
-            "js" | "ts" | "mjs" | "mts" => ServeMode::Js,
             "html" | "htm" => ServeMode::Static,
             _ => ServeMode::Static,
         }
