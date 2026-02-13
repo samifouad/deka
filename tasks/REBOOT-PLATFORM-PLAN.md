@@ -51,6 +51,7 @@ Deferred (post-MVP):
 - [x] Extract host-agnostic runtime logic into `runtime_core` (initial shared utilities).
 - [x] Remove direct host/runtime globals from core execution path.
 - [x] Move shared handler path/entry validation helpers into `runtime_core` and consume from `runtime` run path.
+- [x] Move shared PHPX module-graph validation report flow into `runtime_core` and consume from both run/serve paths.
 - [ ] Ensure PHP/PHPX pipeline can run through injected platform contracts.
 - [ ] Keep module system behavior parity with current runtime where intended.
 

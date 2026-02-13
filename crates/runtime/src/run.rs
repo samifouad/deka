@@ -9,6 +9,7 @@ use runtime_core::env::{set_default_log_level_with, set_handler_path_with, set_r
 use runtime_core::handler::{handler_input_with, is_html_entry, is_php_entry, normalize_handler_path};
 use runtime_core::modules::ensure_phpx_module_root_env_with;
 use runtime_core::process::parse_exit_code;
+use runtime_core::validation::validate_phpx_handler_with;
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
 
@@ -158,29 +159,15 @@ async fn run_async(context: &Context) -> Result<(), String> {
 }
 
 fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {
-    if !handler_path.to_ascii_lowercase().ends_with(".phpx") {
-        return Ok(());
-    }
-    let source = std::fs::read_to_string(handler_path)
-        .map_err(|err| format!("Failed to read PHPX handler {}: {}", handler_path, err))?;
-    let errors = validate_module_resolution(&source, handler_path);
-    if errors.is_empty() {
-        return Ok(());
-    }
-    let mut out = String::new();
-    for error in errors.iter().take(3) {
-        out.push_str(&format_validation_error(&source, handler_path, error));
-    }
-    if errors.len() > 3 {
-        out.push_str(&format!(
-            "\n... plus {} additional module validation error(s)\n",
-            errors.len() - 3
-        ));
-    }
-    Err(format!(
-        "PHPX module graph validation failed for {}:\n{}",
-        handler_path, out
-    ))
+    validate_phpx_handler_with(
+        handler_path,
+        &|path| {
+            std::fs::read_to_string(path)
+                .map_err(|err| format!("Failed to read PHPX handler {}: {}", path, err))
+        },
+        &|source, path| validate_module_resolution(source, path),
+        &|source, path, error| format_validation_error(source, path, error),
+    )
 }
 
 fn handler_input(context: &Context) -> (String, Vec<String>) {

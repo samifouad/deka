@@ -13,6 +13,7 @@ use pool::validation::{PoolWorkers, extract_pool_options};
 use pool::{HandlerKey, PoolConfig};
 use runtime_core::env::{flag_or_env_truthy_with, set_dev_flag_with, set_handler_path_with};
 use runtime_core::modules::ensure_phpx_module_root_env_with;
+use runtime_core::validation::validate_phpx_handler_with;
 use stdio as stdio_log;
 use transport::{
     DnsOptions, HttpOptions, RedisOptions, TcpOptions, UdpOptions, UnixOptions, WsOptions,
@@ -130,29 +131,15 @@ async fn serve_async(context: &Context) -> Result<(), String> {
 }
 
 fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {
-    if !handler_path.to_ascii_lowercase().ends_with(".phpx") {
-        return Ok(());
-    }
-    let source = std::fs::read_to_string(handler_path)
-        .map_err(|err| format!("Failed to read PHPX handler {}: {}", handler_path, err))?;
-    let errors = validate_module_resolution(&source, handler_path);
-    if errors.is_empty() {
-        return Ok(());
-    }
-    let mut out = String::new();
-    for error in errors.iter().take(3) {
-        out.push_str(&format_validation_error(&source, handler_path, error));
-    }
-    if errors.len() > 3 {
-        out.push_str(&format!(
-            "\n... plus {} additional module validation error(s)\n",
-            errors.len() - 3
-        ));
-    }
-    Err(format!(
-        "PHPX module graph validation failed for {}:\n{}",
-        handler_path, out
-    ))
+    validate_phpx_handler_with(
+        handler_path,
+        &|path| {
+            std::fs::read_to_string(path)
+                .map_err(|err| format!("Failed to read PHPX handler {}: {}", path, err))
+        },
+        &|source, path| validate_module_resolution(source, path),
+        &|source, path, error| format_validation_error(source, path, error),
+    )
 }
 
 fn watch_enabled(context: &Context) -> bool {
