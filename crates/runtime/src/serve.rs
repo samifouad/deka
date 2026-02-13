@@ -11,8 +11,8 @@ use modules_php::validation::{format_validation_error, modules::validate_module_
 use notify::Watcher;
 use pool::validation::{PoolWorkers, extract_pool_options};
 use pool::{HandlerKey, PoolConfig};
-use runtime_core::env::flag_or_env_truthy;
-use runtime_core::modules::detect_phpx_module_root;
+use runtime_core::env::{flag_or_env_truthy, set_dev_flag, set_handler_path};
+use runtime_core::modules::ensure_phpx_module_root_env;
 use stdio as stdio_log;
 use transport::{
     DnsOptions, HttpOptions, RedisOptions, TcpOptions, UdpOptions, UnixOptions, WsOptions,
@@ -36,11 +36,7 @@ async fn serve_async(context: &Context) -> Result<(), String> {
 
     let dev_mode = dev_enabled(context);
     let watch_enabled = watch_enabled(context) || dev_mode;
-    if dev_mode && std::env::var("DEKA_DEV").is_err() {
-        unsafe {
-            std::env::set_var("DEKA_DEV", "1");
-        }
-    }
+    set_dev_flag(dev_mode);
     let resolved = runtime_config::resolve_handler_path(&context.handler.input)
         .map_err(|err| format!("Failed to resolve handler path: {}", err))?;
 
@@ -51,13 +47,9 @@ async fn serve_async(context: &Context) -> Result<(), String> {
             handler_path
         ));
     }
-    ensure_phpx_module_root(&handler_path);
+    ensure_phpx_module_root_env(&handler_path);
     validate_phpx_modules(&handler_path)?;
-    if std::env::var("HANDLER_PATH").is_err() {
-        unsafe {
-            std::env::set_var("HANDLER_PATH", &handler_path);
-        }
-    }
+    set_handler_path(&handler_path);
 
     let handler_source = load_handler_source(&handler_path, &resolved.mode)?;
 
@@ -151,17 +143,6 @@ fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {
         "PHPX module graph validation failed for {}:\n{}",
         handler_path, out
     ))
-}
-
-fn ensure_phpx_module_root(handler_path: &str) {
-    if std::env::var("PHPX_MODULE_ROOT").is_ok() {
-        return;
-    }
-    if let Some(root) = detect_phpx_module_root(handler_path) {
-        unsafe {
-            std::env::set_var("PHPX_MODULE_ROOT", root);
-        }
-    }
 }
 
 fn watch_enabled(context: &Context) -> bool {

@@ -5,7 +5,8 @@ use core::Context;
 use engine::{RuntimeEngine, config as runtime_config, set_engine};
 use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
 use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
-use runtime_core::modules::detect_phpx_module_root;
+use runtime_core::env::{set_default_log_level, set_handler_path, set_runtime_args};
+use runtime_core::modules::ensure_phpx_module_root_env;
 use runtime_core::process::parse_exit_code;
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
@@ -24,20 +25,12 @@ pub fn run(context: &Context) {
 
 async fn run_async(context: &Context) -> Result<(), String> {
     init_env();
-    if std::env::var("LOG_LEVEL").is_err() {
-        unsafe {
-            std::env::set_var("LOG_LEVEL", "error");
-        }
-    }
+    set_default_log_level();
 
     let (handler_path, extra_args) = handler_input(context);
     set_runtime_args(&extra_args);
 
-    if std::env::var("HANDLER_PATH").is_err() {
-        unsafe {
-            std::env::set_var("HANDLER_PATH", &handler_path);
-        }
-    }
+    set_handler_path(&handler_path);
 
     let normalized = normalize_handler_path(&handler_path);
     if normalized.to_ascii_lowercase().ends_with(".html") {
@@ -55,7 +48,7 @@ async fn run_async(context: &Context) -> Result<(), String> {
             normalized
         ));
     }
-    ensure_phpx_module_root(&normalized);
+    ensure_phpx_module_root_env(&normalized);
     validate_phpx_modules(&normalized)?;
     let serve_mode = runtime_config::ServeMode::Php;
 
@@ -180,17 +173,6 @@ fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {
     ))
 }
 
-fn ensure_phpx_module_root(handler_path: &str) {
-    if std::env::var("PHPX_MODULE_ROOT").is_ok() {
-        return;
-    }
-    if let Some(root) = detect_phpx_module_root(handler_path) {
-        unsafe {
-            std::env::set_var("PHPX_MODULE_ROOT", root);
-        }
-    }
-}
-
 fn handler_input(context: &Context) -> (String, Vec<String>) {
     let mut positionals = context.args.positionals.clone();
     let handler = positionals
@@ -204,21 +186,6 @@ fn handler_input(context: &Context) -> (String, Vec<String>) {
         Vec::new()
     };
     (handler, extra_args)
-}
-
-fn set_runtime_args(extra_args: &[String]) {
-    if !extra_args.is_empty() {
-        if let Ok(encoded) = serde_json::to_string(extra_args) {
-            unsafe {
-                std::env::set_var("DEKA_ARGS", encoded);
-            }
-        }
-    }
-    if let Some(bin) = std::env::args().next() {
-        unsafe {
-            std::env::set_var("DEKA_BIN", bin);
-        }
-    }
 }
 
 fn normalize_handler_path(path: &str) -> String {
