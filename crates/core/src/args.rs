@@ -128,6 +128,9 @@ impl Args {
 }
 
 pub fn parse_env(registry: &Registry) -> ParseOutcome {
+    #[cfg(target_arch = "wasm32")]
+    let args: Vec<String> = Vec::new();
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Vec<String> = std::env::args().skip(1).collect();
     Args::collect(args, registry)
 }

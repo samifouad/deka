@@ -150,6 +150,43 @@ pub fn error(msg: Option<&str>) {
 }
 
 pub fn execute(registry: &Registry) {
+    let parsed = core::parse_env(registry);
+    if !parsed.errors.is_empty() {
+        let message = format_parse_errors(&parsed.errors);
+        error(Some(message.as_str()));
+        return;
+    }
+
+    let args = &parsed.args;
+    if args.commands.is_empty() {
+        if args.flags.is_empty() {
+            help(registry);
+            return;
+        }
+        if args.flags.contains_key("--help")
+            || args.flags.contains_key("-H")
+            || args.flags.contains_key("help")
+        {
+            help(registry);
+            return;
+        }
+        if args.flags.contains_key("--version")
+            || args.flags.contains_key("-V")
+            || args.flags.contains_key("version")
+        {
+            let verbose = args.flags.contains_key("--verbose");
+            version(verbose);
+            return;
+        }
+        if args.flags.contains_key("--update")
+            || args.flags.contains_key("-U")
+            || args.flags.contains_key("update")
+        {
+            update();
+            return;
+        }
+    }
+
     #[cfg(feature = "native")]
     {
     // Check for embedded VFS (compiled binary mode)
@@ -207,6 +244,7 @@ pub fn execute(registry: &Registry) {
         || cmd.flags.contains_key("-d")
         || cmd.flags.contains_key("debug")
     {
+        #[cfg(not(target_arch = "wasm32"))]
         unsafe {
             std::env::set_var("DEKA_DEBUG", "1");
         }
