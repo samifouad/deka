@@ -28,6 +28,11 @@ pub fn register_global_flags(registry: &mut Registry) {
         description: "show version",
     });
     registry.add_flag(FlagSpec {
+        name: "--verbose",
+        aliases: &[],
+        description: "show detailed metadata where supported",
+    });
+    registry.add_flag(FlagSpec {
         name: "--update",
         aliases: &["-U", "update"],
         description: "check for updates",
@@ -120,11 +125,22 @@ pub fn help(registry: &Registry) {
     }
 }
 
-pub fn version() {
-    raw(&format!(
-        "deka [version {}]\n\nto check for updates run: deka --update\n",
-        env!("CARGO_PKG_VERSION")
-    ));
+pub fn version(verbose: bool) {
+    let version = env!("CARGO_PKG_VERSION");
+    raw(&format!("deka [version {}]", version));
+    if verbose {
+        let git_sha = option_env!("DEKA_GIT_SHA").unwrap_or("unknown");
+        let build_unix = option_env!("DEKA_BUILD_UNIX").unwrap_or("unknown");
+        let target = option_env!("DEKA_TARGET").unwrap_or("unknown");
+        let runtime_abi = option_env!("DEKA_RUNTIME_ABI").unwrap_or("unknown");
+        raw(&format!("git_sha: {}", git_sha));
+        raw(&format!("build_unix: {}", build_unix));
+        raw(&format!("target: {}", target));
+        raw(&format!("runtime_abi: {}", runtime_abi));
+    }
+    raw("");
+    raw("to check for updates run: deka --update");
+    raw("");
 }
 
 pub fn update() {
@@ -217,7 +233,8 @@ pub fn execute(registry: &Registry) {
                 || cmd.flags.contains_key("-V")
                 || cmd.flags.contains_key("version")
             {
-                version();
+                let verbose = cmd.flags.contains_key("--verbose");
+                version(verbose);
             }
             if cmd.flags.contains_key("--update")
                 || cmd.flags.contains_key("-U")

@@ -83,7 +83,7 @@ Deferred (post-MVP):
 
 - [ ] Emit build manifest for each build artifact set:
 - [ ] `git_sha`, build timestamp, target triple, runtime ABI version, artifact hashes.
-- [ ] Add `deka --version --verbose` with manifest details.
+- [x] Add `deka --version --verbose` with manifest details.
 - [ ] Add mismatch detection and fail fast on stale artifact combinations.
 
 ## Acceptance Criteria (MVP)
