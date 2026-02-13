@@ -29,6 +29,8 @@ Do not add Node/Bun compatibility work in this mission.
 - Build release artifacts only.
 - Do not rely on debug binaries for validation.
 - Run relevant tests/checks before commit.
+- Use `scripts/build-release-manifest.sh` to produce release artifacts + `target/release/deka-manifest.json`.
+- Use `scripts/verify-release-manifest.sh` to fail fast on stale/mismatched `cli` and `php_rs.wasm` artifacts.
 
 WOSIX runtime/UI changes:
 

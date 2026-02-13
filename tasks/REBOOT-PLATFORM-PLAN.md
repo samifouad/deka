@@ -82,10 +82,10 @@ Deferred (post-MVP):
 
 ## Phase 7: Artifact and Version Discipline
 
-- [ ] Emit build manifest for each build artifact set:
-- [ ] `git_sha`, build timestamp, target triple, runtime ABI version, artifact hashes.
+- [x] Emit build manifest for each build artifact set:
+- [x] `git_sha`, build timestamp, target triple, runtime ABI version, artifact hashes.
 - [x] Add `deka --version --verbose` with manifest details.
-- [ ] Add mismatch detection and fail fast on stale artifact combinations.
+- [x] Add mismatch detection and fail fast on stale artifact combinations.
 
 ## Acceptance Criteria (MVP)
 
@@ -93,4 +93,4 @@ Deferred (post-MVP):
 - [ ] `platform_server` and `platform_browser` are functional and tested.
 - [x] No Node/Bun compatibility code remains in reboot repo.
 - [ ] Runtime core contains no platform-specific glue.
-- [ ] Artifact versioning and stale detection are enforced.
+- [x] Artifact versioning and stale detection are enforced.
