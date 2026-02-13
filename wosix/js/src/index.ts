@@ -38,6 +38,15 @@ export type BootOptions = {
 
 export type CommandRuntimeContext = {
   fs: WosixFs;
+  publishPort?: (port: number, options?: { protocol?: string; host?: string }) => {
+    port: number;
+    url: string;
+    protocol: string;
+  };
+  unpublishPort?: (port: number) => void;
+  waitForKill?: () => Promise<{ code: number; signal?: number }>;
+  writeStdout?: (data: string | Uint8Array) => void;
+  writeStderr?: (data: string | Uint8Array) => void;
 };
 
 export type CommandRuntimeResult = {
@@ -141,49 +150,118 @@ export type DekaBrowserCommandRuntimeOptions = {
   phpRuntime: PhpRuntimeAdapter;
   projectRoot?: string;
   defaultRunEntry?: string;
+  defaultServeEntry?: string;
+  defaultServePort?: number;
 };
 
 export function createDekaBrowserCommandRuntime(
   options: DekaBrowserCommandRuntimeOptions
 ): CommandRuntime {
   const decoder = new TextDecoder();
-  return async (args, spawnOptions, context) => {
-    if (args[0] === "run") {
+  return async (args, spawnOptions, context): Promise<CommandRuntimeResult> => {
+    const cliArgs = normalizeDekaArgs(args);
+    const subcommand = cliArgs[0] ?? "";
+    if (!subcommand || subcommand === "help" || subcommand === "--help") {
+      return {
+        code: 0,
+        stdout: [
+          "deka (browser runtime)",
+          "",
+          "Usage:",
+          "  deka run [file]",
+          "  deka serve [file] [--port N]",
+          "  deka --version",
+        ].join("\n"),
+      };
+    }
+    if (subcommand === "--version" || subcommand === "-v" || subcommand === "version") {
+      return {
+        code: 0,
+        stdout: "deka [browser runtime]\n",
+      };
+    }
+    if (subcommand === "run") {
+      const entry = normalizePath(cliArgs[1] ?? options.defaultRunEntry ?? "/main.phpx");
+      return runPhpxEntry({
+        context,
+        decoder,
+        phpRuntime: options.phpRuntime,
+        entry,
+      });
+    }
+    if (subcommand === "serve") {
+      const cwd = normalizePath(spawnOptions?.cwd ?? "/");
+      const projectRoot = normalizePath(options.projectRoot ?? "/");
+      const config = readDekaJson(context.fs, projectRoot, decoder);
+      const { entryArg, portArg } = parseServeArgs(cliArgs.slice(1));
       const entry = normalizePath(
-        args[1] ?? options.defaultRunEntry ?? "/main.phpx"
+        entryArg ??
+          config?.serve?.entry ??
+          options.defaultServeEntry ??
+          options.defaultRunEntry ??
+          "/main.phpx"
       );
-      let source: string;
-      try {
-        const bytes = context.fs.readFile(entry);
-        source = decoder.decode(bytes);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+      const mode =
+        config?.serve?.mode === "phpx" || config?.serve?.mode === "php"
+          ? config.serve.mode
+          : entry.endsWith(".phpx")
+            ? "phpx"
+            : "php";
+      const port =
+        portArg ??
+        (typeof config?.serve?.port === "number" ? config.serve.port : undefined) ??
+        options.defaultServePort ??
+        8530;
+
+      const initial = await runPhpxEntry({
+        context,
+        decoder,
+        phpRuntime: options.phpRuntime,
+        entry,
+        mode,
+      });
+      if (initial.code !== 0) {
         return {
-          code: 1,
-          stderr: `deka run: unable to read ${entry}: ${message}\n`,
+          code: initial.code,
+          stdout: initial.stdout,
+          stderr: initial.stderr,
         };
       }
 
-      const mode = entry.endsWith(".phpx") ? "phpx" : "php";
-      const result = await options.phpRuntime.run(source, mode, {
-        filename: entry,
-        cwd: dirname(entry),
-      });
+      const output = [
+        "Booting PHPX runtime...",
+        "PHPX diagnostics: wasm mode",
+        `[handler] loaded ${entry} [mode=${mode}]`,
+      ];
+      let listenUrl = `http://localhost:${port}`;
+      if (context.publishPort) {
+        const info = context.publishPort(port, { protocol: "http" });
+        if (info?.url) {
+          listenUrl = info.url;
+        }
+      }
+      output.push(`[listen] ${listenUrl}`);
+      if (context.writeStdout) {
+        context.writeStdout(`${output.join("\n")}\n`);
+      }
 
-      const diagnostics = (result.diagnostics ?? [])
-        .map((diag) => `[${diag.severity}] ${diag.message}`)
-        .join("\n");
-
+      if (context.waitForKill) {
+        const status = await context.waitForKill();
+        if (context.unpublishPort) {
+          context.unpublishPort(port);
+        }
+        return {
+          code: status.code,
+          signal: status.signal,
+        };
+      }
       return {
-        code: result.ok ? 0 : 1,
-        stdout: result.stdout ?? "",
-        stderr: [result.stderr ?? "", diagnostics]
-          .filter((part) => part.length > 0)
-          .join(result.stderr && diagnostics ? "\n" : ""),
+        code: 0,
+        stdout: `${output.join("\n")}\n`,
       };
     }
 
-    return options.cliRuntime(args, spawnOptions, context);
+    return options.cliRuntime(cliArgs, spawnOptions, context);
   };
 }
 
@@ -353,7 +431,14 @@ export class WebContainer {
       const handle = new HostRuntimeProcess();
       queueMicrotask(async () => {
         try {
-          const result = await runtime(resolved.args, options, { fs: this.innerFs });
+          const result = await runtime(resolved.args, options, {
+            fs: this.innerFs,
+            publishPort: (port, publishOptions) => this.publishPort(port, publishOptions),
+            unpublishPort: (port) => this.unpublishPort(port),
+            waitForKill: () => handle.waitForKill(),
+            writeStdout: (data) => handle.writeStdout(coerceBytes(data, new TextEncoder())),
+            writeStderr: (data) => handle.writeStderr(coerceBytes(data, new TextEncoder())),
+          });
           if (result.stdout) {
             handle.writeStdout(coerceBytes(result.stdout, new TextEncoder()));
           }
@@ -841,10 +926,16 @@ class HostRuntimeProcess implements WosixProcess {
   private exitStatus: ExitStatus = { code: 0 };
   private closed = false;
   private readonly procId = Math.floor(Math.random() * 100000) + 200000;
+  private killResolve: ((status: ExitStatus) => void) | null = null;
+  private killSettled = false;
+  private readonly killPromise: Promise<ExitStatus>;
 
   constructor() {
     this.exitPromise = new Promise((resolve) => {
       this.exitResolve = resolve;
+    });
+    this.killPromise = new Promise((resolve) => {
+      this.killResolve = resolve;
     });
   }
 
@@ -919,6 +1010,15 @@ class HostRuntimeProcess implements WosixProcess {
       this.exitResolve(status);
       this.exitResolve = null;
     }
+    if (!this.killSettled && this.killResolve) {
+      this.killResolve(status);
+      this.killResolve = null;
+      this.killSettled = true;
+    }
+  }
+
+  waitForKill(): Promise<ExitStatus> {
+    return this.killPromise;
   }
 }
 
@@ -1528,6 +1628,95 @@ function makeConsole(proc: NodeShimProcess, encoder: TextEncoder): Console {
     warn: print((bytes) => proc.writeStderr(bytes)),
     error: print((bytes) => proc.writeStderr(bytes)),
   } as Console;
+}
+
+type DekaServeConfig = {
+  serve?: {
+    entry?: string;
+    mode?: "phpx" | "php";
+    port?: number;
+  };
+};
+
+function readDekaJson(fs: WosixFs, projectRoot: string, decoder: TextDecoder): DekaServeConfig | null {
+  const file = normalizePath(`${projectRoot}/deka.json`);
+  try {
+    const raw = decoder.decode(fs.readFile(file));
+    const parsed = JSON.parse(raw) as DekaServeConfig;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseServeArgs(args: string[]): { entryArg?: string; portArg?: number } {
+  let entryArg: string | undefined;
+  let portArg: number | undefined;
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === "--port" && i + 1 < args.length) {
+      const parsed = Number(args[i + 1]);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        portArg = parsed;
+      }
+      i += 1;
+      continue;
+    }
+    if (!arg.startsWith("-") && !entryArg) {
+      entryArg = arg;
+    }
+  }
+  return { entryArg, portArg };
+}
+
+function normalizeDekaArgs(args: string[]): string[] {
+  if (args.length === 0) {
+    return [];
+  }
+  const first = args[0];
+  if (first === "deka" || first.endsWith("/deka")) {
+    return args.slice(1);
+  }
+  return args;
+}
+
+async function runPhpxEntry(options: {
+  context: CommandRuntimeContext;
+  decoder: TextDecoder;
+  phpRuntime: PhpRuntimeAdapter;
+  entry: string;
+  mode?: "phpx" | "php";
+}): Promise<CommandRuntimeResult> {
+  let source: string;
+  try {
+    const bytes = options.context.fs.readFile(options.entry);
+    source = options.decoder.decode(bytes);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      code: 1,
+      stderr: `deka run: unable to read ${options.entry}: ${message}\n`,
+    };
+  }
+
+  const mode =
+    options.mode ?? (options.entry.endsWith(".phpx") ? "phpx" : "php");
+  const result = await options.phpRuntime.run(source, mode, {
+    filename: options.entry,
+    cwd: dirname(options.entry),
+  });
+
+  const diagnostics = (result.diagnostics ?? [])
+    .map((diag) => `[${diag.severity}] ${diag.message}`)
+    .join("\n");
+
+  return {
+    code: result.ok ? 0 : 1,
+    stdout: result.stdout ?? "",
+    stderr: [result.stderr ?? "", diagnostics]
+      .filter((part) => part.length > 0)
+      .join(result.stderr && diagnostics ? "\n" : ""),
+  };
 }
 
 class BufferShim {

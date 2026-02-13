@@ -18,6 +18,21 @@ export type BootOptions = {
 };
 export type CommandRuntimeContext = {
     fs: WosixFs;
+    publishPort?: (port: number, options?: {
+        protocol?: string;
+        host?: string;
+    }) => {
+        port: number;
+        url: string;
+        protocol: string;
+    };
+    unpublishPort?: (port: number) => void;
+    waitForKill?: () => Promise<{
+        code: number;
+        signal?: number;
+    }>;
+    writeStdout?: (data: string | Uint8Array) => void;
+    writeStderr?: (data: string | Uint8Array) => void;
 };
 export type CommandRuntimeResult = {
     code: number;
@@ -36,6 +51,8 @@ export type DekaBrowserCommandRuntimeOptions = {
     phpRuntime: PhpRuntimeAdapter;
     projectRoot?: string;
     defaultRunEntry?: string;
+    defaultServeEntry?: string;
+    defaultServePort?: number;
 };
 export declare function createDekaBrowserCommandRuntime(options: DekaBrowserCommandRuntimeOptions): CommandRuntime;
 export type NodeWasmOptions = {

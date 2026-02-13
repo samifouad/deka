@@ -72,7 +72,7 @@ Deferred (post-MVP):
 - [x] Add smoke test for wasm deka command runtime (`npm run smoke:deka-wasm-runtime`).
 - [x] Add browser command runtime wrapper that handles `deka run <file>` via PHP runtime adapter and delegates other commands to wasm CLI runtime.
 - [x] Add POSIX-style command resolver in WOSIX JS (`PATH` + shebang interpreter chaining) so executable scripts route to registered runtimes without command-name hacks.
-- [ ] Run real `deka` process semantics in browser host.
+- [x] Run real `deka` process semantics in browser host (foreground `deka serve` lifecycle: boot logs, port publish/unpublish, wait-until-kill).
 - [x] Keep strict module/network restrictions in browser adapter.
 
 ## Phase 5: CLI + LSP Unification
