@@ -27,21 +27,21 @@ Deferred (post-MVP):
 
 ## Locked decisions
 
-- [ ] `introspect` is retained in reboot MVP.
+- [x] `introspect` is retained in reboot MVP.
 - [x] `loop` crate is excluded from reboot MVP.
 - [ ] `bundler` crate is dropped from reboot MVP.
 
 ## Hard workflow rules
 
-- [ ] Every change must be committed before moving to the next task.
-- [ ] Commit history is append-only notes (no amend/rewrite unless explicitly requested).
-- [ ] Run relevant verification before each commit; include verification in commit message.
-- [ ] Release profile only; avoid debug build drift.
+- [x] Every change must be committed before moving to the next task.
+- [x] Commit history is append-only notes (no amend/rewrite unless explicitly requested).
+- [x] Run relevant verification before each commit; include verification in commit message.
+- [x] Release profile only; avoid debug build drift.
 
 ## Phase 1: Foundation
 
-- [ ] Create new repo/workspace scaffold for rebooted runtime.
-- [ ] Keep crate-per-responsibility model and command registry pattern.
+- [x] Create new repo/workspace scaffold for rebooted runtime.
+- [x] Keep crate-per-responsibility model and command registry pattern.
 - [x] Add `platform` abstraction crate with host contracts.
 - [x] `fs`, `env`, `io`, `process`, `time`, `random`, `net`, `ports`.
 - [x] Add architecture docs for platform contracts and crate boundaries.
@@ -71,7 +71,7 @@ Deferred (post-MVP):
 
 - [x] Move LSP implementation behind `deka lsp`.
 - [x] Remove separate LSP binary packaging path.
-- [ ] Ensure same version lineage for runtime and LSP behavior.
+- [x] Ensure same version lineage for runtime and LSP behavior.
 
 ## Phase 6: Parity and Verification
 
@@ -88,7 +88,7 @@ Deferred (post-MVP):
 
 ## Acceptance Criteria (MVP)
 
-- [ ] Single `deka` binary ships runtime + LSP command.
+- [x] Single `deka` binary ships runtime + LSP command.
 - [ ] `platform_server` and `platform_browser` are functional and tested.
 - [ ] No Node/Bun compatibility code remains in reboot repo.
 - [ ] Runtime core contains no platform-specific glue.
