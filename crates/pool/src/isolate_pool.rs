@@ -2240,7 +2240,7 @@ impl WorkerThread {
                 ),
             );
             if let Ok(value) = exit_value {
-                let scope = &mut isolate.runtime.handle_scope();
+                deno_core::scope!(scope, &mut isolate.runtime);
                 let local = deno_core::v8::Local::new(scope, &value);
                 if let Ok(parsed) = serde_v8::from_v8::<serde_json::Value>(scope, local) {
                     if let Some(code) = parsed.as_i64() {
@@ -2265,12 +2265,7 @@ impl WorkerThread {
             }
         }
 
-        let heap_before_bytes = {
-            let scope = &mut isolate.runtime.handle_scope();
-            let mut heap_stats = v8::HeapStatistics::default();
-            scope.get_heap_statistics(&mut heap_stats);
-            heap_stats.used_heap_size()
-        };
+        let heap_before_bytes = isolate.runtime.v8_isolate().get_heap_statistics().used_heap_size();
 
         // Track CPU time for this execution
         let cpu_start = get_thread_cpu_time();
@@ -2291,7 +2286,6 @@ impl WorkerThread {
 
         let exec_start = Instant::now();
         let mut needs_event_loop = false;
-        let mut microtask_error: Option<String> = None;
         let result = if request.request_data.mode == ExecutionMode::Module {
             isolate
                 .runtime
@@ -2344,46 +2338,18 @@ impl WorkerThread {
         if matches!(request.request_data.mode, ExecutionMode::Request | ExecutionMode::Module) {
             // Run event loop to complete async operations
             {
-                let scope = &mut isolate.runtime.handle_scope();
+                deno_core::scope!(scope, &mut isolate.runtime);
                 let local = deno_core::v8::Local::new(scope, &result);
                 if let Ok(promise) = deno_core::v8::Local::<deno_core::v8::Promise>::try_from(local)
                 {
                     match promise.state() {
                         deno_core::v8::PromiseState::Pending => {
-                            let tc_scope = &mut deno_core::v8::TryCatch::new(scope);
-                            tc_scope.perform_microtask_checkpoint();
-                            if let Some(exception) = tc_scope.exception() {
-                                microtask_error = Some(exception.to_rust_string_lossy(tc_scope));
-                            } else {
-                                let local = deno_core::v8::Local::new(tc_scope, &result);
-                                if let Ok(promise) =
-                                    deno_core::v8::Local::<deno_core::v8::Promise>::try_from(local)
-                                {
-                                    if promise.state() == deno_core::v8::PromiseState::Pending {
-                                        needs_event_loop = true;
-                                    }
-                                } else {
-                                    needs_event_loop = false;
-                                }
-                            }
+                            needs_event_loop = true;
                         }
                         _ => needs_event_loop = false,
                     }
                 }
             }
-        }
-
-        if let Some(err_msg) = microtask_error {
-            if let Some(watchdog) = watchdog {
-                watchdog.abort();
-            }
-            isolate.active_requests = 0;
-            isolate.state = IsolateState::Idle;
-            let profile = finalize_profile(heap_before_bytes, isolate, exec_script_ms, 0, 0);
-            return (
-                ExecutionOutcome::Err(format!("Event loop microtask failed: {}", err_msg)),
-                profile,
-            );
         }
 
         let event_loop_ms = if needs_event_loop {
@@ -2435,7 +2401,7 @@ impl WorkerThread {
                 ),
             );
             if let Ok(value) = exit_value {
-                let scope = &mut isolate.runtime.handle_scope();
+                deno_core::scope!(scope, &mut isolate.runtime);
                 let local = deno_core::v8::Local::new(scope, &value);
                 if let Ok(parsed) = serde_v8::from_v8::<serde_json::Value>(scope, local) {
                     if let Some(code) = parsed.as_i64() {
@@ -2450,7 +2416,7 @@ impl WorkerThread {
                 ExecutionOutcome::Ok(serde_json::Value::Null)
             }
         } else {
-            let scope = &mut isolate.runtime.handle_scope();
+            deno_core::scope!(scope, &mut isolate.runtime);
             let local = deno_core::v8::Local::new(scope, &result);
 
             let value_result: Result<deno_core::v8::Local<deno_core::v8::Value>, String> =
@@ -2519,7 +2485,7 @@ impl WorkerThread {
         let mut should_write_cache = false;
 
         {
-            let scope = &mut runtime.handle_scope();
+            deno_core::scope!(scope, runtime);
 
             let source_str = v8::String::new(scope, handler_code)
                 .ok_or_else(|| "Failed to allocate handler source".to_string())?;
@@ -2652,59 +2618,51 @@ impl WorkerThread {
     }
 }
 
-fn set_request_data_from_parts(
-    scope: &mut v8::HandleScope,
-    global: v8::Local<v8::Object>,
-    parts: &RequestParts,
-) -> Result<(), String> {
-    let obj = v8::Object::new(scope);
-
-    let url_key = v8::String::new(scope, "url").ok_or_else(|| "url key".to_string())?;
-    let url_val = v8::String::new(scope, &parts.url).ok_or_else(|| "url val".to_string())?;
-    obj.set(scope, url_key.into(), url_val.into());
-
-    let method_key = v8::String::new(scope, "method").ok_or_else(|| "method key".to_string())?;
-    let method_val =
-        v8::String::new(scope, &parts.method).ok_or_else(|| "method val".to_string())?;
-    obj.set(scope, method_key.into(), method_val.into());
-
-    let headers_key =
-        v8::String::new(scope, "headers").ok_or_else(|| "headers key".to_string())?;
-    let headers_obj = v8::Object::new(scope);
-    for (key, value) in &parts.headers {
-        let k = v8::String::new(scope, key).ok_or_else(|| "header key".to_string())?;
-        let v = v8::String::new(scope, value).ok_or_else(|| "header val".to_string())?;
-        headers_obj.set(scope, k.into(), v.into());
-    }
-    obj.set(scope, headers_key.into(), headers_obj.into());
-
-    let body_key = v8::String::new(scope, "body").ok_or_else(|| "body key".to_string())?;
-    let body_val = match &parts.body {
-        Some(body) => v8::String::new(scope, body)
-            .ok_or_else(|| "body val".to_string())?
-            .into(),
-        None => v8::null(scope).into(),
-    };
-    obj.set(scope, body_key.into(), body_val);
-
-    let request_key =
-        v8::String::new(scope, "__requestData").ok_or_else(|| "request data key".to_string())?;
-    global.set(scope, request_key.into(), obj.into());
-    Ok(())
-}
-
 fn set_request_globals(
     runtime: &mut JsRuntime,
     request: &serde_json::Value,
     request_parts: Option<&RequestParts>,
     deka_args: &serde_json::Value,
 ) -> Result<(), String> {
-    let scope = &mut runtime.handle_scope();
+    deno_core::scope!(scope, runtime);
     let context = scope.get_current_context();
     let global = context.global(scope);
 
     if let Some(parts) = request_parts {
-        set_request_data_from_parts(scope, global, parts)?;
+        let obj = v8::Object::new(scope);
+
+        let url_key = v8::String::new(scope, "url").ok_or_else(|| "url key".to_string())?;
+        let url_val = v8::String::new(scope, &parts.url).ok_or_else(|| "url val".to_string())?;
+        obj.set(scope, url_key.into(), url_val.into());
+
+        let method_key =
+            v8::String::new(scope, "method").ok_or_else(|| "method key".to_string())?;
+        let method_val =
+            v8::String::new(scope, &parts.method).ok_or_else(|| "method val".to_string())?;
+        obj.set(scope, method_key.into(), method_val.into());
+
+        let headers_key =
+            v8::String::new(scope, "headers").ok_or_else(|| "headers key".to_string())?;
+        let headers_obj = v8::Object::new(scope);
+        for (key, value) in &parts.headers {
+            let k = v8::String::new(scope, key).ok_or_else(|| "header key".to_string())?;
+            let v = v8::String::new(scope, value).ok_or_else(|| "header val".to_string())?;
+            headers_obj.set(scope, k.into(), v.into());
+        }
+        obj.set(scope, headers_key.into(), headers_obj.into());
+
+        let body_key = v8::String::new(scope, "body").ok_or_else(|| "body key".to_string())?;
+        let body_val = match &parts.body {
+            Some(body) => v8::String::new(scope, body)
+                .ok_or_else(|| "body val".to_string())?
+                .into(),
+            None => v8::null(scope).into(),
+        };
+        obj.set(scope, body_key.into(), body_val);
+
+        let request_key =
+            v8::String::new(scope, "__requestData").ok_or_else(|| "request data key".to_string())?;
+        global.set(scope, request_key.into(), obj.into());
     } else {
         let request_key = v8::String::new(scope, "__requestData")
             .ok_or_else(|| "request data key".to_string())?;
@@ -2755,9 +2713,7 @@ fn now_millis() -> u64 {
 }
 
 fn update_heap_stats(isolate: &mut WarmIsolate) -> usize {
-    let scope = &mut isolate.runtime.handle_scope();
-    let mut heap_stats = v8::HeapStatistics::default();
-    scope.get_heap_statistics(&mut heap_stats);
+    let heap_stats = isolate.runtime.v8_isolate().get_heap_statistics();
     isolate.heap_used_bytes = heap_stats.used_heap_size();
     isolate.heap_limit_bytes = heap_stats.heap_size_limit();
     isolate.heap_used_bytes
@@ -2860,8 +2816,8 @@ fn transpile_typescript(
     let result = runtime
         .execute_script("deka-transpile.ts", ModuleCodeString::from(script))
         .map_err(|e| format!("{}", e))?;
-    let scope = &mut runtime.handle_scope();
-    let local = deno_core::v8::Local::new(scope, result);
+    deno_core::scope!(scope, runtime);
+    let local = deno_core::v8::Local::new(scope, &result);
     let output = local.to_rust_string_lossy(scope);
     if let Some(start) = start {
         let elapsed_ms = start.elapsed().as_millis() as u64;

@@ -3445,7 +3445,7 @@ deno_core::extension!(
 );
 
 pub fn init() -> deno_core::Extension {
-    php_core::init_ops_and_esm()
+    php_core::init()
 }
 
 #[cfg(test)]

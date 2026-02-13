@@ -8,5 +8,5 @@ deno_core::extension!(
 );
 
 pub fn init() -> Extension {
-    deka_php::init_ops_and_esm()
+    deka_php::init()
 }
