@@ -18,11 +18,14 @@ pub trait Fs: Send + Sync {
     fn create_dir_all(&self, path: &Path) -> Result<()>;
     fn exists(&self, path: &Path) -> bool;
     fn cwd(&self) -> Result<PathBuf>;
+    fn canonicalize(&self, path: &Path) -> Result<PathBuf>;
+    fn current_exe(&self) -> Result<PathBuf>;
 }
 
 pub trait Env: Send + Sync {
     fn get(&self, key: &str) -> Option<String>;
     fn vars(&self) -> Vec<(String, String)>;
+    fn set(&self, key: &str, value: &str) -> Result<()>;
 }
 
 pub trait Io: Send + Sync {

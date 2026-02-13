@@ -9,6 +9,8 @@ use core::Context;
 use engine::{RuntimeEngine, RuntimeState, config as runtime_config, set_engine};
 use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
 use notify::Watcher;
+use platform::Platform;
+use platform_server::ServerPlatform;
 use pool::validation::{PoolWorkers, extract_pool_options};
 use pool::{HandlerKey, PoolConfig};
 use runtime_core::env::{flag_or_env_truthy_with, set_dev_flag_with, set_handler_path_with};
@@ -35,11 +37,14 @@ pub fn serve(context: &Context) {
 
 async fn serve_async(context: &Context) -> Result<(), String> {
     init_env();
-    let env_get = |key: &str| std::env::var(key).ok();
+    let platform = ServerPlatform::default();
+    let env_get = |key: &str| platform.env().get(key);
 
     let dev_mode = dev_enabled(context);
     let watch_enabled = watch_enabled(context) || dev_mode;
-    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    let mut env_set = |key: &str, value: &str| {
+        let _ = platform.env().set(key, value);
+    };
     set_dev_flag_with(dev_mode, &env_get, &mut env_set);
     let resolved = runtime_config::resolve_handler_path(&context.handler.input)
         .map_err(|err| format!("Failed to resolve handler path: {}", err))?;
@@ -51,16 +56,20 @@ async fn serve_async(context: &Context) -> Result<(), String> {
             handler_path
         ));
     }
-    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    let mut env_set = |key: &str, value: &str| {
+        let _ = platform.env().set(key, value);
+    };
     ensure_phpx_module_root_env_with(
         &handler_path,
-        &|path| path.exists(),
-        &|| std::env::current_exe().ok(),
+        &|path| platform.fs().exists(path),
+        &|| platform.fs().current_exe().ok(),
         &env_get,
         &mut env_set,
     );
     validate_phpx_modules(&handler_path)?;
-    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    let mut env_set = |key: &str, value: &str| {
+        let _ = platform.env().set(key, value);
+    };
     set_handler_path_with(&handler_path, &env_get, &mut env_set);
 
     let handler_source = load_handler_source(&handler_path, &resolved.mode)?;

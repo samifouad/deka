@@ -21,18 +21,34 @@ where
 }
 
 pub fn normalize_handler_path(path: &str) -> String {
+    normalize_handler_path_with(
+        path,
+        &|| std::env::current_dir().ok(),
+        &|p| p.canonicalize().ok(),
+    )
+}
+
+pub fn normalize_handler_path_with<Cwd, Canonicalize>(
+    path: &str,
+    cwd_get: &Cwd,
+    canonicalize: &Canonicalize,
+) -> String
+where
+    Cwd: Fn() -> Option<std::path::PathBuf>,
+    Canonicalize: Fn(&Path) -> Option<std::path::PathBuf>,
+{
     let path = Path::new(path);
     if path.is_absolute() {
         return path.to_string_lossy().to_string();
     }
-    let cwd = match std::env::current_dir() {
-        Ok(dir) => dir,
-        Err(_) => return path.to_string_lossy().to_string(),
+    let cwd = match cwd_get() {
+        Some(dir) => dir,
+        None => return path.to_string_lossy().to_string(),
     };
     let joined = cwd.join(path);
-    match joined.canonicalize() {
-        Ok(canon) => canon.to_string_lossy().to_string(),
-        Err(_) => joined.to_string_lossy().to_string(),
+    match canonicalize(&joined) {
+        Some(canon) => canon.to_string_lossy().to_string(),
+        None => joined.to_string_lossy().to_string(),
     }
 }
 
@@ -80,5 +96,13 @@ mod tests {
         assert!(!is_php_entry("index.html"));
         assert!(is_html_entry("index.html"));
         assert!(is_html_entry("index.HTML"));
+    }
+
+    #[test]
+    fn normalize_handler_path_with_uses_injected_closures() {
+        let cwd = || Some(std::path::PathBuf::from("/tmp/project"));
+        let canonicalize = |_path: &std::path::Path| None;
+        let path = normalize_handler_path_with("main.phpx", &cwd, &canonicalize);
+        assert_eq!(path, "/tmp/project/main.phpx");
     }
 }

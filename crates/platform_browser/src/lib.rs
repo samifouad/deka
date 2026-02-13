@@ -111,6 +111,14 @@ impl Fs for BrowserFs {
     fn cwd(&self) -> Result<PathBuf> {
         Ok(PathBuf::from("/"))
     }
+
+    fn canonicalize(&self, path: &Path) -> Result<PathBuf> {
+        Ok(path.to_path_buf())
+    }
+
+    fn current_exe(&self) -> Result<PathBuf> {
+        Err(anyhow!("current_exe is unavailable in browser platform"))
+    }
 }
 
 #[derive(Default)]
@@ -131,6 +139,15 @@ impl Env for BrowserEnv {
             .lock()
             .map(|vars| vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default()
+    }
+
+    fn set(&self, key: &str, value: &str) -> Result<()> {
+        let mut vars = self
+            .vars
+            .lock()
+            .map_err(|_| anyhow!("failed to lock browser env"))?;
+        vars.insert(key.to_string(), value.to_string());
+        Ok(())
     }
 }
 

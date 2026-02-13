@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 core = { path = "../core" }
 runtime_core = { path = "../runtime_core" }
+platform = { path = "../platform" }
 platform_server = { path = "../platform_server" }
 engine = { path = "../engine" }
 pool = { path = "../pool" }

@@ -4,9 +4,13 @@ use std::sync::Arc;
 use core::Context;
 use engine::{RuntimeEngine, config as runtime_config, set_engine};
 use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
+use platform::Platform;
+use platform_server::ServerPlatform;
 use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
 use runtime_core::env::{set_default_log_level_with, set_handler_path_with, set_runtime_args_with};
-use runtime_core::handler::{handler_input_with, is_html_entry, is_php_entry, normalize_handler_path};
+use runtime_core::handler::{
+    handler_input_with, is_html_entry, is_php_entry, normalize_handler_path_with,
+};
 use runtime_core::modules::ensure_phpx_module_root_env_with;
 use runtime_core::php_pipeline::build_run_handler_code;
 use runtime_core::process::parse_exit_code;
@@ -28,18 +32,29 @@ pub fn run(context: &Context) {
 
 async fn run_async(context: &Context) -> Result<(), String> {
     init_env();
-    let env_get = |key: &str| std::env::var(key).ok();
-    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    let platform = ServerPlatform::default();
+    let env_get = |key: &str| platform.env().get(key);
+    let mut env_set = |key: &str, value: &str| {
+        let _ = platform.env().set(key, value);
+    };
     set_default_log_level_with(&env_get, &mut env_set);
 
-    let (handler_path, extra_args) = handler_input(context);
-    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    let (handler_path, extra_args) = handler_input_with(&context.args.positionals, &env_get);
+    let mut env_set = |key: &str, value: &str| {
+        let _ = platform.env().set(key, value);
+    };
     set_runtime_args_with(&extra_args, &mut env_set, &|| std::env::args().next());
 
-    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    let mut env_set = |key: &str, value: &str| {
+        let _ = platform.env().set(key, value);
+    };
     set_handler_path_with(&handler_path, &env_get, &mut env_set);
 
-    let normalized = normalize_handler_path(&handler_path);
+    let normalized = normalize_handler_path_with(
+        &handler_path,
+        &|| platform.fs().cwd().ok(),
+        &|path| platform.fs().canonicalize(path).ok(),
+    );
     if is_html_entry(&normalized) {
         return Err(format!(
             "Run mode does not support HTML entrypoints: {}",
@@ -53,11 +68,13 @@ async fn run_async(context: &Context) -> Result<(), String> {
             normalized
         ));
     }
-    let mut env_set = |key: &str, value: &str| unsafe { std::env::set_var(key, value) };
+    let mut env_set = |key: &str, value: &str| {
+        let _ = platform.env().set(key, value);
+    };
     ensure_phpx_module_root_env_with(
         &normalized,
-        &|path| path.exists(),
-        &|| std::env::current_exe().ok(),
+        &|path| platform.fs().exists(path),
+        &|| platform.fs().current_exe().ok(),
         &env_get,
         &mut env_set,
     );
@@ -146,8 +163,4 @@ fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {
         &|source, path| validate_module_resolution(source, path),
         &|source, path, error| format_validation_error(source, path, error),
     )
-}
-
-fn handler_input(context: &Context) -> (String, Vec<String>) {
-    handler_input_with(&context.args.positionals, &|key| std::env::var(key).ok())
 }

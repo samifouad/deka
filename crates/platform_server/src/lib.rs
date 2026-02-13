@@ -89,6 +89,14 @@ impl Fs for ServerFs {
     fn cwd(&self) -> Result<PathBuf> {
         std::env::current_dir().map_err(Into::into)
     }
+
+    fn canonicalize(&self, path: &Path) -> Result<PathBuf> {
+        std::fs::canonicalize(path).map_err(Into::into)
+    }
+
+    fn current_exe(&self) -> Result<PathBuf> {
+        std::env::current_exe().map_err(Into::into)
+    }
 }
 
 pub struct ServerEnv;
@@ -100,6 +108,12 @@ impl Env for ServerEnv {
 
     fn vars(&self) -> Vec<(String, String)> {
         std::env::vars().collect()
+    }
+
+    fn set(&self, key: &str, value: &str) -> Result<()> {
+        // Process environment mutation is unsafe in Rust 2024.
+        unsafe { std::env::set_var(key, value) };
+        Ok(())
     }
 }
 
