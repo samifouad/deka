@@ -335,12 +335,25 @@ export class WebContainer {
   }
 
   async spawn(program: string, args: string[] = [], options?: SpawnOptions): Promise<Process> {
-    const runtime = this.commandRuntimes[program];
-    if (runtime) {
+    const resolved = resolveSpawnTarget({
+      fs: this.innerFs,
+      commandRuntimes: this.commandRuntimes,
+      cwd: options?.cwd ?? "/",
+      env: options?.env ?? {},
+      program,
+      args,
+    });
+
+    if (resolved.kind === "not-found") {
+      return createCommandNotFoundProcess(program);
+    }
+
+    if (resolved.kind === "runtime") {
+      const runtime = resolved.runtime;
       const handle = new HostRuntimeProcess();
       queueMicrotask(async () => {
         try {
-          const result = await runtime(args, options, { fs: this.innerFs });
+          const result = await runtime(resolved.args, options, { fs: this.innerFs });
           if (result.stdout) {
             handle.writeStdout(coerceBytes(result.stdout, new TextEncoder()));
           }
@@ -359,26 +372,16 @@ export class WebContainer {
       });
       return new Process(handle);
     }
-    if (program === "deka") {
-      const handle = new HostRuntimeProcess();
-      queueMicrotask(() => {
-        handle.writeStderr(
-          new TextEncoder().encode(
-            "deka: host runtime not configured in WebContainer.boot({ commandRuntimes })\n"
-          )
-        );
-        handle.finish({ code: 127 });
-      });
-      return new Process(handle);
-    }
-    if (isNodeProgram(program)) {
+
+    if (isNodeProgram(resolved.program)) {
       if (!this.nodeRuntime) {
         this.nodeRuntime = new NodeShimRuntime(this.innerFs);
       }
-      const handle = this.nodeRuntime.spawn(args, options);
+      const handle = this.nodeRuntime.spawn(resolved.args, options);
       return new Process(handle);
     }
-    const handle = this.inner.spawn(program, args, options);
+
+    const handle = this.inner.spawn(resolved.program, resolved.args, options);
     return new Process(handle);
   }
 
@@ -986,6 +989,216 @@ class ExitSignal extends Error {
   constructor(readonly code: number) {
     super("Process exit");
   }
+}
+
+type RuntimeLookup = {
+  key: string;
+  runtime: CommandRuntime;
+};
+
+type ResolvedSpawnTarget =
+  | { kind: "runtime"; program: string; args: string[]; runtime: CommandRuntime }
+  | { kind: "native"; program: string; args: string[] }
+  | { kind: "not-found" };
+
+type ResolveSpawnTargetOptions = {
+  fs: WosixFs;
+  commandRuntimes: Record<string, CommandRuntime>;
+  cwd: string;
+  env: Record<string, string>;
+  program: string;
+  args: string[];
+};
+
+const DEFAULT_PATH = "/bin:/usr/bin:/usr/local/bin";
+const MAX_SHEBANG_DEPTH = 8;
+
+function resolveSpawnTarget(options: ResolveSpawnTargetOptions): ResolvedSpawnTarget {
+  const cwd = normalizePath(options.cwd || "/");
+  const initialProgram = options.program;
+  const initialArgs = options.args;
+  const env = options.env ?? {};
+
+  let runtimeLookup = lookupRuntime(options.commandRuntimes, initialProgram);
+  let executablePath = resolveExecutablePath(options.fs, cwd, env, initialProgram);
+
+  // POSIX-compatible fallback: allow mapped runtime even when no executable exists in PATH.
+  if (!executablePath) {
+    if (runtimeLookup) {
+      return {
+        kind: "runtime",
+        program: runtimeLookup.key,
+        args: initialArgs,
+        runtime: runtimeLookup.runtime,
+      };
+    }
+    if (isNodeProgram(initialProgram)) {
+      return {
+        kind: "native",
+        program: initialProgram,
+        args: initialArgs,
+      };
+    }
+    return { kind: "not-found" };
+  }
+
+  let currentProgram = executablePath;
+  let currentArgs = initialArgs;
+  let depth = 0;
+
+  while (depth < MAX_SHEBANG_DEPTH) {
+    depth += 1;
+    const shebang = parseShebang(options.fs, currentProgram);
+    if (!shebang) {
+      runtimeLookup =
+        lookupRuntime(options.commandRuntimes, currentProgram) ??
+        lookupRuntime(options.commandRuntimes, basename(currentProgram));
+      if (runtimeLookup) {
+        return {
+          kind: "runtime",
+          program: runtimeLookup.key,
+          args: [currentProgram, ...currentArgs],
+          runtime: runtimeLookup.runtime,
+        };
+      }
+      return {
+        kind: "native",
+        program: currentProgram,
+        args: currentArgs,
+      };
+    }
+
+    const interpreter = resolveShebangInterpreter(
+      options.fs,
+      options.commandRuntimes,
+      cwd,
+      env,
+      shebang
+    );
+    if (!interpreter) {
+      return { kind: "not-found" };
+    }
+    currentArgs = [...interpreter.args, currentProgram, ...currentArgs];
+    runtimeLookup =
+      lookupRuntime(options.commandRuntimes, interpreter.program) ??
+      lookupRuntime(options.commandRuntimes, basename(interpreter.program));
+    if (runtimeLookup) {
+      return {
+        kind: "runtime",
+        program: runtimeLookup.key,
+        args: currentArgs,
+        runtime: runtimeLookup.runtime,
+      };
+    }
+    executablePath = resolveExecutablePath(options.fs, cwd, env, interpreter.program);
+    if (!executablePath) {
+      return { kind: "not-found" };
+    }
+    currentProgram = executablePath;
+  }
+
+  return { kind: "not-found" };
+}
+
+function lookupRuntime(
+  commandRuntimes: Record<string, CommandRuntime>,
+  program: string
+): RuntimeLookup | null {
+  const direct = commandRuntimes[program];
+  if (direct) {
+    return { key: program, runtime: direct };
+  }
+  const base = basename(program);
+  if (!base || base === program) {
+    return null;
+  }
+  const byBase = commandRuntimes[base];
+  if (byBase) {
+    return { key: base, runtime: byBase };
+  }
+  return null;
+}
+
+function resolveExecutablePath(
+  fs: WosixFs,
+  cwd: string,
+  env: Record<string, string>,
+  program: string
+): string | null {
+  if (program.includes("/")) {
+    const candidate = resolvePath(cwd, program);
+    return fileType(fs, candidate) === "file" ? candidate : null;
+  }
+  const pathValue = env.PATH || DEFAULT_PATH;
+  const pathEntries = pathValue
+    .split(":")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  for (const entry of pathEntries) {
+    const base = entry.startsWith("/") ? normalizePath(entry) : resolvePath(cwd, entry);
+    const candidate = normalizePath(`${base}/${program}`);
+    if (fileType(fs, candidate) === "file") {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function parseShebang(fs: WosixFs, path: string): string[] | null {
+  let bytes: Uint8Array;
+  try {
+    bytes = fs.readFile(path);
+  } catch {
+    return null;
+  }
+  const head = bytes.slice(0, Math.min(bytes.length, 1024));
+  const line = new TextDecoder().decode(head).split(/\r?\n/, 1)[0] ?? "";
+  if (!line.startsWith("#!")) {
+    return null;
+  }
+  const command = line.slice(2).trim();
+  if (!command) {
+    return null;
+  }
+  return command.split(/\s+/).filter((part) => part.length > 0);
+}
+
+function resolveShebangInterpreter(
+  fs: WosixFs,
+  commandRuntimes: Record<string, CommandRuntime>,
+  cwd: string,
+  env: Record<string, string>,
+  tokens: string[]
+): { program: string; args: string[] } | null {
+  const parts = [...tokens];
+  let interpreter = parts.shift();
+  if (!interpreter) {
+    return null;
+  }
+  if (interpreter === "/usr/bin/env" || interpreter === "env") {
+    interpreter = parts.shift();
+    if (!interpreter) {
+      return null;
+    }
+  }
+  const runtime = lookupRuntime(commandRuntimes, interpreter);
+  if (runtime) {
+    return { program: interpreter, args: parts };
+  }
+  const resolvedProgram = resolveExecutablePath(fs, cwd, env, interpreter);
+  if (!resolvedProgram) {
+    return null;
+  }
+  return { program: resolvedProgram, args: parts };
+}
+
+function createCommandNotFoundProcess(program: string): Process {
+  const handle = new HostRuntimeProcess();
+  queueMicrotask(() => {
+    handle.writeStderr(new TextEncoder().encode(`${program}: command not found\n`));
+    handle.finish({ code: 127 });
+  });
+  return new Process(handle);
 }
 
 function isNodeProgram(program: string): boolean {
