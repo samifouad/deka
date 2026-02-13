@@ -205,6 +205,24 @@ fn ensure_phpx_module_root(handler_path: &str) {
             break;
         }
     }
+
+    // Fallback for ad-hoc script execution outside a project: derive root from
+    // the current deka binary location (e.g. .../target/release/cli -> repo root).
+    if let Ok(exe) = std::env::current_exe() {
+        let resolved_exe = exe.canonicalize().unwrap_or(exe);
+        if let Some(release_dir) = resolved_exe.parent() {
+            if let Some(target_dir) = release_dir.parent() {
+                if let Some(repo_root) = target_dir.parent() {
+                    let lock_path = repo_root.join("deka.lock");
+                    if lock_path.exists() {
+                        unsafe {
+                            std::env::set_var("PHPX_MODULE_ROOT", repo_root);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn handler_input(context: &Context) -> (String, Vec<String>) {

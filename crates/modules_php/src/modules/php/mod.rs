@@ -8,7 +8,7 @@ use native_tls::{TlsConnector, TlsStream};
 use php_rs::parser::ast::{ClassKind, ClassMember, Program, Stmt, Type as AstType};
 use php_rs::parser::lexer::Lexer;
 use php_rs::parser::lexer::token::Token;
-use php_rs::parser::parser::{Parser, ParserMode};
+use php_rs::parser::parser::{Parser, ParserMode, detect_parser_mode};
 use postgres::{Client, NoTls, types::ToSql};
 use prost::Message as ProstMessage;
 use rusqlite::types::ValueRef as SqliteValueRef;
@@ -1039,7 +1039,12 @@ fn op_php_parse_phpx_types(
     };
     let arena = Bump::new();
     let lexer = Lexer::new(source_bytes);
-    let mut parser = Parser::new_with_mode(lexer, &arena, ParserMode::Phpx);
+    let path = std::path::Path::new(&file_path);
+    let mut mode = detect_parser_mode(source_bytes, Some(path));
+    if path.to_string_lossy().replace('\\', "/").contains("/php_modules/") {
+        mode = ParserMode::PhpxInternal;
+    }
+    let mut parser = Parser::new_with_mode(lexer, &arena, mode);
     let program = parser.parse_program();
     if !program.errors.is_empty() {
         return Err(deno_core::error::CoreError::from(std::io::Error::new(

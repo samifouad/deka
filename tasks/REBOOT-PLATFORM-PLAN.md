@@ -75,7 +75,7 @@ Deferred (post-MVP):
 
 ## Phase 6: Parity and Verification
 
-- [ ] Build behavior parity suite: old runtime vs rebooted runtime.
+- [x] Build behavior parity suite baseline: old runtime vs rebooted runtime (`scripts/parity-runtime.sh` run+serve).
 - [ ] Cover frontmatter, JSX/components, module loading, run/serve, diagnostics.
 - [ ] Add required CI checks for parity gates.
 
