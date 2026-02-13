@@ -1,6 +1,7 @@
 import * as wasm from "./vendor/wosix_wasm/wosix_wasm.js";
 import {
   WebContainer,
+  createDekaWasmCommandRuntime,
   createPhpHostBridge,
   createPhpRuntimeAdapter,
   createPhpRuntimeWasmExecutor,
@@ -69,6 +70,11 @@ try {
   resetLog("Loading wasm...");
   await WebContainer.boot(wasm, {
     init: wasm.default,
+    commandRuntimes: {
+      deka: createDekaWasmCommandRuntime({
+        wasmUrl: new URL("./vendor/wosix_js/deka_cli.wasm", import.meta.url).toString(),
+      }),
+    },
   });
   log("Demo: phpx");
   if (sourceEl instanceof HTMLTextAreaElement) {

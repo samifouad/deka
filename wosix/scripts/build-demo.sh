@@ -6,6 +6,7 @@ DEMO_DIR="$ROOT_DIR/examples/browser"
 WASM_PKG_DIR="$ROOT_DIR/crates/wosix-wasm/pkg"
 WOSIX_JS_DIST_DIR="$ROOT_DIR/js/dist"
 PHP_RS_WASM_PATH="$ROOT_DIR/../target/wasm32-unknown-unknown/release/php_rs.wasm"
+CLI_WASM_PATH="$ROOT_DIR/../target/wasm32-unknown-unknown/release/cli.wasm"
 WASM_VENDOR_DIR="$DEMO_DIR/vendor/wosix_wasm"
 JS_VENDOR_DIR="$DEMO_DIR/vendor/wosix_js"
 
@@ -14,6 +15,7 @@ JS_VENDOR_DIR="$DEMO_DIR/vendor/wosix_js"
 (
   cd "$ROOT_DIR/.."
   cargo build -p php-rs --release --target wasm32-unknown-unknown --lib --no-default-features >/dev/null
+  cargo build -p cli --release --target wasm32-unknown-unknown --no-default-features >/dev/null
 )
 
 if ! command -v wasm-bindgen >/dev/null 2>&1; then
@@ -47,5 +49,7 @@ wasm-bindgen \
   --target web \
   --out-dir "$JS_VENDOR_DIR" \
   --out-name php_runtime >/dev/null
+
+cp -f "$CLI_WASM_PATH" "$JS_VENDOR_DIR"/deka_cli.wasm
 
 echo "Demo assets built. Serve $ROOT_DIR/examples/browser"
