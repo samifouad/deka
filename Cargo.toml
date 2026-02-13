@@ -7,6 +7,7 @@ members = [
     "crates/compile",
     "crates/stdio",
     "crates/http",
+    "crates/platform",
     "crates/transport",
     "crates/pool",
     "crates/engine",

@@ -42,9 +42,9 @@ Deferred (post-MVP):
 
 - [ ] Create new repo/workspace scaffold for rebooted runtime.
 - [ ] Keep crate-per-responsibility model and command registry pattern.
-- [ ] Add `platform` abstraction crate with host contracts:
-- [ ] `fs`, `env`, `io`, `process`, `time`, `random`, `net`, `ports`.
-- [ ] Add architecture docs for platform contracts and crate boundaries.
+- [x] Add `platform` abstraction crate with host contracts.
+- [x] `fs`, `env`, `io`, `process`, `time`, `random`, `net`, `ports`.
+- [x] Add architecture docs for platform contracts and crate boundaries.
 
 ## Phase 2: Runtime Core Extraction
 
