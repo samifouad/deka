@@ -4,7 +4,6 @@ use core::{Context, FlagSpec, ParamSpec, ParseError, ParseErrorKind, Registry};
 use stdio::{ascii, error as stdio_error, raw};
 
 // define & export cli's submodules
-pub mod build;
 pub mod compile;
 pub mod db;
 pub mod init;
