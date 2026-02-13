@@ -23,6 +23,13 @@ Deferred (post-MVP):
 - [ ] No Node/Bun compatibility layer.
 - [ ] No separate LSP binary.
 - [ ] No CLI/Desktop platform runtime work.
+- [ ] No JS/TS bundling pipeline in MVP (`crates/bundler` dropped for reboot scope).
+
+## Locked decisions
+
+- [ ] `introspect` is retained in reboot MVP.
+- [ ] `loop` crate is excluded from reboot MVP.
+- [ ] `bundler` crate is dropped from reboot MVP.
 
 ## Hard workflow rules
 
@@ -86,4 +93,3 @@ Deferred (post-MVP):
 - [ ] No Node/Bun compatibility code remains in reboot repo.
 - [ ] Runtime core contains no platform-specific glue.
 - [ ] Artifact versioning and stale detection are enforced.
-
