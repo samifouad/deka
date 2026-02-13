@@ -75,7 +75,7 @@ Scope: run PHPX inside browser via `wosix` host profile
 - [x] Added architecture guard against direct `php-rs` imports in browser demo code.
 - [x] Browser e2e defaults to stable path only; PHPX browser spec is opt-in.
 - [x] Runtime adapter path for PHPX browser execution.
-- [ ] Close `tasks/PHPX-WOSIX-RUNTIME-BOUNDARY.md`.
+- [x] Close `tasks/PHPX-WOSIX-RUNTIME-BOUNDARY.md`.
 
 ## Docs
 

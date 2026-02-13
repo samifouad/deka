@@ -1,6 +1,6 @@
 # PHPX Wosix Runtime Boundary
 
-Status: active  
+Status: complete  
 Owner: runtime + wosix
 
 ## Purpose
@@ -14,7 +14,7 @@ Define and enforce the browser runtime boundary for PHPX in WOSIX so demos and t
 - [x] Browser execution flows through a runtime adapter API owned by Deka/WOSIX.
 - [x] Browser execution scaffold now flows through a runtime adapter API owned by Deka/WOSIX (`wosix/js/src/phpx_runtime_adapter.ts`).
 - [x] Adapter exposes one stable execution contract for PHPX source runs.
-- [ ] Internal bridge remains private and undocumented for userland.
+- [x] Internal bridge remains private and undocumented for userland.
 
 ## Execution Contract (v1)
 
@@ -52,10 +52,10 @@ Define and enforce the browser runtime boundary for PHPX in WOSIX so demos and t
 - [x] Smoke test runtime adapter response shape (`npm run smoke:phpx-runtime-adapter`).
 - [x] Integration test adapter + capability-denied handling.
 - [x] Browser e2e for PHPX path once adapter wiring lands.
-- [ ] Keep Node-shim e2e green throughout.
+- [x] Keep Node-shim e2e green throughout.
 
 ## Exit Criteria
 
 - [x] PHPX browser demo uses runtime adapter only.
-- [ ] No direct php-rs wiring in demo layer.
+- [x] No direct php-rs wiring in demo layer.
 - [x] Stable e2e coverage for both Node shim and PHPX adapter modes.
