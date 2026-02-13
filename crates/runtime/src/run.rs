@@ -60,23 +60,22 @@ async fn run_async(context: &Context) -> Result<(), String> {
 
     let lowered = normalized.to_ascii_lowercase();
     let is_php = lowered.ends_with(".php") || lowered.ends_with(".phpx");
-    if is_php {
-        ensure_phpx_module_root(&normalized);
-        validate_phpx_modules(&normalized)?;
+    if !is_php {
+        return Err(format!(
+            "Run mode in reboot MVP only supports .php and .phpx entrypoints: {}",
+            normalized
+        ));
     }
-    let serve_mode = if is_php {
-        runtime_config::ServeMode::Php
-    } else {
-        runtime_config::ServeMode::Js
-    };
+    ensure_phpx_module_root(&normalized);
+    validate_phpx_modules(&normalized)?;
+    let serve_mode = runtime_config::ServeMode::Php;
 
     let _ = std::fs::read_to_string(&normalized)
         .map_err(|err| format!("Failed to read handler from {}: {}", normalized, err))?;
 
-    let handler_code = if matches!(serve_mode, runtime_config::ServeMode::Php) {
-        let php_file = serde_json::to_string(&normalized).unwrap_or_else(|_| "\"\"".to_string());
-        format!(
-            "const __dekaPhpFile = {php_file};\
+    let php_file = serde_json::to_string(&normalized).unwrap_or_else(|_| "\"\"".to_string());
+    let handler_code = format!(
+        "const __dekaPhpFile = {php_file};\
 (async () => {{\
   try {{\
     const __dekaPhpResult = await globalThis.__dekaPhp.runFile(__dekaPhpFile);\
@@ -97,27 +96,7 @@ async fn run_async(context: &Context) -> Result<(), String> {
     globalThis.__dekaExitCode = 1;\
   }}\
 }})();",
-        )
-    } else {
-        format!(
-            "if (globalThis.process?.env?.DEKA_IPC_DEBUG === '1') {{ console.error('[HANDLER-LOAD] Loading module:', {}); }}\
-globalThis.__dekaLoadModuleAsync({}).then(async () => {{\
-if (globalThis.process?.env?.DEKA_IPC_DEBUG === '1') {{ console.error('[HANDLER-LOAD] Module loaded, checking runtime hold'); }}\
-if (globalThis.__dekaRuntimeHold) {{ \
-if (globalThis.process?.env?.DEKA_IPC_DEBUG === '1') {{ console.error('[HANDLER-LOAD] Waiting for runtime hold'); }}\
-await globalThis.__dekaRuntimeHold; \
-}}\
-if (globalThis.process?.env?.DEKA_IPC_DEBUG === '1') {{ console.error('[HANDLER-LOAD] Handler execution complete'); }}\
-}}).catch((err) => {{\
-const msg = err && (err.stack || err.message) ? (err.stack || err.message) : String(err);\
-if (String(msg).includes('DekaExit:')) {{ return; }}\
-console.error(err);\
-throw err;\
-}});",
-            serde_json::to_string(&normalized).unwrap_or_else(|_| "\"\"".to_string()),
-            serde_json::to_string(&normalized).unwrap_or_else(|_| "\"\"".to_string())
-        )
-    };
+    );
 
     let runtime_cfg = runtime_config::RuntimeConfig::load();
     let mut pool_config = PoolConfig::from_env();
