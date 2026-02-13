@@ -69,6 +69,7 @@ Deferred (post-MVP):
 - [x] Remove browser-CLI startup panics from unsupported env reads (wasm-safe startup for help/version paths).
 - [x] Add host command-runtime injection in WOSIX JS and a `createDekaWasmCommandRuntime(...)` adapter.
 - [x] Wire demo vendor build to ship `deka_cli.wasm` and boot with wasm-based `deka` command runtime.
+- [x] Add smoke test for wasm deka command runtime (`npm run smoke:deka-wasm-runtime`).
 - [ ] Run real `deka` process semantics in browser host.
 - [x] Keep strict module/network restrictions in browser adapter.
 

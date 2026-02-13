@@ -61,6 +61,7 @@ type DekaWasmExports = {
 
 export type DekaWasmCommandRuntimeOptions = {
   wasmUrl: string;
+  wasmBytes?: ArrayBuffer | Uint8Array;
 };
 
 export function createDekaWasmCommandRuntime(
@@ -75,11 +76,20 @@ export function createDekaWasmCommandRuntime(
       return runtimePromise;
     }
     runtimePromise = (async () => {
-      const response = await fetch(options.wasmUrl);
-      if (!response.ok) {
-        throw new Error(`failed to load deka wasm cli: ${response.status}`);
-      }
-      const bytes = await response.arrayBuffer();
+      const bytes =
+        options.wasmBytes instanceof Uint8Array
+          ? options.wasmBytes.buffer.slice(
+              options.wasmBytes.byteOffset,
+              options.wasmBytes.byteOffset + options.wasmBytes.byteLength
+            )
+          : options.wasmBytes ??
+            (await (async () => {
+              const response = await fetch(options.wasmUrl);
+              if (!response.ok) {
+                throw new Error(`failed to load deka wasm cli: ${response.status}`);
+              }
+              return response.arrayBuffer();
+            })());
       const { instance } = await WebAssembly.instantiate(bytes, {});
       const exports = instance.exports as unknown as DekaWasmExports;
       if (

@@ -27,6 +27,7 @@ export type CommandRuntimeResult = {
 export type CommandRuntime = (args: string[], options: SpawnOptions | undefined, context: CommandRuntimeContext) => Promise<CommandRuntimeResult> | CommandRuntimeResult;
 export type DekaWasmCommandRuntimeOptions = {
     wasmUrl: string;
+    wasmBytes?: ArrayBuffer | Uint8Array;
 };
 export declare function createDekaWasmCommandRuntime(options: DekaWasmCommandRuntimeOptions): CommandRuntime;
 export type NodeWasmOptions = {
