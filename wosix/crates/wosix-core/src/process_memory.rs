@@ -21,9 +21,9 @@ impl InMemoryProcessHost {
 }
 
 impl ProcessHost for InMemoryProcessHost {
-    fn spawn(&self, _command: Command, options: SpawnOptions) -> Result<Box<dyn ProcessHandle>> {
+    fn spawn(&self, command: Command, options: SpawnOptions) -> Result<Box<dyn ProcessHandle>> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        Ok(Box::new(InMemoryProcess::new(ProcessId(id), options)))
+        Ok(Box::new(InMemoryProcess::new(ProcessId(id), command, options)))
     }
 }
 
@@ -37,7 +37,7 @@ struct InMemoryProcess {
 }
 
 impl InMemoryProcess {
-    fn new(id: ProcessId, options: SpawnOptions) -> Self {
+    fn new(id: ProcessId, command: Command, options: SpawnOptions) -> Self {
         let stdin = match options.stdin {
             StdioMode::Piped => Some(MemoryWritable::new()),
             _ => None,
@@ -50,7 +50,7 @@ impl InMemoryProcess {
             StdioMode::Piped => Some(MemoryReadable::new()),
             _ => None,
         };
-        Self {
+        let mut process = Self {
             id,
             exit_status: ExitStatus {
                 code: 0,
@@ -59,7 +59,42 @@ impl InMemoryProcess {
             stdin,
             stdout,
             stderr,
+        };
+        process.bootstrap_command(command);
+        process
+    }
+
+    fn bootstrap_command(&mut self, command: Command) {
+        if command.program == "deka" && command.args.is_empty() {
+            if let Some(stderr) = self.stderr.as_ref() {
+                stderr.push_bytes(b"deka: unsupported subcommand '(none)'\n");
+            }
+            self.exit_status = ExitStatus {
+                code: 1,
+                signal: None,
+            };
+            return;
         }
+
+        if command.program == "deka" && command.args.first().is_some_and(|arg| arg == "help") {
+            if let Some(stdout) = self.stdout.as_ref() {
+                stdout.push_bytes(b"Usage: deka <subcommand>\n");
+            }
+            self.exit_status = ExitStatus {
+                code: 0,
+                signal: None,
+            };
+            return;
+        }
+
+        if let Some(stderr) = self.stderr.as_ref() {
+            let message = format!("{}: command not found\n", command.program);
+            stderr.push_bytes(message.as_bytes());
+        }
+        self.exit_status = ExitStatus {
+            code: 127,
+            signal: None,
+        };
     }
 }
 
@@ -108,6 +143,14 @@ impl MemoryReadable {
     fn new() -> Self {
         Self {
             pipe: Arc::new(Mutex::new(MemoryPipe::default())),
+        }
+    }
+
+    fn push_bytes(&self, bytes: &[u8]) {
+        if let Ok(mut pipe) = self.pipe.lock() {
+            if !pipe.closed {
+                pipe.buffer.extend(bytes);
+            }
         }
     }
 }
