@@ -10,10 +10,12 @@ test("wosix playground edit -> run updates output", async ({ page }) => {
 
   await expect(source).toBeVisible()
   await expect(runBtn).toBeVisible()
+  await expect(log).toContainText("PHPX run complete")
+  await expect(log).toContainText("hello from phpx in wosix")
 
-  await source.fill("process.exit(7)")
+  await source.fill("/*__DEKA_PHPX__*/\necho 'updated from e2e\\n'")
   await runBtn.click()
 
-  await expect(log).toContainText("Exit code: 7")
-  await expect(source).toHaveValue("process.exit(7)")
+  await expect(log).toContainText("updated from e2e")
+  await expect(source).toHaveValue("/*__DEKA_PHPX__*/\necho 'updated from e2e\\n'")
 })

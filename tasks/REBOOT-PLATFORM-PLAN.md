@@ -64,7 +64,7 @@ Deferred (post-MVP):
 ## Phase 4: Browser Platform (WOSIX)
 
 - [x] Implement `platform_browser` on WOSIX primitives (initial adapter scaffold).
-- [ ] Remove browser-side "serve magic" and command stubs.
+- [x] Remove browser-side "serve magic" and command stubs.
 - [ ] Run real `deka` process semantics in browser host.
 - [ ] Keep strict module/network restrictions in browser adapter.
 

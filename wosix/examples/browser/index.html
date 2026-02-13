@@ -66,10 +66,12 @@
     <div class="panel">
       <h1>Wosix Browser Demo</h1>
       <p class="muted">
-        Default runs the Node-like shim. Use <code>?demo=deka</code> for the Deka stub.
+        Browser playground runs PHPX through the runtime adapter path.
       </p>
       <div class="editor" id="playground">
-        <textarea id="source">console.log('hello from wosix node shim')</textarea>
+        <textarea id="source">/*__DEKA_PHPX__*/
+$name = 'wosix'
+echo 'hello from phpx in ' . $name . "\n"</textarea>
         <button id="runBtn" type="button">Run</button>
       </div>
       <div id="log" class="log">Booting...</div>
