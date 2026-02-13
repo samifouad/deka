@@ -70,7 +70,7 @@ Deferred (post-MVP):
 ## Phase 5: CLI + LSP Unification
 
 - [x] Move LSP implementation behind `deka lsp`.
-- [ ] Remove separate LSP binary packaging path.
+- [x] Remove separate LSP binary packaging path.
 - [ ] Ensure same version lineage for runtime and LSP behavior.
 
 ## Phase 6: Parity and Verification
