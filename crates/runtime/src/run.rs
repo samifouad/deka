@@ -6,6 +6,7 @@ use engine::{RuntimeEngine, config as runtime_config, set_engine};
 use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
 use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
 use runtime_core::env::{set_default_log_level_with, set_handler_path_with, set_runtime_args_with};
+use runtime_core::handler::{handler_input_with, is_html_entry, is_php_entry, normalize_handler_path};
 use runtime_core::modules::ensure_phpx_module_root_env_with;
 use runtime_core::process::parse_exit_code;
 use crate::env::init_env;
@@ -37,16 +38,14 @@ async fn run_async(context: &Context) -> Result<(), String> {
     set_handler_path_with(&handler_path, &env_get, &mut env_set);
 
     let normalized = normalize_handler_path(&handler_path);
-    if normalized.to_ascii_lowercase().ends_with(".html") {
+    if is_html_entry(&normalized) {
         return Err(format!(
             "Run mode does not support HTML entrypoints: {}",
             normalized
         ));
     }
 
-    let lowered = normalized.to_ascii_lowercase();
-    let is_php = lowered.ends_with(".php") || lowered.ends_with(".phpx");
-    if !is_php {
+    if !is_php_entry(&normalized) {
         return Err(format!(
             "Run mode in reboot MVP only supports .php and .phpx entrypoints: {}",
             normalized
@@ -185,32 +184,5 @@ fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {
 }
 
 fn handler_input(context: &Context) -> (String, Vec<String>) {
-    let mut positionals = context.args.positionals.clone();
-    let handler = positionals
-        .get(0)
-        .cloned()
-        .or_else(|| std::env::var("HANDLER_PATH").ok())
-        .unwrap_or_else(|| ".".to_string());
-    let extra_args = if positionals.len() > 1 {
-        positionals.split_off(1)
-    } else {
-        Vec::new()
-    };
-    (handler, extra_args)
-}
-
-fn normalize_handler_path(path: &str) -> String {
-    let path = std::path::Path::new(path);
-    if path.is_absolute() {
-        return path.to_string_lossy().to_string();
-    }
-    let cwd = match std::env::current_dir() {
-        Ok(dir) => dir,
-        Err(_) => return path.to_string_lossy().to_string(),
-    };
-    let joined = cwd.join(path);
-    match joined.canonicalize() {
-        Ok(canon) => canon.to_string_lossy().to_string(),
-        Err(_) => joined.to_string_lossy().to_string(),
-    }
+    handler_input_with(&context.args.positionals, &|key| std::env::var(key).ok())
 }
