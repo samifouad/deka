@@ -5,6 +5,7 @@ use core::Context;
 use engine::{RuntimeEngine, config as runtime_config, set_engine};
 use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
 use pool::{ExecutionMode, HandlerKey, PoolConfig, RequestData};
+use runtime_core::modules::detect_phpx_module_root;
 use runtime_core::process::parse_exit_code;
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
@@ -183,44 +184,9 @@ fn ensure_phpx_module_root(handler_path: &str) {
     if std::env::var("PHPX_MODULE_ROOT").is_ok() {
         return;
     }
-    let path = FsPath::new(handler_path);
-    let start = if path.is_dir() {
-        path
-    } else {
-        match path.parent() {
-            Some(parent) => parent,
-            None => return,
-        }
-    };
-    let mut current = start.to_path_buf();
-    loop {
-        let candidate = current.join("deka.lock");
-        if candidate.exists() {
-            unsafe {
-                std::env::set_var("PHPX_MODULE_ROOT", &current);
-            }
-            return;
-        }
-        if !current.pop() {
-            break;
-        }
-    }
-
-    // Fallback for ad-hoc script execution outside a project: derive root from
-    // the current deka binary location (e.g. .../target/release/cli -> repo root).
-    if let Ok(exe) = std::env::current_exe() {
-        let resolved_exe = exe.canonicalize().unwrap_or(exe);
-        if let Some(release_dir) = resolved_exe.parent() {
-            if let Some(target_dir) = release_dir.parent() {
-                if let Some(repo_root) = target_dir.parent() {
-                    let lock_path = repo_root.join("deka.lock");
-                    if lock_path.exists() {
-                        unsafe {
-                            std::env::set_var("PHPX_MODULE_ROOT", repo_root);
-                        }
-                    }
-                }
-            }
+    if let Some(root) = detect_phpx_module_root(handler_path) {
+        unsafe {
+            std::env::set_var("PHPX_MODULE_ROOT", root);
         }
     }
 }

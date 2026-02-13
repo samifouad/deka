@@ -12,6 +12,7 @@ use notify::Watcher;
 use pool::validation::{PoolWorkers, extract_pool_options};
 use pool::{HandlerKey, PoolConfig};
 use runtime_core::env::flag_or_env_truthy;
+use runtime_core::modules::detect_phpx_module_root;
 use stdio as stdio_log;
 use transport::{
     DnsOptions, HttpOptions, RedisOptions, TcpOptions, UdpOptions, UnixOptions, WsOptions,
@@ -156,44 +157,9 @@ fn ensure_phpx_module_root(handler_path: &str) {
     if std::env::var("PHPX_MODULE_ROOT").is_ok() {
         return;
     }
-    let path = FsPath::new(handler_path);
-    let start = if path.is_dir() {
-        path
-    } else {
-        match path.parent() {
-            Some(parent) => parent,
-            None => return,
-        }
-    };
-    let mut current = start.to_path_buf();
-    loop {
-        let candidate = current.join("deka.lock");
-        if candidate.exists() {
-            unsafe {
-                std::env::set_var("PHPX_MODULE_ROOT", &current);
-            }
-            return;
-        }
-        if !current.pop() {
-            break;
-        }
-    }
-
-    // Fallback for ad-hoc execution outside a project: derive root from
-    // binary path (.../target/release/cli -> repo root).
-    if let Ok(exe) = std::env::current_exe() {
-        let resolved_exe = exe.canonicalize().unwrap_or(exe);
-        if let Some(release_dir) = resolved_exe.parent() {
-            if let Some(target_dir) = release_dir.parent() {
-                if let Some(repo_root) = target_dir.parent() {
-                    let lock_path = repo_root.join("deka.lock");
-                    if lock_path.exists() {
-                        unsafe {
-                            std::env::set_var("PHPX_MODULE_ROOT", repo_root);
-                        }
-                    }
-                }
-            }
+    if let Some(root) = detect_phpx_module_root(handler_path) {
+        unsafe {
+            std::env::set_var("PHPX_MODULE_ROOT", root);
         }
     }
 }
