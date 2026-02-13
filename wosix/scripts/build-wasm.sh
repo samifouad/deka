@@ -12,12 +12,12 @@ if ! command -v wasm-bindgen >/dev/null 2>&1; then
   exit 1
 fi
 
-cargo build -p wosix-wasm --target wasm32-unknown-unknown --features web
+cargo build -p wosix-wasm --release --target wasm32-unknown-unknown --features web
 
 mkdir -p "$PKG_DIR"
 wasm-bindgen \
   --target web \
   --out-dir "$PKG_DIR" \
-  "$TARGET_DIR/debug/wosix_wasm.wasm"
+  "$TARGET_DIR/release/wosix_wasm.wasm"
 
 echo "WASM bindings written to $PKG_DIR"
