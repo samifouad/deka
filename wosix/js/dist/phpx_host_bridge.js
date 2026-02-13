@@ -8,7 +8,7 @@ const SERVER_CAPS = {
 };
 const WOSIX_CAPS = {
     fs: true,
-    net: true,
+    net: false,
     processEnv: false,
     clockRandom: true,
     db: false,

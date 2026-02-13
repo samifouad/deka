@@ -66,7 +66,7 @@ Deferred (post-MVP):
 - [x] Implement `platform_browser` on WOSIX primitives (initial adapter scaffold).
 - [x] Remove browser-side "serve magic" and command stubs.
 - [ ] Run real `deka` process semantics in browser host.
-- [ ] Keep strict module/network restrictions in browser adapter.
+- [x] Keep strict module/network restrictions in browser adapter.
 
 ## Phase 5: CLI + LSP Unification
 

@@ -30,6 +30,7 @@ In `wosix`, these capabilities are currently blocked:
 
 - database modules (`db/*`, `postgres`, `mysql`, `sqlite`)
 - process/env access (`process`, `env`)
+- direct network bridge calls (`net`, `tcp`, `tls`) unless explicitly re-enabled by host policy
 
 When blocked APIs are imported, LSP reports a `Target Capability Error` with an actionable help message.
 

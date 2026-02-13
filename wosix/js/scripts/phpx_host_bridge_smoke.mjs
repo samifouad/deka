@@ -108,6 +108,14 @@ const denied = bridge.call({ kind: "db", action: "stats", payload: {} });
 assert(!denied.ok, "db should be denied in wosix");
 assert(String(denied.error || "").includes("CapabilityError"), "capability error expected");
 
+const netDenied = bridge.call({
+  kind: "net",
+  action: "fetch",
+  payload: { url: "https://example.com" },
+});
+assert(!netDenied.ok, "net should be denied in wosix");
+assert(String(netDenied.error || "").includes("CapabilityError"), "net capability error expected");
+
 const write = bridge.call({
   kind: "fs",
   action: "writeFile",

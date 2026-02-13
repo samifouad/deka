@@ -54,7 +54,7 @@ const SERVER_CAPS: HostCapabilities = {
 
 const WOSIX_CAPS: HostCapabilities = {
   fs: true,
-  net: true,
+  net: false,
   processEnv: false,
   clockRandom: true,
   db: false,
