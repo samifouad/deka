@@ -1,4 +1,6 @@
 use anyhow::{Result, anyhow};
+use deno_core::Extension;
+use modules_common::permissions_extension;
 use platform::{Env, Fs, Io, Net, Platform, Ports, Process, Random, Time};
 use rand::RngCore;
 use std::io::Write;
@@ -203,4 +205,13 @@ impl Ports for ServerPorts {
         reserved.retain(|p| *p != port);
         Ok(())
     }
+}
+
+pub fn extensions_for_php_server() -> Vec<Extension> {
+    let mut extensions = vec![
+        permissions_extension(),
+        deno_napi::deno_napi::init_ops::<deno_permissions::PermissionsContainer>(),
+    ];
+    extensions.extend(modules_php::extensions());
+    extensions
 }

@@ -6,15 +6,13 @@ edition = "2024"
 [dependencies]
 core = { path = "../core" }
 runtime_core = { path = "../runtime_core" }
+platform_server = { path = "../platform_server" }
 engine = { path = "../engine" }
 pool = { path = "../pool" }
 transport = { path = "../transport" }
 stdio = { path = "../stdio" }
-modules_common = { path = "../modules_common" }
 modules_php = { path = "../modules_php" }
 deno_core = { workspace = true }
-deno_napi = { workspace = true }
-deno_permissions = { workspace = true }
 notify = { workspace = true }
 num_cpus = { workspace = true }
 serde_json = { workspace = true }

@@ -4128,6 +4128,11 @@ name = "platform_server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "deno_core",
+ "deno_napi",
+ "deno_permissions",
+ "modules_common",
+ "modules_php",
  "platform",
  "rand 0.8.5",
 ]
@@ -4934,14 +4939,12 @@ version = "0.1.0"
 dependencies = [
  "core",
  "deno_core",
- "deno_napi",
- "deno_permissions",
  "engine",
  "flate2",
- "modules_common",
  "modules_php",
  "notify",
  "num_cpus",
+ "platform_server",
  "pool",
  "runtime_core",
  "serde_json",
