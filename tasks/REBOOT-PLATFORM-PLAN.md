@@ -65,6 +65,7 @@ Deferred (post-MVP):
 
 - [x] Implement `platform_browser` on WOSIX primitives (initial adapter scaffold).
 - [x] Remove browser-side "serve magic" and command stubs.
+- [x] Make `cli` crate buildable for `wasm32-unknown-unknown` (`--no-default-features`) as browser command-runtime baseline.
 - [ ] Run real `deka` process semantics in browser host.
 - [x] Keep strict module/network restrictions in browser adapter.
 

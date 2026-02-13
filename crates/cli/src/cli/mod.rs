@@ -4,16 +4,24 @@ use core::{Context, FlagSpec, ParamSpec, ParseError, ParseErrorKind, Registry};
 use stdio::{ascii, error as stdio_error, raw};
 
 // define & export cli's submodules
-pub mod compile;
-pub mod db;
 pub mod init;
-pub mod install;
-pub mod lsp;
-pub mod run;
-pub mod self_cmd;
-pub mod serve;
-pub mod test;
 pub mod user;
+#[cfg(feature = "native")]
+pub mod compile;
+#[cfg(feature = "native")]
+pub mod db;
+#[cfg(feature = "native")]
+pub mod install;
+#[cfg(feature = "native")]
+pub mod lsp;
+#[cfg(feature = "native")]
+pub mod run;
+#[cfg(feature = "native")]
+pub mod self_cmd;
+#[cfg(feature = "native")]
+pub mod serve;
+#[cfg(feature = "native")]
+pub mod test;
 
 pub fn register_global_flags(registry: &mut Registry) {
     registry.add_flag(FlagSpec {
@@ -142,6 +150,8 @@ pub fn error(msg: Option<&str>) {
 }
 
 pub fn execute(registry: &Registry) {
+    #[cfg(feature = "native")]
+    {
     // Check for embedded VFS (compiled binary mode)
     // When a binary is compiled with VFS, it should automatically start in the appropriate mode
     if runtime::has_embedded_vfs() {
@@ -177,6 +187,7 @@ pub fn execute(registry: &Registry) {
         // Automatically serve (which will detect desktop vs server mode from VFS)
         runtime::serve(&context);
         return;
+    }
     }
 
     let context = match Context::from_env(registry) {

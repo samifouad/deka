@@ -29,6 +29,7 @@ export class WebContainer {
         this.inner = inner;
         this.innerFs = inner.fs();
         this.fs = new FileSystem(this.innerFs);
+        this.commandRuntimes = options.commandRuntimes ?? {};
     }
     async initNodeRuntime(options) {
         const mode = options.nodeRuntime ?? "shim";
@@ -44,6 +45,31 @@ export class WebContainer {
         this.fs.mount(tree);
     }
     async spawn(program, args = [], options) {
+        const runtime = this.commandRuntimes[program];
+        if (runtime) {
+            const handle = new HostRuntimeProcess();
+            queueMicrotask(async () => {
+                try {
+                    const result = await runtime(args, options, { fs: this.innerFs });
+                    if (result.stdout) {
+                        handle.writeStdout(coerceBytes(result.stdout, new TextEncoder()));
+                    }
+                    if (result.stderr) {
+                        handle.writeStderr(coerceBytes(result.stderr, new TextEncoder()));
+                    }
+                    handle.finish({
+                        code: result.code ?? 0,
+                        signal: result.signal,
+                    });
+                }
+                catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    handle.writeStderr(new TextEncoder().encode(`${message}\n`));
+                    handle.finish({ code: 1 });
+                }
+            });
+            return new Process(handle);
+        }
         if (isNodeProgram(program)) {
             if (!this.nodeRuntime) {
                 this.nodeRuntime = new NodeShimRuntime(this.innerFs);
@@ -382,6 +408,79 @@ class NodeShimProcess {
         if (this.closed) {
             return;
         }
+        this.finish({ code: 128, signal });
+    }
+    close() {
+        this.closed = true;
+    }
+    writeStdout(bytes) {
+        this.stdoutQueue.push(bytes);
+        this.outputQueue.push(bytes);
+    }
+    writeStderr(bytes) {
+        this.stderrQueue.push(bytes);
+        this.outputQueue.push(bytes);
+    }
+    finish(status) {
+        this.exitStatus = status;
+        if (this.exitResolve) {
+            this.exitResolve(status);
+            this.exitResolve = null;
+        }
+    }
+}
+class HostRuntimeProcess {
+    constructor() {
+        this.stdoutQueue = new StreamQueue();
+        this.stderrQueue = new StreamQueue();
+        this.outputQueue = new StreamQueue();
+        this.stdinQueue = new StdinQueue();
+        this.exitResolve = null;
+        this.exitStatus = { code: 0 };
+        this.closed = false;
+        this.procId = Math.floor(Math.random() * 100000) + 200000;
+        this.exitPromise = new Promise((resolve) => {
+            this.exitResolve = resolve;
+        });
+    }
+    pid() {
+        return this.procId;
+    }
+    wait() {
+        return this.exitStatus;
+    }
+    exit() {
+        return this.exitPromise;
+    }
+    writeStdin(data) {
+        const bytes = coerceBytes(data, new TextEncoder());
+        this.stdinQueue.push(bytes);
+        return bytes.length;
+    }
+    readStdout(maxBytes) {
+        return this.stdoutQueue.read(maxBytes);
+    }
+    readStderr(maxBytes) {
+        return this.stderrQueue.read(maxBytes);
+    }
+    readOutput(maxBytes) {
+        return this.outputQueue.read(maxBytes);
+    }
+    stdinStream() {
+        return this.stdinQueue.stream;
+    }
+    stdoutStream() {
+        return this.stdoutQueue.stream;
+    }
+    stderrStream() {
+        return this.stderrQueue.stream;
+    }
+    outputStream() {
+        return this.outputQueue.stream;
+    }
+    kill(signal) {
+        if (this.closed)
+            return;
         this.finish({ code: 128, signal });
     }
     close() {

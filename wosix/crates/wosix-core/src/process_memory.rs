@@ -65,28 +65,6 @@ impl InMemoryProcess {
     }
 
     fn bootstrap_command(&mut self, command: Command) {
-        if command.program == "deka" && command.args.is_empty() {
-            if let Some(stderr) = self.stderr.as_ref() {
-                stderr.push_bytes(b"deka: unsupported subcommand '(none)'\n");
-            }
-            self.exit_status = ExitStatus {
-                code: 1,
-                signal: None,
-            };
-            return;
-        }
-
-        if command.program == "deka" && command.args.first().is_some_and(|arg| arg == "help") {
-            if let Some(stdout) = self.stdout.as_ref() {
-                stdout.push_bytes(b"Usage: deka <subcommand>\n");
-            }
-            self.exit_status = ExitStatus {
-                code: 0,
-                signal: None,
-            };
-            return;
-        }
-
         if let Some(stderr) = self.stderr.as_ref() {
             let message = format!("{}: command not found\n", command.program);
             stderr.push_bytes(message.as_bytes());

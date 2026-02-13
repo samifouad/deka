@@ -3,20 +3,33 @@ name = "cli"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["native"]
+native = [
+  "dep:compile",
+  "dep:pm",
+  "dep:runtime",
+  "dep:introspect",
+  "dep:tokio",
+  "dep:postgres",
+  "dep:php-rs",
+  "dep:phpx_lsp",
+]
+
 [dependencies]
-runtime = { path = "../runtime" }
-compile = { path = "../compile" }
+runtime = { path = "../runtime", optional = true }
+compile = { path = "../compile", optional = true }
 core = { path ="../core" }
 stdio = { path = "../stdio" }
-introspect = { path = "../introspect" }
+introspect = { path = "../introspect", optional = true }
 wasm_cli = { path = "../wasm_cli" }
-pm = { workspace = true }
+pm = { workspace = true, optional = true }
 anyhow = "1.0"
 serde_json = "1.0"
-tokio = { version = "1.35", features = ["rt-multi-thread"] }
-postgres = "0.19"
-php-rs = { path = "../php-rs" }
-phpx_lsp = { path = "../phpx_lsp" }
+tokio = { version = "1.35", features = ["rt-multi-thread"], optional = true }
+postgres = { version = "0.19", optional = true }
+php-rs = { path = "../php-rs", optional = true }
+phpx_lsp = { path = "../phpx_lsp", optional = true }
 bumpalo = "3.12"
 
 [dev-dependencies]

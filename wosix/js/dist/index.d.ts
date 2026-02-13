@@ -13,7 +13,18 @@ export type BootOptions = {
     module?: WebAssembly.Module | ArrayBuffer | Response;
     nodeRuntime?: "shim" | "wasm";
     nodeWasm?: NodeWasmOptions;
+    commandRuntimes?: Record<string, CommandRuntime>;
 };
+export type CommandRuntimeContext = {
+    fs: WosixFs;
+};
+export type CommandRuntimeResult = {
+    code: number;
+    stdout?: string | Uint8Array;
+    stderr?: string | Uint8Array;
+    signal?: number;
+};
+export type CommandRuntime = (args: string[], options: SpawnOptions | undefined, context: CommandRuntimeContext) => Promise<CommandRuntimeResult> | CommandRuntimeResult;
 export type NodeWasmOptions = {
     module?: WebAssembly.Module | ArrayBuffer | Response;
     url?: string;
@@ -105,6 +116,7 @@ export declare class WebContainer {
     private readonly inner;
     private readonly innerFs;
     private nodeRuntime;
+    private readonly commandRuntimes;
     private readonly listeners;
     private portSubscriptionId;
     private readonly portCallback;

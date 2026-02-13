@@ -32,7 +32,25 @@ export type BootOptions = {
   module?: WebAssembly.Module | ArrayBuffer | Response;
   nodeRuntime?: "shim" | "wasm";
   nodeWasm?: NodeWasmOptions;
+  commandRuntimes?: Record<string, CommandRuntime>;
 };
+
+export type CommandRuntimeContext = {
+  fs: WosixFs;
+};
+
+export type CommandRuntimeResult = {
+  code: number;
+  stdout?: string | Uint8Array;
+  stderr?: string | Uint8Array;
+  signal?: number;
+};
+
+export type CommandRuntime = (
+  args: string[],
+  options: SpawnOptions | undefined,
+  context: CommandRuntimeContext
+) => Promise<CommandRuntimeResult> | CommandRuntimeResult;
 
 export type NodeWasmOptions = {
   module?: WebAssembly.Module | ArrayBuffer | Response;
@@ -147,6 +165,7 @@ export class WebContainer {
   private readonly inner: WosixWebContainer;
   private readonly innerFs: WosixFs;
   private nodeRuntime: NodeRuntime | null = null;
+  private readonly commandRuntimes: Record<string, CommandRuntime>;
   private readonly listeners = new Map<string, Set<(event: PortEvent) => void>>();
   private portSubscriptionId: number | null = null;
   private readonly portCallback = (event: PortEvent) => {
@@ -162,6 +181,7 @@ export class WebContainer {
     this.inner = inner;
     this.innerFs = inner.fs();
     this.fs = new FileSystem(this.innerFs);
+    this.commandRuntimes = options.commandRuntimes ?? {};
   }
 
   private async initNodeRuntime(options: BootOptions) {
@@ -180,6 +200,30 @@ export class WebContainer {
   }
 
   async spawn(program: string, args: string[] = [], options?: SpawnOptions): Promise<Process> {
+    const runtime = this.commandRuntimes[program];
+    if (runtime) {
+      const handle = new HostRuntimeProcess();
+      queueMicrotask(async () => {
+        try {
+          const result = await runtime(args, options, { fs: this.innerFs });
+          if (result.stdout) {
+            handle.writeStdout(coerceBytes(result.stdout, new TextEncoder()));
+          }
+          if (result.stderr) {
+            handle.writeStderr(coerceBytes(result.stderr, new TextEncoder()));
+          }
+          handle.finish({
+            code: result.code ?? 0,
+            signal: result.signal,
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          handle.writeStderr(new TextEncoder().encode(`${message}\n`));
+          handle.finish({ code: 1 });
+        }
+      });
+      return new Process(handle);
+    }
     if (isNodeProgram(program)) {
       if (!this.nodeRuntime) {
         this.nodeRuntime = new NodeShimRuntime(this.innerFs);
@@ -611,6 +655,97 @@ class NodeShimProcess implements WosixProcess {
     if (this.closed) {
       return;
     }
+    this.finish({ code: 128, signal });
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+
+  writeStdout(bytes: Uint8Array) {
+    this.stdoutQueue.push(bytes);
+    this.outputQueue.push(bytes);
+  }
+
+  writeStderr(bytes: Uint8Array) {
+    this.stderrQueue.push(bytes);
+    this.outputQueue.push(bytes);
+  }
+
+  finish(status: ExitStatus) {
+    this.exitStatus = status;
+    if (this.exitResolve) {
+      this.exitResolve(status);
+      this.exitResolve = null;
+    }
+  }
+}
+
+class HostRuntimeProcess implements WosixProcess {
+  private readonly stdoutQueue = new StreamQueue();
+  private readonly stderrQueue = new StreamQueue();
+  private readonly outputQueue = new StreamQueue();
+  private readonly stdinQueue = new StdinQueue();
+  private readonly exitPromise: Promise<ExitStatus>;
+  private exitResolve: ((status: ExitStatus) => void) | null = null;
+  private exitStatus: ExitStatus = { code: 0 };
+  private closed = false;
+  private readonly procId = Math.floor(Math.random() * 100000) + 200000;
+
+  constructor() {
+    this.exitPromise = new Promise((resolve) => {
+      this.exitResolve = resolve;
+    });
+  }
+
+  pid(): number {
+    return this.procId;
+  }
+
+  wait(): ExitStatus {
+    return this.exitStatus;
+  }
+
+  exit(): Promise<ExitStatus> {
+    return this.exitPromise;
+  }
+
+  writeStdin(data: string | Uint8Array): number {
+    const bytes = coerceBytes(data, new TextEncoder());
+    this.stdinQueue.push(bytes);
+    return bytes.length;
+  }
+
+  readStdout(maxBytes?: number): Uint8Array | null {
+    return this.stdoutQueue.read(maxBytes);
+  }
+
+  readStderr(maxBytes?: number): Uint8Array | null {
+    return this.stderrQueue.read(maxBytes);
+  }
+
+  readOutput(maxBytes?: number): Uint8Array | null {
+    return this.outputQueue.read(maxBytes);
+  }
+
+  stdinStream(): WritableStream<Uint8Array | string> {
+    return this.stdinQueue.stream;
+  }
+
+  stdoutStream(): ReadableStream<Uint8Array> {
+    return this.stdoutQueue.stream;
+  }
+
+  stderrStream(): ReadableStream<Uint8Array> {
+    return this.stderrQueue.stream;
+  }
+
+  outputStream(): ReadableStream<Uint8Array> {
+    return this.outputQueue.stream;
+  }
+
+  kill(signal?: number): void {
+    if (this.closed) return;
     this.finish({ code: 128, signal });
   }
 
