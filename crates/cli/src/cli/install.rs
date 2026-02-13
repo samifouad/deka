@@ -36,7 +36,7 @@ pub fn register(registry: &mut Registry) {
     });
     registry.add_param(ParamSpec {
         name: "--ecosystem",
-        description: "ecosystem hint (node/php)",
+        description: "ecosystem hint (php)",
     });
     registry.add_param(ParamSpec {
         name: "--spec",

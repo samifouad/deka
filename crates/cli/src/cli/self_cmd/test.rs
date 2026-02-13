@@ -14,10 +14,8 @@ pub fn cmd(context: &Context) {
     let suite = context.args.positionals.get(0).map(|s| s.as_str());
     let result = match suite {
         Some("php") => run_php_suite(context),
-        Some("node") => Err("node compat suite not implemented yet".to_string()),
-        Some("bun") => Err("bun compat suite not implemented yet".to_string()),
         Some(other) => Err(format!("unknown self test suite '{}'", other)),
-        None => Err("missing suite name (php|node|bun)".to_string()),
+        None => Err("missing suite name (php)".to_string()),
     };
 
     if let Err(message) = result {

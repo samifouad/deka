@@ -161,9 +161,7 @@ async fn run_async(context: &Context) -> Result<(), String> {
         }
     }
 
-    // The JavaScript code already handles keep-alive by awaiting __dekaRuntimeHold
-    // If a server is running, the promise won't resolve and execution won't complete
-    // This matches Node.js/Bun/Deno behavior automatically
+    // The runtime hold promise keeps long-lived run-mode handlers alive.
     Ok(())
 }
 
