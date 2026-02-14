@@ -21,19 +21,108 @@ function &__component_context_next_id() {
 }
 
 export function jsx($type, $props, $key = '') {
+    $props = __component_normalize_prop_aliases($props);
     return VNode { $type: $type, $props: $props, $key: $key };
 }
 
 export function jsxs($type, $props, $key = '') {
+    $props = __component_normalize_prop_aliases($props);
     return VNode { $type: $type, $props: $props, $key: $key };
 }
 
 export function createElement($type, $props, ...$children) {
+    $props = __component_normalize_prop_aliases($props);
     if (count($children) > 0) {
         $props.children = $children;
     }
     return VNode { $type: $type, $props: $props, $key: '' };
 }
+
+function __component_normalize_prop_aliases($props) {
+    if (!is_array($props) && !is_object($props)) {
+        return $props;
+    }
+
+    if (is_array($props)) {
+        __component_normalize_prop_alias_array($props, 'className', 'class');
+        __component_normalize_prop_alias_array($props, 'htmlFor', 'for');
+        __component_normalize_prop_alias_array($props, 'tabIndex', 'tabindex');
+        __component_normalize_prop_alias_array($props, 'readOnly', 'readonly');
+        __component_normalize_prop_alias_array($props, 'autoComplete', 'autocomplete');
+        __component_normalize_prop_alias_array($props, 'autoFocus', 'autofocus');
+        __component_normalize_prop_alias_array($props, 'spellCheck', 'spellcheck');
+        __component_normalize_prop_alias_array($props, 'srcSet', 'srcset');
+        __component_normalize_prop_alias_array($props, 'referrerPolicy', 'referrerpolicy');
+        return $props;
+    }
+
+    if (isset($props.className) && !isset($props.class)) {
+        $props.class = $props.className;
+    }
+    if (isset($props.class) && !isset($props.className)) {
+        $props.className = $props.class;
+    }
+    if (isset($props.htmlFor) && !isset($props.for)) {
+        $props.for = $props.htmlFor;
+    }
+    if (isset($props.for) && !isset($props.htmlFor)) {
+        $props.htmlFor = $props.for;
+    }
+    if (isset($props.tabIndex) && !isset($props.tabindex)) {
+        $props.tabindex = $props.tabIndex;
+    }
+    if (isset($props.tabindex) && !isset($props.tabIndex)) {
+        $props.tabIndex = $props.tabindex;
+    }
+    if (isset($props.readOnly) && !isset($props.readonly)) {
+        $props.readonly = $props.readOnly;
+    }
+    if (isset($props.readonly) && !isset($props.readOnly)) {
+        $props.readOnly = $props.readonly;
+    }
+    if (isset($props.autoComplete) && !isset($props.autocomplete)) {
+        $props.autocomplete = $props.autoComplete;
+    }
+    if (isset($props.autocomplete) && !isset($props.autoComplete)) {
+        $props.autoComplete = $props.autocomplete;
+    }
+    if (isset($props.autoFocus) && !isset($props.autofocus)) {
+        $props.autofocus = $props.autoFocus;
+    }
+    if (isset($props.autofocus) && !isset($props.autoFocus)) {
+        $props.autoFocus = $props.autofocus;
+    }
+    if (isset($props.spellCheck) && !isset($props.spellcheck)) {
+        $props.spellcheck = $props.spellCheck;
+    }
+    if (isset($props.spellcheck) && !isset($props.spellCheck)) {
+        $props.spellCheck = $props.spellcheck;
+    }
+    if (isset($props.srcSet) && !isset($props.srcset)) {
+        $props.srcset = $props.srcSet;
+    }
+    if (isset($props.srcset) && !isset($props.srcSet)) {
+        $props.srcSet = $props.srcset;
+    }
+    if (isset($props.referrerPolicy) && !isset($props.referrerpolicy)) {
+        $props.referrerpolicy = $props.referrerPolicy;
+    }
+    if (isset($props.referrerpolicy) && !isset($props.referrerPolicy)) {
+        $props.referrerPolicy = $props.referrerpolicy;
+    }
+
+    return $props;
+}
+
+function __component_normalize_prop_alias_array(&$props, $primary, $alternate) {
+    if (array_key_exists($primary, $props) && !array_key_exists($alternate, $props)) {
+        $props[$alternate] = $props[$primary];
+    }
+    if (array_key_exists($alternate, $props) && !array_key_exists($primary, $props)) {
+        $props[$primary] = $props[$alternate];
+    }
+}
+
 
 export function isValidElement($value): bool {
     return $value instanceof VNode;
@@ -83,6 +172,10 @@ export function useContext($ctx) {
 }
 
 export function ContextProvider($props) {
+    return $props.children;
+}
+
+export function Suspense($props) {
     return $props.children;
 }
 

@@ -398,8 +398,9 @@ function __component_render_vnode($node) {
 
     if (!is_string($type) && is_callable($type)) {
         $island = __component_island_meta($type, $props);
-        $call_props = __component_strip_island_props($props);
-        $next = $type($call_props);
+        $split = __component_split_component_call_props($props);
+        $next = $type($split.call);
+        $next = __component_apply_component_passthrough($next, $split.passthrough);
         if (__component_is_promise($next)) {
             return __component_render_suspense_fallback()
         }
@@ -409,8 +410,9 @@ function __component_render_vnode($node) {
 
     if (is_string($type) && __component_is_component_name($type) && function_exists($type)) {
         $island = __component_island_meta($type, $props)
-        $call_props = __component_strip_island_props($props)
-        $next = $type($call_props)
+        $split = __component_split_component_call_props($props)
+        $next = $type($split.call)
+        $next = __component_apply_component_passthrough($next, $split.passthrough)
         if (__component_is_promise($next)) {
             return __component_render_suspense_fallback()
         }
@@ -448,22 +450,24 @@ async function __component_render_vnode_async($node): Promise<string> {
 
     if (!is_string($type) && is_callable($type)) {
         $island = __component_island_meta($type, $props)
-        $call_props = __component_strip_island_props($props)
-        $next = $type($call_props)
+        $split = __component_split_component_call_props($props)
+        $next = $type($split.call)
         if (__component_is_promise($next)) {
             $next = await $next
         }
+        $next = __component_apply_component_passthrough($next, $split.passthrough)
         $html = await __component_render_node_async($next)
         return __component_wrap_island($html, $island)
     }
 
     if (is_string($type) && __component_is_component_name($type) && function_exists($type)) {
         $island = __component_island_meta($type, $props)
-        $call_props = __component_strip_island_props($props)
-        $next = $type($call_props)
+        $split = __component_split_component_call_props($props)
+        $next = $type($split.call)
         if (__component_is_promise($next)) {
             $next = await $next
         }
+        $next = __component_apply_component_passthrough($next, $split.passthrough)
         $html = await __component_render_node_async($next)
         return __component_wrap_island($html, $island)
     }
@@ -481,12 +485,32 @@ function __component_render_children($children) {
     }
     if (is_array($children)) {
         $out = '';
-        foreach ($children as $child) {
+        $count = count($children);
+        for ($i = 0; $i < $count; $i++) {
+            $child = $children[$i];
+            if ($i > 0 && __component_should_insert_inline_space($children[$i - 1], $child)) {
+                $out .= ' ';
+            }
             $out .= __component_render_node($child);
         }
         return $out;
     }
     return __component_render_node($children);
+}
+
+function __component_should_insert_inline_space($prev, $next): bool {
+    if (!(is_string($prev) || is_int($prev) || is_float($prev))) {
+        return false;
+    }
+    $prev_text = '' . $prev;
+    if ($prev_text === '') {
+        return false;
+    }
+    $last = substr($prev_text, strlen($prev_text) - 1, 1);
+    if ($last === ' ' || $last === "\n" || $last === "\r" || $last === "\t") {
+        return false;
+    }
+    return isValidElement($next);
 }
 
 async function __component_render_children_async($children): Promise<string> {
@@ -495,7 +519,12 @@ async function __component_render_children_async($children): Promise<string> {
     }
     if (is_array($children)) {
         $out = ''
-        foreach ($children as $child) {
+        $count = count($children)
+        for ($i = 0; $i < $count; $i++) {
+            $child = $children[$i]
+            if ($i > 0 && __component_should_insert_inline_space($children[$i - 1], $child)) {
+                $out .= ' '
+            }
             $out .= await __component_render_node_async($child)
         }
         return $out
@@ -642,6 +671,7 @@ function __component_render_dom_element($tag, $props) {
     $inner = false;
     $raw_text = __component_is_raw_text_tag($tag);
     $has_dev_id = __component_has_dev_id_prop($props);
+    $seen_attr_names = [];
 
     if (is_array($props) || is_object($props)) {
         foreach ($props as $key => $value) {
@@ -664,15 +694,20 @@ function __component_render_dom_element($tag, $props) {
             if ($attr_name === '') {
                 continue;
             }
+            if (in_array($attr_name, $seen_attr_names, true)) {
+                continue;
+            }
             $attr_value = __component_attr_value($key, $value);
             if ($attr_value === false) {
                 continue;
             }
             if ($attr_value === true) {
                 $attrs .= ' ' . $attr_name;
+                $seen_attr_names[] = $attr_name;
                 continue;
             }
             $attrs .= ' ' . $attr_name . '="' . __component_escape_attr('' . $attr_value) . '"';
+            $seen_attr_names[] = $attr_name;
         }
     }
 
@@ -699,6 +734,7 @@ async function __component_render_dom_element_async($tag, $props): Promise<strin
     $inner = false
     $raw_text = __component_is_raw_text_tag($tag)
     $has_dev_id = __component_has_dev_id_prop($props)
+    $seen_attr_names = []
 
     if (is_array($props) || is_object($props)) {
         foreach ($props as $key => $value) {
@@ -721,15 +757,20 @@ async function __component_render_dom_element_async($tag, $props): Promise<strin
             if ($attr_name === '') {
                 continue
             }
+            if (in_array($attr_name, $seen_attr_names, true)) {
+                continue
+            }
             $attr_value = __component_attr_value($key, $value)
             if ($attr_value === false) {
                 continue
             }
             if ($attr_value === true) {
                 $attrs .= ' ' . $attr_name
+                $seen_attr_names[] = $attr_name
                 continue
             }
             $attrs .= ' ' . $attr_name . '="' . __component_escape_attr('' . $attr_value) . '"'
+            $seen_attr_names[] = $attr_name
         }
     }
 
@@ -848,6 +889,11 @@ function __component_prop_value($props, $key) {
         if ($key === 'clientVisible' && isset($props.clientVisible)) return $props.clientVisible;
         if ($key === 'clientMedia' && isset($props.clientMedia)) return $props.clientMedia;
         if ($key === 'clientOnly' && isset($props.clientOnly)) return $props.clientOnly;
+        foreach ($props as $prop_key => $prop_value) {
+            if ($prop_key === $key) {
+                return $prop_value;
+            }
+        }
     }
     return false;
 }
@@ -881,6 +927,71 @@ function __component_strip_island_props($props) {
         $out->{$k} = $v;
     }
     return $out;
+}
+
+function __component_split_component_call_props($props) {
+    $call = __component_strip_island_props($props)
+    $passthrough = {}
+    if (!is_array($call) && !is_object($call)) {
+        return { call: $call, passthrough: false }
+    }
+    $clean = {}
+    foreach ($call as $k => $v) {
+        if (__component_is_component_passthrough_prop($k)) {
+            $passthrough->{$k} = $v
+            continue
+        }
+        $clean->{$k} = $v
+    }
+    return { call: $clean, passthrough: __component_has_keys($passthrough) ? $passthrough : false }
+}
+
+function __component_is_component_passthrough_prop($key): bool {
+    if (!is_string($key)) {
+        return false
+    }
+    if ($key === 'class' || $key === 'className' || $key === 'style') {
+        return true
+    }
+    return false
+}
+
+function __component_apply_component_passthrough($node, $passthrough) {
+    if ($passthrough === false) {
+        return $node
+    }
+    $class = __component_prop_value($passthrough, 'class')
+    if ($class === false) {
+        $class = __component_prop_value($passthrough, 'className')
+    }
+    $style = __component_prop_value($passthrough, 'style')
+    if (isValidElement($node)) {
+        $props = $node.props
+        if (!is_array($props) && !is_object($props)) {
+            $props = {}
+        }
+        if ($class !== false && __component_prop_value($props, 'class') === false && __component_prop_value($props, 'className') === false) {
+            $props.class = $class
+        }
+        if ($style !== false && __component_prop_value($props, 'style') === false) {
+            $props.style = $style
+        }
+        $node.props = $props
+        return $node
+    }
+    return <span class={$class !== false ? $class : false} style={$style !== false ? $style : false}>{$node}</span>
+}
+
+function __component_has_keys($value): bool {
+    if (is_array($value)) {
+        return count($value) > 0
+    }
+    if (is_object($value)) {
+        foreach ($value as $k => $v) {
+            return true
+        }
+    }
+    return false
 }
 
 function __component_wrap_island($html, $island) {

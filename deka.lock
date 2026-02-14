@@ -18,9 +18,9 @@
       "modules": {
         "component/core": {
           "src": "php_modules/component/core.phpx",
-          "hash": "sha256:0156e5767f68c927237ba0c0e704914e7589430adf89153c01a3f150971b50bb",
+          "hash": "sha256:e82f93f42c8cf4406fa0890d673f902aee72a2e25323d4f1514e4a51e343341d",
           "cache": "php_modules/.cache/phpx/component/core.php",
-          "compiler": "phpx-cache-v1",
+          "compiler": "phpx-cache-v3",
           "deps": [],
           "exports": [
             "jsx",
@@ -33,15 +33,16 @@
             "__component_pop_context",
             "useContext",
             "ContextProvider",
+            "Suspense",
             "__component_each",
             "__component_each_kv"
           ]
         },
         "component/dom": {
           "src": "php_modules/component/dom.phpx",
-          "hash": "sha256:07ba941aef3c9d1c96058765f5e6f93765b0abc41f94819788633b51322cd6cb",
+          "hash": "sha256:5e6261c843e73d0a76e82bd6bbee712ef40272c3104c91bb4d4471f6276558ee",
           "cache": "php_modules/.cache/phpx/component/dom.php",
-          "compiler": "phpx-cache-v1",
+          "compiler": "phpx-cache-v3",
           "deps": [
             "component/core",
             "encoding/json"
@@ -49,6 +50,7 @@
           "exports": [
             "createRoot",
             "renderToString",
+            "renderToStringAsync",
             "renderToStream",
             "renderPartial",
             "renderPartialJson",
