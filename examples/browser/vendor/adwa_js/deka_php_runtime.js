@@ -4274,73 +4274,6 @@ function routeHostCall(kind, action, payload) {
         }
         return { ok: false, error: 'fs protobuf bridge ops unavailable' };
     }
-    if (kind === 'process' || kind === 'env') {
-        const act = String(action || '');
-        const req = payload || {};
-        if (act === 'cwd') {
-            const here = globalThis.process?.cwd ? globalThis.process.cwd() : '/';
-            return { cwd: String(here || '/') };
-        }
-        if (act === 'chdir') {
-            const next = String(req.path || '');
-            if (!next) {
-                return { ok: false, error: 'path required' };
-            }
-            if (globalThis.process?.chdir) {
-                globalThis.process.chdir(next);
-            }
-            const here = globalThis.process?.cwd ? globalThis.process.cwd() : next;
-            return { cwd: String(here || next) };
-        }
-        if (act === 'envGet') {
-            const key = String(req.key || '');
-            if (!key) {
-                return { value: null };
-            }
-            const value = globalThis.process?.env ? globalThis.process.env[key] : undefined;
-            return { value: value == null ? null : String(value) };
-        }
-        if (act === 'envSet') {
-            const key = String(req.key || '');
-            if (!key) {
-                return { ok: false, error: 'key required' };
-            }
-            if (!globalThis.process?.env) {
-                globalThis.process = globalThis.process || {};
-                globalThis.process.env = {};
-            }
-            globalThis.process.env[key] = String(req.value ?? '');
-            return { ok: true };
-        }
-        if (act === 'envUnset') {
-            const key = String(req.key || '');
-            if (key && globalThis.process?.env) {
-                delete globalThis.process.env[key];
-            }
-            return { ok: true };
-        }
-        if (act === 'envAll') {
-            const entries = Object.entries(globalThis.process?.env || {}).map(([k, v]) => [
-                String(k),
-                String(v ?? ''),
-            ]);
-            return { env: Object.fromEntries(entries) };
-        }
-        return { ok: false, error: `unknown process/env action '${act}'` };
-    }
-    if (kind === 'adwa') {
-        const act = String(action || '');
-        const ctx = globalThis.__DEKA_ADWA_CLI_CONTEXT || {};
-        if (act === 'cwd') {
-            const value = ctx.cwd == null ? '' : String(ctx.cwd);
-            return { cwd: value };
-        }
-        if (act === 'args') {
-            const list = Array.isArray(ctx.args) ? ctx.args.map((x)=>String(x ?? '')) : [];
-            return { args: list };
-        }
-        return { ok: false, error: `unknown adwa action '${act}'` };
-    }
     if (kind === 'crypto') {
         const act = String(action || '');
         if (act === 'random_bytes') {
@@ -4505,11 +4438,9 @@ function phpWasmCall(modulePtr, moduleLen, exportPtr, exportLen, argsPtr, argsLe
         const isDbBridge = moduleId === '__deka_db' || moduleId.includes('__deka_db');
         const isNetBridge = moduleId === '__deka_net' || moduleId.includes('__deka_net');
         const isFsBridge = moduleId === '__deka_fs' || moduleId.includes('__deka_fs');
-        const isProcessBridge = moduleId === '__deka_process' || moduleId.includes('__deka_process') || moduleId.includes('__deka_env');
-        const isAdwaBridge = moduleId === '__deka_adwa' || moduleId.includes('__deka_adwa');
         const isCryptoBridge = moduleId === '__deka_crypto' || moduleId.includes('__deka_crypto');
         const isLegacyHostBridge = moduleId.startsWith('__deka_');
-        if (isDbBridge || isNetBridge || isFsBridge || isProcessBridge || isAdwaBridge || isCryptoBridge || isLegacyHostBridge) {
+        if (isDbBridge || isNetBridge || isFsBridge || isCryptoBridge || isLegacyHostBridge) {
             let payload = null;
             if (argsJson) {
                 try {
@@ -4538,10 +4469,6 @@ function phpWasmCall(modulePtr, moduleLen, exportPtr, exportLen, argsPtr, argsLe
                     result = routeHostCall('net', String(exportName || ''), payload);
                 } else if (isFsBridge || moduleId.includes('fs')) {
                     result = routeHostCall('fs', String(exportName || ''), payload);
-                } else if (isProcessBridge || moduleId.includes('process') || moduleId.includes('env')) {
-                    result = routeHostCall('process', String(exportName || ''), payload);
-                } else if (isAdwaBridge || moduleId.includes('adwa')) {
-                    result = routeHostCall('adwa', String(exportName || ''), payload);
                 } else if (isCryptoBridge || moduleId.includes('crypto')) {
                     const actionName = String(exportName || '');
                     if (actionName.startsWith('json:')) {

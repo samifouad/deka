@@ -113,10 +113,9 @@ export interface InitOutput {
     readonly webcontainer_spawn: (a: number, b: number, c: number, d: any, e: number) => [number, number, number];
     readonly webcontainer_unpublishPort: (a: number, b: number) => [number, number];
     readonly init: () => void;
-    readonly wasm_bindgen__closure__destroy__h73676c04a155765f: (a: number, b: number) => void;
-    readonly wasm_bindgen__closure__destroy__h5c04cc9d976e355f: (a: number, b: number) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hf6802520b521944b: (a: number, b: number, c: any, d: any) => any;
-    readonly wasm_bindgen__convert__closures_____invoke__h2b60c7780a70c97b: (a: number, b: number, c: any) => any;
+    readonly wasm_bindgen__closure__destroy__h9709420793296e2e: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h4af3c9000727520e: (a: number, b: number, c: any, d: any) => any;
+    readonly wasm_bindgen__convert__closures_____invoke__h8c3a0c492dece3b3: (a: number, b: number, c: any) => any;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

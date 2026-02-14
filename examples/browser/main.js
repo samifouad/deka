@@ -169,7 +169,7 @@ const vfs = new VirtualFs({
   ...BASE_FS_FILES,
   ...bundledProjectTree,
   "/README.txt": "ADWA browser playground\\nUse terminal: ls, cd, pwd, open, cat, run\\n",
-  `${DEMO_ROOT}/main.phpx`: defaultSource,
+  [`/main.phpx`]: defaultSource,
   [DEMO_ENTRY]: defaultSource,
 });
 for (const dir of BASE_FS_DIRS) {
@@ -388,8 +388,8 @@ const refreshDiagnostics = async () => {
 
 const initLspWasm = async () => {
   try {
-    const mod = await import("./vendor/adwa_js/phpx_lsp_wasm.js");
-    const wasmUrl = new URL("./vendor/adwa_js/phpx_lsp_wasm_bg.wasm", import.meta.url).toString();
+    const mod = await import("./vendor/adwa_editor/phpx_lsp_wasm.js");
+    const wasmUrl = new URL("./vendor/adwa_editor/phpx_lsp_wasm_bg.wasm", import.meta.url).toString();
     await mod.default(wasmUrl);
     lspWasm = mod;
     log("PHPX diagnostics: wasm mode");

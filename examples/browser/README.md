@@ -27,3 +27,16 @@ Default runtime bootstrap is Linux-like:
 - `cwd`: `/home/user`
 - dirs: `/bin`, `/usr/bin`, `/home/user`, `/tmp`, `/etc`, `/var/tmp`
 - env: `HOME`, `USER`, `PATH`, `TMPDIR`, `PWD`
+
+## Runtime vs editor assets
+
+By default, `scripts/build-demo.sh` builds a runtime-focused bundle and excludes browser LSP wasm assets.
+
+- default: runtime assets only (`vendor/adwa_js`, `vendor/adwa_wasm`)
+- optional: include browser LSP/editor wasm assets with:
+
+```sh
+ADWA_DEMO_INCLUDE_EDITOR=1 ./scripts/build-demo.sh
+```
+
+When editor wasm assets are not present, diagnostics/completion fall back to sidecar mode.

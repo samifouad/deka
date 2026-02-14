@@ -20,6 +20,17 @@ Adwa is a Rust-first browser runtime and UI playground for Deka's web-host execu
 - `examples/browser`: interactive browser playground (editor + render + console).
 - `scripts/`: build/dev helpers.
 
+## Runtime payload policy
+- Default demo build is runtime-first and excludes browser LSP wasm assets.
+- Editor/LSP wasm is optional and loaded lazily only when present.
+- To include editor wasm assets in demo output:
+
+```sh
+ADWA_DEMO_INCLUDE_EDITOR=1 ./scripts/build-demo.sh
+```
+
+This keeps normal runtime delivery smaller and avoids shipping editor-only binaries by default.
+
 ## Current status
 - ADWA naming migration is complete (no WOSIX compatibility layer).
 - Browser host boots with Linux-like defaults (`/home/user`, `/tmp`, `PATH`, etc.).

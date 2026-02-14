@@ -9,10 +9,12 @@ MVP_ROOT="${DEKA_MVP_ROOT:-$ROOT_DIR/../mvp}"
 PHP_RS_WASM_PATH="$MVP_ROOT/target/wasm32-unknown-unknown/release/php_rs.wasm"
 WASM_VENDOR_DIR="$DEMO_DIR/vendor/adwa_wasm"
 JS_VENDOR_DIR="$DEMO_DIR/vendor/adwa_js"
+EDITOR_VENDOR_DIR="$DEMO_DIR/vendor/adwa_editor"
 PHP_RUNTIME_JS_SRC="$MVP_ROOT/crates/modules_php/src/modules/deka_php/php.js"
 PHP_MODULES_SRC="$MVP_ROOT/php_modules"
 DEKA_LOCK_SRC="$MVP_ROOT/deka.lock"
 DEKA_CONFIG_SRC="$ROOT_DIR/deka.json"
+INCLUDE_EDITOR_ASSETS="${ADWA_DEMO_INCLUDE_EDITOR:-0}"
 
 "$ROOT_DIR/scripts/build-wasm.sh"
 
@@ -34,7 +36,10 @@ fi
 
 npm run build
 
+# Prevent stale payload drift across rebuilds.
+rm -rf "$WASM_VENDOR_DIR" "$JS_VENDOR_DIR" "$EDITOR_VENDOR_DIR" "$DEMO_DIR/vendor/php_rs"
 mkdir -p "$WASM_VENDOR_DIR" "$JS_VENDOR_DIR"
+
 cp -f "$WASM_PKG_DIR"/adwa_wasm.js "$WASM_VENDOR_DIR"/
 cp -f "$WASM_PKG_DIR"/adwa_wasm_bg.wasm "$WASM_VENDOR_DIR"/
 if [ -f "$WASM_PKG_DIR/adwa_wasm_bg.js" ]; then
@@ -48,24 +53,35 @@ cp -f "$ADWA_JS_DIST_DIR"/*.js "$JS_VENDOR_DIR"/
 cp -f "$ADWA_JS_DIST_DIR"/*.d.ts "$JS_VENDOR_DIR"/
 cp -f "$PHP_RUNTIME_JS_SRC" "$JS_VENDOR_DIR/deka_php_runtime.js"
 
+# Editor/LSP wasm assets are optional and excluded from default runtime payload.
+if [ "$INCLUDE_EDITOR_ASSETS" = "1" ]; then
+  mkdir -p "$EDITOR_VENDOR_DIR"
+  if compgen -G "$JS_VENDOR_DIR/phpx_lsp_wasm*" >/dev/null; then
+    cp -f "$JS_VENDOR_DIR"/phpx_lsp_wasm* "$EDITOR_VENDOR_DIR"/
+  fi
+  if [ -f "$JS_VENDOR_DIR/phpx_lsp_wasm_bg.wasm.d.ts" ]; then
+    cp -f "$JS_VENDOR_DIR/phpx_lsp_wasm_bg.wasm.d.ts" "$EDITOR_VENDOR_DIR"/
+  fi
+fi
+rm -f "$JS_VENDOR_DIR"/phpx_lsp_wasm*
+
 wasm-bindgen \
   "$PHP_RS_WASM_PATH" \
   --target web \
   --out-dir "$JS_VENDOR_DIR" \
   --out-name php_runtime >/dev/null
 
-
 PHP_RUNTIME_WASM_B64="$(base64 < "$JS_VENDOR_DIR/php_runtime_bg.wasm" | tr -d '\n')"
-cat > "$JS_VENDOR_DIR/php_runtime_wasm_data.js" <<EOF
+cat > "$JS_VENDOR_DIR/php_runtime_wasm_data.js" <<EOF2
 export const phpRuntimeWasmDataUrl = "data:application/wasm;base64,${PHP_RUNTIME_WASM_B64}";
-EOF
+EOF2
 
 PHP_RUNTIME_RAW_WASM_B64="$(base64 < "$PHP_RS_WASM_PATH" | tr -d '\n')"
-cat > "$JS_VENDOR_DIR/php_runtime_raw_wasm_data.js" <<EOF
+cat > "$JS_VENDOR_DIR/php_runtime_raw_wasm_data.js" <<EOF2
 export const phpRuntimeRawWasmDataUrl = "data:application/wasm;base64,${PHP_RUNTIME_RAW_WASM_B64}";
-EOF
+EOF2
 
-ROOT_DIR_ENV="$ROOT_DIR" PHP_MODULES_SRC_ENV="$PHP_MODULES_SRC" DEKA_LOCK_SRC_ENV="$DEKA_LOCK_SRC" DEKA_CONFIG_SRC_ENV="$DEKA_CONFIG_SRC" JS_VENDOR_DIR_ENV="$JS_VENDOR_DIR" node <<'EOF'
+ROOT_DIR_ENV="$ROOT_DIR" PHP_MODULES_SRC_ENV="$PHP_MODULES_SRC" DEKA_LOCK_SRC_ENV="$DEKA_LOCK_SRC" DEKA_CONFIG_SRC_ENV="$DEKA_CONFIG_SRC" JS_VENDOR_DIR_ENV="$JS_VENDOR_DIR" node <<'EOF2'
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -107,6 +123,6 @@ const content =
   `export const bundledProjectFiles = ${JSON.stringify(files)};\n` +
   `export const bundledProjectVersion = "php-bundle-v1";\n`;
 fs.writeFileSync(outPath, content, "utf8");
-EOF
+EOF2
 
 echo "Demo assets built. Serve $ROOT_DIR/examples/browser"
