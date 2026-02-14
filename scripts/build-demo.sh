@@ -5,21 +5,20 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEMO_DIR="$ROOT_DIR/examples/browser"
 WASM_PKG_DIR="$ROOT_DIR/crates/adwa-wasm/pkg"
 ADWA_JS_DIST_DIR="$ROOT_DIR/js/dist"
-PHP_RS_WASM_PATH="$ROOT_DIR/../target/wasm32-unknown-unknown/release/php_rs.wasm"
-PHPX_LSP_WASM_PATH="$ROOT_DIR/../target/wasm32-unknown-unknown/release/phpx_lsp_wasm.wasm"
+MVP_ROOT="${DEKA_MVP_ROOT:-$ROOT_DIR/../mvp}"
+PHP_RS_WASM_PATH="$MVP_ROOT/target/wasm32-unknown-unknown/release/php_rs.wasm"
 WASM_VENDOR_DIR="$DEMO_DIR/vendor/adwa_wasm"
 JS_VENDOR_DIR="$DEMO_DIR/vendor/adwa_js"
-PHP_RUNTIME_JS_SRC="$ROOT_DIR/../crates/modules_php/src/modules/deka_php/php.js"
-PHP_MODULES_SRC="$ROOT_DIR/../php_modules"
-DEKA_LOCK_SRC="$ROOT_DIR/../deka.lock"
+PHP_RUNTIME_JS_SRC="$MVP_ROOT/crates/modules_php/src/modules/deka_php/php.js"
+PHP_MODULES_SRC="$MVP_ROOT/php_modules"
+DEKA_LOCK_SRC="$MVP_ROOT/deka.lock"
 DEKA_CONFIG_SRC="$ROOT_DIR/deka.json"
 
 "$ROOT_DIR/scripts/build-wasm.sh"
 
 (
-  cd "$ROOT_DIR/.."
+  cd "$MVP_ROOT"
   cargo build -p php-rs --release --target wasm32-unknown-unknown --lib --no-default-features >/dev/null
-  cargo build -p phpx_lsp_wasm --release --target wasm32-unknown-unknown --lib >/dev/null
 )
 
 if ! command -v wasm-bindgen >/dev/null 2>&1; then
@@ -55,11 +54,6 @@ wasm-bindgen \
   --out-dir "$JS_VENDOR_DIR" \
   --out-name php_runtime >/dev/null
 
-wasm-bindgen \
-  "$PHPX_LSP_WASM_PATH" \
-  --target web \
-  --out-dir "$JS_VENDOR_DIR" \
-  --out-name phpx_lsp_wasm >/dev/null
 
 PHP_RUNTIME_WASM_B64="$(base64 < "$JS_VENDOR_DIR/php_runtime_bg.wasm" | tr -d '\n')"
 cat > "$JS_VENDOR_DIR/php_runtime_wasm_data.js" <<EOF
