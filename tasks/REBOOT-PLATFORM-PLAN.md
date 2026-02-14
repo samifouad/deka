@@ -23,7 +23,7 @@ Deferred (post-MVP):
 - [x] No Node/Bun compatibility layer (runtime run/serve paths stripped).
 - [x] No separate LSP runtime path from CLI (`deka lsp` now runs in-process).
 - [x] No CLI/Desktop platform runtime work.
-- [x] No JS/TS bundling pipeline in MVP (`deka build` removed; `crates/bundler` dropped from workspace).
+- [x] No JS/TS bundling pipeline in MVP (`crates/bundler` dropped from workspace); `deka build` is PHPX->JS emit only.
 
 ## Locked decisions
 

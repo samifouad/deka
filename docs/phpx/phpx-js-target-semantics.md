@@ -32,6 +32,8 @@ This means emitted JS is the runtime source of truth, not PHP compatibility emul
 - exception behavior in emitted code
 - async/await scheduling and promise behavior
 - string/number coercion in lowered expressions
+- emitted `==`/`!=` comparisons are lowered to strict JS operators (`===`/`!==`)
+- `print(...)` lowering is side-effect only (`console.log`) with `undefined` expression value
 
 ## Design Rule
 
