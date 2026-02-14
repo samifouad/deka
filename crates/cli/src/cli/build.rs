@@ -1126,7 +1126,7 @@ impl<'a> JsSubsetEmitter<'a> {
             }
             Expr::Print { expr, .. } => {
                 let value = self.emit_expr(*expr)?;
-                Ok(format!("(console.log({}), 1)", value))
+                Ok(format!("(console.log({}), undefined)", value))
             }
             Expr::Await { expr, .. } => {
                 let value = self.emit_expr(*expr)?;
