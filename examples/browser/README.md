@@ -1,6 +1,6 @@
-# Wosix Browser Playground
+# Adwa Browser Playground
 
-Run from `wosix/` with Deka as the dev server:
+Run from `adwa/` with Deka as the dev server:
 
 ```sh
 deka run dev
@@ -20,4 +20,4 @@ The page is a 3-pane layout:
 
 The browser runtime path is PHPX-first and goes through the adapter boundary:
 
-`main.js` -> `@deka/wosix-js` adapter -> `php_runtime.js` wasm.
+`main.js` -> `@deka/adwa-js` adapter -> `php_runtime.js` wasm.

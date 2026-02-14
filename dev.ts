@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-const wosixRoot = process.env.WOSIX_ROOT || process.cwd();
-const staticRoot = path.resolve(wosixRoot, "examples/browser");
+const adwaRoot = process.env.ADWA_ROOT || process.cwd();
+const staticRoot = path.resolve(adwaRoot, "examples/browser");
 const lspHost = process.env.PHPX_LSP_HOST || "127.0.0.1";
 const lspPort = Number(process.env.PHPX_LSP_PORT || 8531);
 const lspBase = process.env.PHPX_LSP_BASE || `http://${lspHost}:${lspPort}`;

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 use crate::{
     DirEntry, ErrorCode, FileSystem, FileType, FsEvent, FsEventKind, FsWatcher, Metadata,
-    MkdirOptions, MountTree, RemoveOptions, Result, WatchOptions, WosixError, WriteOptions,
+    MkdirOptions, MountTree, RemoveOptions, Result, WatchOptions, AdwaError, WriteOptions,
 };
 
 #[derive(Debug, Default)]
@@ -503,12 +503,12 @@ fn path_components(path: &Path) -> Result<Vec<String>> {
     Ok(components)
 }
 
-fn invalid_input(message: &str) -> WosixError {
-    WosixError::new(ErrorCode::InvalidInput, message)
+fn invalid_input(message: &str) -> AdwaError {
+    AdwaError::new(ErrorCode::InvalidInput, message)
 }
 
-fn not_found(message: &str) -> WosixError {
-    WosixError::new(ErrorCode::NotFound, message)
+fn not_found(message: &str) -> AdwaError {
+    AdwaError::new(ErrorCode::NotFound, message)
 }
 
 #[cfg(test)]

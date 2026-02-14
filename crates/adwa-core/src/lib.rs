@@ -7,7 +7,7 @@ mod net_memory;
 mod process;
 mod process_memory;
 
-pub use error::{ErrorCode, Result, WosixError};
+pub use error::{ErrorCode, Result, AdwaError};
 pub use fs::{
     DirEntry, FileSystem, FileType, FsEvent, FsEventKind, FsWatcher, Metadata, MkdirOptions,
     MountFile, MountTree, RemoveOptions, WatchOptions, WriteOptions,
@@ -24,9 +24,9 @@ pub use process_memory::InMemoryProcessHost;
 
 /// Marker type for the core runtime surface.
 #[derive(Debug, Default)]
-pub struct WosixCore;
+pub struct AdwaCore;
 
-impl WosixCore {
+impl AdwaCore {
     pub fn new() -> Self {
         Self
     }

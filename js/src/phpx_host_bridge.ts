@@ -1,4 +1,4 @@
-export type HostTarget = "server" | "wosix";
+export type HostTarget = "server" | "adwa";
 
 export type HostCapabilities = {
   fs: boolean;
@@ -64,7 +64,7 @@ const SERVER_CAPS: HostCapabilities = {
   wasmImports: true,
 };
 
-const WOSIX_CAPS: HostCapabilities = {
+const ADWA_CAPS: HostCapabilities = {
   fs: true,
   net: true,
   processEnv: false,
@@ -88,8 +88,8 @@ export class PhpHostBridge {
     this.projectRoot = normalizePath(options.projectRoot ?? "/");
     this.cwdValue = normalizePath(options.cwd ?? this.projectRoot);
     this.env = { ...(options.env ?? {}) };
-    this.target = options.target ?? "wosix";
-    const base = this.target === "server" ? SERVER_CAPS : WOSIX_CAPS;
+    this.target = options.target ?? "adwa";
+    const base = this.target === "server" ? SERVER_CAPS : ADWA_CAPS;
     this.caps = { ...base, ...(options.capabilities ?? {}) };
     this.netAllowlist = (options.net?.allowlist ?? []).map((entry) => String(entry || "").trim()).filter(Boolean);
     this.stdio = options.stdio;
@@ -349,7 +349,7 @@ function capabilityForBridgeCall(
   kind: string,
   action: string
 ): keyof HostCapabilities | null {
-  // Keep stdio usable in restricted hosts (like wosix) without opening full
+  // Keep stdio usable in restricted hosts (like adwa) without opening full
   // process/env mutation APIs.
   if (
     (kind === "process" || kind === "env") &&
@@ -381,10 +381,10 @@ function capabilitySuggestion(
   action: string
 ): string {
   if (capability === "db") {
-    return "Database calls are disabled in wosix. Use server host for DB-backed paths, or mock data in the browser demo.";
+    return "Database calls are disabled in adwa. Use server host for DB-backed paths, or mock data in the browser demo.";
   }
   if (capability === "processEnv") {
-    return "Process/env APIs are restricted in wosix. Pass config through runtime context/env injection instead.";
+    return "Process/env APIs are restricted in adwa. Pass config through runtime context/env injection instead.";
   }
   if (capability === "net") {
     return "Network access is restricted by host policy. Add an allowlist entry or proxy through a server endpoint.";

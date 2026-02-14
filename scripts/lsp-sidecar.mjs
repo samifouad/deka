@@ -4,8 +4,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawn } from 'node:child_process'
 
-const wosixRoot = process.env.WOSIX_ROOT || process.cwd()
-const repoRoot = path.resolve(wosixRoot, '..')
+const adwaRoot = process.env.ADWA_ROOT || process.cwd()
+const repoRoot = path.resolve(adwaRoot, '..')
 const lspBin = process.env.PHPX_LSP_BIN || path.resolve(repoRoot, 'target/release/phpx_lsp')
 const host = process.env.PHPX_LSP_HOST || '127.0.0.1'
 const port = Number(process.env.PHPX_LSP_PORT || 8531)
@@ -134,7 +134,7 @@ class LspBridge {
       },
       workspaceFolders: [{ uri: rootUri, name: 'workspace' }],
       initializationOptions: {
-        phpx: { target: 'wosix' },
+        phpx: { target: 'adwa' },
       },
     })
     this.notify('initialized', {})

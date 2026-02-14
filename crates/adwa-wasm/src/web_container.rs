@@ -9,11 +9,11 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use wosix_core::{
+use adwa_core::{
     Command, ExitStatus, FileSystem, FileType, FsEvent, FsEventKind, FsWatcher, InMemoryFileSystem,
     InMemoryNetHost, InMemoryProcessHost, MkdirOptions, MountFile, MountTree, NetHost, PortEvent,
     PortInfo, PortProtocol, PortPublishOptions, ProcessHandle as CoreProcessHandle, ProcessHost,
-    ProcessId, ProcessSignal, RemoveOptions, SpawnOptions, StdioMode, WatchOptions, WosixError,
+    ProcessId, ProcessSignal, RemoveOptions, SpawnOptions, StdioMode, WatchOptions, AdwaError,
     WriteOptions,
 };
 
@@ -1047,7 +1047,7 @@ fn parse_signal(signal: Option<i32>) -> ProcessSignal {
     }
 }
 
-fn err_to_js(err: WosixError) -> JsValue {
+fn err_to_js(err: AdwaError) -> JsValue {
     js_sys::Error::new(&err.to_string()).into()
 }
 

@@ -9,7 +9,7 @@ USE_LSP_SIDECAR="${PHPX_LSP_SIDECAR:-0}"
 
 SIDE_PID=""
 if [ "$USE_LSP_SIDECAR" = "1" ]; then
-  WOSIX_ROOT="$ROOT_DIR" node "$ROOT_DIR/scripts/lsp-sidecar.mjs" &
+  ADWA_ROOT="$ROOT_DIR" node "$ROOT_DIR/scripts/lsp-sidecar.mjs" &
   SIDE_PID=$!
 fi
 
@@ -29,4 +29,4 @@ if [ "$USE_LSP_SIDECAR" = "1" ]; then
   done
 fi
 
-WOSIX_ROOT="$ROOT_DIR" deka serve "$ROOT_DIR/dev.ts"
+ADWA_ROOT="$ROOT_DIR" deka serve "$ROOT_DIR/dev.ts"

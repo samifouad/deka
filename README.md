@@ -1,6 +1,6 @@
-# Wosix
+# Adwa
 
-Wosix is a Rust-first, open source WebContainers-compatible runtime designed to run Deka inside the browser.
+Adwa is a Rust-first, open source WebContainers-compatible runtime designed to run Deka inside the browser.
 
 ## Goals
 - Feature parity with WebContainers APIs (filesystem, processes, networking, ports, and package tooling).
@@ -14,8 +14,8 @@ Wosix is a Rust-first, open source WebContainers-compatible runtime designed to 
 - Perfect Node/Bun parity in the first milestone.
 
 ## Project layout
-- crates/wosix-core: platform-agnostic Rust APIs and core logic.
-- crates/wosix-wasm: browser/WASM adapter and JS bindings.
+- crates/adwa-core: platform-agnostic Rust APIs and core logic.
+- crates/adwa-wasm: browser/WASM adapter and JS bindings.
 
 ## Status
 This is a new subproject scaffold. See ARCHITECTURE.md for the intended shape,

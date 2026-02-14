@@ -1,4 +1,4 @@
-export type HostTarget = "server" | "wosix";
+export type HostTarget = "server" | "adwa";
 export type HostCapabilities = {
     fs: boolean;
     net: boolean;

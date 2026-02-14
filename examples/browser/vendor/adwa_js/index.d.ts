@@ -26,15 +26,15 @@ export type PortEvent = {
     url?: string;
     protocol?: string;
 };
-export type WosixBindings = {
+export type AdwaBindings = {
     WebContainer: {
-        boot(): WosixWebContainer;
+        boot(): AdwaWebContainer;
     };
     default?: (module?: WebAssembly.Module | ArrayBuffer | Response) => Promise<unknown>;
 };
-export type WosixWebContainer = {
-    fs(): WosixFs;
-    spawn(program: string, args: string[], options?: SpawnOptions): WosixProcess;
+export type AdwaWebContainer = {
+    fs(): AdwaFs;
+    spawn(program: string, args: string[], options?: SpawnOptions): AdwaProcess;
     listProcesses(): Array<{
         pid: number;
         program: string;
@@ -56,7 +56,7 @@ export type WosixWebContainer = {
     onPortEvent(callback: (event: PortEvent) => void): number;
     offPortEvent(id: number): void;
 };
-export type WosixFs = {
+export type AdwaFs = {
     readFile(path: string): Uint8Array;
     writeFile(path: string, data: Uint8Array, options?: WriteOptions): void;
     readdir(path: string): string[];
@@ -68,9 +68,9 @@ export type WosixFs = {
         fileType: string;
     };
     mount(tree: MountTree): void;
-    watch(path: string, options?: WatchOptions): WosixFsWatchHandle;
+    watch(path: string, options?: WatchOptions): AdwaFsWatchHandle;
 };
-export type WosixFsWatchHandle = {
+export type AdwaFsWatchHandle = {
     nextEvent(): FsEvent | null;
     close(): void;
 };
@@ -100,7 +100,7 @@ export type SpawnInterceptContext = {
     options?: SpawnOptions;
     container: WebContainer;
 };
-export type SpawnInterceptor = ((context: SpawnInterceptContext) => WosixProcess | null | Promise<WosixProcess | null>) | null;
+export type SpawnInterceptor = ((context: SpawnInterceptContext) => AdwaProcess | null | Promise<AdwaProcess | null>) | null;
 export type WriteOptions = {
     create?: boolean;
     truncate?: boolean;
@@ -121,7 +121,7 @@ export type MountTree = string | Uint8Array | {
     [key: string]: MountTree | string | Uint8Array | boolean | undefined;
 };
 export declare class WebContainer {
-    static boot(bindings: WosixBindings, options?: BootOptions): Promise<WebContainer>;
+    static boot(bindings: AdwaBindings, options?: BootOptions): Promise<WebContainer>;
     readonly fs: FileSystem;
     private readonly inner;
     private readonly innerFs;
@@ -136,7 +136,7 @@ export declare class WebContainer {
     mount(tree: MountTree): Promise<void>;
     spawn(program: string, args?: string[], options?: SpawnOptions): Promise<Process>;
     setSpawnInterceptor(interceptor: SpawnInterceptor): void;
-    createVirtualProcess(runner: () => Promise<VirtualProcessResult> | VirtualProcessResult): WosixProcess;
+    createVirtualProcess(runner: () => Promise<VirtualProcessResult> | VirtualProcessResult): AdwaProcess;
     listProcesses(): {
         pid: number;
         program: string;
@@ -162,7 +162,7 @@ export declare class WebContainer {
 }
 export declare class FileSystem {
     private readonly inner;
-    constructor(inner: WosixFs);
+    constructor(inner: AdwaFs);
     readFile(path: string): Promise<Uint8Array>;
     writeFile(path: string, data: Uint8Array, options?: WriteOptions): Promise<void>;
     readdir(path: string): Promise<string[]>;
@@ -178,11 +178,11 @@ export declare class FileSystem {
 }
 export declare class FsWatchHandle {
     private readonly inner;
-    constructor(inner: WosixFsWatchHandle);
+    constructor(inner: AdwaFsWatchHandle);
     nextEvent(): Promise<FsEvent | null>;
     close(): void;
 }
-export type WosixProcess = {
+export type AdwaProcess = {
     pid(): number;
     wait(): {
         code: number;
@@ -209,7 +209,7 @@ export declare class Process {
     readonly output: ReadableStream<Uint8Array>;
     readonly stdout: ReadableStream<Uint8Array>;
     readonly stderr: ReadableStream<Uint8Array>;
-    constructor(inner: WosixProcess);
+    constructor(inner: AdwaProcess);
     get pid(): number;
     wait(): Promise<{
         code: number;

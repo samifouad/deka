@@ -5,6 +5,6 @@
   },
   "scripts": {
     "dev": "./scripts/dev.sh",
-    "test": "WOSIX_E2E_INCLUDE_PHPX=1 ../scripts/test-wosix-playground-e2e.sh"
+    "test": "ADWA_E2E_INCLUDE_PHPX=1 ../scripts/test-adwa-playground-e2e.sh"
   }
 }

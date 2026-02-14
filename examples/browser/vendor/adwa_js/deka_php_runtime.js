@@ -4328,9 +4328,9 @@ function routeHostCall(kind, action, payload) {
         }
         return { ok: false, error: `unknown process/env action '${act}'` };
     }
-    if (kind === 'wosix') {
+    if (kind === 'adwa') {
         const act = String(action || '');
-        const ctx = globalThis.__DEKA_WOSIX_CLI_CONTEXT || {};
+        const ctx = globalThis.__DEKA_ADWA_CLI_CONTEXT || {};
         if (act === 'cwd') {
             const value = ctx.cwd == null ? '' : String(ctx.cwd);
             return { cwd: value };
@@ -4339,7 +4339,7 @@ function routeHostCall(kind, action, payload) {
             const list = Array.isArray(ctx.args) ? ctx.args.map((x)=>String(x ?? '')) : [];
             return { args: list };
         }
-        return { ok: false, error: `unknown wosix action '${act}'` };
+        return { ok: false, error: `unknown adwa action '${act}'` };
     }
     if (kind === 'crypto') {
         const act = String(action || '');
@@ -4506,10 +4506,10 @@ function phpWasmCall(modulePtr, moduleLen, exportPtr, exportLen, argsPtr, argsLe
         const isNetBridge = moduleId === '__deka_net' || moduleId.includes('__deka_net');
         const isFsBridge = moduleId === '__deka_fs' || moduleId.includes('__deka_fs');
         const isProcessBridge = moduleId === '__deka_process' || moduleId.includes('__deka_process') || moduleId.includes('__deka_env');
-        const isWosixBridge = moduleId === '__deka_wosix' || moduleId.includes('__deka_wosix');
+        const isAdwaBridge = moduleId === '__deka_adwa' || moduleId.includes('__deka_adwa');
         const isCryptoBridge = moduleId === '__deka_crypto' || moduleId.includes('__deka_crypto');
         const isLegacyHostBridge = moduleId.startsWith('__deka_');
-        if (isDbBridge || isNetBridge || isFsBridge || isProcessBridge || isWosixBridge || isCryptoBridge || isLegacyHostBridge) {
+        if (isDbBridge || isNetBridge || isFsBridge || isProcessBridge || isAdwaBridge || isCryptoBridge || isLegacyHostBridge) {
             let payload = null;
             if (argsJson) {
                 try {
@@ -4540,8 +4540,8 @@ function phpWasmCall(modulePtr, moduleLen, exportPtr, exportLen, argsPtr, argsLe
                     result = routeHostCall('fs', String(exportName || ''), payload);
                 } else if (isProcessBridge || moduleId.includes('process') || moduleId.includes('env')) {
                     result = routeHostCall('process', String(exportName || ''), payload);
-                } else if (isWosixBridge || moduleId.includes('wosix')) {
-                    result = routeHostCall('wosix', String(exportName || ''), payload);
+                } else if (isAdwaBridge || moduleId.includes('adwa')) {
+                    result = routeHostCall('adwa', String(exportName || ''), payload);
                 } else if (isCryptoBridge || moduleId.includes('crypto')) {
                     const actionName = String(exportName || '');
                     if (actionName.startsWith('json:')) {

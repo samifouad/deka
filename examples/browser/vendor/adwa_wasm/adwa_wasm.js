@@ -1,4 +1,4 @@
-/* @ts-self-types="./wosix_wasm.d.ts" */
+/* @ts-self-types="./adwa_wasm.d.ts" */
 
 export class FsHandle {
     static __wrap(ptr) {
@@ -644,7 +644,7 @@ function __wbg_get_imports() {
     };
     return {
         __proto__: null,
-        "./wosix_wasm_bg.js": import0,
+        "./adwa_wasm_bg.js": import0,
     };
 }
 
@@ -898,7 +898,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        module_or_path = new URL('wosix_wasm_bg.wasm', import.meta.url);
+        module_or_path = new URL('adwa_wasm_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 

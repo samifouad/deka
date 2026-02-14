@@ -94,7 +94,7 @@ fs.mkdir("/project");
 
 const bridge = createPhpHostBridge({
   fs,
-  target: "wosix",
+  target: "adwa",
   projectRoot: "/project",
   cwd: "/project",
   capabilities: {

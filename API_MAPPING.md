@@ -1,10 +1,10 @@
 # WebContainers API Mapping
 
 This document maps the public WebContainers JS API surface to the current
-`wosix-core` traits. Gaps are called out explicitly.
+`adwa-core` traits. Gaps are called out explicitly.
 
 ## Container lifecycle
-- `WebContainer.boot()` -> `wosix-wasm` bootstraps a `Host` with `FileSystem`,
+- `WebContainer.boot()` -> `adwa-wasm` bootstraps a `Host` with `FileSystem`,
   `ProcessHost`, and `NetHost` adapters.
 - `webcontainer.mount(tree)` -> `FileSystem::mount_tree` with `MountTree`.
 
@@ -19,7 +19,7 @@ This document maps the public WebContainers JS API surface to the current
 - `fs.watch(path, opts)` -> `FileSystem::watch` returning `FsWatcher` events
   (in-memory backend queues events, non-blocking `next_event`)
 
-### wosix-wasm JS facade (current)
+### adwa-wasm JS facade (current)
 - `WebContainer.boot()` returns an in-memory container.
 - `WebContainer.fs()` returns `FsHandle` with `readFile`, `writeFile`, `readdir`,
   `mkdir`, `rm`, `rename`, `stat`, `mount`, `watch`.
@@ -30,7 +30,7 @@ This document maps the public WebContainers JS API surface to the current
   `WebContainer.onPortEvent()` delivers them without polling.
 - `FsWatchHandle.nextEvent()` returns an event object or `null` when drained.
 
-### wosix-js wrapper (current)
+### adwa-js wrapper (current)
 - `WebContainer.boot()` is async and accepts wasm bindings + init loader.
 - `WebContainer.on()` registers a wasm callback and emits `server-ready`/`port` events.
 - `fs` and process methods return Promises for WebContainers-like ergonomics.

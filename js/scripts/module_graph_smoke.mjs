@@ -344,4 +344,4 @@ const runtimeCache = new TextDecoder().decode(
 );
 assert(runtimeCache.includes('"warmed":true'), `missing runtime cache marker: ${runtimeCache}`);
 
-console.log("wosix module graph smoke ok");
+console.log("adwa module graph smoke ok");

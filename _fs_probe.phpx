@@ -1,9 +1,9 @@
 import { readFileSync } from 'fs'
 import { result_is_ok } from 'core/result'
 
-$pathA = '/Users/samifouad/Projects/deka/deka/wosix/examples/browser/index.html'
-$pathB = '/Users/samifouad/Projects/deka/deka/wosix/examples/browser/main.js'
-$pathC = '/Users/samifouad/Projects/deka/deka/wosix/examples/browser/vendor/wosix_js/index.js'
+$pathA = '/Users/samifouad/Projects/deka/deka/adwa/examples/browser/index.html'
+$pathB = '/Users/samifouad/Projects/deka/deka/adwa/examples/browser/main.js'
+$pathC = '/Users/samifouad/Projects/deka/deka/adwa/examples/browser/vendor/adwa_js/index.js'
 
 $a = readFileSync($pathA)
 $b = readFileSync($pathB)

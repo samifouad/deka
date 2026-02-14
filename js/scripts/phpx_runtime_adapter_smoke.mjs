@@ -94,7 +94,7 @@ fs.mkdir("/project");
 
 const bridge = createPhpHostBridge({
   fs,
-  target: "wosix",
+  target: "adwa",
   projectRoot: "/project",
   cwd: "/project",
 });
@@ -111,7 +111,7 @@ assert(typeof result.stderr === "string", "result.stderr must be string");
 assert(Array.isArray(result.diagnostics), "result.diagnostics must be array");
 assert(typeof result.meta === "object" && result.meta !== null, "result.meta must be object");
 assert(result.ok === false, "adapter should return not implemented for now");
-assert(result.meta.host && result.meta.host.target === "wosix", "meta.host must report target+capabilities");
+assert(result.meta.host && result.meta.host.target === "adwa", "meta.host must report target+capabilities");
 assert(
   result.diagnostics.some((d) => String(d.message).includes("not wired yet")),
   "expected not wired diagnostic"

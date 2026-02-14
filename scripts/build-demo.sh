@@ -3,12 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEMO_DIR="$ROOT_DIR/examples/browser"
-WASM_PKG_DIR="$ROOT_DIR/crates/wosix-wasm/pkg"
-WOSIX_JS_DIST_DIR="$ROOT_DIR/js/dist"
+WASM_PKG_DIR="$ROOT_DIR/crates/adwa-wasm/pkg"
+ADWA_JS_DIST_DIR="$ROOT_DIR/js/dist"
 PHP_RS_WASM_PATH="$ROOT_DIR/../target/wasm32-unknown-unknown/release/php_rs.wasm"
 PHPX_LSP_WASM_PATH="$ROOT_DIR/../target/wasm32-unknown-unknown/release/phpx_lsp_wasm.wasm"
-WASM_VENDOR_DIR="$DEMO_DIR/vendor/wosix_wasm"
-JS_VENDOR_DIR="$DEMO_DIR/vendor/wosix_js"
+WASM_VENDOR_DIR="$DEMO_DIR/vendor/adwa_wasm"
+JS_VENDOR_DIR="$DEMO_DIR/vendor/adwa_js"
 PHP_RUNTIME_JS_SRC="$ROOT_DIR/../crates/modules_php/src/modules/deka_php/php.js"
 PHP_MODULES_SRC="$ROOT_DIR/../php_modules"
 DEKA_LOCK_SRC="$ROOT_DIR/../deka.lock"
@@ -36,17 +36,17 @@ fi
 npm run build
 
 mkdir -p "$WASM_VENDOR_DIR" "$JS_VENDOR_DIR"
-cp -f "$WASM_PKG_DIR"/wosix_wasm.js "$WASM_VENDOR_DIR"/
-cp -f "$WASM_PKG_DIR"/wosix_wasm_bg.wasm "$WASM_VENDOR_DIR"/
-if [ -f "$WASM_PKG_DIR/wosix_wasm_bg.js" ]; then
-  cp -f "$WASM_PKG_DIR"/wosix_wasm_bg.js "$WASM_VENDOR_DIR"/
+cp -f "$WASM_PKG_DIR"/adwa_wasm.js "$WASM_VENDOR_DIR"/
+cp -f "$WASM_PKG_DIR"/adwa_wasm_bg.wasm "$WASM_VENDOR_DIR"/
+if [ -f "$WASM_PKG_DIR/adwa_wasm_bg.js" ]; then
+  cp -f "$WASM_PKG_DIR"/adwa_wasm_bg.js "$WASM_VENDOR_DIR"/
 fi
-if [ -f "$WASM_PKG_DIR/wosix_wasm.d.ts" ]; then
-  cp -f "$WASM_PKG_DIR"/wosix_wasm.d.ts "$WASM_VENDOR_DIR"/
+if [ -f "$WASM_PKG_DIR/adwa_wasm.d.ts" ]; then
+  cp -f "$WASM_PKG_DIR"/adwa_wasm.d.ts "$WASM_VENDOR_DIR"/
 fi
 
-cp -f "$WOSIX_JS_DIST_DIR"/*.js "$JS_VENDOR_DIR"/
-cp -f "$WOSIX_JS_DIST_DIR"/*.d.ts "$JS_VENDOR_DIR"/
+cp -f "$ADWA_JS_DIST_DIR"/*.js "$JS_VENDOR_DIR"/
+cp -f "$ADWA_JS_DIST_DIR"/*.d.ts "$JS_VENDOR_DIR"/
 cp -f "$PHP_RUNTIME_JS_SRC" "$JS_VENDOR_DIR/deka_php_runtime.js"
 
 wasm-bindgen \

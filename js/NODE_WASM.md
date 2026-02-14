@@ -1,7 +1,7 @@
 # Node WASM Adapter
 
 This file describes the expected adapter interface for wiring a real Node WASM
-runtime into Wosix. The TypeScript interface lives in `js/src/node_wasm_adapter.ts`.
+runtime into Adwa. The TypeScript interface lives in `js/src/node_wasm_adapter.ts`.
 
 ## Expected WASM exports
 - `memory: WebAssembly.Memory`
@@ -17,7 +17,7 @@ runtime into Wosix. The TypeScript interface lives in `js/src/node_wasm_adapter.
 
 ## Wiring TODO
 - Define ABI for argv/env marshalling into WASM memory.
-- Map Wosix FS calls to Node WASM imports (read/write/stat/readdir).
+- Map Adwa FS calls to Node WASM imports (read/write/stat/readdir).
 - Implement streaming I/O bridging between WASM pipes and JS `ReadableStream`.
 - Track process lifecycles (exit code, signals, cleanup).
 - Decide how to handle timers/event loop integration.

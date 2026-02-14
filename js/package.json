@@ -1,7 +1,7 @@
 {
-  "name": "@deka/wosix-js",
+  "name": "@deka/adwa-js",
   "version": "0.1.0",
-  "description": "JS wrapper for Wosix WebContainer bindings.",
+  "description": "JS wrapper for Adwa WebContainer bindings.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

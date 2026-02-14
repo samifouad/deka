@@ -98,14 +98,14 @@ function assert(cond, msg) {
 const fs = new MemoryFs();
 const bridge = createPhpHostBridge({
   fs,
-  target: "wosix",
+  target: "adwa",
   projectRoot: "/project",
   cwd: "/project",
   env: { APP_ENV: "dev" },
 });
 
 const denied = bridge.call({ kind: "db", action: "stats", payload: {} });
-assert(!denied.ok, "db should be denied in wosix");
+assert(!denied.ok, "db should be denied in adwa");
 assert(String(denied.error || "").includes("CapabilityError"), "capability error expected");
 assert(denied.code === "CAPABILITY_DENIED", "expected capability denied code");
 assert(denied.info?.kind === "capability_denied", "expected structured capability denied info");
@@ -131,7 +131,7 @@ const envGet = bridge.call({
   action: "envGet",
   payload: { key: "APP_ENV" },
 });
-assert(!envGet.ok, "process/env should be denied in wosix");
+assert(!envGet.ok, "process/env should be denied in adwa");
 
 const stdoutChunks = [];
 const stderrChunks = [];

@@ -1,9 +1,9 @@
 import {
   createPhpHostBridge,
   WebContainer,
-} from "./vendor/wosix_js/index.js";
-import { phpRuntimeRawWasmDataUrl } from "./vendor/wosix_js/php_runtime_raw_wasm_data.js";
-import { bundledProjectFiles } from "./vendor/wosix_js/php_project_bundle.js";
+} from "./vendor/adwa_js/index.js";
+import { phpRuntimeRawWasmDataUrl } from "./vendor/adwa_js/php_runtime_raw_wasm_data.js";
+import { bundledProjectFiles } from "./vendor/adwa_js/php_project_bundle.js";
 import { renderWorkbench } from "./ui/workbench.js";
 import { fileIconFor, folderIconFor, icon } from "./ui/file_icons.js";
 import { initMonacoEditor } from "./ui/editor_monaco.js";
@@ -81,7 +81,7 @@ const runtimePortState = {
 const LOCAL_MODULE_ROOT = "/php_modules";
 const GLOBAL_MODULE_ROOT = "/__global/php_modules";
 let commandManifestCache = null;
-const WOSIX_BUILTIN_COMMANDS = new Set([
+const ADWA_BUILTIN_COMMANDS = new Set([
   "deka",
   "phpx",
 ]);
@@ -99,7 +99,7 @@ const defaultSource = [
   "<html>",
   "  <body class=\"m-0 bg-slate-950 text-slate-100\">",
   "    <main class=\"min-h-screen flex items-center justify-center p-8\">",
-  "      <h1 class=\"text-5xl font-bold tracking-tight\">Hello <Hello name=\"wosix\" /></h1>",
+  "      <h1 class=\"text-5xl font-bold tracking-tight\">Hello <Hello name=\"adwa\" /></h1>",
   "    </main>",
   "  </body>",
   "</html>",
@@ -125,7 +125,7 @@ const configuredServePort = Number(bundledServeConfig.port || 8530);
 
 const vfs = new VirtualFs({
   ...bundledProjectFiles,
-  "/README.txt": "WOSIX browser playground\\nUse terminal: ls, cd, pwd, open, cat, run\\n",
+  "/README.txt": "ADWA browser playground\\nUse terminal: ls, cd, pwd, open, cat, run\\n",
   "/main.phpx": defaultSource,
   "/app/home.phpx": defaultSource,
 });
@@ -269,7 +269,7 @@ const refreshDiagnostics = async () => {
 
   if (lspWasm?.diagnostics_json) {
     try {
-      const raw = lspWasm.diagnostics_json(text, currentFile, "wosix");
+      const raw = lspWasm.diagnostics_json(text, currentFile, "adwa");
       const parsed = JSON.parse(String(raw || "[]"));
       out = { ok: true, items: Array.isArray(parsed) ? parsed : [] };
     } catch {
@@ -313,8 +313,8 @@ const refreshDiagnostics = async () => {
 
 const initLspWasm = async () => {
   try {
-    const mod = await import("./vendor/wosix_js/phpx_lsp_wasm.js");
-    const wasmUrl = new URL("./vendor/wosix_js/phpx_lsp_wasm_bg.wasm", import.meta.url).toString();
+    const mod = await import("./vendor/adwa_js/phpx_lsp_wasm.js");
+    const wasmUrl = new URL("./vendor/adwa_js/phpx_lsp_wasm_bg.wasm", import.meta.url).toString();
     await mod.default(wasmUrl);
     lspWasm = mod;
     log("PHPX diagnostics: wasm mode");
@@ -825,7 +825,7 @@ const installDenoShim = async () => {
 const ensureDekaPhpRuntime = async () => {
   if (dekaPhpRuntimeReady) return;
   await installDenoShim();
-  await import("./vendor/wosix_js/deka_php_runtime.js");
+  await import("./vendor/adwa_js/deka_php_runtime.js");
   if (!globalThis.__dekaPhp || typeof globalThis.__dekaPhp.runFile !== "function") {
     throw new Error("deka_php runtime failed to initialize");
   }
@@ -1151,7 +1151,7 @@ const getCommandManifestCache = () => {
   return commandManifestCache;
 };
 
-const resolveCliWosixCommand = (command) => {
+const resolveCliAdwaCommand = (command) => {
   const safe = String(command || "").trim();
   if (!safe) return null;
   const cache = getCommandManifestCache();
@@ -1164,8 +1164,8 @@ const resolveCliWosixCommand = (command) => {
   };
 };
 
-const runCliWosixCommandDirect = async (command, args, options = {}) => {
-  const resolved = resolveCliWosixCommand(command);
+const runCliAdwaCommandDirect = async (command, args, options = {}) => {
+  const resolved = resolveCliAdwaCommand(command);
   if (!resolved) return null;
   const processCwd = normalizePath(String(options?.cwd || cwd || "/"));
 
@@ -1180,40 +1180,40 @@ const runCliWosixCommandDirect = async (command, args, options = {}) => {
 
   const previousCwd = cwd;
   cwd = processCwd;
-  vfs.writeFile("/tmp/.wosix_cwd", new TextEncoder().encode(cwd));
-  vfs.writeFile("/tmp/.wosix_args", new TextEncoder().encode(args.join("\u001f")));
-  vfs.writeFile("/__wosix_cwd.txt", new TextEncoder().encode(cwd));
-  vfs.writeFile("/__wosix_args.txt", new TextEncoder().encode(args.join("\u001f")));
+  vfs.writeFile("/tmp/.adwa_cwd", new TextEncoder().encode(cwd));
+  vfs.writeFile("/tmp/.adwa_args", new TextEncoder().encode(args.join("\u001f")));
+  vfs.writeFile("/__adwa_cwd.txt", new TextEncoder().encode(cwd));
+  vfs.writeFile("/__adwa_args.txt", new TextEncoder().encode(args.join("\u001f")));
   const envOverrides = {
-    WOSIX_CMD: command,
-    WOSIX_CWD: cwd,
-    WOSIX_ARGC: String(args.length),
-    WOSIX_ARGS: args.join("\u001f"),
+    ADWA_CMD: command,
+    ADWA_CWD: cwd,
+    ADWA_ARGC: String(args.length),
+    ADWA_ARGS: args.join("\u001f"),
   };
   for (let i = 0; i < args.length; i += 1) {
-    envOverrides[`WOSIX_ARG_${i}`] = args[i];
-    envOverrides[`WOSIX_ARGHEX_${i}`] = toHex(args[i]);
+    envOverrides[`ADWA_ARG_${i}`] = args[i];
+    envOverrides[`ADWA_ARGHEX_${i}`] = toHex(args[i]);
   }
   if (bridgeRef && typeof bridgeRef.call === "function") {
     bridgeRef.call({
       kind: "process",
       action: "envSet",
-      payload: { key: "WOSIX_CWD", value: cwd },
+      payload: { key: "ADWA_CWD", value: cwd },
     });
     bridgeRef.call({
       kind: "process",
       action: "envSet",
-      payload: { key: "WOSIX_ARGC", value: String(args.length) },
+      payload: { key: "ADWA_ARGC", value: String(args.length) },
     });
     bridgeRef.call({
       kind: "process",
       action: "envSet",
-      payload: { key: "WOSIX_ARGS", value: args.join("\u001f") },
+      payload: { key: "ADWA_ARGS", value: args.join("\u001f") },
     });
     const max = Math.max(lastCliArgCount, args.length);
     for (let i = 0; i < max; i += 1) {
-      const key = `WOSIX_ARG_${i}`;
-      const hexKey = `WOSIX_ARGHEX_${i}`;
+      const key = `ADWA_ARG_${i}`;
+      const hexKey = `ADWA_ARGHEX_${i}`;
       if (i < args.length) {
         bridgeRef.call({
           kind: "process",
@@ -1232,7 +1232,7 @@ const runCliWosixCommandDirect = async (command, args, options = {}) => {
     }
     lastCliArgCount = args.length;
   }
-  globalThis.__DEKA_WOSIX_CLI_CONTEXT = {
+  globalThis.__DEKA_ADWA_CLI_CONTEXT = {
     cwd,
     args: [...args],
   };
@@ -1240,7 +1240,7 @@ const runCliWosixCommandDirect = async (command, args, options = {}) => {
   try {
     result = await executePhpFile(resolved.entry, null, envOverrides);
   } finally {
-    delete globalThis.__DEKA_WOSIX_CLI_CONTEXT;
+    delete globalThis.__DEKA_ADWA_CLI_CONTEXT;
     cwd = previousCwd;
   }
   const stdout = String(result?.stdout ?? phpStdoutBuffer ?? "");
@@ -1258,17 +1258,17 @@ const runCliWosixCommandDirect = async (command, args, options = {}) => {
   };
 };
 
-const createCliWosixProcess = (command, args, options = {}) => {
+const createCliAdwaProcess = (command, args, options = {}) => {
   if (!shellContainer || typeof shellContainer.createVirtualProcess !== "function") {
     return null;
   }
-  if (WOSIX_BUILTIN_COMMANDS.has(String(command || "").trim())) {
+  if (ADWA_BUILTIN_COMMANDS.has(String(command || "").trim())) {
     return null;
   }
-  const resolved = resolveCliWosixCommand(command);
+  const resolved = resolveCliAdwaCommand(command);
   if (!resolved) return null;
 
-  return shellContainer.createVirtualProcess(async () => runCliWosixCommandDirect(command, args, options));
+  return shellContainer.createVirtualProcess(async () => runCliAdwaCommandDirect(command, args, options));
 };
 
 const runShebangScript = async (scriptPath, argv, shebang) => {
@@ -1287,36 +1287,36 @@ const runShebangScript = async (scriptPath, argv, shebang) => {
     return out;
   };
   const envOverrides = {
-    WOSIX_CMD: scriptPath,
-    WOSIX_CWD: cwd,
-    WOSIX_ARGC: String(fullArgv.length),
-    WOSIX_ARGS: fullArgv.join("\u001f"),
+    ADWA_CMD: scriptPath,
+    ADWA_CWD: cwd,
+    ADWA_ARGC: String(fullArgv.length),
+    ADWA_ARGS: fullArgv.join("\u001f"),
     DEKA_ARGS: JSON.stringify(argv.map((value) => String(value ?? ""))),
   };
   for (let i = 0; i < fullArgv.length; i += 1) {
-    envOverrides[`WOSIX_ARG_${i}`] = fullArgv[i];
-    envOverrides[`WOSIX_ARGHEX_${i}`] = toHex(fullArgv[i]);
+    envOverrides[`ADWA_ARG_${i}`] = fullArgv[i];
+    envOverrides[`ADWA_ARGHEX_${i}`] = toHex(fullArgv[i]);
   }
   if (bridgeRef && typeof bridgeRef.call === "function") {
     bridgeRef.call({
       kind: "process",
       action: "envSet",
-      payload: { key: "WOSIX_CWD", value: cwd },
+      payload: { key: "ADWA_CWD", value: cwd },
     });
     bridgeRef.call({
       kind: "process",
       action: "envSet",
-      payload: { key: "WOSIX_ARGC", value: String(fullArgv.length) },
+      payload: { key: "ADWA_ARGC", value: String(fullArgv.length) },
     });
     bridgeRef.call({
       kind: "process",
       action: "envSet",
-      payload: { key: "WOSIX_ARGS", value: fullArgv.join("\u001f") },
+      payload: { key: "ADWA_ARGS", value: fullArgv.join("\u001f") },
     });
     const max = Math.max(lastShebangArgCount, fullArgv.length);
     for (let i = 0; i < max; i += 1) {
-      const key = `WOSIX_ARG_${i}`;
-      const hexKey = `WOSIX_ARGHEX_${i}`;
+      const key = `ADWA_ARG_${i}`;
+      const hexKey = `ADWA_ARGHEX_${i}`;
       if (i < fullArgv.length) {
         bridgeRef.call({
           kind: "process",
@@ -1346,7 +1346,7 @@ const runShebangScript = async (scriptPath, argv, shebang) => {
     const raw = new TextDecoder().decode(vfs.readFile(scriptPath));
     const stripped = raw.replace(/^#![^\r\n]*(?:\r?\n)?/, "");
     if (stripped !== raw) {
-      const tempPath = normalizePath(`/tmp/.wosix-shebang-${Date.now()}.phpx`);
+      const tempPath = normalizePath(`/tmp/.adwa-shebang-${Date.now()}.phpx`);
       const bytes = new TextEncoder().encode(stripped);
       vfs.writeFile(tempPath, bytes);
       commandManifestCache = null;
@@ -1367,8 +1367,8 @@ const runShebangScript = async (scriptPath, argv, shebang) => {
 const attachPreviewFrameNavigation = () => {
   if (!(resultFrame instanceof HTMLIFrameElement)) return;
   const doc = resultFrame.contentDocument;
-  if (!doc || doc.__wosixNavBound) return;
-  doc.__wosixNavBound = true;
+  if (!doc || doc.__adwaNavBound) return;
+  doc.__adwaNavBound = true;
   doc.addEventListener("click", (event) => {
     if (!serverState.running) return;
     const target = event.target;
@@ -1513,12 +1513,12 @@ const syncAllVfsToShell = async () => {
 };
 
 const initShellContainer = async () => {
-  const bindings = await import("./vendor/wosix_wasm/wosix_wasm.js");
+  const bindings = await import("./vendor/adwa_wasm/adwa_wasm.js");
   shellContainer = await WebContainer.boot(bindings, {
     init: bindings.default,
   });
   shellContainer.setSpawnInterceptor(({ program, args, options }) =>
-    createCliWosixProcess(program, args, options)
+    createCliAdwaProcess(program, args, options)
   );
   await syncAllVfsToShell();
 };
@@ -1575,7 +1575,7 @@ const readProcessOutput = async (proc) => {
 };
 
 const readProcessOutputAfterExit = async (proc) => {
-  // WOSIX virtual processes don't currently close output streams on exit.
+  // ADWA virtual processes don't currently close output streams on exit.
   // Read buffered stdout/stderr queues instead of waiting on stream EOF.
   return readProcessOutput(proc);
 };
@@ -1780,8 +1780,8 @@ const runShellCommand = async (line) => {
   vfs.writeFile(currentFile, latest);
   commandManifestCache = null;
   await syncPathToShell(currentFile, latest);
-  if (!WOSIX_BUILTIN_COMMANDS.has(cmd)) {
-    const direct = await runCliWosixCommandDirect(cmd, rest, { cwd });
+  if (!ADWA_BUILTIN_COMMANDS.has(cmd)) {
+    const direct = await runCliAdwaCommandDirect(cmd, rest, { cwd });
     if (direct) {
       if (direct.stdout.trim()) log(direct.stdout.trimEnd());
       if (direct.stderr.trim()) log(`[stderr]\n${direct.stderr.trimEnd()}`);
@@ -1791,7 +1791,7 @@ const runShellCommand = async (line) => {
       return;
     }
   }
-  const intercepted = createCliWosixProcess(cmd, rest, { cwd });
+  const intercepted = createCliAdwaProcess(cmd, rest, { cwd });
   if (intercepted) {
     await runProcessAndRender(intercepted, cmd, rest);
     return;
@@ -1923,7 +1923,7 @@ const boot = async () => {
   await initLspWasm();
 
   // Lightweight e2e hooks for deterministic playground tests.
-  window.__wosixTest = {
+  window.__adwaTest = {
     setSource: (source) => {
       const next = String(source ?? "");
       if (monacoEditor) {
@@ -1974,7 +1974,7 @@ const boot = async () => {
       rename: (from, to) => vfs.rename(from, to),
       stat: (path) => vfs.stat(path),
     },
-    target: "wosix",
+    target: "adwa",
     projectRoot: "/",
     cwd,
     capabilities: {

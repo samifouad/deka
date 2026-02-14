@@ -50,16 +50,16 @@ export type PortEvent = {
   protocol?: string;
 };
 
-export type WosixBindings = {
+export type AdwaBindings = {
   WebContainer: {
-    boot(): WosixWebContainer;
+    boot(): AdwaWebContainer;
   };
   default?: (module?: WebAssembly.Module | ArrayBuffer | Response) => Promise<unknown>;
 };
 
-export type WosixWebContainer = {
-  fs(): WosixFs;
-  spawn(program: string, args: string[], options?: SpawnOptions): WosixProcess;
+export type AdwaWebContainer = {
+  fs(): AdwaFs;
+  spawn(program: string, args: string[], options?: SpawnOptions): AdwaProcess;
   listProcesses(): Array<{
     pid: number;
     program: string;
@@ -79,7 +79,7 @@ export type WosixWebContainer = {
   offPortEvent(id: number): void;
 };
 
-export type WosixFs = {
+export type AdwaFs = {
   readFile(path: string): Uint8Array;
   writeFile(path: string, data: Uint8Array, options?: WriteOptions): void;
   readdir(path: string): string[];
@@ -88,10 +88,10 @@ export type WosixFs = {
   rename(from: string, to: string): void;
   stat(path: string): { size: number; fileType: string };
   mount(tree: MountTree): void;
-  watch(path: string, options?: WatchOptions): WosixFsWatchHandle;
+  watch(path: string, options?: WatchOptions): AdwaFsWatchHandle;
 };
 
-export type WosixFsWatchHandle = {
+export type AdwaFsWatchHandle = {
   nextEvent(): FsEvent | null;
   close(): void;
 };
@@ -127,7 +127,7 @@ export type SpawnInterceptContext = {
 };
 
 export type SpawnInterceptor =
-  | ((context: SpawnInterceptContext) => WosixProcess | null | Promise<WosixProcess | null>)
+  | ((context: SpawnInterceptContext) => AdwaProcess | null | Promise<AdwaProcess | null>)
   | null;
 
 export type WriteOptions = {
@@ -158,7 +158,7 @@ export type MountTree =
     };
 
 export class WebContainer {
-  static async boot(bindings: WosixBindings, options: BootOptions = {}): Promise<WebContainer> {
+  static async boot(bindings: AdwaBindings, options: BootOptions = {}): Promise<WebContainer> {
     const init = options.init ?? bindings.default;
     if (init) {
       await init(options.module);
@@ -170,8 +170,8 @@ export class WebContainer {
   }
 
   readonly fs: FileSystem;
-  private readonly inner: WosixWebContainer;
-  private readonly innerFs: WosixFs;
+  private readonly inner: AdwaWebContainer;
+  private readonly innerFs: AdwaFs;
   private nodeRuntime: NodeRuntime | null = null;
   private readonly listeners = new Map<string, Set<(event: PortEvent) => void>>();
   private spawnInterceptor: SpawnInterceptor = null;
@@ -186,7 +186,7 @@ export class WebContainer {
     }
   };
 
-  private constructor(inner: WosixWebContainer, options: BootOptions) {
+  private constructor(inner: AdwaWebContainer, options: BootOptions) {
     this.inner = inner;
     this.innerFs = inner.fs();
     this.fs = new FileSystem(this.innerFs);
@@ -236,7 +236,7 @@ export class WebContainer {
 
   createVirtualProcess(
     runner: () => Promise<VirtualProcessResult> | VirtualProcessResult
-  ): WosixProcess {
+  ): AdwaProcess {
     const pid = this.nextVirtualPid++;
     return new VirtualProcess(pid, runner);
   }
@@ -301,9 +301,9 @@ export class WebContainer {
 }
 
 export class FileSystem {
-  private readonly inner: WosixFs;
+  private readonly inner: AdwaFs;
 
-  constructor(inner: WosixFs) {
+  constructor(inner: AdwaFs) {
     this.inner = inner;
   }
 
@@ -345,9 +345,9 @@ export class FileSystem {
 }
 
 export class FsWatchHandle {
-  private readonly inner: WosixFsWatchHandle;
+  private readonly inner: AdwaFsWatchHandle;
 
-  constructor(inner: WosixFsWatchHandle) {
+  constructor(inner: AdwaFsWatchHandle) {
     this.inner = inner;
   }
 
@@ -360,7 +360,7 @@ export class FsWatchHandle {
   }
 }
 
-export type WosixProcess = {
+export type AdwaProcess = {
   pid(): number;
   wait(): { code: number; signal?: number };
   exit(): Promise<{ code: number; signal?: number }>;
@@ -377,13 +377,13 @@ export type WosixProcess = {
 };
 
 export class Process {
-  private readonly inner: WosixProcess;
+  private readonly inner: AdwaProcess;
   readonly input: WritableStream<Uint8Array | string>;
   readonly output: ReadableStream<Uint8Array>;
   readonly stdout: ReadableStream<Uint8Array>;
   readonly stderr: ReadableStream<Uint8Array>;
 
-  constructor(inner: WosixProcess) {
+  constructor(inner: AdwaProcess) {
     this.inner = inner;
     this.input = inner.stdinStream();
     this.output = inner.outputStream();
@@ -432,20 +432,20 @@ type ExitStatus = { code: number; signal?: number };
 
 interface NodeRuntime {
   init?(): Promise<void>;
-  spawn(args: string[], options?: SpawnOptions): WosixProcess;
+  spawn(args: string[], options?: SpawnOptions): AdwaProcess;
 }
 
 class NodeShimRuntime implements NodeRuntime {
-  private readonly fs: WosixFs;
+  private readonly fs: AdwaFs;
   private readonly encoder = new TextEncoder();
   private readonly decoder = new TextDecoder();
   private nextPid = 1000;
 
-  constructor(fs: WosixFs) {
+  constructor(fs: AdwaFs) {
     this.fs = fs;
   }
 
-  spawn(args: string[], options?: SpawnOptions): WosixProcess {
+  spawn(args: string[], options?: SpawnOptions): AdwaProcess {
     const pid = this.nextPid++;
     const proc = new NodeShimProcess(pid);
     queueMicrotask(() => this.runProcess(proc, args, options));
@@ -543,12 +543,12 @@ class NodeShimRuntime implements NodeRuntime {
 }
 
 class NodeWasmRuntime implements NodeRuntime {
-  private readonly fs: WosixFs;
+  private readonly fs: AdwaFs;
   private readonly options: NodeWasmOptions | undefined;
   private initPromise: Promise<void> | null = null;
   private adapter: NodeWasmAdapter | null = null;
 
-  constructor(fs: WosixFs, options?: NodeWasmOptions) {
+  constructor(fs: AdwaFs, options?: NodeWasmOptions) {
     this.fs = fs;
     this.options = options;
   }
@@ -561,7 +561,7 @@ class NodeWasmRuntime implements NodeRuntime {
     return this.initPromise;
   }
 
-  spawn(_args: string[], _options?: SpawnOptions): WosixProcess {
+  spawn(_args: string[], _options?: SpawnOptions): AdwaProcess {
     if (!this.adapter) {
       throw new Error(
         "Node WASM adapter is not loaded. Provide nodeWasm.adapter or nodeWasm.instantiate."
@@ -599,7 +599,7 @@ class NodeWasmRuntime implements NodeRuntime {
   }
 }
 
-class NodeShimProcess implements WosixProcess {
+class NodeShimProcess implements AdwaProcess {
   private readonly stdoutQueue = new StreamQueue();
   private readonly stderrQueue = new StreamQueue();
   private readonly outputQueue = new StreamQueue();
@@ -793,7 +793,7 @@ function isNodeProgram(program: string): boolean {
 }
 
 function createRequire(options: {
-  fs: WosixFs;
+  fs: AdwaFs;
   cwdRef: { value: string };
   projectRoot: string;
   decoder: TextDecoder;
@@ -889,7 +889,7 @@ function runModuleCode(options: {
 }
 
 function createFsModule(
-  fs: WosixFs,
+  fs: AdwaFs,
   cwdRef: { value: string },
   decoder: TextDecoder,
   encoder: TextEncoder
@@ -962,7 +962,7 @@ function resolvePath(cwd: string, path: string): string {
 }
 
 function resolveRequireSpecifier(
-  fs: WosixFs,
+  fs: AdwaFs,
   cwd: string,
   projectRoot: string,
   specifier: string
@@ -986,7 +986,7 @@ function resolveRequireSpecifier(
 }
 
 function resolveBareModuleSpecifier(options: {
-  fs?: WosixFs;
+  fs?: AdwaFs;
   moduleRoot: string;
   projectRoot: string;
   specifier: string;
@@ -1005,7 +1005,7 @@ function resolveBareModuleSpecifier(options: {
   return moduleRoot;
 }
 
-function hasModuleEntry(fs: WosixFs, root: string): boolean {
+function hasModuleEntry(fs: AdwaFs, root: string): boolean {
   const candidates = [
     root,
     `${root}.js`,
@@ -1021,7 +1021,7 @@ function hasModuleEntry(fs: WosixFs, root: string): boolean {
   return false;
 }
 
-function resolveModuleFile(fs: WosixFs, path: string): string {
+function resolveModuleFile(fs: AdwaFs, path: string): string {
   const candidates = [
     path,
     `${path}.js`,
@@ -1037,7 +1037,7 @@ function resolveModuleFile(fs: WosixFs, path: string): string {
   throw new Error(`Module not found: ${path}`);
 }
 
-function fileType(fs: WosixFs, path: string): "file" | "dir" | null {
+function fileType(fs: AdwaFs, path: string): "file" | "dir" | null {
   try {
     const stat = fs.stat(path);
     if (stat.fileType === "file") {

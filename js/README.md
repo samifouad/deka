@@ -1,12 +1,12 @@
-# Wosix JS Wrapper
+# Adwa JS Wrapper
 
-This package provides a WebContainers-style API on top of the `wosix-wasm`
+This package provides a WebContainers-style API on top of the `adwa-wasm`
 bindings. It is intentionally thin and forwards calls to the WASM exports.
 
 ## Usage
 ```ts
-import * as wasm from "./path/to/wosix_wasm.js";
-import { WebContainer } from "@deka/wosix-js";
+import * as wasm from "./path/to/adwa_wasm.js";
+import { WebContainer } from "@deka/adwa-js";
 
 const container = await WebContainer.boot(wasm, {
   init: wasm.default,

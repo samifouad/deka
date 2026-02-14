@@ -6,7 +6,7 @@ const SERVER_CAPS = {
     db: true,
     wasmImports: true,
 };
-const WOSIX_CAPS = {
+const ADWA_CAPS = {
     fs: true,
     net: true,
     processEnv: false,
@@ -20,8 +20,8 @@ export class PhpHostBridge {
         this.projectRoot = normalizePath(options.projectRoot ?? "/");
         this.cwdValue = normalizePath(options.cwd ?? this.projectRoot);
         this.env = { ...(options.env ?? {}) };
-        this.target = options.target ?? "wosix";
-        const base = this.target === "server" ? SERVER_CAPS : WOSIX_CAPS;
+        this.target = options.target ?? "adwa";
+        const base = this.target === "server" ? SERVER_CAPS : ADWA_CAPS;
         this.caps = { ...base, ...(options.capabilities ?? {}) };
         this.netAllowlist = (options.net?.allowlist ?? []).map((entry) => String(entry || "").trim()).filter(Boolean);
         this.stdio = options.stdio;
@@ -265,7 +265,7 @@ function capabilityForBridgeKind(kind) {
     return null;
 }
 function capabilityForBridgeCall(kind, action) {
-    // Keep stdio usable in restricted hosts (like wosix) without opening full
+    // Keep stdio usable in restricted hosts (like adwa) without opening full
     // process/env mutation APIs.
     if ((kind === "process" || kind === "env") &&
         (action === "writeStdout" || action === "writeStderr" || action === "readStdin")) {
@@ -282,10 +282,10 @@ function capabilityError(host, capability, kind, action, suggestion) {
 }
 function capabilitySuggestion(host, capability, kind, action) {
     if (capability === "db") {
-        return "Database calls are disabled in wosix. Use server host for DB-backed paths, or mock data in the browser demo.";
+        return "Database calls are disabled in adwa. Use server host for DB-backed paths, or mock data in the browser demo.";
     }
     if (capability === "processEnv") {
-        return "Process/env APIs are restricted in wosix. Pass config through runtime context/env injection instead.";
+        return "Process/env APIs are restricted in adwa. Pass config through runtime context/env injection instead.";
     }
     if (capability === "net") {
         return "Network access is restricted by host policy. Add an allowlist entry or proxy through a server endpoint.";

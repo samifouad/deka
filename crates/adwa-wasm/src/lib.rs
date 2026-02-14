@@ -13,6 +13,6 @@ pub fn init() {
 }
 
 /// Construct a core instance for host-side wiring.
-pub fn core() -> wosix_core::WosixCore {
-    wosix_core::WosixCore::new()
+pub fn core() -> adwa_core::AdwaCore {
+    adwa_core::AdwaCore::new()
 }

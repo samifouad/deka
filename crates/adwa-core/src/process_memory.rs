@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use crate::{
     Command, ErrorCode, ExitStatus, FileSystem, MkdirOptions, ProcessHandle, ProcessHost,
     ProcessId, ProcessSignal, ReadableStream, RemoveOptions, Result, SpawnOptions, StdioMode,
-    WosixError, WritableStream, WriteOptions,
+    AdwaError, WritableStream, WriteOptions,
 };
 
 #[derive(Default)]
@@ -104,7 +104,7 @@ impl ProcessHandle for InMemoryProcess {
 
     fn wait(&mut self) -> Result<ExitStatus> {
         if self.running {
-            return Err(WosixError::new(ErrorCode::Busy, "process still running"));
+            return Err(AdwaError::new(ErrorCode::Busy, "process still running"));
         }
         Ok(self.exit_status)
     }
@@ -608,8 +608,8 @@ impl WritableStream for MemoryWritable {
     }
 }
 
-fn stream_closed() -> WosixError {
-    WosixError::new(ErrorCode::InvalidInput, "stream is closed")
+fn stream_closed() -> AdwaError {
+    AdwaError::new(ErrorCode::InvalidInput, "stream is closed")
 }
 
 #[cfg(test)]

@@ -13,12 +13,12 @@ pub enum ErrorCode {
 }
 
 #[derive(Debug, Clone)]
-pub struct WosixError {
+pub struct AdwaError {
     pub code: ErrorCode,
     pub message: String,
 }
 
-impl WosixError {
+impl AdwaError {
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -27,12 +27,12 @@ impl WosixError {
     }
 }
 
-impl fmt::Display for WosixError {
+impl fmt::Display for AdwaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}: {}", self.code, self.message)
     }
 }
 
-impl std::error::Error for WosixError {}
+impl std::error::Error for AdwaError {}
 
-pub type Result<T> = std::result::Result<T, WosixError>;
+pub type Result<T> = std::result::Result<T, AdwaError>;

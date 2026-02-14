@@ -2,8 +2,8 @@
 
 ## Runtime model
 - Browser-only host running in a dedicated Web Worker.
-- WASM core (wosix-wasm) exposes a JS facade that mirrors WebContainers.
-- wosix-core stays platform-agnostic and contains state machines, protocol parsing, and VFS logic.
+- WASM core (adwa-wasm) exposes a JS facade that mirrors WebContainers.
+- adwa-core stays platform-agnostic and contains state machines, protocol parsing, and VFS logic.
 
 ## Subsystems
 - Virtual FS: layered FS with in-memory, OPFS (persistent), and package cache.
@@ -18,7 +18,7 @@
 
 ## Integration with Deka
 - Deka runtime compiled to WASM and loaded as a "container image."
-- Deka's module loader uses Wosix FS and process plumbing.
+- Deka's module loader uses Adwa FS and process plumbing.
 
 ## Deka-in-browser architecture (proposed)
 This mirrors the WebContainers idea: compile the core engine to WASM and replace
