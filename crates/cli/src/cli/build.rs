@@ -627,15 +627,28 @@ impl<'a> JsSubsetEmitter<'a> {
                 }
             }
             Expr::Array { items, .. } => {
-                let mut values = Vec::new();
-                for item in *items {
-                    if item.key.is_some() || item.by_ref || item.unpack {
-                        return Err("array item keys/by-ref/unpack are not supported in subset emitter"
-                            .to_string());
+                if items.iter().all(|item| item.key.is_none() && !item.by_ref && !item.unpack) {
+                    let mut values = Vec::new();
+                    for item in *items {
+                        values.push(self.emit_expr(item.value)?);
                     }
-                    values.push(self.emit_expr(item.value)?);
+                    return Ok(format!("[{}]", values.join(", ")));
                 }
-                Ok(format!("[{}]", values.join(", ")))
+
+                if items.iter().all(|item| item.key.is_some() && !item.by_ref && !item.unpack) {
+                    let mut entries = Vec::new();
+                    for item in *items {
+                        let key_expr = item
+                            .key
+                            .ok_or_else(|| "keyed array expected key".to_string())?;
+                        let key = self.emit_static_array_key(key_expr)?;
+                        let value = self.emit_expr(item.value)?;
+                        entries.push(format!("{}: {}", json_string(&key), value));
+                    }
+                    return Ok(format!("{{{}}}", entries.join(", ")));
+                }
+
+                Err("mixed or complex array items are not supported in subset emitter".to_string())
             }
             Expr::ObjectLiteral { items, .. } => {
                 let mut entries = Vec::new();
@@ -797,6 +810,24 @@ impl<'a> JsSubsetEmitter<'a> {
         Ok(format!("({})", checks.join(" || ")))
     }
 
+    fn emit_static_array_key(&self, expr: ExprId<'_>) -> Result<String, String> {
+        match expr {
+            Expr::String { value, .. } => {
+                let mut bytes: &[u8] = value;
+                if bytes.len() >= 2
+                    && ((bytes[0] == b'\'' && bytes[bytes.len() - 1] == b'\'')
+                        || (bytes[0] == b'"' && bytes[bytes.len() - 1] == b'"'))
+                {
+                    bytes = &bytes[1..bytes.len() - 1];
+                }
+                Ok(String::from_utf8_lossy(bytes).to_string())
+            }
+            Expr::Integer { value, .. } => Ok(String::from_utf8_lossy(value).to_string()),
+            Expr::Variable { name, .. } => Ok(self.span_name(*name)),
+            _ => Err("array key must be static string/int/identifier in subset emitter".to_string()),
+        }
+    }
+
     fn assignment_to_named_var(&mut self, expr: ExprId<'_>) -> Result<Option<(String, String)>, String> {
         if let Expr::Assign { var, expr, .. } = expr {
             if let Expr::Variable { name, .. } = *var {
@@ -835,12 +866,12 @@ impl<'a> JsSubsetEmitter<'a> {
     }
 
     fn encode_php_string_literal(&self, value: &[u8]) -> String {
-        let mut bytes = value;
-        if value.len() >= 2
-            && ((value[0] == b'\'' && value[value.len() - 1] == b'\'')
-                || (value[0] == b'"' && value[value.len() - 1] == b'"'))
+        let mut bytes: &[u8] = value;
+        if bytes.len() >= 2
+            && ((bytes[0] == b'\'' && bytes[bytes.len() - 1] == b'\'')
+                || (bytes[0] == b'"' && bytes[bytes.len() - 1] == b'"'))
         {
-            bytes = &value[1..value.len() - 1];
+            bytes = &bytes[1..bytes.len() - 1];
         }
         json_string(&String::from_utf8_lossy(bytes))
     }
@@ -1030,6 +1061,20 @@ $value = greet(name: "Sami")
         let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect("subset emit");
         assert!(js.contains("greet({\"name\": \"Sami\"})"));
+    }
+
+    #[test]
+    fn emits_keyed_array_as_object_literal() {
+        let source = r#"
+$data = ["name" => "Sami", "role" => "owner"]
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("{\"name\": \"Sami\", \"role\": \"owner\"}"));
     }
 
 }
