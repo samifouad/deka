@@ -328,6 +328,7 @@ struct JsSubsetEmitter<'a> {
     source: &'a [u8],
     body: String,
     uses_jsx_runtime: bool,
+    uses_include_stub: bool,
     scopes: Vec<HashSet<String>>,
     meta: SourceModuleMeta,
 }
@@ -338,6 +339,7 @@ impl<'a> JsSubsetEmitter<'a> {
             source,
             body: String::new(),
             uses_jsx_runtime: false,
+            uses_include_stub: false,
             scopes: vec![HashSet::new()],
             meta,
         }
@@ -383,6 +385,12 @@ impl<'a> JsSubsetEmitter<'a> {
 
         if !imports.is_empty() {
             out.push('\n');
+        }
+
+        if self.uses_include_stub {
+            out.push_str("function __phpx_include(path, kind) {\n");
+            out.push_str("  throw new Error(`include/require not supported in JS subset emitter: ${kind} ${path}`);\n");
+            out.push_str("}\n\n");
         }
 
         out.push_str(&self.body);
@@ -969,6 +977,17 @@ impl<'a> JsSubsetEmitter<'a> {
             Expr::Print { expr, .. } => {
                 let value = self.emit_expr(*expr)?;
                 Ok(format!("(console.log({}), 1)", value))
+            }
+            Expr::Include { kind, expr, .. } => {
+                self.uses_include_stub = true;
+                let path = self.emit_expr(*expr)?;
+                let kind_name = match kind {
+                    php_rs::parser::ast::IncludeKind::Include => "include",
+                    php_rs::parser::ast::IncludeKind::IncludeOnce => "include_once",
+                    php_rs::parser::ast::IncludeKind::Require => "require",
+                    php_rs::parser::ast::IncludeKind::RequireOnce => "require_once",
+                };
+                Ok(format!("__phpx_include({}, {})", path, json_string(kind_name)))
             }
             Expr::MagicConst { kind, .. } => {
                 let lowered = match kind {
@@ -1745,6 +1764,21 @@ $b = &$a;
             .expect("subset emit");
         assert!(js.contains("let a = 1;"));
         assert!(js.contains("let b = a;"));
+    }
+
+    #[test]
+    fn emits_include_with_runtime_stub() {
+        let source = r#"
+$value = include "./part.phpx";
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("function __phpx_include(path, kind)"));
+        assert!(js.contains("__phpx_include(\"./part.phpx\", \"include\")"));
     }
 
 }
