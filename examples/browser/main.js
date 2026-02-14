@@ -62,10 +62,31 @@ let lastCliArgCount = 0;
 let lastShebangArgCount = 0;
 const AUTORUN_DEBOUNCE_MS = 220;
 const lspBase = `${window.location.protocol}//${window.location.hostname}:${window.PHPX_LSP_PORT || "8531"}`;
+const DEFAULT_CWD = "/home/user";
+const BASE_FS_DIRS = [
+  "/bin",
+  "/usr",
+  "/usr/bin",
+  "/home",
+  "/home/user",
+  "/tmp",
+  "/etc",
+  "/var",
+  "/var/tmp",
+];
+const BASE_FS_FILES = {
+  "/etc/hosts": "127.0.0.1 localhost\n",
+  "/etc/os-release": "NAME=Adwa\nID=adwa\nPRETTY_NAME=\"Adwa Browser Runtime\"\n",
+};
 const projectEnv = {
   DEKA_PHPX_ENABLE_DOTENV: "1",
   DEKA_PHPX_DISABLE_CACHE: "1",
   PHPX_MODULE_ROOT: "/",
+  HOME: "/home/user",
+  USER: "user",
+  PATH: "/usr/bin:/bin",
+  TMPDIR: "/tmp",
+  PWD: DEFAULT_CWD,
 };
 const serverState = {
   running: false,
@@ -124,14 +145,18 @@ const configuredServeMode = String(bundledServeConfig.mode || "php");
 const configuredServePort = Number(bundledServeConfig.port || 8530);
 
 const vfs = new VirtualFs({
+  ...BASE_FS_FILES,
   ...bundledProjectFiles,
   "/README.txt": "ADWA browser playground\\nUse terminal: ls, cd, pwd, open, cat, run\\n",
   "/main.phpx": defaultSource,
   "/app/home.phpx": defaultSource,
 });
+for (const dir of BASE_FS_DIRS) {
+  vfs.mkdir(dir);
+}
 
 let currentFile = configuredServeEntry;
-let cwd = "/";
+let cwd = DEFAULT_CWD;
 const openTabs = [{ path: currentFile, pinned: true }];
 const expandedFolders = new Set(["/"]);
 
@@ -1180,6 +1205,7 @@ const runCliAdwaCommandDirect = async (command, args, options = {}) => {
 
   const previousCwd = cwd;
   cwd = processCwd;
+  projectEnv.PWD = cwd;
   vfs.writeFile("/tmp/.adwa_cwd", new TextEncoder().encode(cwd));
   vfs.writeFile("/tmp/.adwa_args", new TextEncoder().encode(args.join("\u001f")));
   vfs.writeFile("/__adwa_cwd.txt", new TextEncoder().encode(cwd));
@@ -1199,6 +1225,11 @@ const runCliAdwaCommandDirect = async (command, args, options = {}) => {
       kind: "process",
       action: "envSet",
       payload: { key: "ADWA_CWD", value: cwd },
+    });
+    bridgeRef.call({
+      kind: "process",
+      action: "envSet",
+      payload: { key: "PWD", value: cwd },
     });
     bridgeRef.call({
       kind: "process",
@@ -1242,6 +1273,7 @@ const runCliAdwaCommandDirect = async (command, args, options = {}) => {
   } finally {
     delete globalThis.__DEKA_ADWA_CLI_CONTEXT;
     cwd = previousCwd;
+    projectEnv.PWD = cwd;
   }
   const stdout = String(result?.stdout ?? phpStdoutBuffer ?? "");
   const stderr = String(result?.stderr ?? phpStderrBuffer ?? "");
@@ -1618,6 +1650,7 @@ const runShellCommand = async (line) => {
         return;
       }
       cwd = next;
+      projectEnv.PWD = cwd;
       setPrompt();
       return;
     } catch {

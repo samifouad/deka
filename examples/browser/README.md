@@ -21,3 +21,9 @@ The page is a 3-pane layout:
 The browser runtime path is PHPX-first and goes through the adapter boundary:
 
 `main.js` -> `@deka/adwa-js` adapter -> `php_runtime.js` wasm.
+
+Default runtime bootstrap is Linux-like:
+
+- `cwd`: `/home/user`
+- dirs: `/bin`, `/usr/bin`, `/home/user`, `/tmp`, `/etc`, `/var/tmp`
+- env: `HOME`, `USER`, `PATH`, `TMPDIR`, `PWD`
