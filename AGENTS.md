@@ -92,3 +92,17 @@ ADWA runtime/UI changes (current script names still use `adwa`):
 - Keep active plans and checklists in `tasks/`.
 - Keep user-facing docs in `docs/php/` and `docs/phpx/`.
 - If runtime behavior changes, update relevant docs in the same task.
+
+## deka.json project contract (build/runtime)
+
+- `deka.json` is required at project root.
+- Standard key: `type`
+  - `type: "lib"` => library/module package (no runnable app entry).
+  - `type: "serve"` => runnable app package.
+- For runnable apps (`type: "serve"`), `serve.entry` is required and must point to the runtime entry file.
+- `deka build` web-project mode requires:
+  - `type: "serve"`
+  - `serve.entry` set to a `.phpx` file under `app/`
+  - `deka.lock` present
+  - `public/index.html` present
+- Do not infer project kind from folder shape alone when `deka.json` explicitly defines `type`.

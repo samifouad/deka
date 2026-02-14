@@ -346,6 +346,13 @@ fn resolve_module_file(modules_dir: &Path, spec: &str) -> Option<PathBuf> {
     candidates.into_iter().find(|path| path.is_file())
 }
 
+fn load_deka_json(project_root: &Path) -> Result<serde_json::Value, String> {
+    let deka_path = project_root.join("deka.json");
+    let raw = fs::read_to_string(&deka_path)
+        .map_err(|err| format!("failed to read {}: {}", project_root.join("deka.json").display(), err))?;
+    serde_json::from_str(&raw).map_err(|err| format!("invalid {}: {}", project_root.join("deka.json").display(), err))
+}
+
 fn ensure_web_project_layout(project_root: &Path) -> Result<(), String> {
     let required_files = [project_root.join("deka.json"), project_root.join("deka.lock")];
     for file in &required_files {
@@ -366,15 +373,26 @@ fn ensure_web_project_layout(project_root: &Path) -> Result<(), String> {
         return Err(format!("missing required file: {}", index.display()));
     }
 
+    let json = load_deka_json(project_root)?;
+    let project_type = json
+        .get("type")
+        .and_then(|v| v.as_str())
+        .map(|v| v.trim().to_ascii_lowercase());
+
+    if project_type.as_deref() != Some("serve") {
+        let got = project_type.unwrap_or_else(|| "<missing>".to_string());
+        return Err(format!(
+            "web build requires deka.json type=\"serve\" (got: {}) at {}",
+            got,
+            project_root.join("deka.json").display()
+        ));
+    }
+
     Ok(())
 }
 
 fn resolve_web_entry(project_root: &Path) -> Result<PathBuf, String> {
-    let deka_path = project_root.join("deka.json");
-    let raw = fs::read_to_string(&deka_path)
-        .map_err(|err| format!("failed to read {}: {}", deka_path.display(), err))?;
-    let json: serde_json::Value = serde_json::from_str(&raw)
-        .map_err(|err| format!("invalid {}: {}", deka_path.display(), err))?;
+    let json = load_deka_json(project_root)?;
 
     let entry = json
         .get("serve")
@@ -384,7 +402,7 @@ fn resolve_web_entry(project_root: &Path) -> Result<PathBuf, String> {
         .ok_or_else(|| {
             format!(
                 "web build requires deka.json serve.entry (example: \"app/main.phpx\") in {}",
-                deka_path.display()
+                project_root.join("deka.json").display()
             )
         })?;
 
@@ -2807,6 +2825,39 @@ class User {}
         let source = "---\nimport { parse } from 'encoding/json'\n---\n<div />\n";
         let meta = parse_source_module_meta(source);
         ensure_project_layout(tmp.path(), &meta).expect("layout should pass");
+    }
+
+    #[test]
+    fn ensure_web_project_layout_requires_type_serve() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::fs::write(
+            tmp.path().join("deka.json"),
+            "{\"type\":\"lib\",\"serve\":{\"entry\":\"app/main.phpx\"}}",
+        )
+        .expect("deka.json");
+        std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
+        std::fs::create_dir_all(tmp.path().join("app")).expect("app");
+        std::fs::create_dir_all(tmp.path().join("public")).expect("public");
+        std::fs::write(tmp.path().join("public").join("index.html"), "<html></html>").expect("index");
+
+        let err = ensure_web_project_layout(tmp.path()).expect_err("type should be required");
+        assert!(err.contains("type=\"serve\""));
+    }
+
+    #[test]
+    fn ensure_web_project_layout_accepts_type_serve() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::fs::write(
+            tmp.path().join("deka.json"),
+            "{\"type\":\"serve\",\"serve\":{\"entry\":\"app/main.phpx\"}}",
+        )
+        .expect("deka.json");
+        std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
+        std::fs::create_dir_all(tmp.path().join("app")).expect("app");
+        std::fs::create_dir_all(tmp.path().join("public")).expect("public");
+        std::fs::write(tmp.path().join("public").join("index.html"), "<html></html>").expect("index");
+
+        ensure_web_project_layout(tmp.path()).expect("web layout should pass");
     }
 
     #[test]
