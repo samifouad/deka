@@ -716,6 +716,15 @@ impl<'a> JsSubsetEmitter<'a> {
                     Err("subset emitter only supports assignment to simple variables".to_string())
                 }
             }
+            Expr::AssignRef { var, expr, .. } => {
+                if let Expr::Variable { name, .. } = *var {
+                    let js_name = self.span_name(*name);
+                    let rhs = self.emit_expr(*expr)?;
+                    Ok(format!("({} = {})", js_name, rhs))
+                } else {
+                    Err("subset emitter only supports assignment to simple variables".to_string())
+                }
+            }
             Expr::AssignOp { var, op, expr, .. } => {
                 if let Expr::Variable { name, .. } = *var {
                     let js_name = self.span_name(*name);
@@ -1225,15 +1234,18 @@ impl<'a> JsSubsetEmitter<'a> {
     }
 
     fn assignment_to_named_var(&mut self, expr: ExprId<'_>) -> Result<Option<(String, String)>, String> {
-        if let Expr::Assign { var, expr, .. } = expr {
-            if let Expr::Variable { name, .. } = *var {
-                let js_name = self.span_name(*name);
-                let rhs = self.emit_expr(*expr)?;
-                return Ok(Some((js_name, rhs)));
+        match expr {
+            Expr::Assign { var, expr, .. } | Expr::AssignRef { var, expr, .. } => {
+                if let Expr::Variable { name, .. } = *var {
+                    let js_name = self.span_name(*name);
+                    let rhs = self.emit_expr(*expr)?;
+                    Ok(Some((js_name, rhs)))
+                } else {
+                    Err("subset emitter only supports assignment to simple variables".to_string())
+                }
             }
-            return Err("subset emitter only supports assignment to simple variables".to_string());
+            _ => Ok(None),
         }
-        Ok(None)
     }
 
     fn name_last_segment(&self, name: php_rs::parser::ast::Name<'_>) -> String {
@@ -1717,6 +1729,22 @@ $file = __FILE__;
             .expect("subset emit");
         assert!(js.contains("let line = 0;"));
         assert!(js.contains("let file = \"\";"));
+    }
+
+    #[test]
+    fn emits_assign_ref_as_assignment() {
+        let source = r#"
+$a = 1;
+$b = &$a;
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("let a = 1;"));
+        assert!(js.contains("let b = a;"));
     }
 
 }
