@@ -34,12 +34,16 @@ pub fn cmd(context: &Context) {
 }
 
 fn run(context: &Context) -> Result<(), String> {
-    let input = context
-        .args
-        .positionals
-        .first()
-        .ok_or_else(|| "usage: deka build <input.phpx> [--out dist/file.js]".to_string())?;
+    if let Some(first) = context.args.positionals.first() {
+        if first.ends_with(".phpx") {
+            return run_single_file_build(context, first);
+        }
+    }
 
+    run_web_project_build(context)
+}
+
+fn run_single_file_build(context: &Context, input: &str) -> Result<(), String> {
     if !input.ends_with(".phpx") {
         return Err(format!(
             "build currently supports .phpx input only; got '{}'",
@@ -48,48 +52,88 @@ fn run(context: &Context) -> Result<(), String> {
     }
 
     let input_path = PathBuf::from(input);
-    let source = fs::read_to_string(&input_path)
-        .map_err(|err| format!("failed to read {}: {}", input_path.display(), err))?;
-
-    let meta = parse_source_module_meta(&source);
-    let project_root = resolve_project_root(&input_path)?;
-    ensure_project_layout(&project_root, &meta)?;
-
-    // Reuse strict PHPX validation before writing any build artifact.
-    let arena = Bump::new();
-    let result = compile_phpx(&source, input, &arena);
-    if !result.errors.is_empty() {
-        let formatted = format_multiple_errors(&source, input, &result.errors, &result.warnings);
-        return Err(formatted);
-    }
-
     let output_path = resolve_output_path(output_arg(context), &input_path)?;
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("failed to create {}: {}", parent.display(), err))?;
-    }
-
-    let js = if let Some(program) = result.ast {
-        match emit_js_from_ast(&program, source.as_bytes(), meta.clone()) {
-            Ok(emitted) => emitted,
-            Err(reason) => emit_js_scaffold_with_reason(&source, input, &reason),
-        }
-    } else {
-        emit_js_scaffold_with_reason(&source, input, "no AST available after validation")
-    };
-
-    fs::write(&output_path, js)
-        .map_err(|err| format!("failed to write {}: {}", output_path.display(), err))?;
-
-    let import_map_path = resolve_import_map_path(&output_path);
-    let import_map = emit_import_map_json(&meta, &output_path);
-    fs::write(&import_map_path, import_map)
-        .map_err(|err| format!("failed to write {}: {}", import_map_path.display(), err))?;
+    build_single_file_to_path(&input_path, &output_path)?;
 
     stdio::success(&format!(
         "built {} -> {}",
         input_path.display(),
         output_path.display()
+    ));
+    Ok(())
+}
+
+fn run_web_project_build(context: &Context) -> Result<(), String> {
+    let root_hint = context
+        .args
+        .positionals
+        .first()
+        .map(PathBuf::from)
+        .unwrap_or(std::env::current_dir().map_err(|err| err.to_string())?);
+
+    let project_root = resolve_project_root(&root_hint)?;
+    ensure_web_project_layout(&project_root)?;
+
+    let app_dir = project_root.join("app");
+    let public_dir = project_root.join("public");
+    let entry_path = resolve_web_entry(&app_dir)?;
+
+    let dist_root = project_root.join("dist");
+    let dist_client = dist_root.join("client");
+    let dist_server = dist_root.join("server");
+    let dist_assets = dist_client.join("assets");
+
+    fs::create_dir_all(&dist_assets)
+        .map_err(|err| format!("failed to create {}: {}", dist_assets.display(), err))?;
+    fs::create_dir_all(&dist_server)
+        .map_err(|err| format!("failed to create {}: {}", dist_server.display(), err))?;
+
+    copy_dir_recursive(&public_dir, &dist_client)?;
+
+    let client_js = dist_assets.join("main.js");
+    build_single_file_to_path(&entry_path, &client_js)?;
+
+    let assets_importmap = dist_assets.join("importmap.json");
+    let client_importmap = dist_client.join("importmap.json");
+    if assets_importmap.is_file() {
+        fs::copy(&assets_importmap, &client_importmap).map_err(|err| {
+            format!(
+                "failed to copy {} -> {}: {}",
+                assets_importmap.display(),
+                client_importmap.display(),
+                err
+            )
+        })?;
+    }
+
+    let client_index = dist_client.join("index.html");
+    let index_raw = fs::read_to_string(&client_index)
+        .map_err(|err| format!("failed to read {}: {}", client_index.display(), err))?;
+    let index_out = inject_web_bootstrap_tags(&index_raw);
+    fs::write(&client_index, index_out)
+        .map_err(|err| format!("failed to write {}: {}", client_index.display(), err))?;
+
+    copy_dir_recursive(&app_dir, &dist_server.join("app"))?;
+
+    let modules_dir = project_root.join("php_modules");
+    if modules_dir.is_dir() {
+        copy_dir_recursive(&modules_dir, &dist_server.join("php_modules"))?;
+    }
+    for file in ["deka.json", "deka.lock"] {
+        let src = project_root.join(file);
+        if src.is_file() {
+            let dst = dist_server.join(file);
+            fs::copy(&src, &dst).map_err(|err| {
+                format!("failed to copy {} -> {}: {}", src.display(), dst.display(), err)
+            })?;
+        }
+    }
+
+    stdio::success(&format!(
+        "built web project {}\n  client: {}\n  server: {}",
+        project_root.display(),
+        dist_client.display(),
+        dist_server.display()
     ));
     Ok(())
 }
@@ -300,6 +344,152 @@ fn resolve_module_file(modules_dir: &Path, spec: &str) -> Option<PathBuf> {
     }
 
     candidates.into_iter().find(|path| path.is_file())
+}
+
+fn ensure_web_project_layout(project_root: &Path) -> Result<(), String> {
+    let required_files = [project_root.join("deka.json"), project_root.join("deka.lock")];
+    for file in &required_files {
+        if !file.is_file() {
+            return Err(format!("missing required file: {}", file.display()));
+        }
+    }
+
+    let required_dirs = [project_root.join("app"), project_root.join("public")];
+    for dir in &required_dirs {
+        if !dir.is_dir() {
+            return Err(format!("missing required directory: {}", dir.display()));
+        }
+    }
+
+    let index = project_root.join("public").join("index.html");
+    if !index.is_file() {
+        return Err(format!("missing required file: {}", index.display()));
+    }
+
+    Ok(())
+}
+
+fn resolve_web_entry(app_dir: &Path) -> Result<PathBuf, String> {
+    let main = app_dir.join("main.phpx");
+    if main.is_file() {
+        return Ok(main);
+    }
+
+    let index = app_dir.join("index.phpx");
+    if index.is_file() {
+        return Ok(index);
+    }
+
+    Err(format!(
+        "web build requires app/main.phpx or app/index.phpx under {}",
+        app_dir.display()
+    ))
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
+    fs::create_dir_all(dst).map_err(|err| format!("failed to create {}: {}", dst.display(), err))?;
+    let entries = fs::read_dir(src).map_err(|err| format!("failed to read {}: {}", src.display(), err))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|err| format!("read_dir entry error: {}", err))?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        let file_type = entry
+            .file_type()
+            .map_err(|err| format!("file_type error for {}: {}", src_path.display(), err))?;
+
+        if file_type.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else if file_type.is_file() {
+            if let Some(parent) = dst_path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|err| format!("failed to create {}: {}", parent.display(), err))?;
+            }
+            fs::copy(&src_path, &dst_path).map_err(|err| {
+                format!(
+                    "failed to copy {} -> {}: {}",
+                    src_path.display(),
+                    dst_path.display(),
+                    err
+                )
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
+fn inject_web_bootstrap_tags(index_html: &str) -> String {
+    let import_map_tag = r#"<script type="importmap" src="/importmap.json"></script>"#;
+    let module_tag = r#"<script type="module" src="/assets/main.js"></script>"#;
+
+    let mut out = index_html.to_string();
+
+    if !out.contains(import_map_tag) {
+        if out.contains("</head>") {
+            out = out.replace("</head>", &format!("  {}\n</head>", import_map_tag));
+        } else {
+            out.push('\n');
+            out.push_str(import_map_tag);
+            out.push('\n');
+        }
+    }
+
+    if !out.contains(module_tag) {
+        if out.contains("</body>") {
+            out = out.replace("</body>", &format!("  {}\n</body>", module_tag));
+        } else {
+            out.push('\n');
+            out.push_str(module_tag);
+            out.push('\n');
+        }
+    }
+
+    out
+}
+
+fn build_single_file_to_path(input_path: &Path, output_path: &Path) -> Result<(), String> {
+    let input = input_path
+        .to_str()
+        .ok_or_else(|| format!("invalid utf-8 path: {}", input_path.display()))?;
+
+    let source = fs::read_to_string(input_path)
+        .map_err(|err| format!("failed to read {}: {}", input_path.display(), err))?;
+    let meta = parse_source_module_meta(&source);
+
+    let project_root = resolve_project_root(input_path)?;
+    ensure_project_layout(&project_root, &meta)?;
+
+    let arena = Bump::new();
+    let result = compile_phpx(&source, input, &arena);
+    if !result.errors.is_empty() {
+        let formatted = format_multiple_errors(&source, input, &result.errors, &result.warnings);
+        return Err(formatted);
+    }
+
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("failed to create {}: {}", parent.display(), err))?;
+    }
+
+    let js = if let Some(program) = result.ast {
+        match emit_js_from_ast(&program, source.as_bytes(), meta.clone()) {
+            Ok(emitted) => emitted,
+            Err(reason) => emit_js_scaffold_with_reason(&source, input, &reason),
+        }
+    } else {
+        emit_js_scaffold_with_reason(&source, input, "no AST available after validation")
+    };
+
+    fs::write(output_path, js)
+        .map_err(|err| format!("failed to write {}: {}", output_path.display(), err))?;
+
+    let import_map_path = resolve_import_map_path(output_path);
+    let import_map = emit_import_map_json(&meta, output_path);
+    fs::write(&import_map_path, import_map)
+        .map_err(|err| format!("failed to write {}: {}", import_map_path.display(), err))?;
+
+    Ok(())
 }
 
 fn emit_js_from_ast(
