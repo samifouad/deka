@@ -638,8 +638,36 @@ impl<'a> JsSubsetEmitter<'a> {
             Stmt::Unset { vars, .. } => {
                 for var in *vars {
                     let target = self.emit_expr(*var)?;
-                    self.body.push_str(&format!("{} = undefined;\n", target));
+                    self.body.push_str(&format!("{} = {};\n", target, "undefined"));
                 }
+                Ok(())
+            }
+            Stmt::Label { name, .. } => {
+                self.body.push_str(&format!(
+                    "// label {} ignored in JS subset mode\n",
+                    self.token_name(name)
+                ));
+                Ok(())
+            }
+            Stmt::Goto { label, .. } => {
+                self.body.push_str(&format!(
+                    "// goto {} is not supported in JS subset mode\n",
+                    self.token_name(label)
+                ));
+                Ok(())
+            }
+            Stmt::Declare { body, .. } => {
+                // PHP declare directives have no JS equivalent; emit body directly.
+                self.push_scope();
+                for inner in *body {
+                    self.emit_stmt(*inner)?;
+                }
+                self.pop_scope();
+                Ok(())
+            }
+            Stmt::HaltCompiler { .. } => {
+                self.body
+                    .push_str("// __halt_compiler ignored in JS subset mode\n");
                 Ok(())
             }
             Stmt::Break { .. } => {
@@ -1949,5 +1977,27 @@ function demo($x: int): int {
         assert!(js.contains("let count = 1;"));
         assert!(js.contains("shared = undefined;"));
     }
+    #[test]
+    fn emits_label_goto_declare_and_halt_compiler_statements() {
+        let source = r#"
+start:
+declare(ticks=1) {
+  $x = 1;
+}
+goto start;
+__halt_compiler();
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("label start ignored"));
+        assert!(js.contains("goto start is not supported"));
+        assert!(js.contains("let x = 1;"));
+        assert!(js.contains("__halt_compiler ignored"));
+    }
+
 
 }
