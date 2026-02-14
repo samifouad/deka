@@ -594,6 +594,54 @@ impl<'a> JsSubsetEmitter<'a> {
                 }
                 Ok(())
             }
+            Stmt::Global { vars, .. } => {
+                if !vars.is_empty() {
+                    self.body.push_str("// global declarations are no-ops in JS subset mode\n");
+                }
+                Ok(())
+            }
+            Stmt::Static { vars, .. } => {
+                for item in *vars {
+                    let mut init_expr = item.default;
+                    let target_expr = match *item.var {
+                        Expr::Assign { var, expr, .. } => {
+                            if init_expr.is_none() {
+                                init_expr = Some(expr);
+                            }
+                            var
+                        }
+                        _ => item.var,
+                    };
+
+                    if let Some(raw_name) = self.extract_static_var_name(target_expr) {
+                        let var_name =
+                            self.sanitize_name(raw_name.split('=').next().unwrap_or(raw_name.as_str()));
+                        let init = if let Some(default) = init_expr {
+                            self.emit_expr(default)?
+                        } else {
+                            "undefined".to_string()
+                        };
+                        if !self.is_declared(&var_name) {
+                            self.body.push_str(&format!("let {} = {};\n", var_name, init));
+                            self.declare_in_scope(&var_name);
+                        } else {
+                            self.body.push_str(&format!("{} = {};\n", var_name, init));
+                        }
+                    } else {
+                        self.body.push_str(
+                            "// unsupported static declaration target in JS subset mode\n",
+                        );
+                    }
+                }
+                Ok(())
+            }
+            Stmt::Unset { vars, .. } => {
+                for var in *vars {
+                    let target = self.emit_expr(*var)?;
+                    self.body.push_str(&format!("{} = undefined;\n", target));
+                }
+                Ok(())
+            }
             Stmt::Break { .. } => {
                 self.body.push_str("break;\n");
                 Ok(())
@@ -1207,6 +1255,17 @@ impl<'a> JsSubsetEmitter<'a> {
         match expr {
             Expr::Variable { name, .. } => Ok(self.span_name(*name)),
             _ => Err("foreach key/value target must be a variable in subset emitter".to_string()),
+        }
+    }
+
+    fn extract_static_var_name(&self, expr: ExprId<'_>) -> Option<String> {
+        match expr {
+            Expr::Variable { name, .. } => Some(self.span_name(*name)),
+            Expr::IndirectVariable { name, .. } => match *name {
+                Expr::Variable { name, .. } => Some(self.span_name(*name)),
+                _ => Some(self.span_name(name.span())),
+            },
+            _ => Some(self.span_name(expr.span())),
         }
     }
 
@@ -1868,6 +1927,27 @@ try {
         assert!(js.contains("try {"));
         assert!(js.contains("catch (e) {"));
         assert!(js.contains("finally {"));
+    }
+
+    #[test]
+    fn emits_global_static_unset_statements() {
+        let source = r#"
+function demo($x: int): int {
+  global $shared;
+  static $count = 1;
+  unset($shared);
+  return $x;
+}
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("global declarations are no-ops"));
+        assert!(js.contains("let count = 1;"));
+        assert!(js.contains("shared = undefined;"));
     }
 
 }
