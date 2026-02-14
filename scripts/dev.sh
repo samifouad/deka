@@ -29,4 +29,4 @@ if [ "$USE_LSP_SIDECAR" = "1" ]; then
   done
 fi
 
-ADWA_ROOT="$ROOT_DIR" deka serve "$ROOT_DIR/dev.ts"
+ADWA_ROOT="" deka serve "/examples/browser/index.html"
