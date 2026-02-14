@@ -35,6 +35,28 @@ Do not add Node/Bun compatibility work in this mission.
 - Do not amend/rewrite commit history unless explicitly requested.
 - Include verification summary in each commit message.
 
+## Checkpoint process (mandatory)
+
+`checkpoint` is a required quality gate before continuing major work.
+
+- Trigger checkpoint when:
+  - finishing a phase milestone,
+  - switching repos/runtime tracks,
+  - touching runtime execution, CLI behavior, LSP behavior, or ADWA host behavior,
+  - before handing off to another agent/session.
+- Checkpoint steps:
+  - Run release builds/tests for touched areas.
+  - Verify local artifact wiring and lineage (`deka`, `phpx_lsp`, manifest).
+  - Execute basic human validation flow:
+    - `deka run` smoke on a minimal PHPX file.
+    - `deka serve` smoke and confirm endpoint behavior.
+    - ADWA build/e2e checks for browser platform updates.
+  - Record a short checkpoint summary in commit message or task notes:
+    - what passed,
+    - what failed,
+    - what was deferred and why.
+- Do not proceed to the next major task until checkpoint results are captured.
+
 ## Build and verification policy
 
 - Build release artifacts only.
@@ -46,10 +68,10 @@ Do not add Node/Bun compatibility work in this mission.
   - `~/.local/bin/deka -> ~/Projects/deka/mvp/target/release/cli`
   - `~/.local/bin/phpx_lsp -> ~/Projects/deka/mvp/target/release/phpx_lsp`
 
-ADWA runtime/UI changes:
+ADWA runtime/UI changes (current script names still use `wosix`):
 
-1. `scripts/run-adwa-playground.sh --build-only`
-2. `ADWA_E2E_INCLUDE_PHPX=1 ./scripts/test-adwa-playground-e2e.sh`
+1. `scripts/run-wosix-playground.sh --build-only`
+2. `WOSIX_E2E_INCLUDE_PHPX=1 ./scripts/test-wosix-playground-e2e.sh`
 
 ## Artifact/version discipline
 
