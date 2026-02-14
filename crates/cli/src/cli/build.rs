@@ -770,6 +770,40 @@ impl<'a> JsSubsetEmitter<'a> {
                 let args_js = self.emit_call_args(args)?;
                 Ok(format!("{}.{}({})", target_js, method_name, args_js))
             }
+            Expr::StaticCall {
+                class,
+                method,
+                args,
+                ..
+            } => {
+                let class_js = self.emit_expr(*class)?;
+                let method_name = match *method {
+                    Expr::Variable { name, .. } => self.span_name(*name),
+                    _ => {
+                        return Err(
+                            "dynamic static method calls are not supported in subset emitter"
+                                .to_string(),
+                        )
+                    }
+                };
+                let args_js = self.emit_call_args(args)?;
+                Ok(format!("{}.{}({})", class_js, method_name, args_js))
+            }
+            Expr::ClassConstFetch {
+                class, constant, ..
+            } => {
+                let class_js = self.emit_expr(*class)?;
+                let const_name = match *constant {
+                    Expr::Variable { name, .. } => self.span_name(*name),
+                    _ => {
+                        return Err(
+                            "dynamic class constant access is not supported in subset emitter"
+                                .to_string(),
+                        )
+                    }
+                };
+                Ok(format!("{}.{}", class_js, const_name))
+            }
             Expr::NullsafePropertyFetch {
                 target, property, ..
             } => {
@@ -1579,6 +1613,22 @@ throw "boom";
         let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect("subset emit");
         assert!(js.contains("throw \"boom\";"));
+    }
+
+    #[test]
+    fn emits_static_call_and_class_const_fetch() {
+        let source = r#"
+$value = Option::Some(1);
+$status = Http::OK;
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("Option.Some(1)"));
+        assert!(js.contains("Http.OK"));
     }
 
 }
