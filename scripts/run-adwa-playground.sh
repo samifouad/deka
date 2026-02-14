@@ -2,7 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ADWA_DIR="$ROOT_DIR/adwa"
+DEFAULT_ADWA_DIR="$ROOT_DIR/../adwa"
+ADWA_DIR="${ADWA_DIR:-$DEFAULT_ADWA_DIR}"
+if [ ! -d "$ADWA_DIR" ]; then
+  ADWA_DIR="$ROOT_DIR/adwa"
+fi
 PORT="${PORT:-5173}"
 ADWA_JS_DIR="$ADWA_DIR/js"
 

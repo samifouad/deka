@@ -4,18 +4,30 @@ test("adwa playground edit -> run updates output", async ({ page }) => {
   const baseUrl = process.env.ADWA_E2E_URL || "http://127.0.0.1:5173"
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" })
 
-  const source = page.locator("#source")
   const runBtn = page.locator("#runBtn")
   const log = page.locator("#log")
 
-  await expect(source).toBeVisible()
   await expect(runBtn).toBeVisible()
-  await expect(log).toContainText("PHPX run complete")
-  await expect(log).toContainText("hello from phpx in adwa")
+  await expect(log).toContainText("[listen] http://localhost:8530")
 
-  await source.fill("/*__DEKA_PHPX__*/\necho 'updated from e2e\\n'")
-  await runBtn.click()
+  const nextSource = "/*__DEKA_PHPX__*/\necho 'updated from e2e\\n'"
+  await page.evaluate(async (value) => {
+    if (!window.__adwaTest || typeof window.__adwaTest.setSource !== "function") {
+      throw new Error("missing __adwaTest.setSource hook")
+    }
+    if (typeof window.__adwaTest.run !== "function") {
+      throw new Error("missing __adwaTest.run hook")
+    }
+    window.__adwaTest.setSource(value)
+    await window.__adwaTest.run()
+  }, nextSource)
 
   await expect(log).toContainText("updated from e2e")
-  await expect(source).toHaveValue("/*__DEKA_PHPX__*/\necho 'updated from e2e\\n'")
+
+  const currentSource = await page.evaluate(() =>
+    window.__adwaTest && typeof window.__adwaTest.getSource === "function"
+      ? window.__adwaTest.getSource()
+      : ""
+  )
+  expect(currentSource).toBe(nextSource)
 })

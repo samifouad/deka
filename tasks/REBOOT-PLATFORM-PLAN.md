@@ -119,5 +119,10 @@ Backported into `mvp`:
 
 Still pending backport review:
 
-- [ ] LSP import/export diagnostics + completion parity set from archive commits, without pulling unfinished `phpx_lsp_core` split into `mvp`.
-- [ ] Any remaining ADWA command-runtime parity commits that are not already present in `mvp` runtime path.
+- [x] LSP import/export diagnostics + completion parity set from archive commits, without pulling unfinished `phpx_lsp_core` split into `mvp`.
+- [x] Any remaining ADWA command-runtime parity commits that are not already present in `mvp` runtime path.
+
+Verification notes (2026-02-14):
+- `cargo test -p phpx_lsp --release -- --nocapture` (import/export diagnostics + completion tests green)
+- `scripts/run-adwa-playground.sh --build-only` and `scripts/test-adwa-playground-e2e.sh` (green)
+- ADWA script pathing supports standalone repo default (`../adwa`) with local fallback.

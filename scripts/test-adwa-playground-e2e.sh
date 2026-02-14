@@ -2,6 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEFAULT_ADWA_DIR="$ROOT_DIR/../adwa"
+ADWA_DIR="${ADWA_DIR:-$DEFAULT_ADWA_DIR}"
+if [ ! -d "$ADWA_DIR" ]; then
+  ADWA_DIR="$ROOT_DIR/adwa"
+fi
 E2E_DIR="${ROOT_DIR}/tests/manual/hmr_e2e"
 PORT="${ADWA_E2E_PORT:-5173}"
 HOST="${ADWA_E2E_HOST:-127.0.0.1}"
@@ -15,13 +20,13 @@ INCLUDE_PHPX="${ADWA_E2E_INCLUDE_PHPX:-0}"
 echo "[adwa-e2e] building demo assets"
 PORT="$PORT" "${ROOT_DIR}/scripts/run-adwa-playground.sh" --build-only
 
-if rg -n "vendor/php_rs|php_rs\\.js|php_rs_bg\\.wasm" "${ROOT_DIR}/adwa/examples/browser/main.js" >/dev/null 2>&1; then
+if rg -n "vendor/php_rs|php_rs\\.js|php_rs_bg\\.wasm" "${ADWA_DIR}/examples/browser/main.js" >/dev/null 2>&1; then
   echo "[adwa-e2e] architecture guard failed: browser demo imports php-rs directly."
   echo "[adwa-e2e] use runtime adapter APIs instead of direct php-rs wasm wiring."
   exit 1
 fi
 
-if rg -n "WebAssembly\\.instantiate|WebAssembly\\.instantiateStreaming" "${ROOT_DIR}/adwa/examples/browser/main.js" >/dev/null 2>&1; then
+if rg -n "WebAssembly\\.instantiate|WebAssembly\\.instantiateStreaming" "${ADWA_DIR}/examples/browser/main.js" >/dev/null 2>&1; then
   echo "[adwa-e2e] architecture guard failed: browser demo calls raw WebAssembly instantiate APIs."
   echo "[adwa-e2e] wasm startup must stay behind runtime adapter abstractions."
   exit 1
@@ -29,7 +34,7 @@ fi
 
 echo "[adwa-e2e] serving browser demo at $URL"
 (
-  cd "${ROOT_DIR}/adwa/examples/browser"
+  cd "${ADWA_DIR}/examples/browser"
   python3 -m http.server "$PORT" >"$LOG_FILE" 2>&1
 ) &
 SERVER_PID=$!
