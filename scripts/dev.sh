@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SIDE_HOST="${PHPX_LSP_HOST:-127.0.0.1}"
 SIDE_PORT="${PHPX_LSP_PORT:-8531}"
 USE_LSP_SIDECAR="${PHPX_LSP_SIDECAR:-0}"
+DEV_PORT="${ADWA_DEV_PORT:-8530}"
 
 SIDE_PID=""
 if [ "$USE_LSP_SIDECAR" = "1" ]; then
@@ -29,4 +30,10 @@ if [ "$USE_LSP_SIDECAR" = "1" ]; then
   done
 fi
 
-ADWA_ROOT="" deka serve "/examples/browser/index.html"
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 is required for adwa dev server"
+  exit 1
+fi
+
+echo "[adwa-dev] serving $ROOT_DIR/examples/browser at http://localhost:${DEV_PORT}"
+exec python3 -m http.server "$DEV_PORT" --directory "$ROOT_DIR/examples/browser"
