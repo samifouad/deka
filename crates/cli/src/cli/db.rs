@@ -623,7 +623,7 @@ fn render_client_phpx(models: &[ModelDef]) -> String {
             model.name, model.name
         ));
     }
-    format!(
+    let raw = format!(
         "{}import {{ open_handle, close as db_close, query as db_query, exec as db_exec, rows as db_rows, begin as db_begin, commit as db_commit, rollback as db_rollback }} from 'db'\n\
 import {{ result_ok, result_err, result_is_ok }} from 'core/result'\n\n\
 function quote_ident($name) {{\n\
@@ -1077,7 +1077,173 @@ export function createClient($meta, $handle = null) {{\n\
     }}\n\
 }}\n",
         GENERATED_HEADER, model_map
-    )
+    );
+    annotate_untyped_params(&raw)
+}
+
+fn annotate_untyped_params(source: &str) -> String {
+    let bytes = source.as_bytes();
+    let mut out = String::with_capacity(source.len() + 256);
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let rest = &source[i..];
+        let is_function = rest.starts_with("function ");
+        let is_fn = (rest.starts_with("fn(") || rest.starts_with("fn ("))
+            && (i == 0 || !is_ident_char(bytes[i - 1] as char));
+        if is_function || is_fn {
+            let open_idx = if is_function {
+                match source[i..].find('(') {
+                    Some(rel) => i + rel,
+                    None => {
+                        out.push(bytes[i] as char);
+                        i += 1;
+                        continue;
+                    }
+                }
+            } else {
+                let mut j = i + 2;
+                while j < bytes.len() && source.as_bytes()[j].is_ascii_whitespace() {
+                    j += 1;
+                }
+                if j >= bytes.len() || source.as_bytes()[j] != b'(' {
+                    out.push(bytes[i] as char);
+                    i += 1;
+                    continue;
+                }
+                j
+            };
+
+            let close_idx = match matching_paren(source, open_idx) {
+                Some(idx) => idx,
+                None => {
+                    out.push(bytes[i] as char);
+                    i += 1;
+                    continue;
+                }
+            };
+
+            out.push_str(&source[i..=open_idx]);
+            out.push_str(&annotate_param_list(&source[open_idx + 1..close_idx]));
+            out.push(')');
+            i = close_idx + 1;
+            continue;
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+    out
+}
+
+fn matching_paren(source: &str, open_idx: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut depth = 0i32;
+    let mut i = open_idx;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+fn annotate_param_list(params: &str) -> String {
+    if params.trim().is_empty() {
+        return String::new();
+    }
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut depth_paren = 0i32;
+    let mut depth_brace = 0i32;
+    let mut depth_bracket = 0i32;
+    let mut depth_angle = 0i32;
+    let mut in_single = false;
+    let mut in_double = false;
+    let bytes = params.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if in_single {
+            if b == b'\'' && (i == 0 || bytes[i - 1] != b'\\') {
+                in_single = false;
+            }
+            i += 1;
+            continue;
+        }
+        if in_double {
+            if b == b'"' && (i == 0 || bytes[i - 1] != b'\\') {
+                in_double = false;
+            }
+            i += 1;
+            continue;
+        }
+        match b {
+            b'\'' => in_single = true,
+            b'"' => in_double = true,
+            b'(' => depth_paren += 1,
+            b')' => depth_paren -= 1,
+            b'{' => depth_brace += 1,
+            b'}' => depth_brace -= 1,
+            b'[' => depth_bracket += 1,
+            b']' => depth_bracket -= 1,
+            b'<' => depth_angle += 1,
+            b'>' => depth_angle -= 1,
+            b',' if depth_paren == 0 && depth_brace == 0 && depth_bracket == 0 && depth_angle == 0 => {
+                parts.push(annotate_single_param(&params[start..i]));
+                start = i + 1;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    parts.push(annotate_single_param(&params[start..]));
+    parts.join(",")
+}
+
+fn annotate_single_param(param: &str) -> String {
+    let bytes = param.as_bytes();
+    let mut dollar_idx = None;
+    for (i, b) in bytes.iter().enumerate() {
+        if *b == b'$' {
+            dollar_idx = Some(i);
+            break;
+        }
+    }
+    let Some(start) = dollar_idx else {
+        return param.to_string();
+    };
+    let mut end = start + 1;
+    while end < bytes.len() {
+        let c = bytes[end] as char;
+        if c.is_ascii_alphanumeric() || c == '_' {
+            end += 1;
+        } else {
+            break;
+        }
+    }
+    let mut after = end;
+    while after < bytes.len() && bytes[after].is_ascii_whitespace() {
+        after += 1;
+    }
+    if after < bytes.len() && bytes[after] == b':' {
+        return param.to_string();
+    }
+    let mut out = String::with_capacity(param.len() + 8);
+    out.push_str(&param[..end]);
+    out.push_str(": mixed");
+    out.push_str(&param[end..]);
+    out
+}
+
+fn is_ident_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_' || ch == '$'
 }
 
 fn render_meta_phpx(models: &[ModelDef]) -> String {
@@ -1665,15 +1831,16 @@ struct User {
         assert!(client.contains("function field_value"));
         assert!(client.contains("if ($expr === null)"));
         assert!(client.contains("connect: connect"));
-        assert!(client.contains("withHandle: fn($nextHandle) => createClient($meta, $nextHandle)"));
+        assert!(client
+            .contains("withHandle: fn($nextHandle: mixed) => createClient($meta, $nextHandle)"));
         assert!(client.contains("transaction: transaction"));
-        assert!(client.contains("selectMany: fn($model, $where = null, $order = null, $limit = null, $offset = null, $includes = null) => selectMany($handle, $meta, $model, $where, $order, $limit, $offset, $includes)"));
+        assert!(client.contains("selectMany: fn($model: mixed, $where: mixed = null, $order: mixed = null, $limit: mixed = null, $offset: mixed = null, $includes: mixed = null) => selectMany($handle, $meta, $model, $where, $order, $limit, $offset, $includes)"));
         assert!(client.contains("insertOne: insertOne"));
         assert!(client.contains("select: fn() => select($handle, $meta)"));
-        assert!(client.contains("insert: fn($model) => insert($handle, $model)"));
-        assert!(client.contains("update: fn($model) => update($handle, $model)"));
-        assert!(client.contains("'delete': fn($model) => deleteQuery($handle, $model)"));
-        assert!(client.contains("loadRelation: fn($model, $row, $field) => loadRelation($handle, $meta, $model, $row, $field)"));
+        assert!(client.contains("insert: fn($model: mixed) => insert($handle, $model)"));
+        assert!(client.contains("update: fn($model: mixed) => update($handle, $model)"));
+        assert!(client.contains("'delete': fn($model: mixed) => deleteQuery($handle, $model)"));
+        assert!(client.contains("loadRelation: fn($model: mixed, $row: mixed, $field: mixed) => loadRelation($handle, $meta, $model, $row, $field)"));
         assert!(client.contains("ilike: ilike"));
         assert!(client.contains("isNull: isNull"));
         assert!(client.contains("asc: asc"));
@@ -1814,6 +1981,21 @@ struct User {
             "generated client parse errors: {:?}",
             program.errors
         );
+    }
+
+    #[test]
+    fn annotate_untyped_params_rewrites_function_and_fn_params() {
+        let src = "function a($x, &$y = null) { return fn($z, ...$rest) => $z; }";
+        let got = super::annotate_untyped_params(src);
+        assert!(got.contains("function a($x: mixed, &$y: mixed = null)"));
+        assert!(got.contains("fn($z: mixed, ...$rest: mixed)"));
+    }
+
+    #[test]
+    fn annotate_untyped_params_preserves_typed_params() {
+        let src = "function a($x: int, $y: string = 'ok') { return fn($z: bool) => $z; }";
+        let got = super::annotate_untyped_params(src);
+        assert_eq!(got, src);
     }
 
     fn mask_module_syntax_for_parser(source: &str) -> String {

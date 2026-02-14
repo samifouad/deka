@@ -79,7 +79,8 @@ async fn serve_async(context: &Context) -> Result<(), String> {
         stdio_log::log("dev", "enabled");
     }
 
-    let serve_options = pool::validation::ServeOptions::default();
+    let mut serve_options = pool::validation::ServeOptions::default();
+    apply_cli_serve_overrides(context, &mut serve_options);
 
     let (server_pool_config, user_pool_config) = configure_pools(
         &handler_source,
@@ -138,6 +139,14 @@ async fn serve_async(context: &Context) -> Result<(), String> {
     spawn_archive_task(&state, engine.archive());
 
     serve_listeners(state, &serve_options, perf_mode, server_pool_workers).await
+}
+
+fn apply_cli_serve_overrides(context: &Context, serve_options: &mut pool::validation::ServeOptions) {
+    if let Some(port) = context.args.params.get("--port") {
+        if let Ok(value) = port.parse::<u16>() {
+            serve_options.port = Some(value);
+        }
+    }
 }
 
 fn validate_phpx_modules(handler_path: &str) -> Result<(), String> {

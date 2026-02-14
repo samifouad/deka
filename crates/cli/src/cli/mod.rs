@@ -150,6 +150,8 @@ pub fn error(msg: Option<&str>) {
 }
 
 pub fn execute(registry: &Registry) {
+    let has_user_args = std::env::args().nth(1).is_some();
+
     let parsed = core::parse_env(registry);
     if !parsed.errors.is_empty() {
         let message = format_parse_errors(&parsed.errors);
@@ -191,7 +193,7 @@ pub fn execute(registry: &Registry) {
     {
     // Check for embedded VFS (compiled binary mode)
     // When a binary is compiled with VFS, it should automatically start in the appropriate mode
-    if runtime::has_embedded_vfs() {
+    if runtime::has_embedded_vfs() && !has_user_args {
         let context = match Context::from_env(registry) {
             Ok(context) => context,
             Err(_) => {
