@@ -616,6 +616,50 @@ impl<'a> JsSubsetEmitter<'a> {
                 self.body.push_str(&format!("throw {};\n", value));
                 Ok(())
             }
+            Stmt::Try {
+                body,
+                catches,
+                finally,
+                ..
+            } => {
+                self.body.push_str("try {\n");
+                self.push_scope();
+                for inner in *body {
+                    self.emit_stmt(*inner)?;
+                }
+                self.pop_scope();
+                self.body.push_str("}");
+
+                if let Some(first_catch) = catches.first() {
+                    let err_name = if let Some(var) = first_catch.var {
+                        let name = self.token_name(var);
+                        if name.is_empty() { "err".to_string() } else { name }
+                    } else {
+                        "err".to_string()
+                    };
+                    self.body.push_str(&format!(" catch ({}) {{\n", err_name));
+                    self.push_scope();
+                    self.declare_in_scope(&err_name);
+                    for inner in first_catch.body {
+                        self.emit_stmt(*inner)?;
+                    }
+                    self.pop_scope();
+                    self.body.push_str("}");
+                }
+
+                if let Some(finally_block) = finally {
+                    self.body.push_str(" finally {\n");
+                    self.push_scope();
+                    for inner in *finally_block {
+                        self.emit_stmt(*inner)?;
+                    }
+                    self.pop_scope();
+                    self.body.push_str("}");
+                }
+
+                self.body.push('\n');
+                Ok(())
+            }
             Stmt::Echo { exprs, .. } => {
                 for expr in *exprs {
                     let value = self.emit_expr(*expr)?;
@@ -1802,6 +1846,28 @@ const ANSWER = 42;
         let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect("subset emit");
         assert!(js.contains("const ANSWER = 42;"));
+    }
+
+    #[test]
+    fn emits_try_catch_finally_statement() {
+        let source = r#"
+try {
+  throw "boom";
+} catch (Exception $e) {
+  $msg = $e;
+} finally {
+  $done = true;
+}
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("try {"));
+        assert!(js.contains("catch (e) {"));
+        assert!(js.contains("finally {"));
     }
 
 }
