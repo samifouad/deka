@@ -1,5 +1,16 @@
 # Agent Notes (Current Mission)
 
+## Canonical Repo Policy (non-negotiable)
+
+- **ACTIVE IMPLEMENTATION REPO:** `~/Projects/deka/mvp`
+- **ARCHIVE SOURCE REPO (read-only):** `~/Projects/deka/deka-ARCHIVE`
+- **Browser host substrate repo:** `~/Projects/deka/adwa`
+
+You must only implement, test, and commit runtime/CLI/LSP MVP work in `~/Projects/deka/mvp`.
+
+`~/Projects/deka/deka-ARCHIVE` is migration source only.
+Do not run active task work there.
+
 ## Mission scope (active)
 
 Primary plan: `tasks/REBOOT-PLATFORM-PLAN.md`.
@@ -7,7 +18,7 @@ Primary plan: `tasks/REBOOT-PLATFORM-PLAN.md`.
 MVP platforms only:
 
 - `platform_server`
-- `platform_browser` (WOSIX)
+- `platform_browser` (ADWA)
 
 Deferred platforms (post-MVP):
 
@@ -31,11 +42,14 @@ Do not add Node/Bun compatibility work in this mission.
 - Run relevant tests/checks before commit.
 - Use `scripts/build-release-manifest.sh` to produce release artifacts + `target/release/deka-manifest.json`.
 - Use `scripts/verify-release-manifest.sh` to fail fast on stale/mismatched `cli` and `php_rs.wasm` artifacts.
+- Keep local PATH wiring pinned to this repo's release binaries:
+  - `~/.local/bin/deka -> ~/Projects/deka/mvp/target/release/cli`
+  - `~/.local/bin/phpx_lsp -> ~/Projects/deka/mvp/target/release/phpx_lsp`
 
-WOSIX runtime/UI changes:
+ADWA runtime/UI changes:
 
-1. `scripts/run-wosix-playground.sh --build-only`
-2. `WOSIX_E2E_INCLUDE_PHPX=1 ./scripts/test-wosix-playground-e2e.sh`
+1. `scripts/run-adwa-playground.sh --build-only`
+2. `ADWA_E2E_INCLUDE_PHPX=1 ./scripts/test-adwa-playground-e2e.sh`
 
 ## Artifact/version discipline
 
