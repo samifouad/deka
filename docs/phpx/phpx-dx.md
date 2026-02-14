@@ -91,6 +91,7 @@ Rules:
 - Keys: identifiers or quoted strings only (no computed keys yet).
 - Dot access works for object literals and structs (not classes).
 - Object literals use value semantics for `==` and `===` (deep compare by key).
+- JS target note: when compiling with `deka build`, emitted comparisons follow JS semantics (`===`/`!==`) rather than PHPX runtime deep-equality behavior.
 - `get_class()` returns `stdClass` for object literals and the struct name for structs.
 - `property_exists()` checks object-literal keys and struct fields (including promoted).
 - `method_exists()` works for structs; object literals always return false.
