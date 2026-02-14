@@ -38,3 +38,38 @@ This keeps normal runtime delivery smaller and avoids shipping editor-only binar
 - Build scripts are release-first for artifact consistency.
 
 See `ARCHITECTURE.md` and `API_MAPPING.md` for deeper details.
+
+## Binaries And Artifacts (Dev vs Prod)
+
+### Dev deliverables
+- Rust outputs in `target/release/*` during local iteration.
+- Browser demo payload under `examples/browser/vendor/*` after:
+
+```sh
+./scripts/build-demo.sh
+```
+
+### Prod deliverables (ship list)
+Required runtime payload:
+- `crates/adwa-wasm/pkg/adwa_wasm_bg.wasm`
+- `crates/adwa-wasm/pkg/adwa_wasm.js`
+- `crates/adwa-wasm/pkg/adwa_wasm.d.ts`
+- Browser app files in `examples/browser/` (`index.html`, `main.js`, `styles.css`, `core/*`, `ui/*`)
+- Runtime vendor bundle in `examples/browser/vendor/adwa_wasm/*`
+- Runtime vendor bundle in `examples/browser/vendor/adwa_js/*`
+
+Optional editor payload (only when enabled):
+- `examples/browser/vendor/adwa_editor/*`
+
+To include optional editor payload:
+
+```sh
+ADWA_DEMO_INCLUDE_EDITOR=1 ./scripts/build-demo.sh
+```
+
+Do not ship:
+- `target/release/deps/*`
+- `target/release/*.d`
+- `target/release/*.rlib`
+- `target/release/build/*`
+- `target/release/.fingerprint/*`
