@@ -687,6 +687,14 @@ impl<'a> JsSubsetEmitter<'a> {
                 let body = self.emit_expr(*expr)?;
                 Ok(format!("({}) => {}", names.join(", "), body))
             }
+            Expr::Closure { params, body, .. } => {
+                let mut names = Vec::with_capacity(params.len());
+                for param in *params {
+                    names.push(self.token_name(param.name));
+                }
+                let block = self.emit_stmt_block_inline(body)?;
+                Ok(format!("function({}) {{\n{} }}", names.join(", "), block))
+            }
             Expr::Call { func, args, .. } => {
                 let callee = self.emit_expr(*func)?;
                 let args_js = self.emit_call_args(args)?;
@@ -947,6 +955,18 @@ impl<'a> JsSubsetEmitter<'a> {
         let fn_name = if child_values.len() > 1 { "jsxs" } else { "jsx" };
 
         Ok(format!("{}({}, {})", fn_name, tag_expr, props_expr))
+    }
+
+    fn emit_stmt_block_inline(&mut self, stmts: &[StmtId<'_>]) -> Result<String, String> {
+        let saved = std::mem::take(&mut self.body);
+        self.push_scope();
+        for stmt in stmts {
+            self.emit_stmt(*stmt)?;
+        }
+        self.pop_scope();
+        let block = std::mem::take(&mut self.body);
+        self.body = saved;
+        Ok(block)
     }
 
     fn emit_expr_list(&mut self, exprs: &[ExprId<'_>]) -> Result<String, String> {
@@ -1465,6 +1485,23 @@ print("hi")
         let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect("subset emit");
         assert!(js.contains("console.log(\"hi\")"));
+    }
+
+    #[test]
+    fn emits_closure_expression() {
+        let source = r#"
+$fn = function ($x: int) {
+  return $x + 1
+}
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("function(x)"));
+        assert!(js.contains("return (x + 1);"));
     }
 
 }
