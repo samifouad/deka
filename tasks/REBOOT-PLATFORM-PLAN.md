@@ -10,7 +10,7 @@ Reboot Deka around PHP/PHPX only, with a clean platform abstraction and a single
 MVP platforms:
 
 - [x] `platform_server`
-- [x] `platform_browser` (WOSIX)
+- [x] `platform_browser` (ADWA)
 
 Deferred (post-MVP):
 
@@ -65,17 +65,17 @@ Deferred (post-MVP):
 - [x] Minimize direct Deno touchpoints to server platform adapter.
 - [x] Restore parity for `deka run` and `deka serve` on server.
 
-## Phase 4: Browser Platform (WOSIX)
+## Phase 4: Browser Platform (ADWA)
 
-- [x] Implement `platform_browser` on WOSIX primitives (initial adapter scaffold).
+- [x] Implement `platform_browser` on ADWA primitives (initial adapter scaffold).
 - [x] Remove browser-side "serve magic" and command stubs.
 - [x] Make `cli` crate buildable for `wasm32-unknown-unknown` (`--no-default-features`) as browser command-runtime baseline.
 - [x] Remove browser-CLI startup panics from unsupported env reads (wasm-safe startup for help/version paths).
-- [x] Add host command-runtime injection in WOSIX JS and a `createDekaWasmCommandRuntime(...)` adapter.
+- [x] Add host command-runtime injection in ADWA JS and a `createDekaWasmCommandRuntime(...)` adapter.
 - [x] Wire demo vendor build to ship `deka_cli.wasm` and boot with wasm-based `deka` command runtime.
 - [x] Add smoke test for wasm deka command runtime (`npm run smoke:deka-wasm-runtime`).
 - [x] Add browser command runtime wrapper that handles `deka run <file>` via PHP runtime adapter and delegates other commands to wasm CLI runtime.
-- [x] Add POSIX-style command resolver in WOSIX JS (`PATH` + shebang interpreter chaining) so executable scripts route to registered runtimes without command-name hacks.
+- [x] Add POSIX-style command resolver in ADWA JS (`PATH` + shebang interpreter chaining) so executable scripts route to registered runtimes without command-name hacks.
 - [x] Run real `deka` process semantics in browser host (foreground `deka serve` lifecycle: boot logs, port publish/unpublish, wait-until-kill).
 - [x] Keep strict module/network restrictions in browser adapter.
 
@@ -105,3 +105,19 @@ Deferred (post-MVP):
 - [x] No Node/Bun compatibility code remains in reboot repo.
 - [x] Runtime core contains no platform-specific glue.
 - [x] Artifact versioning and stale detection are enforced.
+
+## Migration Audit (Archive -> MVP)
+
+Backported into `mvp`:
+
+- [x] Runtime/CLI: honor explicit CLI args before embedded VFS auto-serve path.
+- [x] Runtime Serve: honor `--port` override in listener binding.
+- [x] PHPX parser: enforce explicit parameter typing in user mode.
+- [x] CLI DB generator: emit parser-safe typed params under strict PHPX rules.
+- [x] Canonical repo policy: `mvp` active, `deka-ARCHIVE` read-only.
+- [x] Missing ADWA docs/tasks synced into `mvp`.
+
+Still pending backport review:
+
+- [ ] LSP import/export diagnostics + completion parity set from archive commits, without pulling unfinished `phpx_lsp_core` split into `mvp`.
+- [ ] Any remaining ADWA command-runtime parity commits that are not already present in `mvp` runtime path.
