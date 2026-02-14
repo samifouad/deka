@@ -25,6 +25,12 @@ Runtime notes:
 - A hand-maintained stdlib map is used for `.php` compatibility; `.phpx` should
   import stdlib functions explicitly.
 
+## JS target semantics (`deka build`)
+- JS target runtime behavior is JavaScript-first by design.
+- PHPX type/module/validation rules are enforced before emit.
+- Emitted output should prefer idiomatic JS lowering over PHP emulation.
+- Full contract: `docs/phpx/phpx-js-target-semantics.md`.
+
 ## Module system (PHPX)
 - `import { foo } from './bar.phpx'` and `export function foo()` are supported.
 - Default imports use `import Foo from 'module'` and expect
