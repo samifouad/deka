@@ -21,9 +21,7 @@ Primary binary:
 Minimum package:
 - `target/release/cli`
 
-Optional co-shipped utilities (only if your distribution needs them):
-- `target/release/php`
-- `target/release/php-fpm`
+Optional co-shipped utility (only if your distribution needs WIT->PHPX codegen):
 - `target/release/wit-phpx`
 
 Do not ship:
