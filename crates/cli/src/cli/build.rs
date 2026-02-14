@@ -562,32 +562,8 @@ impl<'a> JsSubsetEmitter<'a> {
             }
             Expr::Call { func, args, .. } => {
                 let callee = self.emit_expr(*func)?;
-                if args.iter().all(|a| a.name.is_none() && !a.unpack) {
-                    let mut rendered = Vec::with_capacity(args.len());
-                    for arg in *args {
-                        rendered.push(self.emit_expr(arg.value)?);
-                    }
-                    return Ok(format!("{}({})", callee, rendered.join(", ")));
-                }
-
-                if args.iter().all(|a| a.name.is_some() && !a.unpack) {
-                    let mut entries = Vec::with_capacity(args.len());
-                    for arg in *args {
-                        let name = arg
-                            .name
-                            .map(|tok| self.sanitize_name(&self.token_text(tok)))
-                            .ok_or_else(|| {
-                                "mixed positional/named arguments are not supported in subset emitter"
-                                    .to_string()
-                            })?;
-                        let value = self.emit_expr(arg.value)?;
-                        entries.push(format!("{}: {}", json_string(&name), value));
-                    }
-                    return Ok(format!("{}({{{}}})", callee, entries.join(", ")));
-                }
-
-                Err("mixed positional/named/unpack call arguments are not supported in subset emitter"
-                    .to_string())
+                let args_js = self.emit_call_args(args)?;
+                Ok(format!("{}({})", callee, args_js))
             }
             Expr::Assign { var, expr, .. } => {
                 if let Expr::Variable { name, .. } = *var {
@@ -609,6 +585,58 @@ impl<'a> JsSubsetEmitter<'a> {
                     }
                     _ => Err("dynamic property access is not supported in subset emitter".to_string()),
                 }
+            }
+            Expr::MethodCall {
+                target,
+                method,
+                args,
+                ..
+            } => {
+                let target_js = self.emit_expr(*target)?;
+                let method_name = match *method {
+                    Expr::Variable { name, .. } => self.span_name(*name),
+                    _ => {
+                        return Err(
+                            "dynamic method calls are not supported in subset emitter".to_string(),
+                        )
+                    }
+                };
+                let args_js = self.emit_call_args(args)?;
+                Ok(format!("{}.{}({})", target_js, method_name, args_js))
+            }
+            Expr::NullsafePropertyFetch {
+                target, property, ..
+            } => {
+                let target_js = self.emit_expr(*target)?;
+                match *property {
+                    Expr::Variable { name, .. } => {
+                        let prop = self.span_name(*name);
+                        Ok(format!("({})?.{}", target_js, prop))
+                    }
+                    _ => Err(
+                        "dynamic nullsafe property access is not supported in subset emitter"
+                            .to_string(),
+                    ),
+                }
+            }
+            Expr::NullsafeMethodCall {
+                target,
+                method,
+                args,
+                ..
+            } => {
+                let target_js = self.emit_expr(*target)?;
+                let method_name = match *method {
+                    Expr::Variable { name, .. } => self.span_name(*name),
+                    _ => {
+                        return Err(
+                            "dynamic nullsafe method calls are not supported in subset emitter"
+                                .to_string(),
+                        )
+                    }
+                };
+                let args_js = self.emit_call_args(args)?;
+                Ok(format!("({})?.{}({})", target_js, method_name, args_js))
             }
             Expr::DotAccess {
                 target, property, ..
@@ -760,6 +788,35 @@ impl<'a> JsSubsetEmitter<'a> {
         let fn_name = if child_values.len() > 1 { "jsxs" } else { "jsx" };
 
         Ok(format!("{}({}, {})", fn_name, tag_expr, props_expr))
+    }
+
+    fn emit_call_args(&mut self, args: &[php_rs::parser::ast::Arg<'_>]) -> Result<String, String> {
+        if args.iter().all(|a| a.name.is_none() && !a.unpack) {
+            let mut rendered = Vec::with_capacity(args.len());
+            for arg in args {
+                rendered.push(self.emit_expr(arg.value)?);
+            }
+            return Ok(rendered.join(", "));
+        }
+
+        if args.iter().all(|a| a.name.is_some() && !a.unpack) {
+            let mut entries = Vec::with_capacity(args.len());
+            for arg in args {
+                let name = arg
+                    .name
+                    .map(|tok| self.sanitize_name(&self.token_text(tok)))
+                    .ok_or_else(|| {
+                        "mixed positional/named arguments are not supported in subset emitter"
+                            .to_string()
+                    })?;
+                let value = self.emit_expr(arg.value)?;
+                entries.push(format!("{}: {}", json_string(&name), value));
+            }
+            return Ok(format!("{{{}}}", entries.join(", ")));
+        }
+
+        Err("mixed positional/named/unpack call arguments are not supported in subset emitter"
+            .to_string())
     }
 
     fn emit_match_expr(
@@ -1075,6 +1132,24 @@ $data = ["name" => "Sami", "role" => "owner"]
         let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect("subset emit");
         assert!(js.contains("{\"name\": \"Sami\", \"role\": \"owner\"}"));
+    }
+
+    #[test]
+    fn emits_method_and_nullsafe_access() {
+        let source = r#"
+$value = $user->getName()
+$title = $user?->profile?->title
+$nick = $user?->getNick()
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("user.getName()"));
+        assert!(js.contains("(user)?.profile"));
+        assert!(js.contains("(user)?.getNick()"));
     }
 
 }
