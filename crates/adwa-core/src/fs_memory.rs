@@ -14,7 +14,33 @@ pub struct InMemoryFileSystem {
 
 impl InMemoryFileSystem {
     pub fn new() -> Self {
-        Self::default()
+        let fs = Self::default();
+        fs.seed_linux_layout();
+        fs
+    }
+
+    fn seed_linux_layout(&self) {
+        let mut state = self.state.lock().unwrap();
+        let root = &mut state.root;
+        for dir in [
+            "/bin",
+            "/usr",
+            "/usr/bin",
+            "/home",
+            "/home/user",
+            "/tmp",
+            "/etc",
+            "/var",
+            "/var/tmp",
+        ] {
+            ensure_dir_path(root, dir);
+        }
+        ensure_file_path(root, "/etc/hosts", b"127.0.0.1 localhost\n".to_vec());
+        ensure_file_path(
+            root,
+            "/etc/os-release",
+            b"NAME=Adwa\nID=adwa\nPRETTY_NAME=\"Adwa InMemory Runtime\"\n".to_vec(),
+        );
     }
 }
 
@@ -457,6 +483,45 @@ fn get_node<'a>(node: &'a Node, components: &[String]) -> Result<&'a Node> {
         }
         _ => Err(invalid_input("path is not a directory")),
     }
+}
+
+fn ensure_dir_path(root: &mut Node, path: &str) {
+    let mut current = root;
+    for component in path
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| segment.to_string())
+    {
+        let children = match &mut current.kind {
+            NodeKind::Directory(children) => children,
+            NodeKind::File(_) => return,
+        };
+        current = children.entry(component).or_insert_with(Node::directory);
+    }
+}
+
+fn ensure_file_path(root: &mut Node, path: &str, data: Vec<u8>) {
+    let mut parts: Vec<String> = path
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| segment.to_string())
+        .collect();
+    let Some(file_name) = parts.pop() else {
+        return;
+    };
+    let mut current = root;
+    for part in parts {
+        let children = match &mut current.kind {
+            NodeKind::Directory(children) => children,
+            NodeKind::File(_) => return,
+        };
+        current = children.entry(part).or_insert_with(Node::directory);
+    }
+    let children = match &mut current.kind {
+        NodeKind::Directory(children) => children,
+        NodeKind::File(_) => return,
+    };
+    children.insert(file_name, Node::file(data, false));
 }
 
 fn get_node_mut<'a>(node: &'a mut Node, components: &[String]) -> Result<&'a mut Node> {

@@ -34,7 +34,10 @@ impl InMemoryProcessHost {
 impl ProcessHost for InMemoryProcessHost {
     fn spawn(&self, command: Command, options: SpawnOptions) -> Result<Box<dyn ProcessHandle>> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        let cwd = options.cwd.as_deref().unwrap_or_else(|| Path::new("/"));
+        let cwd = options
+            .cwd
+            .as_deref()
+            .unwrap_or_else(|| Path::new("/home/user"));
         let output = execute_command(&command, cwd, self.fs.as_deref())?;
         Ok(Box::new(InMemoryProcess::new(
             ProcessId(id),
@@ -645,6 +648,7 @@ mod tests {
                 SpawnOptions {
                     stdout: StdioMode::Piped,
                     stderr: StdioMode::Piped,
+                    cwd: Some(std::path::PathBuf::from("/")),
                     ..SpawnOptions::default()
                 },
             )
