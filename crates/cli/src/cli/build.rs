@@ -641,6 +641,8 @@ impl<'a> JsSubsetEmitter<'a> {
                     UnaryOp::Minus => "-",
                     UnaryOp::Not => "!",
                     UnaryOp::BitNot => "~",
+                    UnaryOp::PreInc => "++",
+                    UnaryOp::PreDec => "--",
                     _ => {
                         return Err(format!("unsupported unary operator in subset emitter: {:?}", op));
                     }
@@ -705,6 +707,30 @@ impl<'a> JsSubsetEmitter<'a> {
                     let js_name = self.span_name(*name);
                     let rhs = self.emit_expr(*expr)?;
                     Ok(format!("({} = {})", js_name, rhs))
+                } else {
+                    Err("subset emitter only supports assignment to simple variables".to_string())
+                }
+            }
+            Expr::AssignOp { var, op, expr, .. } => {
+                if let Expr::Variable { name, .. } = *var {
+                    let js_name = self.span_name(*name);
+                    let rhs = self.emit_expr(*expr)?;
+                    let js_op = match op {
+                        php_rs::parser::ast::AssignOp::Plus => "+=",
+                        php_rs::parser::ast::AssignOp::Minus => "-=",
+                        php_rs::parser::ast::AssignOp::Mul => "*=",
+                        php_rs::parser::ast::AssignOp::Div => "/=",
+                        php_rs::parser::ast::AssignOp::Mod => "%=",
+                        php_rs::parser::ast::AssignOp::Concat => "+=",
+                        php_rs::parser::ast::AssignOp::BitAnd => "&=",
+                        php_rs::parser::ast::AssignOp::BitOr => "|=",
+                        php_rs::parser::ast::AssignOp::BitXor => "^=",
+                        php_rs::parser::ast::AssignOp::ShiftLeft => "<<=",
+                        php_rs::parser::ast::AssignOp::ShiftRight => ">>=",
+                        php_rs::parser::ast::AssignOp::Pow => "**=",
+                        php_rs::parser::ast::AssignOp::Coalesce => "??=",
+                    };
+                    Ok(format!("({} {} {})", js_name, js_op, rhs))
                 } else {
                     Err("subset emitter only supports assignment to simple variables".to_string())
                 }
@@ -854,6 +880,20 @@ impl<'a> JsSubsetEmitter<'a> {
                     checks.push(format!("({0} !== undefined && {0} !== null)", value));
                 }
                 Ok(format!("({})", checks.join(" && ")))
+            }
+            Expr::PostInc { var, .. } => {
+                if let Expr::Variable { name, .. } = *var {
+                    Ok(format!("({}++)", self.span_name(*name)))
+                } else {
+                    Err("subset emitter only supports ++ on simple variables".to_string())
+                }
+            }
+            Expr::PostDec { var, .. } => {
+                if let Expr::Variable { name, .. } = *var {
+                    Ok(format!("({}--)", self.span_name(*name)))
+                } else {
+                    Err("subset emitter only supports -- on simple variables".to_string())
+                }
             }
             Expr::Empty { expr, .. } => {
                 let value = self.emit_expr(*expr)?;
@@ -1502,6 +1542,24 @@ $fn = function ($x: int) {
             .expect("subset emit");
         assert!(js.contains("function(x)"));
         assert!(js.contains("return (x + 1);"));
+    }
+
+    #[test]
+    fn emits_assign_ops_and_inc_dec() {
+        let source = r#"
+$counter = 1;
+$counter += 2;
+$counter--;
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("let counter = 1;"));
+        assert!(js.contains("counter += 2"));
+        assert!(js.contains("counter--)"));
     }
 
 }
