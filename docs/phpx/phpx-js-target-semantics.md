@@ -78,6 +78,14 @@ const ok = { id: 1, name: "Sami", isAdmin: true };
 
 If the source violates `User` shape/types, build fails before emit.
 
+## Introspection Integration
+
+When a module imports `deka/i`, the JS emitter injects a local runtime helper and pre-populates `__phpxTypeRegistry` from top-level PHPX `struct` declarations.
+
+- `struct` fields are lowered to runtime schemas (string/number/boolean/object/array/optional/union where available).
+- `i.get("MyStruct")`, `i.parse("MyStruct", value)`, and `i.safeParse(...)` read from that registry.
+- JSX lowering is unchanged; components remain normal functions. You opt into runtime checks by calling `i.safeParse` inside component logic (for example to validate props at boundary points).
+
 ## Non-goal
 
 Do not make JS target behave like PHP runtime by default.
