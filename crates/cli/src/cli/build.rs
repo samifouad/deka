@@ -371,6 +371,7 @@ impl<'a> JsSubsetEmitter<'a> {
                 ],
             );
         }
+        let deka_i_locals = extract_deka_i_imports(&mut imports);
 
         for decl in &imports {
             out.push_str("import { ");
@@ -388,6 +389,15 @@ impl<'a> JsSubsetEmitter<'a> {
         }
 
         if !imports.is_empty() {
+            out.push('\n');
+        }
+
+        if !deka_i_locals.is_empty() {
+            out.push_str("const __phpxTypeRegistry = {};\n\n");
+            out.push_str(&emit_deka_i_runtime());
+            for local in &deka_i_locals {
+                out.push_str(&format!("const {} = __deka_i;\n", local));
+            }
             out.push('\n');
         }
 
@@ -1567,6 +1577,28 @@ fn add_or_merge_import(imports: &mut Vec<ImportDecl>, from: &str, specs: Vec<Imp
     });
 }
 
+fn extract_deka_i_imports(imports: &mut Vec<ImportDecl>) -> Vec<String> {
+    let mut locals = Vec::new();
+    let mut kept = Vec::new();
+    for decl in imports.drain(..) {
+        if decl.from == "deka/i" {
+            for spec in decl.specs {
+                if !locals.contains(&spec.local) {
+                    locals.push(spec.local);
+                }
+            }
+        } else {
+            kept.push(decl);
+        }
+    }
+    *imports = kept;
+    locals
+}
+
+fn emit_deka_i_runtime() -> String {
+    include_str!("deka_i_runtime.js").to_string()
+}
+
 fn json_string(input: &str) -> String {
     serde_json::to_string(input).unwrap_or_else(|_| "\"\"".to_string())
 }
@@ -1617,6 +1649,31 @@ export { Card as Panel }
         assert!(js.contains("runPhpx"));
         assert!(js.contains("runtime.executePhpx"));
         assert!(js.contains("phpxTargetSemantics = \"js\""));
+    }
+
+    #[test]
+    fn rewrites_deka_i_import_to_runtime_helper() {
+        let source = r#"
+function Hello($props: object) {
+  return <span>Hello {$props.name}</span>
+}
+$view = <div><Hello name="world" /></div>
+"#;
+        let meta_source = "---
+import { i } from 'deka/i'
+---
+<div />
+";
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let meta = parse_source_module_meta(meta_source);
+        let js = emit_js_from_ast(&program, source.as_bytes(), meta).expect("subset emit");
+        assert!(!js.contains("from 'deka/i'"));
+        assert!(js.contains("const __phpxTypeRegistry = {}"));
+        assert!(js.contains("const i = __deka_i;"));
+        assert!(js.contains("safeParse"));
     }
 
     #[test]
