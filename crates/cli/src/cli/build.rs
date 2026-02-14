@@ -889,6 +889,20 @@ impl<'a> JsSubsetEmitter<'a> {
                 }
                 Ok(format!("{{{}}}", entries.join(", ")))
             }
+            Expr::StructLiteral { name, fields, .. } => {
+                let mut entries = Vec::new();
+                entries.push(format!(
+                    "{}: {}",
+                    json_string("__struct"),
+                    json_string(&self.name_last_segment(*name))
+                ));
+                for field in *fields {
+                    let key = self.token_text(field.name).trim_start_matches('$').to_string();
+                    let value = self.emit_expr(field.value)?;
+                    entries.push(format!("{}: {}", json_string(&key), value));
+                }
+                Ok(format!("{{{}}}", entries.join(", ")))
+            }
             Expr::JsxElement {
                 name,
                 attributes,
@@ -1201,6 +1215,15 @@ impl<'a> JsSubsetEmitter<'a> {
             return Err("subset emitter only supports assignment to simple variables".to_string());
         }
         Ok(None)
+    }
+
+    fn name_last_segment(&self, name: php_rs::parser::ast::Name<'_>) -> String {
+        if let Some(last) = name.parts.last() {
+            self.token_text(last).trim_start_matches('\\').to_string()
+        } else {
+            let raw = String::from_utf8_lossy(self.span_bytes(name.span)).to_string();
+            raw.rsplit('\\').next().unwrap_or(raw.as_str()).to_string()
+        }
     }
 
     fn token_name(&self, tok: &php_rs::parser::lexer::token::Token) -> String {
@@ -1629,6 +1652,22 @@ $status = Http::OK;
             .expect("subset emit");
         assert!(js.contains("Option.Some(1)"));
         assert!(js.contains("Http.OK"));
+    }
+
+    #[test]
+    fn emits_struct_literal_as_object() {
+        let source = r#"
+$user = User { $id: 1, $name: "sam" };
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("\"__struct\": \"User\""));
+        assert!(js.contains("\"id\": 1"));
+        assert!(js.contains("\"name\": \"sam\""));
     }
 
 }
