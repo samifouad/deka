@@ -672,6 +672,16 @@ impl<'a> JsSubsetEmitter<'a> {
                 };
                 Ok(format!("({} {} {})", lhs, js_op, rhs))
             }
+            Expr::ArrowFunction {
+                params, expr, ..
+            } => {
+                let mut names = Vec::with_capacity(params.len());
+                for param in *params {
+                    names.push(self.token_name(param.name));
+                }
+                let body = self.emit_expr(*expr)?;
+                Ok(format!("({}) => {}", names.join(", "), body))
+            }
             Expr::Call { func, args, .. } => {
                 let callee = self.emit_expr(*func)?;
                 let args_js = self.emit_call_args(args)?;
@@ -1418,6 +1428,20 @@ switch ($i) {
         assert!(js.contains("switch (i)"));
         assert!(js.contains("case 1:"));
         assert!(js.contains("default:"));
+    }
+
+    #[test]
+    fn emits_arrow_function_expression() {
+        let source = r#"
+$fn = fn ($x: int) => $x + 1
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("let fn = (x) => (x + 1);"));
     }
 
 }
