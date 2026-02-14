@@ -14,6 +14,7 @@ pub fn build_registry() -> Registry {
     wasm_cmd::register(&mut registry);
     #[cfg(feature = "native")]
     {
+        cli::build::register(&mut registry);
         cli::compile::register(&mut registry);
         cli::db::register(&mut registry);
         cli::install::register(&mut registry);

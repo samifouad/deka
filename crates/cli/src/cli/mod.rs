@@ -7,6 +7,8 @@ use stdio::{ascii, error as stdio_error, raw};
 pub mod init;
 pub mod user;
 #[cfg(feature = "native")]
+pub mod build;
+#[cfg(feature = "native")]
 pub mod compile;
 #[cfg(feature = "native")]
 pub mod db;

@@ -803,6 +803,7 @@ dependencies = [
  "compile",
  "core",
  "introspect",
+ "modules_php",
  "php-rs",
  "phpx_lsp",
  "pm",
