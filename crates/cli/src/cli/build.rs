@@ -473,6 +473,78 @@ impl<'a> JsSubsetEmitter<'a> {
                 self.body.push('\n');
                 Ok(())
             }
+            Stmt::Block { statements, .. } => {
+                self.body.push_str("{\n");
+                self.push_scope();
+                for inner in *statements {
+                    self.emit_stmt(*inner)?;
+                }
+                self.pop_scope();
+                self.body.push_str("}\n");
+                Ok(())
+            }
+            Stmt::While { condition, body, .. } => {
+                let cond = self.emit_expr(*condition)?;
+                self.body.push_str(&format!("while ({}) {{\n", cond));
+                self.push_scope();
+                for inner in *body {
+                    self.emit_stmt(*inner)?;
+                }
+                self.pop_scope();
+                self.body.push_str("}\n");
+                Ok(())
+            }
+            Stmt::For {
+                init,
+                condition,
+                loop_expr,
+                body,
+                ..
+            } => {
+                self.push_scope();
+                let init_js = self.emit_for_init(init)?;
+                let cond_js = self.emit_expr_list(condition)?;
+                let loop_js = self.emit_expr_list(loop_expr)?;
+                self.body
+                    .push_str(&format!("for ({}; {}; {}) {{\n", init_js, cond_js, loop_js));
+                for inner in *body {
+                    self.emit_stmt(*inner)?;
+                }
+                self.body.push_str("}\n");
+                self.pop_scope();
+                Ok(())
+            }
+            Stmt::Foreach {
+                expr,
+                key_var,
+                value_var,
+                body,
+                ..
+            } => {
+                let iterable = self.emit_expr(*expr)?;
+                let value_name = self.extract_var_name(*value_var)?;
+                if let Some(key_var) = key_var {
+                    let key_name = self.extract_var_name(*key_var)?;
+                    self.body.push_str(&format!(
+                        "for (const [{} , {}] of Object.entries({})) {{\n",
+                        key_name, value_name, iterable
+                    ));
+                    self.push_scope();
+                    self.declare_in_scope(&key_name);
+                    self.declare_in_scope(&value_name);
+                } else {
+                    self.body
+                        .push_str(&format!("for (const {} of {}) {{\n", value_name, iterable));
+                    self.push_scope();
+                    self.declare_in_scope(&value_name);
+                }
+                for inner in *body {
+                    self.emit_stmt(*inner)?;
+                }
+                self.pop_scope();
+                self.body.push_str("}\n");
+                Ok(())
+            }
             Stmt::Return { expr, .. } => {
                 if let Some(expr) = expr {
                     let value = self.emit_expr(*expr)?;
@@ -788,6 +860,54 @@ impl<'a> JsSubsetEmitter<'a> {
         let fn_name = if child_values.len() > 1 { "jsxs" } else { "jsx" };
 
         Ok(format!("{}({}, {})", fn_name, tag_expr, props_expr))
+    }
+
+    fn emit_expr_list(&mut self, exprs: &[ExprId<'_>]) -> Result<String, String> {
+        if exprs.is_empty() {
+            return Ok(String::new());
+        }
+        let mut out = Vec::with_capacity(exprs.len());
+        for expr in exprs {
+            out.push(self.emit_expr(*expr)?);
+        }
+        Ok(out.join(", "))
+    }
+
+    fn emit_for_init(&mut self, exprs: &[ExprId<'_>]) -> Result<String, String> {
+        if exprs.is_empty() {
+            return Ok(String::new());
+        }
+
+        let mut parts = Vec::with_capacity(exprs.len());
+        let mut all_new_assignments = true;
+
+        for expr in exprs {
+            if let Some((name, rhs)) = self.assignment_to_named_var(*expr)? {
+                if self.is_declared(&name) {
+                    all_new_assignments = false;
+                    parts.push(format!("{} = {}", name, rhs));
+                } else {
+                    self.declare_in_scope(&name);
+                    parts.push(format!("{} = {}", name, rhs));
+                }
+            } else {
+                all_new_assignments = false;
+                parts.push(self.emit_expr(*expr)?);
+            }
+        }
+
+        if all_new_assignments {
+            Ok(format!("let {}", parts.join(", ")))
+        } else {
+            Ok(parts.join(", "))
+        }
+    }
+
+    fn extract_var_name(&self, expr: ExprId<'_>) -> Result<String, String> {
+        match expr {
+            Expr::Variable { name, .. } => Ok(self.span_name(*name)),
+            _ => Err("foreach key/value target must be a variable in subset emitter".to_string()),
+        }
     }
 
     fn emit_call_args(&mut self, args: &[php_rs::parser::ast::Arg<'_>]) -> Result<String, String> {
@@ -1150,6 +1270,31 @@ $nick = $user?->getNick()
         assert!(js.contains("user.getName()"));
         assert!(js.contains("(user)?.profile"));
         assert!(js.contains("(user)?.getNick()"));
+    }
+
+    #[test]
+    fn emits_while_for_foreach_statements() {
+        let source = r#"
+$i = 0
+while ($i < 2) {
+  $i = $i + 1
+}
+for ($j = 0; $j < 2; $j = $j + 1) {
+  $i = $i + $j
+}
+foreach ($items as $idx => $item) {
+  $i = $i + $idx
+}
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("while ((i < 2))"));
+        assert!(js.contains("for (let j = 0; (j < 2); (j = (j + 1)))"));
+        assert!(js.contains("for (const [idx , item] of Object.entries(items))"));
     }
 
 }
