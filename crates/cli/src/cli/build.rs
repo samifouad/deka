@@ -615,6 +615,11 @@ impl<'a> JsSubsetEmitter<'a> {
                 }
                 Ok(())
             }
+            Stmt::InlineHtml { value, .. } => {
+                let text = String::from_utf8_lossy(value);
+                self.body.push_str(&format!("// inline html: {}\n", text.replace('\n', "\\n")));
+                Ok(())
+            }
             Stmt::Nop { .. } => Ok(()),
             other => Err(format!("unsupported statement in subset emitter: {:?}", other)),
         }
@@ -845,6 +850,10 @@ impl<'a> JsSubsetEmitter<'a> {
             Expr::Empty { expr, .. } => {
                 let value = self.emit_expr(*expr)?;
                 Ok(format!("(!({}))", value))
+            }
+            Expr::Print { expr, .. } => {
+                let value = self.emit_expr(*expr)?;
+                Ok(format!("(console.log({}), 1)", value))
             }
             Expr::InterpolatedString { parts, .. } => {
                 let mut pieces = Vec::new();
@@ -1442,6 +1451,20 @@ $fn = fn ($x: int) => $x + 1
         let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect("subset emit");
         assert!(js.contains("let fn = (x) => (x + 1);"));
+    }
+
+    #[test]
+    fn emits_print_and_inline_html() {
+        let source = r#"
+print("hi")
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("console.log(\"hi\")"));
     }
 
 }
