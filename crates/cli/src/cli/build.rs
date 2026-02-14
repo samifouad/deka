@@ -1130,6 +1130,21 @@ impl<'a> JsSubsetEmitter<'a> {
                     Ok("(() => { throw new Error(\"exit\"); })()".to_string())
                 }
             }
+            Expr::ShellExec { .. } => Err(
+                "shell execution is not supported in JS subset emitter".to_string(),
+            ),
+            Expr::Yield { .. } => {
+                Err("yield expressions are not supported in JS subset emitter".to_string())
+            }
+            Expr::AnonymousClass { .. } => Err(
+                "anonymous classes are not supported in JS subset emitter".to_string(),
+            ),
+            Expr::VariadicPlaceholder { .. } => Err(
+                "variadic placeholder is not supported in JS subset emitter".to_string(),
+            ),
+            Expr::Error { .. } => {
+                Err("parser error expression reached JS subset emitter".to_string())
+            }
             Expr::Include { kind, expr, .. } => {
                 self.uses_include_stub = true;
                 let path = self.emit_expr(*expr)?;
@@ -2054,6 +2069,36 @@ $two = exit();
             .expect("subset emit");
         assert!(js.contains("throw new Error(String(\"boom\"))"));
         assert!(js.contains("throw new Error(\"exit\")"));
+    }
+
+    #[test]
+    fn reports_specific_error_for_shell_exec_expression() {
+        let source = r#"
+$out = `echo hi`;
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let err = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect_err("subset emit should fail");
+        assert!(err.contains("shell execution is not supported"));
+    }
+
+    #[test]
+    fn reports_specific_error_for_yield_expression() {
+        let source = r#"
+function gen() {
+  yield 1;
+}
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let err = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect_err("subset emit should fail");
+        assert!(err.contains("yield expressions are not supported"));
     }
 
 
