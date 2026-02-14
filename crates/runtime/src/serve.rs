@@ -50,23 +50,25 @@ async fn serve_async(context: &Context) -> Result<(), String> {
         .map_err(|err| format!("Failed to resolve handler path: {}", err))?;
 
     let handler_path = resolved.path.to_string_lossy().to_string();
-    if !matches!(resolved.mode, runtime_config::ServeMode::Php) {
+    if handler_is_unsupported_script(&handler_path) {
         return Err(format!(
-            "Serve mode in reboot MVP only supports .php and .phpx handlers: {}",
+            "Serve mode does not execute JavaScript/TypeScript handlers: {}",
             handler_path
         ));
     }
-    let mut env_set = |key: &str, value: &str| {
-        let _ = platform.env().set(key, value);
-    };
-    ensure_phpx_module_root_env_with(
-        &handler_path,
-        &|path| platform.fs().exists(path),
-        &|| platform.fs().current_exe().ok(),
-        &env_get,
-        &mut env_set,
-    );
-    validate_phpx_modules(&handler_path)?;
+    if matches!(resolved.mode, runtime_config::ServeMode::Php) {
+        let mut env_set = |key: &str, value: &str| {
+            let _ = platform.env().set(key, value);
+        };
+        ensure_phpx_module_root_env_with(
+            &handler_path,
+            &|path| platform.fs().exists(path),
+            &|| platform.fs().current_exe().ok(),
+            &env_get,
+            &mut env_set,
+        );
+        validate_phpx_modules(&handler_path)?;
+    }
     let mut env_set = |key: &str, value: &str| {
         let _ = platform.env().set(key, value);
     };
@@ -189,13 +191,9 @@ fn perf_mode_enabled() -> bool {
 
 fn load_handler_source(
     _handler_path: &str,
-    mode: &runtime_config::ServeMode,
+    _mode: &runtime_config::ServeMode,
 ) -> Result<String, String> {
-    if matches!(mode, runtime_config::ServeMode::Php) {
-        return Ok(String::new());
-    }
-
-    Err("Only PHP/PHPX serve mode is supported in reboot MVP".to_string())
+    Ok(String::new())
 }
 
 fn configure_pools(
@@ -270,9 +268,198 @@ fn configure_pools(
 
 fn build_handler_code(
     handler_path: &str,
-    _resolved: &runtime_config::ResolvedHandler,
+    resolved: &runtime_config::ResolvedHandler,
 ) -> String {
-    build_serve_handler_code(handler_path)
+    match resolved.mode {
+        runtime_config::ServeMode::Php => build_serve_handler_code(handler_path),
+        runtime_config::ServeMode::Static => {
+            let listing = resolved.config.directory_listing.unwrap_or(true);
+            let static_path = std::path::Path::new(handler_path);
+            let is_dir = static_path.is_dir();
+            let (root, default_file) = if is_dir {
+                (handler_path.to_string(), "index.html".to_string())
+            } else {
+                let root = static_path
+                    .parent()
+                    .map(|path| path.to_string_lossy().to_string())
+                    .unwrap_or_else(|| ".".to_string());
+                let default_file = static_path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("index.html")
+                    .to_string();
+                (root, default_file)
+            };
+            build_static_handler_code(&root, &default_file, listing)
+        }
+    }
+}
+
+fn handler_is_unsupported_script(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.ends_with(".js")
+        || lower.ends_with(".jsx")
+        || lower.ends_with(".ts")
+        || lower.ends_with(".tsx")
+        || lower.ends_with(".mjs")
+        || lower.ends_with(".cjs")
+}
+
+fn build_static_handler_code(root: &str, default_file: &str, directory_listing: bool) -> String {
+    let root_json = serde_json::to_string(root).unwrap_or_else(|_| "\".\"".to_string());
+    let default_json =
+        serde_json::to_string(default_file).unwrap_or_else(|_| "\"index.html\"".to_string());
+    let listing = if directory_listing { "true" } else { "false" };
+
+    let template = r#"const __dekaStaticRoot = __ROOT__;
+const __dekaDefaultFile = __DEFAULT__;
+const __dekaDirectoryListing = __LISTING__;
+const __dekaMime = {
+  '.html': 'text/html; charset=utf-8',
+  '.htm': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.wasm': 'application/wasm',
+};
+
+const __dekaJoin = (base, rel) => (base.endsWith('/') ? base + rel : base + '/' + rel);
+const __dekaExt = (name) => {
+  const i = name.lastIndexOf('.');
+  return i === -1 ? '' : name.slice(i).toLowerCase();
+};
+const __dekaPath = globalThis.path || null;
+const __dekaFs = globalThis.fs || null;
+const __dekaPathJoin = (...parts) => {
+  if (__dekaPath && typeof __dekaPath.join === 'function') return __dekaPath.join(...parts);
+  return parts.filter(Boolean).join('/');
+};
+const __dekaSafeRel = (pathname) => {
+  let p = pathname || '/';
+  try { p = decodeURIComponent(p); } catch (_) { return null; }
+  if (p === '/' || p === '') p = '/' + __dekaDefaultFile;
+  if (p.startsWith('/')) p = p.slice(1);
+  if (!p || p.split('/').includes('..') || p.includes('\0')) return null;
+  return p;
+};
+const __dekaText = (status, message) => new Response(message + '\n', {
+  status,
+  headers: { 'content-type': 'text/plain; charset=utf-8' },
+});
+const __dekaHtml = (status, body) => new Response(body, {
+  status,
+  headers: { 'content-type': 'text/html; charset=utf-8' },
+});
+const __dekaStat = (target) => {
+  try {
+    if (__dekaFs && typeof __dekaFs.statSync === 'function') return __dekaFs.statSync(target);
+    if (typeof Deno !== 'undefined' && typeof Deno.statSync === 'function') return Deno.statSync(target);
+  } catch (_err) {}
+  return null;
+};
+const __dekaReadFile = (target) => {
+  try {
+    if (__dekaFs && typeof __dekaFs.readFileSync === 'function') return __dekaFs.readFileSync(target);
+    if (typeof Deno !== 'undefined' && typeof Deno.readFileSync === 'function') return Deno.readFileSync(target);
+  } catch (_err) {}
+  return null;
+};
+const __dekaReadDir = (target) => {
+  try {
+    if (__dekaFs && typeof __dekaFs.readdirSync === 'function') return __dekaFs.readdirSync(target, { withFileTypes: true });
+    if (typeof Deno !== 'undefined' && typeof Deno.readDirSync === 'function') return Array.from(Deno.readDirSync(target));
+  } catch (_err) {}
+  return null;
+};
+const __dekaIsDirectory = (stat) => {
+  if (!stat) return false;
+  if (typeof stat.isDirectory === 'function') return !!stat.isDirectory();
+  return !!stat.isDirectory;
+};
+const __dekaEntryName = (entry) => {
+  if (!entry) return '';
+  if (typeof entry === 'string') return entry;
+  return String(entry.name || '');
+};
+const __dekaEntryIsDir = (entry) => {
+  if (!entry) return false;
+  if (typeof entry.isDirectory === 'function') return !!entry.isDirectory();
+  if (typeof entry.isDirectory === 'boolean') return entry.isDirectory;
+  if (typeof entry.is_dir === 'boolean') return entry.is_dir;
+  if (typeof entry.kind === 'string') return entry.kind === 'directory';
+  return false;
+};
+const __dekaBody = (value) => {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  try {
+    if (typeof Uint8Array !== 'undefined' && value instanceof Uint8Array) return new TextDecoder().decode(value);
+    if (typeof ArrayBuffer !== 'undefined' && value instanceof ArrayBuffer) return new TextDecoder().decode(new Uint8Array(value));
+    if (typeof value === 'object') {
+      const keys = Object.keys(value);
+      if (keys.length > 0 && keys.every((k) => /^\d+$/.test(k))) {
+        const bytes = keys.sort((a, b) => Number(a) - Number(b)).map((k) => Number(value[k]) || 0);
+        return new TextDecoder().decode(new Uint8Array(bytes));
+      }
+    }
+  } catch (_err) {}
+  return String(value);
+};
+
+const app = {
+  async fetch(req) {
+    const url = new URL(req.url);
+    const rel = __dekaSafeRel(url.pathname);
+    if (!rel) return __dekaText(400, 'Bad Request');
+
+    let target = __dekaJoin(__dekaStaticRoot, rel);
+    const stat = __dekaStat(target);
+    if (__dekaIsDirectory(stat)) {
+      const indexTarget = __dekaPathJoin(target, 'index.html');
+      const indexBytes = __dekaReadFile(indexTarget);
+      if (indexBytes != null) {
+        return new Response(__dekaBody(indexBytes), {
+          status: 200,
+          headers: { 'content-type': __dekaMime['.html'] },
+        });
+      }
+      if (!__dekaDirectoryListing) return __dekaText(403, 'Directory listing disabled');
+      const entries = __dekaReadDir(target);
+      if (!Array.isArray(entries)) return __dekaText(404, 'Not Found');
+      const links = entries.map((entry) => {
+        const name = __dekaEntryName(entry);
+        if (!name) return '';
+        const suffix = __dekaEntryIsDir(entry) ? '/' : '';
+        const href = (url.pathname.endsWith('/') ? url.pathname : url.pathname + '/') + name + suffix;
+        return `<li><a href="${href}">${name}${suffix}</a></li>`;
+      }).join('');
+      return __dekaHtml(200, `<h1>Index of ${url.pathname}</h1><ul>${links}</ul>`);
+    }
+
+    const bytes = __dekaReadFile(target);
+    if (bytes == null) return __dekaText(404, 'Not Found');
+    const mime = __dekaMime[__dekaExt(target)] || 'application/octet-stream';
+    return new Response(__dekaBody(bytes), {
+      status: 200,
+      headers: { 'content-type': mime },
+    });
+  }
+};
+
+globalThis.app = app;
+"#;
+
+    template
+        .replace("__ROOT__", &root_json)
+        .replace("__DEFAULT__", &default_json)
+        .replace("__LISTING__", listing)
 }
 
 async fn serve_listeners(
