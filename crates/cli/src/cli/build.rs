@@ -804,6 +804,11 @@ impl<'a> JsSubsetEmitter<'a> {
                 };
                 Ok(format!("{}.{}", class_js, const_name))
             }
+            Expr::New { class, args, .. } => {
+                let class_js = self.emit_expr(*class)?;
+                let args_js = self.emit_call_args(args)?;
+                Ok(format!("new {}({})", class_js, args_js))
+            }
             Expr::NullsafePropertyFetch {
                 target, property, ..
             } => {
@@ -1668,6 +1673,20 @@ $user = User { $id: 1, $name: "sam" };
         assert!(js.contains("\"__struct\": \"User\""));
         assert!(js.contains("\"id\": 1"));
         assert!(js.contains("\"name\": \"sam\""));
+    }
+
+    #[test]
+    fn emits_new_expression() {
+        let source = r#"
+$point = new Point(1, 2);
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("new Point(1, 2)"));
     }
 
 }
