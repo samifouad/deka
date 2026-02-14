@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_DIR="$ROOT_DIR/target/wasm32-unknown-unknown"
+TARGET_DIR="$ROOT_DIR/target/wasm32-unknown-unknown/release"
 PKG_DIR="$ROOT_DIR/crates/adwa-wasm/pkg"
 
 cd "$ROOT_DIR"
@@ -12,12 +12,12 @@ if ! command -v wasm-bindgen >/dev/null 2>&1; then
   exit 1
 fi
 
-cargo build -p adwa-wasm --target wasm32-unknown-unknown --features web
+cargo build --release -p adwa-wasm --target wasm32-unknown-unknown --features web
 
 mkdir -p "$PKG_DIR"
 wasm-bindgen \
   --target web \
   --out-dir "$PKG_DIR" \
-  "$TARGET_DIR/debug/adwa_wasm.wasm"
+  "$TARGET_DIR/adwa_wasm.wasm"
 
-echo "WASM bindings written to $PKG_DIR"
+echo "WASM bindings written (release) to $PKG_DIR"

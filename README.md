@@ -1,25 +1,29 @@
 # Adwa
 
-Adwa is a Rust-first, open source WebContainers-compatible runtime designed to run Deka inside the browser.
+Adwa is a Rust-first browser runtime and UI playground for Deka's web-host execution model.
 
 ## Goals
-- Feature parity with WebContainers APIs (filesystem, processes, networking, ports, and package tooling).
-- Runs entirely in the browser via WASM with a small JS bridge.
-- General-purpose container runtime for web apps and tooling.
-- Deterministic, reproducible environments (snapshots, caching).
-- Tight integration with Deka runtime and tooling.
+- Browser-first host environment for Deka runtime behavior.
+- Linux-like default FS/env model for predictable tooling behavior.
+- Stable adapter boundary between UI, host capabilities, and PHP/PHPX runtime integration.
+- Fast local iteration loop for runtime + editor UX in the browser.
 
-## Non-goals (for now)
-- Native host runtime beyond test harnesses.
-- Perfect Node/Bun parity in the first milestone.
+## Non-goals (MVP)
+- Node/Bun compatibility mode.
+- Native desktop/host runtime parity in this repository.
+- Owning package-manager/runtime logic that belongs in `mvp`.
 
 ## Project layout
-- crates/adwa-core: platform-agnostic Rust APIs and core logic.
-- crates/adwa-wasm: browser/WASM adapter and JS bindings.
+- `crates/adwa-core`: platform-agnostic Rust core APIs and host model.
+- `crates/adwa-wasm`: browser/WASM adapter and JS bindings.
+- `js/`: browser-side host bridge and runtime adapter utilities.
+- `examples/browser`: interactive browser playground (editor + render + console).
+- `scripts/`: build/dev helpers.
 
-## Status
-This is a new subproject scaffold. See ARCHITECTURE.md for the intended shape,
-API_MAPPING.md for WebContainers parity mapping, js/ for the JS wrapper,
-scripts/ for build helpers, and examples/browser for a smoke test.
+## Current status
+- ADWA naming migration is complete (no WOSIX compatibility layer).
+- Browser host boots with Linux-like defaults (`/home/user`, `/tmp`, `PATH`, etc.).
+- Playground path is active and used for checkpoint validation.
+- Build scripts are release-first for artifact consistency.
 
-Node WASM integration is scaffolded in `js/NODE_WASM.md`.
+See `ARCHITECTURE.md` and `API_MAPPING.md` for deeper details.
