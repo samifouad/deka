@@ -1107,6 +1107,29 @@ impl<'a> JsSubsetEmitter<'a> {
                 let value = self.emit_expr(*expr)?;
                 Ok(format!("(console.log({}), 1)", value))
             }
+            Expr::Await { expr, .. } => {
+                let value = self.emit_expr(*expr)?;
+                Ok(format!("(await {})", value))
+            }
+            Expr::Eval { expr, .. } => {
+                let value = self.emit_expr(*expr)?;
+                Ok(format!("eval({})", value))
+            }
+            Expr::Clone { expr, .. } => {
+                let value = self.emit_expr(*expr)?;
+                Ok(format!("structuredClone({})", value))
+            }
+            Expr::Die { expr, .. } | Expr::Exit { expr, .. } => {
+                if let Some(value) = expr {
+                    let rendered = self.emit_expr(*value)?;
+                    Ok(format!(
+                        "(() => {{ throw new Error(String({})); }})()",
+                        rendered
+                    ))
+                } else {
+                    Ok("(() => { throw new Error(\"exit\"); })()".to_string())
+                }
+            }
             Expr::Include { kind, expr, .. } => {
                 self.uses_include_stub = true;
                 let path = self.emit_expr(*expr)?;
@@ -1997,6 +2020,40 @@ __halt_compiler();
         assert!(js.contains("goto start is not supported"));
         assert!(js.contains("let x = 1;"));
         assert!(js.contains("__halt_compiler ignored"));
+    }
+
+    #[test]
+    fn emits_await_eval_and_clone_expressions() {
+        let source = r#"
+$one = await $promise;
+$two = eval("40 + 2");
+$three = clone $obj;
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("await promise"));
+        assert!(js.contains("eval(\"40 + 2\")"));
+        assert!(js.contains("structuredClone(obj)"));
+    }
+
+    #[test]
+    fn emits_die_and_exit_expressions() {
+        let source = r#"
+$one = die("boom");
+$two = exit();
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("throw new Error(String(\"boom\"))"));
+        assert!(js.contains("throw new Error(\"exit\")"));
     }
 
 
