@@ -1960,7 +1960,19 @@ impl WorkerThread {
                             } else if (bodyValue instanceof ArrayBuffer) {
                                 normalized.body_base64 = base64Encode(new Uint8Array(bodyValue));
                             } else {
-                                normalized.body = await response.text();
+                                const contentType = String(headerTarget["content-type"] || headerTarget["Content-Type"] || "").toLowerCase();
+                                const isTextLike = contentType.startsWith("text/")
+                                    || contentType.includes("json")
+                                    || contentType.includes("javascript")
+                                    || contentType.includes("xml")
+                                    || contentType.includes("svg")
+                                    || contentType.includes("x-www-form-urlencoded");
+                                if (!isTextLike && typeof response.arrayBuffer === "function") {
+                                    const bytes = new Uint8Array(await response.arrayBuffer());
+                                    normalized.body_base64 = base64Encode(bytes);
+                                } else {
+                                    normalized.body = await response.text();
+                                }
                             }
                         } else if (response && typeof response === "object") {
                             if (typeof response.status === "number") {
@@ -1971,9 +1983,28 @@ impl WorkerThread {
                                 normalized.body_base64 = response.body_base64;
                             }
                             if (response.body != null) {
-                                normalized.body = typeof response.body === "string"
-                                    ? response.body
-                                    : JSON.stringify(response.body);
+                                if (response.body instanceof Uint8Array) {
+                                    normalized.body_base64 = base64Encode(response.body);
+                                } else if (response.body instanceof ArrayBuffer) {
+                                    normalized.body_base64 = base64Encode(new Uint8Array(response.body));
+                                } else if (typeof response.body === "string") {
+                                    normalized.body = response.body;
+                                } else {
+                                    const bodyObj = response.body;
+                                    if (bodyObj && typeof bodyObj === "object") {
+                                        const keys = Object.keys(bodyObj);
+                                        if (keys.length > 0 && keys.every((k) => /^\d+$/.test(k))) {
+                                            const bytes = keys
+                                                .sort((a, b) => Number(a) - Number(b))
+                                                .map((k) => Number(bodyObj[k]) || 0);
+                                            normalized.body_base64 = base64Encode(new Uint8Array(bytes));
+                                        } else {
+                                            normalized.body = JSON.stringify(bodyObj);
+                                        }
+                                    } else {
+                                        normalized.body = JSON.stringify(response.body);
+                                    }
+                                }
                             }
                             if (response.upgrade) {
                                 normalized.upgrade = response.upgrade;

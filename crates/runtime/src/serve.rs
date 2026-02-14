@@ -396,21 +396,89 @@ const __dekaEntryIsDir = (entry) => {
   if (typeof entry.kind === 'string') return entry.kind === 'directory';
   return false;
 };
-const __dekaBody = (value) => {
-  if (value == null) return '';
-  if (typeof value === 'string') return value;
+const __dekaObjectMapStringToBytes = (text) => {
+  if (typeof text !== 'string') return null;
+  const t = text.trim();
+  if (!t.startsWith('{') || !t.includes('"0"')) return null;
+
+  // Fast path for huge object-map strings like {"0":0,"1":97,...}
   try {
-    if (typeof Uint8Array !== 'undefined' && value instanceof Uint8Array) return new TextDecoder().decode(value);
-    if (typeof ArrayBuffer !== 'undefined' && value instanceof ArrayBuffer) return new TextDecoder().decode(new Uint8Array(value));
-    if (typeof value === 'object') {
-      const keys = Object.keys(value);
-      if (keys.length > 0 && keys.every((k) => /^\d+$/.test(k))) {
-        const bytes = keys.sort((a, b) => Number(a) - Number(b)).map((k) => Number(value[k]) || 0);
-        return new TextDecoder().decode(new Uint8Array(bytes));
-      }
+    const re = /"(\d+)":(-?\d+)/g;
+    let match = null;
+    let seen = 0;
+    let max = -1;
+    const tmp = [];
+    while ((match = re.exec(t)) !== null) {
+      const idx = Number(match[1]);
+      const val = Number(match[2]);
+      if (!Number.isFinite(idx) || idx < 0) continue;
+      tmp[idx] = Number.isFinite(val) ? (val & 255) : 0;
+      if (idx > max) max = idx;
+      seen++;
+    }
+    if (seen > 0 && max >= 0) {
+      const out = new Uint8Array(max + 1);
+      for (let i = 0; i <= max; i++) out[i] = tmp[i] || 0;
+      return out;
     }
   } catch (_err) {}
-  return String(value);
+
+  try {
+    const parsed = JSON.parse(t);
+    const keys = Object.keys(parsed);
+    if (keys.length === 0 || !keys.every((k) => /^\d+$/.test(k))) return null;
+    const bytes = keys
+      .sort((a, b) => Number(a) - Number(b))
+      .map((k) => Number(parsed[k]) || 0);
+    return new Uint8Array(bytes);
+  } catch (_err) {
+    return null;
+  }
+};
+
+const __dekaToBytes = (value) => {
+  if (value == null) return null;
+  if (typeof Uint8Array !== 'undefined' && value instanceof Uint8Array) return value;
+  if (typeof ArrayBuffer !== 'undefined' && value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (typeof value === 'string') return new TextEncoder().encode(value);
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length > 0 && keys.every((k) => /^\d+$/.test(k))) {
+      const bytes = keys
+        .sort((a, b) => Number(a) - Number(b))
+        .map((k) => Number(value[k]) || 0);
+      return new Uint8Array(bytes);
+    }
+  }
+  return null;
+};
+const __dekaBody = (value, mime) => {
+  const mimeText = String(mime || '');
+  const isTextLike = mimeText.startsWith('text/')
+    || mimeText.includes('javascript')
+    || mimeText.includes('json')
+    || mimeText.includes('svg+xml');
+  const bytes = __dekaToBytes(value);
+  if (isTextLike) {
+    if (typeof value === 'string') return value;
+    if (bytes) {
+      try { return new TextDecoder().decode(bytes); } catch (_err) {}
+    }
+    return value == null ? '' : String(value);
+  }
+  if (bytes) {
+    if (typeof value === 'string') {
+      const remapped = __dekaObjectMapStringToBytes(value);
+      if (remapped) return remapped;
+    }
+    return bytes;
+  }
+  if (typeof value === 'string') {
+    const remapped = __dekaObjectMapStringToBytes(value);
+    if (remapped) return remapped;
+    return value;
+  }
+  return value == null ? '' : String(value);
 };
 
 const app = {
@@ -425,7 +493,7 @@ const app = {
       const indexTarget = __dekaPathJoin(target, 'index.html');
       const indexBytes = __dekaReadFile(indexTarget);
       if (indexBytes != null) {
-        return new Response(__dekaBody(indexBytes), {
+        return new Response(__dekaBody(indexBytes, __dekaMime['.html']), {
           status: 200,
           headers: { 'content-type': __dekaMime['.html'] },
         });
@@ -446,7 +514,7 @@ const app = {
     const bytes = __dekaReadFile(target);
     if (bytes == null) return __dekaText(404, 'Not Found');
     const mime = __dekaMime[__dekaExt(target)] || 'application/octet-stream';
-    return new Response(__dekaBody(bytes), {
+    return new Response(__dekaBody(bytes, mime), {
       status: 200,
       headers: { 'content-type': mime },
     });
