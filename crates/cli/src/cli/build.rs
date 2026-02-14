@@ -594,6 +594,11 @@ impl<'a> JsSubsetEmitter<'a> {
                 }
                 Ok(())
             }
+            Stmt::Throw { expr, .. } => {
+                let value = self.emit_expr(*expr)?;
+                self.body.push_str(&format!("throw {};\n", value));
+                Ok(())
+            }
             Stmt::Echo { exprs, .. } => {
                 for expr in *exprs {
                     let value = self.emit_expr(*expr)?;
@@ -1560,6 +1565,20 @@ $counter--;
         assert!(js.contains("let counter = 1;"));
         assert!(js.contains("counter += 2"));
         assert!(js.contains("counter--)"));
+    }
+
+    #[test]
+    fn emits_throw_statement() {
+        let source = r#"
+throw "boom";
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("throw \"boom\";"));
     }
 
 }
