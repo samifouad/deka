@@ -30,6 +30,8 @@ Runtime notes:
 - PHPX type/module/validation rules are enforced before emit.
 - Emitted output should prefer idiomatic JS lowering over PHP emulation.
 - Full contract: `docs/phpx/phpx-js-target-semantics.md`.
+- `deka build` now also emits `importmap.json` beside the JS output by default.
+- The import map includes stable short-path prefixes (`@/`, `component/`, `deka/`, `encoding/`, `db/`) plus fallback entries for other bare specifiers found in source imports.
 
 ## Module system (PHPX)
 - `import { foo } from './bar.phpx'` and `export function foo()` are supported.

@@ -16,6 +16,7 @@ PHPX still enforces its language-specific guarantees at compile time:
 2. Typecheck and apply PHPX rules.
 3. Emit JavaScript.
 4. Execute emitted JavaScript with normal JS engine behavior.
+5. Emit `importmap.json` alongside output JS to make browser module resolution deterministic for short paths/bare specifiers.
 
 This means emitted JS is the runtime source of truth, not PHP compatibility emulation.
 
@@ -34,6 +35,19 @@ This means emitted JS is the runtime source of truth, not PHP compatibility emul
 - string/number coercion in lowered expressions
 - emitted `==`/`!=` comparisons are lowered to strict JS operators (`===`/`!==`)
 - `print(...)` lowering is side-effect only (`console.log`) with `undefined` expression value
+
+## Import Map Output
+
+`deka build` writes an `importmap.json` in the same directory as the emitted JS module.
+
+Default prefix mappings:
+- `@/` -> `/`
+- `component/` -> `/php_modules/component/`
+- `deka/` -> `/php_modules/deka/`
+- `encoding/` -> `/php_modules/encoding/`
+- `db/` -> `/php_modules/db/`
+
+Additional fallback mappings are generated for any other bare import specifiers found in frontmatter imports. Relative/absolute/URL imports are not added.
 
 ## Design Rule
 

@@ -6,7 +6,7 @@ use php_rs::parser::ast::{
     BinaryOp, ClassKind, ClassMember, Expr, ExprId, JsxChild, ObjectKey, Program, Stmt, StmtId,
     Type as AstType, UnaryOp,
 };
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -67,7 +67,7 @@ fn run(context: &Context) -> Result<(), String> {
 
     let meta = parse_source_module_meta(&source);
     let js = if let Some(program) = result.ast {
-        match emit_js_from_ast(&program, source.as_bytes(), meta) {
+        match emit_js_from_ast(&program, source.as_bytes(), meta.clone()) {
             Ok(emitted) => emitted,
             Err(reason) => emit_js_scaffold_with_reason(&source, input, &reason),
         }
@@ -77,6 +77,11 @@ fn run(context: &Context) -> Result<(), String> {
 
     fs::write(&output_path, js)
         .map_err(|err| format!("failed to write {}: {}", output_path.display(), err))?;
+
+    let import_map_path = resolve_import_map_path(&output_path);
+    let import_map = emit_import_map_json(&meta, &output_path);
+    fs::write(&import_map_path, import_map)
+        .map_err(|err| format!("failed to write {}: {}", import_map_path.display(), err))?;
 
     stdio::success(&format!(
         "built {} -> {}",
@@ -107,6 +112,75 @@ fn resolve_output_path(out: Option<String>, input_path: &Path) -> Result<PathBuf
         .ok_or_else(|| format!("invalid input filename: {}", input_path.display()))?;
 
     Ok(PathBuf::from("dist").join(format!("{}.js", stem)))
+}
+
+fn resolve_import_map_path(output_path: &Path) -> PathBuf {
+    output_path
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join("importmap.json")
+}
+
+fn emit_import_map_json(meta: &SourceModuleMeta, output_path: &Path) -> String {
+    let mut imports = default_import_map();
+
+    for decl in &meta.imports {
+        let spec = decl.from.trim();
+        if !is_bare_specifier(spec) {
+            continue;
+        }
+
+        if !imports.contains_key(spec) && !is_covered_by_prefix_map(&imports, spec) {
+            imports.insert(spec.to_string(), default_import_target_for(spec, output_path));
+        }
+    }
+
+    serde_json::to_string_pretty(&serde_json::json!({ "imports": imports }))
+        .unwrap_or_else(|_| "{\n  \"imports\": {}\n}".to_string())
+}
+
+fn default_import_map() -> BTreeMap<String, String> {
+    BTreeMap::from([
+        ("@/".to_string(), "/".to_string()),
+        ("component/".to_string(), "/php_modules/component/".to_string()),
+        ("deka/".to_string(), "/php_modules/deka/".to_string()),
+        ("encoding/".to_string(), "/php_modules/encoding/".to_string()),
+        ("db/".to_string(), "/php_modules/db/".to_string()),
+    ])
+}
+
+fn is_bare_specifier(spec: &str) -> bool {
+    !spec.is_empty()
+        && !spec.starts_with("./")
+        && !spec.starts_with("../")
+        && !spec.starts_with('/')
+        && !spec.starts_with("http://")
+        && !spec.starts_with("https://")
+}
+
+fn is_covered_by_prefix_map(map: &BTreeMap<String, String>, spec: &str) -> bool {
+    map.keys()
+        .any(|key| key.ends_with('/') && spec.starts_with(key))
+}
+
+fn default_import_target_for(spec: &str, output_path: &Path) -> String {
+    let mut rel = String::new();
+    let depth = output_path
+        .parent()
+        .map(|parent| parent.components().count().saturating_sub(1))
+        .unwrap_or(0);
+
+    for _ in 0..depth {
+        rel.push_str("../");
+    }
+    rel.push_str("php_modules/");
+    rel.push_str(spec.trim_start_matches('/'));
+
+    if !rel.ends_with(".js") && !rel.ends_with('/') {
+        rel.push_str(".js");
+    }
+
+    rel
 }
 
 fn emit_js_from_ast(
@@ -2336,6 +2410,58 @@ class User {}
         let err = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect_err("subset emit should fail");
         assert!(err.contains("class-like declarations are not supported"));
+    }
+
+
+    #[test]
+    fn import_map_path_uses_output_directory() {
+        let path = resolve_import_map_path(Path::new("dist/home.js"));
+        assert_eq!(path, PathBuf::from("dist/importmap.json"));
+    }
+
+    #[test]
+    fn import_map_adds_fallback_for_unmapped_bare_specifiers() {
+        let source = "---
+import { thing } from 'acme/widgets'
+---
+<div />
+";
+        let meta = parse_source_module_meta(source);
+        let json = emit_import_map_json(&meta, Path::new("dist/home.js"));
+        let value: serde_json::Value = serde_json::from_str(&json).expect("json");
+        let imports = value
+            .get("imports")
+            .and_then(|v| v.as_object())
+            .expect("imports object");
+
+        assert_eq!(
+            imports.get("acme/widgets").and_then(|v| v.as_str()),
+            Some("php_modules/acme/widgets.js")
+        );
+        assert_eq!(
+            imports.get("component/").and_then(|v| v.as_str()),
+            Some("/php_modules/component/")
+        );
+    }
+
+    #[test]
+    fn import_map_skips_relative_and_url_imports() {
+        let source = "---
+import { x } from './local.js'
+import { y } from 'https://cdn.example/x.js'
+---
+<div />
+";
+        let meta = parse_source_module_meta(source);
+        let json = emit_import_map_json(&meta, Path::new("dist/home.js"));
+        let value: serde_json::Value = serde_json::from_str(&json).expect("json");
+        let imports = value
+            .get("imports")
+            .and_then(|v| v.as_object())
+            .expect("imports object");
+
+        assert!(!imports.contains_key("./local.js"));
+        assert!(!imports.contains_key("https://cdn.example/x.js"));
     }
 
 
