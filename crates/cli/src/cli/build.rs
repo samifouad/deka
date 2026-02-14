@@ -77,40 +77,54 @@ fn run_web_project_build(context: &Context) -> Result<(), String> {
     let app_dir = project_root.join("app");
     let public_dir = project_root.join("public");
     let entry_path = resolve_web_entry(&project_root)?;
+    let entry_source = fs::read_to_string(&entry_path)
+        .map_err(|err| format!("failed to read {}: {}", entry_path.display(), err))?;
+    let hydration_enabled = has_hydration_component(&entry_source);
 
     let dist_root = project_root.join("dist");
     let dist_client = dist_root.join("client");
     let dist_server = dist_root.join("server");
-    let dist_assets = dist_client.join("assets");
 
-    fs::create_dir_all(&dist_assets)
-        .map_err(|err| format!("failed to create {}: {}", dist_assets.display(), err))?;
+    fs::create_dir_all(&dist_client)
+        .map_err(|err| format!("failed to create {}: {}", dist_client.display(), err))?;
     fs::create_dir_all(&dist_server)
         .map_err(|err| format!("failed to create {}: {}", dist_server.display(), err))?;
 
     copy_dir_recursive(&public_dir, &dist_client)?;
 
-    let client_js = dist_assets.join("main.js");
-    build_single_file_to_path(&entry_path, &client_js)?;
-
-    let assets_importmap = dist_assets.join("importmap.json");
-    let client_importmap = dist_client.join("importmap.json");
-    if assets_importmap.is_file() {
-        fs::copy(&assets_importmap, &client_importmap).map_err(|err| {
-            format!(
-                "failed to copy {} -> {}: {}",
-                assets_importmap.display(),
-                client_importmap.display(),
-                err
-            )
-        })?;
-    }
-
     let client_index = dist_client.join("index.html");
     let index_raw = fs::read_to_string(&client_index)
         .map_err(|err| format!("failed to read {}: {}", client_index.display(), err))?;
-    let index_out = inject_web_bootstrap_tags(&index_raw);
-    fs::write(&client_index, index_out)
+    let template_html = extract_template_html(&entry_source).unwrap_or_default();
+    let with_app = inject_app_html(&index_raw, &template_html);
+
+    let final_index = if hydration_enabled {
+        let dist_assets = dist_client.join("assets");
+        fs::create_dir_all(&dist_assets)
+            .map_err(|err| format!("failed to create {}: {}", dist_assets.display(), err))?;
+
+        let client_js = dist_assets.join("main.js");
+        build_single_file_to_path(&entry_path, &client_js)?;
+
+        let assets_importmap = dist_assets.join("importmap.json");
+        let client_importmap = dist_client.join("importmap.json");
+        if assets_importmap.is_file() {
+            fs::copy(&assets_importmap, &client_importmap).map_err(|err| {
+                format!(
+                    "failed to copy {} -> {}: {}",
+                    assets_importmap.display(),
+                    client_importmap.display(),
+                    err
+                )
+            })?;
+        }
+
+        inject_web_bootstrap_tags(&with_app, true)
+    } else {
+        inject_web_bootstrap_tags(&with_app, false)
+    };
+
+    fs::write(&client_index, final_index)
         .map_err(|err| format!("failed to write {}: {}", client_index.display(), err))?;
 
     copy_dir_recursive(&app_dir, &dist_server.join("app"))?;
@@ -130,10 +144,11 @@ fn run_web_project_build(context: &Context) -> Result<(), String> {
     }
 
     stdio::success(&format!(
-        "built web project {}\n  client: {}\n  server: {}",
+        "built web project {}\n  client: {}\n  server: {}\n  hydration: {}",
         project_root.display(),
         dist_client.display(),
-        dist_server.display()
+        dist_server.display(),
+        if hydration_enabled { "enabled" } else { "disabled" }
     ));
     Ok(())
 }
@@ -465,11 +480,17 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn inject_web_bootstrap_tags(index_html: &str) -> String {
+fn inject_web_bootstrap_tags(index_html: &str, hydration_enabled: bool) -> String {
     let import_map_tag = r#"<script type="importmap" src="/importmap.json"></script>"#;
     let module_tag = r#"<script type="module" src="/assets/main.js"></script>"#;
 
     let mut out = index_html.to_string();
+
+    if !hydration_enabled {
+        out = out.replace(import_map_tag, "");
+        out = out.replace(module_tag, "");
+        return out;
+    }
 
     if !out.contains(import_map_tag) {
         if out.contains("</head>") {
@@ -491,6 +512,45 @@ fn inject_web_bootstrap_tags(index_html: &str) -> String {
         }
     }
 
+    out
+}
+
+fn has_hydration_component(source: &str) -> bool {
+    source.contains("<Hydration") || source.contains("<Hydration/")
+}
+
+fn extract_template_html(source: &str) -> Option<String> {
+    let lines: Vec<&str> = source.lines().collect();
+    let (_start, end) = frontmatter_range(&lines)?;
+    if end + 1 >= lines.len() {
+        return None;
+    }
+    let template = lines[end + 1..].join("\n");
+    let trimmed = template.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn inject_app_html(index_html: &str, app_html: &str) -> String {
+    if app_html.trim().is_empty() {
+        return index_html.to_string();
+    }
+
+    let mount = "<div id=\"app\"></div>";
+    if index_html.contains(mount) {
+        return index_html.replacen(mount, &format!("<div id=\"app\">{}</div>", app_html), 1);
+    }
+
+    if index_html.contains("</body>") {
+        return index_html.replacen("</body>", &format!("{}\n</body>", app_html), 1);
+    }
+
+    let mut out = index_html.to_string();
+    out.push('\n');
+    out.push_str(app_html);
     out
 }
 
