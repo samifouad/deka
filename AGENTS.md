@@ -46,7 +46,7 @@ Do not add Node/Bun compatibility work in this mission.
   - before handing off to another agent/session.
 - Checkpoint steps:
   - Run release builds/tests for touched areas.
-  - Verify local artifact wiring and lineage (`deka`, `phpx_lsp`, manifest).
+  - Verify local artifact wiring and lineage (`deka`, `deka lsp`, manifest).
   - Execute basic human validation flow:
     - `deka run` smoke on a minimal PHPX file.
     - `deka serve` smoke and confirm endpoint behavior.
@@ -66,7 +66,7 @@ Do not add Node/Bun compatibility work in this mission.
 - Use `scripts/verify-release-manifest.sh` to fail fast on stale/mismatched `cli` and `php_rs.wasm` artifacts.
 - Keep local PATH wiring pinned to this repo's release binaries:
   - `~/.local/bin/deka -> ~/Projects/deka/mvp/target/release/cli`
-  - `~/.local/bin/phpx_lsp -> ~/Projects/deka/mvp/target/release/phpx_lsp`
+  - Do not wire a separate `phpx_lsp` binary; use `deka lsp`.
 
 ADWA runtime/UI changes (current script names still use `wosix`):
 
