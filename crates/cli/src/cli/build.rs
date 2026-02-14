@@ -553,6 +553,7 @@ impl<'a> JsSubsetEmitter<'a> {
                     BinaryOp::GtEq => ">=",
                     BinaryOp::And | BinaryOp::LogicalAnd => "&&",
                     BinaryOp::Or | BinaryOp::LogicalOr => "||",
+                    BinaryOp::Coalesce => "??",
                     _ => {
                         return Err(format!("unsupported binary operator in subset emitter: {:?}", op));
                     }
@@ -599,6 +600,15 @@ impl<'a> JsSubsetEmitter<'a> {
                 let prop = self.token_text(property);
                 Ok(format!("{}.{}", target_js, prop))
             }
+            Expr::ArrayDimFetch { array, dim, .. } => {
+                let array_js = self.emit_expr(*array)?;
+                if let Some(dim) = dim {
+                    let dim_js = self.emit_expr(*dim)?;
+                    Ok(format!("{}[{}]", array_js, dim_js))
+                } else {
+                    Err("append array access is not supported in subset emitter".to_string())
+                }
+            }
             Expr::Array { items, .. } => {
                 let mut values = Vec::new();
                 for item in *items {
@@ -635,6 +645,24 @@ impl<'a> JsSubsetEmitter<'a> {
                 }
                 Ok(format!("({})", pieces.join(" + ")))
             }
+            Expr::Ternary {
+                condition,
+                if_true,
+                if_false,
+                ..
+            } => {
+                let cond = self.emit_expr(*condition)?;
+                let when_true = if let Some(value) = if_true {
+                    self.emit_expr(*value)?
+                } else {
+                    cond.clone()
+                };
+                let when_false = self.emit_expr(*if_false)?;
+                Ok(format!("({} ? {} : {})", cond, when_true, when_false))
+            }
+            Expr::Match {
+                condition, arms, ..
+            } => self.emit_match_expr(*condition, arms),
             other => Err(format!("unsupported expression in subset emitter: {:?}", other)),
         }
     }
@@ -702,6 +730,54 @@ impl<'a> JsSubsetEmitter<'a> {
         let fn_name = if child_values.len() > 1 { "jsxs" } else { "jsx" };
 
         Ok(format!("{}({}, {})", fn_name, tag_expr, props_expr))
+    }
+
+    fn emit_match_expr(
+        &mut self,
+        condition: ExprId<'_>,
+        arms: &[php_rs::parser::ast::MatchArm<'_>],
+    ) -> Result<String, String> {
+        let condition_js = self.emit_expr(condition)?;
+        let mut rendered = String::new();
+
+        for arm in arms.iter().rev() {
+            let arm_expr = self.emit_expr(arm.body)?;
+            if arm.conditions.is_none() {
+                rendered = arm_expr;
+                continue;
+            }
+            let guard = self.emit_match_guard(&condition_js, arm.conditions)?;
+            if rendered.is_empty() {
+                rendered = format!("({} ? {} : undefined)", guard, arm_expr);
+            } else {
+                rendered = format!("({} ? {} : {})", guard, arm_expr, rendered);
+            }
+        }
+
+        if rendered.is_empty() {
+            return Err("match requires at least one arm".to_string());
+        }
+        Ok(rendered)
+    }
+
+    fn emit_match_guard(
+        &mut self,
+        condition_js: &str,
+        conditions: Option<&[ExprId<'_>]>,
+    ) -> Result<String, String> {
+        let Some(conditions) = conditions else {
+            return Ok("true".to_string());
+        };
+        if conditions.is_empty() {
+            return Ok("false".to_string());
+        }
+
+        let mut checks = Vec::with_capacity(conditions.len());
+        for cond in conditions {
+            let rhs = self.emit_expr(*cond)?;
+            checks.push(format!("({} === {})", condition_js, rhs));
+        }
+        Ok(format!("({})", checks.join(" || ")))
     }
 
     fn assignment_to_named_var(&mut self, expr: ExprId<'_>) -> Result<Option<(String, String)>, String> {
@@ -863,9 +939,9 @@ export { Card as Panel }
     fn emits_subset_ast_for_jsx_component() {
         let source = r#"
 function Hello($props: object) {
-  return <span style=\"color:red\">Hello {$props.name}</span>
+  return <span style="color:red">Hello {$props.name}</span>
 }
-$view = <div><Hello name=\"world\" /></div>
+$view = <div><Hello name="world" /></div>
 "#;
         let arena = Bump::new();
         let mut parser =
@@ -898,4 +974,28 @@ function Flag($props: object) {
         assert!(js.contains("if ((!props.on))"));
         assert!(js.contains("return \"off\""));
     }
+    #[test]
+    fn emits_match_and_array_dim_fetch() {
+        let source = r#"
+function Pick($props: object) {
+  $name = match ($props.role) {
+    "owner" => "sam",
+    "member", "user" => "guest",
+    default => "anon",
+  }
+  return [$name, $props.items[0]][0]
+}
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("props.items[0]"));
+        assert!(js.contains("props.role === \"owner\""));
+        assert!(js.contains("props.role === \"member\""));
+        assert!(js.contains("props.role === \"user\""));
+    }
+
 }
