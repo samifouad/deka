@@ -423,6 +423,24 @@ impl<'a> JsSubsetEmitter<'a> {
 
     fn emit_stmt(&mut self, stmt: StmtId<'_>) -> Result<(), String> {
         match stmt {
+            Stmt::Namespace { .. } => {
+                Err("namespace declarations are not supported in JS subset emitter".to_string())
+            }
+            Stmt::Use { .. } => {
+                Err("use declarations are not supported in JS subset emitter".to_string())
+            }
+            Stmt::Class { .. }
+            | Stmt::Trait { .. }
+            | Stmt::Interface { .. }
+            | Stmt::Enum { .. } => Err(
+                "class-like declarations are not supported in JS subset emitter".to_string(),
+            ),
+            Stmt::TypeAlias { .. } => {
+                Err("type aliases are not supported in JS subset emitter".to_string())
+            }
+            Stmt::Error { .. } => {
+                Err("parser error statement reached JS subset emitter".to_string())
+            }
             Stmt::Function {
                 name, params, body, ..
             } => {
@@ -763,7 +781,6 @@ impl<'a> JsSubsetEmitter<'a> {
                 Ok(())
             }
             Stmt::Nop { .. } => Ok(()),
-            other => Err(format!("unsupported statement in subset emitter: {:?}", other)),
         }
     }
 
@@ -2099,6 +2116,34 @@ function gen() {
         let err = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect_err("subset emit should fail");
         assert!(err.contains("yield expressions are not supported"));
+    }
+
+    #[test]
+    fn reports_specific_error_for_namespace_statement() {
+        let source = r#"
+namespace Demo;
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let err = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect_err("subset emit should fail");
+        assert!(err.contains("namespace declarations are not supported"));
+    }
+
+    #[test]
+    fn reports_specific_error_for_class_statement() {
+        let source = r#"
+class User {}
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let err = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect_err("subset emit should fail");
+        assert!(err.contains("class-like declarations are not supported"));
     }
 
 
