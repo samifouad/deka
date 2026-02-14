@@ -562,15 +562,32 @@ impl<'a> JsSubsetEmitter<'a> {
             }
             Expr::Call { func, args, .. } => {
                 let callee = self.emit_expr(*func)?;
-                let mut rendered = Vec::with_capacity(args.len());
-                for arg in *args {
-                    if arg.name.is_some() || arg.unpack {
-                        return Err("named/unpack call arguments are not supported in subset emitter"
-                            .to_string());
+                if args.iter().all(|a| a.name.is_none() && !a.unpack) {
+                    let mut rendered = Vec::with_capacity(args.len());
+                    for arg in *args {
+                        rendered.push(self.emit_expr(arg.value)?);
                     }
-                    rendered.push(self.emit_expr(arg.value)?);
+                    return Ok(format!("{}({})", callee, rendered.join(", ")));
                 }
-                Ok(format!("{}({})", callee, rendered.join(", ")))
+
+                if args.iter().all(|a| a.name.is_some() && !a.unpack) {
+                    let mut entries = Vec::with_capacity(args.len());
+                    for arg in *args {
+                        let name = arg
+                            .name
+                            .map(|tok| self.sanitize_name(&self.token_text(tok)))
+                            .ok_or_else(|| {
+                                "mixed positional/named arguments are not supported in subset emitter"
+                                    .to_string()
+                            })?;
+                        let value = self.emit_expr(arg.value)?;
+                        entries.push(format!("{}: {}", json_string(&name), value));
+                    }
+                    return Ok(format!("{}({{{}}})", callee, entries.join(", ")));
+                }
+
+                Err("mixed positional/named/unpack call arguments are not supported in subset emitter"
+                    .to_string())
             }
             Expr::Assign { var, expr, .. } => {
                 if let Expr::Variable { name, .. } = *var {
@@ -996,6 +1013,23 @@ function Pick($props: object) {
         assert!(js.contains("props.role === \"owner\""));
         assert!(js.contains("props.role === \"member\""));
         assert!(js.contains("props.role === \"user\""));
+    }
+
+    #[test]
+    fn emits_named_arg_call_as_object_payload() {
+        let source = r#"
+function greet($props: object) {
+  return $props.name
+}
+$value = greet(name: "Sami")
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("greet({\"name\": \"Sami\"})"));
     }
 
 }
