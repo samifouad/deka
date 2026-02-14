@@ -585,6 +585,15 @@ impl<'a> JsSubsetEmitter<'a> {
                 self.body.push_str("}\n");
                 Ok(())
             }
+            Stmt::Const { consts, .. } => {
+                for item in *consts {
+                    let name = self.token_name(item.name);
+                    let value = self.emit_expr(item.value)?;
+                    self.body.push_str(&format!("const {} = {};\n", name, value));
+                    self.declare_in_scope(&name);
+                }
+                Ok(())
+            }
             Stmt::Break { .. } => {
                 self.body.push_str("break;\n");
                 Ok(())
@@ -1779,6 +1788,20 @@ $value = include "./part.phpx";
             .expect("subset emit");
         assert!(js.contains("function __phpx_include(path, kind)"));
         assert!(js.contains("__phpx_include(\"./part.phpx\", \"include\")"));
+    }
+
+    #[test]
+    fn emits_const_statement() {
+        let source = r#"
+const ANSWER = 42;
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("const ANSWER = 42;"));
     }
 
 }
