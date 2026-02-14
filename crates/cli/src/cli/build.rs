@@ -6,7 +6,7 @@ use php_rs::parser::ast::{
     BinaryOp, ClassKind, ClassMember, Expr, ExprId, JsxChild, ObjectKey, Program, Stmt, StmtId,
     Type as AstType, UnaryOp,
 };
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -51,6 +51,10 @@ fn run(context: &Context) -> Result<(), String> {
     let source = fs::read_to_string(&input_path)
         .map_err(|err| format!("failed to read {}: {}", input_path.display(), err))?;
 
+    let meta = parse_source_module_meta(&source);
+    let project_root = resolve_project_root(&input_path)?;
+    ensure_project_layout(&project_root, &meta)?;
+
     // Reuse strict PHPX validation before writing any build artifact.
     let arena = Bump::new();
     let result = compile_phpx(&source, input, &arena);
@@ -65,7 +69,6 @@ fn run(context: &Context) -> Result<(), String> {
             .map_err(|err| format!("failed to create {}: {}", parent.display(), err))?;
     }
 
-    let meta = parse_source_module_meta(&source);
     let js = if let Some(program) = result.ast {
         match emit_js_from_ast(&program, source.as_bytes(), meta.clone()) {
             Ok(emitted) => emitted,
@@ -181,6 +184,122 @@ fn default_import_target_for(spec: &str, output_path: &Path) -> String {
     }
 
     rel
+}
+
+fn resolve_project_root(input_path: &Path) -> Result<PathBuf, String> {
+    let start = if input_path.is_dir() {
+        input_path.to_path_buf()
+    } else {
+        input_path
+            .parent()
+            .unwrap_or(Path::new("."))
+            .to_path_buf()
+    };
+
+    for dir in start.ancestors() {
+        if dir.join("deka.json").is_file() {
+            return Ok(dir.to_path_buf());
+        }
+    }
+
+    Err(format!(
+        "deka build requires a deka.json project root (searched from {})",
+        input_path.display()
+    ))
+}
+
+fn ensure_project_layout(project_root: &Path, meta: &SourceModuleMeta) -> Result<(), String> {
+    let lock_path = project_root.join("deka.lock");
+    if !lock_path.is_file() {
+        return Err(format!(
+            "deka build requires deka.lock at project root: {}",
+            lock_path.display()
+        ));
+    }
+
+    let stdlib_imports = collect_stdlib_imports(meta);
+    if stdlib_imports.is_empty() {
+        return Ok(());
+    }
+
+    let modules_dir = project_root.join("php_modules");
+    if !modules_dir.is_dir() {
+        return Err(format!(
+            "deka build requires php_modules/ at project root when using stdlib imports ({})",
+            stdlib_imports.join(", ")
+        ));
+    }
+
+    let mut missing = Vec::new();
+    for spec in stdlib_imports {
+        if resolve_module_file(&modules_dir, &spec).is_none() {
+            missing.push(spec);
+        }
+    }
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "missing stdlib modules under {}: {}",
+            modules_dir.display(),
+            missing.join(", ")
+        ))
+    }
+}
+
+fn collect_stdlib_imports(meta: &SourceModuleMeta) -> Vec<String> {
+    let mut seen = BTreeSet::new();
+    for decl in &meta.imports {
+        let spec = decl.from.trim();
+        if is_stdlib_module_spec(spec) {
+            seen.insert(spec.to_string());
+        }
+    }
+    seen.into_iter().collect()
+}
+
+fn is_stdlib_module_spec(spec: &str) -> bool {
+    if !is_bare_specifier(spec) || spec.starts_with("@user/") {
+        return false;
+    }
+
+    spec.starts_with("component/")
+        || spec.starts_with("deka/")
+        || spec.starts_with("encoding/")
+        || spec.starts_with("db/")
+        || matches!(
+            spec,
+            "json"
+                | "postgres"
+                | "mysql"
+                | "sqlite"
+                | "bytes"
+                | "buffer"
+                | "tcp"
+                | "tls"
+                | "fs"
+                | "crypto"
+                | "jwt"
+                | "cookies"
+                | "auth"
+                | "db"
+        )
+}
+
+fn resolve_module_file(modules_dir: &Path, spec: &str) -> Option<PathBuf> {
+    let mut candidates = vec![
+        modules_dir.join(format!("{}.phpx", spec)),
+        modules_dir.join(format!("{}.php", spec)),
+        modules_dir.join(spec).join("index.phpx"),
+        modules_dir.join(spec).join("index.php"),
+    ];
+
+    if spec.ends_with(".phpx") || spec.ends_with(".php") {
+        candidates.insert(0, modules_dir.join(spec));
+    }
+
+    candidates.into_iter().find(|path| path.is_file())
 }
 
 fn emit_js_from_ast(
@@ -2412,6 +2531,65 @@ class User {}
         assert!(err.contains("class-like declarations are not supported"));
     }
 
+
+    #[test]
+    fn project_root_requires_deka_json() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let input = tmp.path().join("src").join("main.phpx");
+        std::fs::create_dir_all(input.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&input, "<div />").expect("write");
+
+        let err = resolve_project_root(&input).expect_err("should fail without deka.json");
+        assert!(err.contains("deka.json"));
+    }
+
+    #[test]
+    fn ensure_project_layout_requires_lock_file() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::fs::write(tmp.path().join("deka.json"), "{}").expect("deka.json");
+        let meta = SourceModuleMeta::empty();
+        let err = ensure_project_layout(tmp.path(), &meta).expect_err("missing lock");
+        assert!(err.contains("deka.lock"));
+    }
+
+    #[test]
+    fn ensure_project_layout_requires_php_modules_for_stdlib_imports() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::fs::write(tmp.path().join("deka.json"), "{}").expect("deka.json");
+        std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
+        let source = "---\nimport { parse } from 'encoding/json'\n---\n<div />\n";
+        let meta = parse_source_module_meta(source);
+        let err = ensure_project_layout(tmp.path(), &meta).expect_err("missing php_modules");
+        assert!(err.contains("php_modules"));
+    }
+
+    #[test]
+    fn ensure_project_layout_requires_stdlib_module_files() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::fs::write(tmp.path().join("deka.json"), "{}").expect("deka.json");
+        std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
+        std::fs::create_dir_all(tmp.path().join("php_modules")).expect("php_modules");
+        let source = "---\nimport { parse } from 'encoding/json'\n---\n<div />\n";
+        let meta = parse_source_module_meta(source);
+        let err = ensure_project_layout(tmp.path(), &meta).expect_err("missing stdlib module file");
+        assert!(err.contains("encoding/json"));
+    }
+
+    #[test]
+    fn ensure_project_layout_accepts_present_stdlib_module_file() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::fs::write(tmp.path().join("deka.json"), "{}").expect("deka.json");
+        std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
+        std::fs::create_dir_all(tmp.path().join("php_modules").join("encoding")).expect("encoding dir");
+        std::fs::write(
+            tmp.path().join("php_modules").join("encoding").join("json.phpx"),
+            "export function parse($v: string): object { return {} }",
+        )
+        .expect("json.phpx");
+        let source = "---\nimport { parse } from 'encoding/json'\n---\n<div />\n";
+        let meta = parse_source_module_meta(source);
+        ensure_project_layout(tmp.path(), &meta).expect("layout should pass");
+    }
 
     #[test]
     fn import_map_path_uses_output_directory() {
