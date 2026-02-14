@@ -3,7 +3,8 @@ use core::{CommandSpec, Context, ParamSpec, Registry};
 use modules_php::compiler_api::compile_phpx;
 use modules_php::validation::format_multiple_errors;
 use php_rs::parser::ast::{
-    BinaryOp, Expr, ExprId, JsxChild, ObjectKey, Program, Stmt, StmtId, UnaryOp,
+    BinaryOp, ClassKind, ClassMember, Expr, ExprId, JsxChild, ObjectKey, Program, Stmt, StmtId,
+    Type as AstType, UnaryOp,
 };
 use std::collections::HashSet;
 use std::fs;
@@ -333,6 +334,7 @@ struct JsSubsetEmitter<'a> {
     uses_include_stub: bool,
     scopes: Vec<HashSet<String>>,
     meta: SourceModuleMeta,
+    struct_schemas: Vec<(String, String)>,
 }
 
 impl<'a> JsSubsetEmitter<'a> {
@@ -344,6 +346,7 @@ impl<'a> JsSubsetEmitter<'a> {
             uses_include_stub: false,
             scopes: vec![HashSet::new()],
             meta,
+            struct_schemas: Vec::new(),
         }
     }
 
@@ -394,6 +397,10 @@ impl<'a> JsSubsetEmitter<'a> {
 
         if !deka_i_locals.is_empty() {
             out.push_str("const __phpxTypeRegistry = {};\n\n");
+            for (name, schema) in &self.struct_schemas {
+                out.push_str(&format!("__phpxTypeRegistry[{}] = {};\n", json_string(name), schema));
+            }
+            out.push('\n');
             out.push_str(&emit_deka_i_runtime());
             for local in &deka_i_locals {
                 out.push_str(&format!("const {} = __deka_i;\n", local));
@@ -442,6 +449,16 @@ impl<'a> JsSubsetEmitter<'a> {
             }
             Stmt::Use { .. } => {
                 Err("use declarations are not supported in JS subset emitter".to_string())
+            }
+            Stmt::Class {
+                kind: ClassKind::Struct,
+                name,
+                members,
+                ..
+            } => {
+                let schema = self.emit_struct_schema(*members);
+                self.struct_schemas.push((self.token_name(name), schema));
+                Ok(())
             }
             Stmt::Class { .. }
             | Stmt::Trait { .. }
@@ -1556,6 +1573,87 @@ impl<'a> JsSubsetEmitter<'a> {
         }
         false
     }
+
+    fn emit_struct_schema(&self, members: &[ClassMember<'_>]) -> String {
+        let mut fields = Vec::new();
+        for member in members {
+            if let ClassMember::Property { ty, entries, .. } = member {
+                for entry in *entries {
+                    let (schema, optional) = match ty {
+                        Some(ty) => self.emit_type_schema(ty),
+                        None => ("{ kind: 'unknown' }".to_string(), false),
+                    };
+                    let name = self.token_name(entry.name);
+                    fields.push(format!(
+                        "{}: {{ schema: {}, optional: {} }}",
+                        json_string(&name),
+                        schema,
+                        if optional { "true" } else { "false" }
+                    ));
+                }
+            }
+        }
+        format!("{{ kind: 'object', fields: {{ {} }} }}", fields.join(", "))
+    }
+
+    fn emit_type_schema(&self, ty: &AstType<'_>) -> (String, bool) {
+        match ty {
+            AstType::Simple(tok) => match self.token_name(tok).as_str() {
+                "string" => ("{ kind: 'string' }".to_string(), false),
+                "int" | "float" | "number" => ("{ kind: 'number' }".to_string(), false),
+                "bool" | "boolean" => ("{ kind: 'boolean' }".to_string(), false),
+                _ => ("{ kind: 'unknown' }".to_string(), false),
+            },
+            AstType::Name(_) => ("{ kind: 'object' }".to_string(), false),
+            AstType::Nullable(inner) => {
+                let (inner_schema, _) = self.emit_type_schema(inner);
+                (format!("{{ kind: 'optional', inner: {} }}", inner_schema), true)
+            }
+            AstType::Union(parts) => {
+                let schemas = parts
+                    .iter()
+                    .map(|part| self.emit_type_schema(part).0)
+                    .collect::<Vec<_>>();
+                (format!("{{ kind: 'union', anyOf: [{}] }}", schemas.join(", ")), false)
+            }
+            AstType::Intersection(_parts) => ("{ kind: 'object' }".to_string(), false),
+            AstType::ObjectShape(shape_fields) => {
+                let fields = shape_fields
+                    .iter()
+                    .map(|field| {
+                        let (inner, opt) = self.emit_type_schema(field.ty);
+                        format!(
+                            "{}: {{ schema: {}, optional: {} }}",
+                            json_string(&self.token_name(field.name)),
+                            inner,
+                            if field.optional || opt { "true" } else { "false" }
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                (format!("{{ kind: 'object', fields: {{ {} }} }}", fields.join(", ")), false)
+            }
+            AstType::Applied { base, args } => {
+                if let AstType::Simple(tok) = *base {
+                    let base_name = self.token_name(tok);
+                    if base_name == "Option" {
+                        let inner = args
+                            .first()
+                            .map(|t| self.emit_type_schema(t).0)
+                            .unwrap_or_else(|| "{ kind: 'unknown' }".to_string());
+                        return (format!("{{ kind: 'optional', inner: {} }}", inner), true);
+                    }
+                    if base_name == "array" || base_name == "Vec" {
+                        let inner = args
+                            .first()
+                            .map(|t| self.emit_type_schema(t).0)
+                            .unwrap_or_else(|| "{ kind: 'unknown' }".to_string());
+                        return (format!("{{ kind: 'array', item: {} }}", inner), false);
+                    }
+                }
+                ("{ kind: 'unknown' }".to_string(), false)
+            }
+        }
+    }
 }
 
 fn add_or_merge_import(imports: &mut Vec<ImportDecl>, from: &str, specs: Vec<ImportSpec>) {
@@ -1674,6 +1772,35 @@ import { i } from 'deka/i'
         assert!(js.contains("const __phpxTypeRegistry = {}"));
         assert!(js.contains("const i = __deka_i;"));
         assert!(js.contains("safeParse"));
+    }
+
+    #[test]
+    fn captures_struct_schema_for_deka_i_registry() {
+        let source = r#"
+struct User {
+  $name: string
+  $age: Option<int>
+}
+function Hello($props: object) {
+  return <span>Hello {$props.name}</span>
+}
+$view = <div><Hello name="world" /></div>
+"#;
+        let meta_source = "---
+import { i } from 'deka/i'
+---
+<div />
+";
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let meta = parse_source_module_meta(meta_source);
+        let js = emit_js_from_ast(&program, source.as_bytes(), meta).expect("subset emit");
+        assert!(js.contains("__phpxTypeRegistry[\"User\"]"));
+        assert!(js.contains("\"name\": { schema: { kind: 'string' }, optional: false }"));
+        assert!(js.contains("\"age\": { schema:"));
+        assert!(js.contains("kind: 'number'"));
     }
 
     #[test]
