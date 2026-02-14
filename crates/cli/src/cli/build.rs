@@ -545,6 +545,14 @@ impl<'a> JsSubsetEmitter<'a> {
                 self.body.push_str("}\n");
                 Ok(())
             }
+            Stmt::Break { .. } => {
+                self.body.push_str("break;\n");
+                Ok(())
+            }
+            Stmt::Continue { .. } => {
+                self.body.push_str("continue;\n");
+                Ok(())
+            }
             Stmt::Return { expr, .. } => {
                 if let Some(expr) = expr {
                     let value = self.emit_expr(*expr)?;
@@ -768,6 +776,34 @@ impl<'a> JsSubsetEmitter<'a> {
                 ..
             } => self.emit_jsx(Some(*name), attributes, children),
             Expr::JsxFragment { children, .. } => self.emit_jsx(None, &[], children),
+            Expr::Cast { kind, expr, .. } => {
+                let value = self.emit_expr(*expr)?;
+                let lowered = match kind {
+                    php_rs::parser::ast::CastKind::Int => format!("Number.parseInt({}, 10)", value),
+                    php_rs::parser::ast::CastKind::Float => format!("Number({})", value),
+                    php_rs::parser::ast::CastKind::String => format!("String({})", value),
+                    php_rs::parser::ast::CastKind::Bool => format!("Boolean({})", value),
+                    php_rs::parser::ast::CastKind::Array => format!("Array.isArray({0}) ? {0} : [{0}]", value),
+                    php_rs::parser::ast::CastKind::Object => format!("({})", value),
+                    _ => return Err(format!("unsupported cast kind in subset emitter: {:?}", kind)),
+                };
+                Ok(lowered)
+            }
+            Expr::Isset { vars, .. } => {
+                if vars.is_empty() {
+                    return Ok("false".to_string());
+                }
+                let mut checks = Vec::with_capacity(vars.len());
+                for var in *vars {
+                    let value = self.emit_expr(*var)?;
+                    checks.push(format!("({0} !== undefined && {0} !== null)", value));
+                }
+                Ok(format!("({})", checks.join(" && ")))
+            }
+            Expr::Empty { expr, .. } => {
+                let value = self.emit_expr(*expr)?;
+                Ok(format!("(!({}))", value))
+            }
             Expr::InterpolatedString { parts, .. } => {
                 let mut pieces = Vec::new();
                 for part in *parts {
@@ -1295,6 +1331,33 @@ foreach ($items as $idx => $item) {
         assert!(js.contains("while ((i < 2))"));
         assert!(js.contains("for (let j = 0; (j < 2); (j = (j + 1)))"));
         assert!(js.contains("for (const [idx , item] of Object.entries(items))"));
+    }
+
+    #[test]
+    fn emits_break_continue_and_cast_helpers() {
+        let source = r#"
+for ($i = 0; $i < 10; $i = $i + 1) {
+  if ($i == 2) {
+    continue
+  }
+  if ($i == 8) {
+    break
+  }
+}
+$ok = isset($user.name)
+$missing = empty($user.name)
+$num = (int)"42"
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("continue;"));
+        assert!(js.contains("break;"));
+        assert!(js.contains("!== undefined"));
+        assert!(js.contains("Number.parseInt(\"42\", 10)"));
     }
 
 }
