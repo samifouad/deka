@@ -545,6 +545,38 @@ impl<'a> JsSubsetEmitter<'a> {
                 self.body.push_str("}\n");
                 Ok(())
             }
+            Stmt::DoWhile { body, condition, .. } => {
+                self.body.push_str("do {\n");
+                self.push_scope();
+                for inner in *body {
+                    self.emit_stmt(*inner)?;
+                }
+                self.pop_scope();
+                let cond = self.emit_expr(*condition)?;
+                self.body.push_str(&format!("}} while ({});\n", cond));
+                Ok(())
+            }
+            Stmt::Switch {
+                condition, cases, ..
+            } => {
+                let cond = self.emit_expr(*condition)?;
+                self.body.push_str(&format!("switch ({}) {{\n", cond));
+                for case in *cases {
+                    if let Some(case_cond) = case.condition {
+                        let case_expr = self.emit_expr(case_cond)?;
+                        self.body.push_str(&format!("case {}:\n", case_expr));
+                    } else {
+                        self.body.push_str("default:\n");
+                    }
+                    self.push_scope();
+                    for inner in case.body {
+                        self.emit_stmt(*inner)?;
+                    }
+                    self.pop_scope();
+                }
+                self.body.push_str("}\n");
+                Ok(())
+            }
             Stmt::Break { .. } => {
                 self.body.push_str("break;\n");
                 Ok(())
@@ -1358,6 +1390,34 @@ $num = (int)"42"
         assert!(js.contains("break;"));
         assert!(js.contains("!== undefined"));
         assert!(js.contains("Number.parseInt(\"42\", 10)"));
+    }
+
+    #[test]
+    fn emits_switch_and_dowhile_statements() {
+        let source = r#"
+$i = 0
+do {
+  $i = $i + 1
+} while ($i < 2)
+switch ($i) {
+  case 1:
+    $i = 10
+    break
+  default:
+    $i = 20
+}
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("do {"));
+        assert!(js.contains("while ((i < 2));"));
+        assert!(js.contains("switch (i)"));
+        assert!(js.contains("case 1:"));
+        assert!(js.contains("default:"));
     }
 
 }
