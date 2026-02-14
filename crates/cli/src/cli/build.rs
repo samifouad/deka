@@ -961,6 +961,20 @@ impl<'a> JsSubsetEmitter<'a> {
                 let value = self.emit_expr(*expr)?;
                 Ok(format!("(console.log({}), 1)", value))
             }
+            Expr::MagicConst { kind, .. } => {
+                let lowered = match kind {
+                    php_rs::parser::ast::MagicConstKind::Line => "0".to_string(),
+                    php_rs::parser::ast::MagicConstKind::Dir
+                    | php_rs::parser::ast::MagicConstKind::File
+                    | php_rs::parser::ast::MagicConstKind::Function
+                    | php_rs::parser::ast::MagicConstKind::Class
+                    | php_rs::parser::ast::MagicConstKind::Trait
+                    | php_rs::parser::ast::MagicConstKind::Method
+                    | php_rs::parser::ast::MagicConstKind::Namespace
+                    | php_rs::parser::ast::MagicConstKind::Property => json_string(""),
+                };
+                Ok(lowered)
+            }
             Expr::InterpolatedString { parts, .. } => {
                 let mut pieces = Vec::new();
                 for part in *parts {
@@ -1687,6 +1701,22 @@ $point = new Point(1, 2);
         let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect("subset emit");
         assert!(js.contains("new Point(1, 2)"));
+    }
+
+    #[test]
+    fn emits_magic_constants() {
+        let source = r#"
+$line = __LINE__;
+$file = __FILE__;
+"#;
+        let arena = Bump::new();
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let program = parser.parse_program();
+        let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
+            .expect("subset emit");
+        assert!(js.contains("let line = 0;"));
+        assert!(js.contains("let file = \"\";"));
     }
 
 }
