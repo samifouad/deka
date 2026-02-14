@@ -68,10 +68,10 @@ Do not add Node/Bun compatibility work in this mission.
   - `~/.local/bin/deka -> ~/Projects/deka/mvp/target/release/cli`
   - Do not wire a separate `phpx_lsp` binary; use `deka lsp`.
 
-ADWA runtime/UI changes (current script names still use `wosix`):
+ADWA runtime/UI changes (current script names still use `adwa`):
 
-1. `scripts/run-wosix-playground.sh --build-only`
-2. `WOSIX_E2E_INCLUDE_PHPX=1 ./scripts/test-wosix-playground-e2e.sh`
+1. `scripts/run-adwa-playground.sh --build-only`
+2. `ADWA_E2E_INCLUDE_PHPX=1 ./scripts/test-adwa-playground-e2e.sh`
 
 ## Artifact/version discipline
 

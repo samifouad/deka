@@ -5,19 +5,19 @@ Owner: runtime + browser platform
 
 ## Objective
 
-Replace legacy `wosix` naming with `adwa`, split platform code into its own repo, and move toward a Linux-like browser runtime mental model.
+Replace legacy `adwa` naming with `adwa`, split platform code into its own repo, and move toward a Linux-like browser runtime mental model.
 
 ## Phase 1: Repository Split
 
 - [ ] Create standalone repo at `~/Projects/deka/adwa`.
-- [ ] Copy current platform source from `deka/wosix` into `adwa`.
+- [ ] Copy current platform source from `deka/adwa` into `adwa`.
 - [ ] Set `adwa` as canonical source for browser runtime/platform work.
 - [ ] Keep transitional compatibility from `deka` until integration is fully switched.
 
 ## Phase 2: Naming Migration
 
-- [ ] Rename `wosix` identifiers to `adwa` across source/docs/scripts.
-- [ ] Rename package/module names where needed (`wosix_*` -> `adwa_*`).
+- [ ] Rename `adwa` identifiers to `adwa` across source/docs/scripts.
+- [ ] Rename package/module names where needed (`adwa_*` -> `adwa_*`).
 - [ ] Update runtime/demo wiring in `deka` to call into `adwa`.
 - [ ] Preserve deterministic build/test scripts during rename.
 
@@ -34,4 +34,4 @@ Replace legacy `wosix` naming with `adwa`, split platform code into its own repo
 
 - [ ] Keep browser e2e and host bridge smokes green through migration.
 - [ ] Finish server/browser command behavior parity checks.
-- [ ] Remove old `wosix` naming and transitional compatibility code once stable.
+- [ ] Remove old `adwa` naming and transitional compatibility code once stable.

@@ -7,7 +7,7 @@ categoryLabel: "Language"
 categoryOrder: 8
 ---
 
-PHPX supports host-targeted diagnostics and runtime gating for browser execution through `adwa` (legacy `wosix` is accepted as an alias).
+PHPX supports host-targeted diagnostics and runtime gating for browser execution through `adwa`.
 
 ## Host targets
 
@@ -30,6 +30,7 @@ In `adwa`, these capabilities are currently blocked:
 
 - database modules (`db/*`, `postgres`, `mysql`, `sqlite`)
 - process/env access (`process`, `env`)
+- direct network bridge calls (`net`, `tcp`, `tls`) unless explicitly re-enabled by host policy
 
 When blocked APIs are imported, LSP reports a `Target Capability Error` with an actionable help message.
 

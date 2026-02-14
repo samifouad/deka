@@ -103,7 +103,7 @@ pub fn validate_target_capabilities(source: &str, file_path: &str) -> Vec<Valida
         .or_else(|| std::env::var("DEKA_HOST_PROFILE").ok())
         .unwrap_or_else(|| "server".to_string())
         .to_ascii_lowercase();
-    if target != "wosix" {
+    if target != "adwa" {
         return Vec::new();
     }
 
@@ -112,13 +112,13 @@ pub fn validate_target_capabilities(source: &str, file_path: &str) -> Vec<Valida
         if spec.kind == ImportKind::Wasm {
             continue;
         }
-        if let Some((capability, reason, suggestion)) = wosix_capability_block(&spec.from) {
+        if let Some((capability, reason, suggestion)) = adwa_capability_block(&spec.from) {
             errors.push(module_error(
                 spec.line,
                 spec.column,
                 spec.from.len().max(1),
                 format!(
-                    "Target capability error: module '{}' is unavailable for target 'wosix' ({}).",
+                    "Target capability error: module '{}' is unavailable for target 'adwa' ({}).",
                     spec.from, reason
                 ),
                 &format!(
@@ -913,7 +913,7 @@ fn is_valid_user_module(raw: &str) -> bool {
         && parts.iter().all(|part| !part.trim().is_empty())
 }
 
-fn wosix_capability_block(specifier: &str) -> Option<(&'static str, &'static str, &'static str)> {
+fn adwa_capability_block(specifier: &str) -> Option<(&'static str, &'static str, &'static str)> {
     if specifier == "db"
         || specifier.starts_with("db/")
         || specifier == "postgres"
@@ -926,7 +926,7 @@ fn wosix_capability_block(specifier: &str) -> Option<(&'static str, &'static str
         return Some((
             "db",
             "database host capability is disabled",
-            "Move db access behind a server endpoint for wosix.",
+            "Move db access behind a server endpoint for adwa.",
         ));
     }
 
@@ -938,7 +938,7 @@ fn wosix_capability_block(specifier: &str) -> Option<(&'static str, &'static str
         return Some((
             "process/env",
             "process/env host capability is disabled",
-            "Inject config through app context instead of reading process/env in wosix.",
+            "Inject config through app context instead of reading process/env in adwa.",
         ));
     }
 
@@ -1079,10 +1079,10 @@ mod tests {
     }
 
     #[test]
-    fn blocks_db_imports_for_wosix_target() {
+    fn blocks_db_imports_for_adwa_target() {
         // SAFETY: test process controls env mutations in this isolated test.
         unsafe {
-            std::env::set_var("PHPX_TARGET", "wosix");
+            std::env::set_var("PHPX_TARGET", "adwa");
         }
         let source = "import { query } from 'db/postgres'\n";
         let errors = validate_target_capabilities(source, "main.phpx");

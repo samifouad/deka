@@ -36,7 +36,7 @@ struct Backend {
 enum TargetMode {
     #[default]
     Server,
-    Wosix,
+    Adwa,
 }
 
 impl TargetMode {
@@ -53,8 +53,8 @@ impl TargetMode {
         let Some(target) = phpx.get("target").and_then(|value| value.as_str()) else {
             return Self::Server;
         };
-        if target.eq_ignore_ascii_case("wosix") {
-            Self::Wosix
+        if target.eq_ignore_ascii_case("adwa") {
+            Self::Adwa
         } else {
             Self::Server
         }
@@ -2387,7 +2387,7 @@ fn target_capability_diagnostics(source: &str, target_mode: TargetMode) -> Vec<D
     let line_index = LineIndex::new(source);
     let mut diagnostics = Vec::new();
     for import in imports {
-        if let Some(block) = wosix_capability_block(&import.from) {
+        if let Some(block) = adwa_capability_block(&import.from) {
             diagnostics.push(Diagnostic {
                 range: span_to_range(import.module_span.unwrap_or(import.span), &line_index),
                 severity: Some(DiagnosticSeverity::ERROR),
@@ -2396,7 +2396,7 @@ fn target_capability_diagnostics(source: &str, target_mode: TargetMode) -> Vec<D
                 )),
                 source: Some("phpx".to_string()),
                 message: format!(
-                    "Target Capability Error: Module '{}' is unavailable for target 'wosix' ({}).\nhelp: {}",
+                    "Target Capability Error: Module '{}' is unavailable for target 'adwa' ({}).\nhelp: {}",
                     import.from, block.reason, block.suggestion
                 ),
                 ..Diagnostic::default()
@@ -2411,7 +2411,7 @@ struct CapabilityBlock {
     suggestion: &'static str,
 }
 
-fn wosix_capability_block(module_spec: &str) -> Option<CapabilityBlock> {
+fn adwa_capability_block(module_spec: &str) -> Option<CapabilityBlock> {
     if module_spec == "db"
         || module_spec.starts_with("db/")
         || module_spec == "postgres"
@@ -2433,7 +2433,7 @@ fn wosix_capability_block(module_spec: &str) -> Option<CapabilityBlock> {
     {
         return Some(CapabilityBlock {
             reason: "process/env host capability is disabled",
-            suggestion: "Inject values through app config/context instead of reading process/env in `wosix`.",
+            suggestion: "Inject values through app config/context instead of reading process/env in `adwa`.",
         });
     }
     None
@@ -3121,20 +3121,20 @@ mod tests {
     }
 
     #[test]
-    fn target_mode_reads_wosix_from_init_options() {
+    fn target_mode_reads_adwa_from_init_options() {
         let mut params = InitializeParams::default();
         params.initialization_options = Some(json!({
             "phpx": {
-                "target": "wosix"
+                "target": "adwa"
             }
         }));
-        assert_eq!(TargetMode::from_initialize_params(&params), TargetMode::Wosix);
+        assert_eq!(TargetMode::from_initialize_params(&params), TargetMode::Adwa);
     }
 
     #[test]
-    fn target_capability_diagnostics_block_db_modules_for_wosix() {
+    fn target_capability_diagnostics_block_db_modules_for_adwa() {
         let source = "import { query } from 'db/postgres'\n";
-        let diagnostics = target_capability_diagnostics(source, TargetMode::Wosix);
+        let diagnostics = target_capability_diagnostics(source, TargetMode::Adwa);
         assert_eq!(diagnostics.len(), 1, "diagnostics={diagnostics:?}");
         let first = &diagnostics[0];
         assert!(first.message.contains("db/postgres"), "message={}", first.message);

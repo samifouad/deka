@@ -32,7 +32,7 @@ Keep runtime core host-agnostic by routing all host access through a `platform` 
   - Uses server host APIs.
   - Owns all direct Deno/OS bindings.
 - `platform_browser`
-  - Uses WOSIX/browser-safe primitives.
+  - Uses ADWA/browser-safe primitives.
   - Applies strict URL/module restrictions.
 
 ## Boundary Rule

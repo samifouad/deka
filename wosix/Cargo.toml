@@ -1,6 +1,0 @@
-[workspace]
-resolver = "2"
-members = [
-    "crates/wosix-core",
-    "crates/wosix-wasm",
-]

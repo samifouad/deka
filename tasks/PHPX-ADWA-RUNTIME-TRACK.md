@@ -57,8 +57,6 @@ Scope: run PHPX inside browser via `adwa` host profile
 
 - [x] Add developer script for `adwa` php runtime smoke run.
 - [x] Add playground boot script/example using `adwa` with PHPX file tree.
-- [x] Add `cli-adwa` command module loader (`php_modules/adwa/<cmd>/deka.json`) with PHPX-first execution and process-env argument injection.
-- [x] Port baseline terminal commands (`help`, `pwd`, `ls`, `cat`, `echo`, `mkdir`, `touch`, `cp`, `mv`, `rm`) into PHPX `cli-adwa` modules.
 - [x] Ensure docs explain host capabilities and limitations clearly.
 
 ## Testing
@@ -88,10 +86,10 @@ Scope: run PHPX inside browser via `adwa` host profile
 ## Cross-track dependency
 
 - [ ] Async track (`tasks/PHPX-ASYNC-TRACK.md`) feeds directly into `adwa` host event scheduling and top-level await behavior.
-- [ ] Bin + shebang track (`tasks/PHPX-ADWA-BIN-SHEBANG-TASKS.md`) replaces command stubs with runtime-native command/process resolution.
 
 ## Exit Criteria
 
-- [x] PHPX runs in browser via `adwa` with module imports and JSX SSR output.
+- [ ] PHPX runs in browser via `adwa` with module imports and JSX SSR output.
+  - Note: base PHPX execution is now live in browser via adapter + wasm executor.
 - [x] Capability errors are explicit and stable.
 - [x] LSP can validate against `adwa` target mode.

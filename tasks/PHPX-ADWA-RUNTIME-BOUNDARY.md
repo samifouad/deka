@@ -1,6 +1,6 @@
 # PHPX Adwa Runtime Boundary
 
-Status: active  
+Status: complete  
 Owner: runtime + adwa
 
 ## Purpose
@@ -24,7 +24,7 @@ Define and enforce the browser runtime boundary for PHPX in ADWA so demos and to
   - [x] `stderr: string`
   - [x] `diagnostics: []`
   - [x] `meta: object`
-- [x] Contract errors must be structured (no opaque string-only failures).
+- [ ] Contract errors must be structured (no opaque string-only failures).
 - [x] Contract errors are structured (diagnostics + meta, no opaque string-only failures).
 - [x] Contract must support host capability reporting.
 
