@@ -30,7 +30,7 @@ pub fn run(context: &Context) {
     // Get current directory
     let current_dir = env::current_dir().expect("Failed to get current directory");
 
-    // Find entry point (look for handler.js, app.php, etc.)
+    // Find entry point (PHP/PHPX only in reboot MVP)
     let entry_point = find_entry_point(&current_dir);
 
     match entry_point {
@@ -122,14 +122,14 @@ pub fn run(context: &Context) {
             }
         }
         None => {
-            stdio_log::error("compile", "No entry point found. Looking for handler.js, app.php, or main.js");
+            stdio_log::error("compile", "No entry point found. Looking for app.php, index.php, or index.phpx");
         }
     }
 }
 
 /// Find the entry point file in the current directory
 fn find_entry_point(dir: &PathBuf) -> Option<String> {
-    let candidates = vec!["handler.js", "app.php", "main.js", "index.js", "handler.ts", "main.ts"];
+    let candidates = vec!["app.php", "index.php", "index.phpx"];
 
     for candidate in candidates {
         let path = dir.join(candidate);

@@ -39,11 +39,6 @@ use tokio::sync::{mpsc, oneshot};
 
 static POOL_IDS: AtomicU64 = AtomicU64::new(1);
 const REQUEST_BATCH_MAX: usize = 8;
-static TS_PROFILE_ENABLED: OnceLock<bool> = OnceLock::new();
-static TS_LOAD_TOTAL_MS: AtomicU64 = AtomicU64::new(0);
-static TS_LOAD_COUNT: AtomicU64 = AtomicU64::new(0);
-static TS_TRANSPILE_TOTAL_MS: AtomicU64 = AtomicU64::new(0);
-static TS_TRANSPILE_COUNT: AtomicU64 = AtomicU64::new(0);
 static PERF_PROFILE_ENABLED: OnceLock<bool> = OnceLock::new();
 static PERF_COUNT: AtomicU64 = AtomicU64::new(0);
 static PERF_QUEUE_TOTAL_MS: AtomicU64 = AtomicU64::new(0);
@@ -113,14 +108,6 @@ fn get_thread_cpu_time() -> Duration {
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn get_thread_cpu_time() -> Duration {
     Duration::ZERO
-}
-
-fn ts_profile_enabled() -> bool {
-    *TS_PROFILE_ENABLED.get_or_init(|| {
-        std::env::var("DEKA_PERF_MODE")
-            .map(|value| value != "false" && value != "0")
-            .unwrap_or(false)
-    })
 }
 
 fn perf_profile_enabled() -> bool {
@@ -1177,8 +1164,6 @@ struct WarmIsolate {
     source_hash: u64,
     /// Whether this isolate has been bootstrapped
     bootstrapped: bool,
-    /// Whether TypeScript compiler is loaded in this isolate
-    typescript_loaded: bool,
     /// Total CPU time consumed
     total_cpu_time: Duration,
     /// Total wall time (created_at to now)
@@ -1204,7 +1189,6 @@ struct WorkerThread {
     isolates: HashMap<HandlerKey, WarmIsolate>,
     lru_order: Vec<HandlerKey>, // Front = oldest, back = newest
     code_cache: HashMap<u64, Vec<u8>>,
-    ts_cache: HashMap<u64, String>,
     extensions_provider: Arc<dyn Fn() -> Vec<Extension> + Send + Sync>,
     request_history: VecDeque<RequestTrace>,
     deka_args: serde_json::Value,
@@ -1238,7 +1222,6 @@ impl WorkerThread {
             isolates: HashMap::new(),
             lru_order: Vec::new(),
             code_cache: HashMap::new(),
-            ts_cache: HashMap::new(),
             extensions_provider,
             request_history: VecDeque::new(),
             deka_args,
@@ -1291,29 +1274,6 @@ impl WorkerThread {
             }
         });
 
-        if ts_profile_enabled() {
-            let load_count = TS_LOAD_COUNT.load(Ordering::Relaxed);
-            let load_total = TS_LOAD_TOTAL_MS.load(Ordering::Relaxed);
-            let load_avg = if load_count == 0 {
-                0
-            } else {
-                load_total / load_count
-            };
-            let transpile_count = TS_TRANSPILE_COUNT.load(Ordering::Relaxed);
-            let transpile_total = TS_TRANSPILE_TOTAL_MS.load(Ordering::Relaxed);
-            let transpile_avg = if transpile_count == 0 {
-                0
-            } else {
-                transpile_total / transpile_count
-            };
-            deka_stdio::log("ts_load_total_ms", &load_total.to_string());
-            deka_stdio::log("ts_load_avg_ms", &load_avg.to_string());
-            deka_stdio::log("ts_load_count", &load_count.to_string());
-            deka_stdio::log("ts_transpile_total_ms", &transpile_total.to_string());
-            deka_stdio::log("ts_transpile_avg_ms", &transpile_avg.to_string());
-            deka_stdio::log("ts_transpile_count", &transpile_count.to_string());
-        }
-
         tracing::debug!("Worker {} shutting down", self.worker_id);
     }
 
@@ -1325,7 +1285,6 @@ impl WorkerThread {
                 self.isolates.clear();
                 self.lru_order.clear();
                 self.code_cache.clear();
-                self.ts_cache.clear();
                 tracing::debug!("Worker {} evicted {} isolates", self.worker_id, count);
                 let _ = response_tx.send(count);
             }
@@ -1775,7 +1734,6 @@ impl WorkerThread {
             active_requests: 0,
             source_hash,
             bootstrapped: false, // Will be bootstrapped on first request
-            typescript_loaded: false,
             total_cpu_time: Duration::ZERO,
             created_at: Instant::now(),
             heap_used_bytes: 0,
@@ -2053,17 +2011,15 @@ impl WorkerThread {
             );
         }
 
-        let needs_typescript = handler_is_typescript(&key.name);
-        if needs_typescript && !isolate.typescript_loaded {
-            if let Err(err) = load_typescript_compiler(&mut isolate.runtime) {
-                isolate.active_requests = 0;
-                isolate.state = IsolateState::Idle;
-                return (
-                    ExecutionOutcome::Err(format!("TypeScript compiler load failed: {}", err)),
-                    ExecutionProfile::empty(),
-                );
-            }
-            isolate.typescript_loaded = true;
+        if handler_is_unsupported_script(&key.name) {
+            isolate.active_requests = 0;
+            isolate.state = IsolateState::Idle;
+            return (
+                ExecutionOutcome::Err(
+                    "JavaScript/TypeScript handlers are not supported in reboot MVP. Use .php/.phpx handlers or serve JS/TS files as static assets.".to_string(),
+                ),
+                ExecutionProfile::empty(),
+            );
         }
 
         // Execute the handler - transform import/export statements
@@ -2131,29 +2087,7 @@ impl WorkerThread {
             .replace("export default app", "// export default app")
             .replace("export default ", "const __dekaDefault = ");
 
-        let handler_code = if needs_typescript {
-            let ts_hash = Self::hash_source(&handler_code);
-            if let Some(cached) = self.ts_cache.get(&ts_hash) {
-                cached.clone()
-            } else {
-                match transpile_typescript(&mut isolate.runtime, &handler_code, &key.name) {
-                    Ok(code) => {
-                        self.ts_cache.insert(ts_hash, code.clone());
-                        code
-                    }
-                    Err(err) => {
-                        isolate.active_requests = 0;
-                        isolate.state = IsolateState::Idle;
-                        return (
-                            ExecutionOutcome::Err(format!("TypeScript transpile failed: {}", err)),
-                            ExecutionProfile::empty(),
-                        );
-                    }
-                }
-            }
-        } else {
-            handler_code
-        };
+        let handler_code = handler_code;
 
         let wrapped_handler_code = format!(
             "(function() {{\n{}\nif (typeof globalThis.app === 'undefined') {{ if (typeof __dekaDefault !== 'undefined') {{ if (typeof __dekaDefault === 'function' && typeof globalThis.__dekaNodeExpressAdapter === 'function' && (typeof __dekaDefault.handle === 'function' || typeof __dekaDefault.listen === 'function')) {{ globalThis.app = globalThis.__dekaNodeExpressAdapter(__dekaDefault); }} else if (__dekaDefault && typeof __dekaDefault === 'object' && !__dekaDefault.__dekaServer && (typeof __dekaDefault.fetch === 'function' || typeof __dekaDefault.routes === 'object')) {{ globalThis.app = globalThis.__deka.serve(__dekaDefault); }} else {{ globalThis.app = __dekaDefault; }} }} else if (typeof app !== 'undefined') {{ if (typeof app === 'function' && typeof globalThis.__dekaNodeExpressAdapter === 'function' && (typeof app.handle === 'function' || typeof app.listen === 'function')) {{ globalThis.app = globalThis.__dekaNodeExpressAdapter(app); }} else {{ globalThis.app = app; }} }} }}\n}})();",
@@ -2736,99 +2670,12 @@ fn finalize_profile(
     }
 }
 
-fn handler_is_typescript(name: &str) -> bool {
+fn handler_is_unsupported_script(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
-    lower.ends_with(".ts") || lower.ends_with(".tsx")
-}
-
-fn load_typescript_compiler(runtime: &mut JsRuntime) -> Result<(), String> {
-    let ts_source = include_str!("../typescript.js");
-    let start = Instant::now();
-    runtime
-        .execute_script(
-            "typescript.js",
-            ModuleCodeString::from(ts_source.to_string()),
-        )
-        .map_err(|e| format!("{}", e))?;
-    runtime
-        .execute_script(
-            "typescript-setup.js",
-            ModuleCodeString::from(
-                "globalThis.__dekaTs = globalThis.ts; delete globalThis.ts;".to_string(),
-            ),
-        )
-        .map_err(|e| format!("{}", e))?;
-    if ts_profile_enabled() {
-        let elapsed_ms = start.elapsed().as_millis() as u64;
-        TS_LOAD_TOTAL_MS.fetch_add(elapsed_ms, Ordering::Relaxed);
-        let count = TS_LOAD_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-        deka_stdio::log("ts_load_ms", &elapsed_ms.to_string());
-        if count % 10 == 0 {
-            let total = TS_LOAD_TOTAL_MS.load(Ordering::Relaxed);
-            let avg = if count == 0 { 0 } else { total / count };
-            deka_stdio::log("ts_load_avg_ms", &avg.to_string());
-            deka_stdio::log("ts_load_count", &count.to_string());
-        }
-    }
-    Ok(())
-}
-
-fn transpile_typescript(
-    runtime: &mut JsRuntime,
-    source: &str,
-    file_name: &str,
-) -> Result<String, String> {
-    let start = if ts_profile_enabled() {
-        Some(Instant::now())
-    } else {
-        None
-    };
-    let source_json = serde_json::to_string(source).unwrap_or_else(|_| "\"\"".to_string());
-    let file_json =
-        serde_json::to_string(file_name).unwrap_or_else(|_| "\"handler.ts\"".to_string());
-    let jsx_option = if file_name.to_ascii_lowercase().ends_with(".tsx") {
-        "jsx: ts.JsxEmit.React,"
-    } else {
-        ""
-    };
-
-    let script = format!(
-        r#"
-        (function() {{
-            const ts = globalThis.__dekaTs;
-            if (!ts) {{
-                throw new Error("TypeScript compiler not loaded");
-            }}
-            const src = {source_json};
-            const out = ts.transpileModule(src, {{
-                compilerOptions: {{
-                    target: ts.ScriptTarget.ES2020,
-                    module: ts.ModuleKind.ESNext,
-                    {jsx_option}
-                }},
-                fileName: {file_json}
-            }});
-            return out.outputText || "";
-        }})()
-        "#
-    );
-
-    let result = runtime
-        .execute_script("deka-transpile.ts", ModuleCodeString::from(script))
-        .map_err(|e| format!("{}", e))?;
-    deno_core::scope!(scope, runtime);
-    let local = deno_core::v8::Local::new(scope, &result);
-    let output = local.to_rust_string_lossy(scope);
-    if let Some(start) = start {
-        let elapsed_ms = start.elapsed().as_millis() as u64;
-        TS_TRANSPILE_TOTAL_MS.fetch_add(elapsed_ms, Ordering::Relaxed);
-        let count = TS_TRANSPILE_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-        if count % 200 == 0 {
-            let total = TS_TRANSPILE_TOTAL_MS.load(Ordering::Relaxed);
-            let avg = if count == 0 { 0 } else { total / count };
-            deka_stdio::log("ts_transpile_avg_ms", &avg.to_string());
-            deka_stdio::log("ts_transpile_count", &count.to_string());
-        }
-    }
-    Ok(output)
+    lower.ends_with(".ts")
+        || lower.ends_with(".tsx")
+        || lower.ends_with(".js")
+        || lower.ends_with(".jsx")
+        || lower.ends_with(".mjs")
+        || lower.ends_with(".cjs")
 }

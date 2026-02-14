@@ -10,7 +10,6 @@ pub struct RuntimeConfig {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ServeMode {
-    Js,
     Static,
     Php,
 }
@@ -216,12 +215,6 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         "index.php",
         "index.phpx",
         "index.html",
-        "index.js",
-        "index.ts",
-        "main.ts",
-        "main.js",
-        "handler.js", // Backward compatibility
-        "handler.ts",
     ];
 
     for index_file in &index_files {
@@ -251,7 +244,6 @@ fn detect_mode(path: &std::path::Path) -> ServeMode {
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         match ext {
             "php" | "phpx" => ServeMode::Php,
-            "js" | "ts" | "mjs" | "mts" => ServeMode::Js,
             "html" | "htm" => ServeMode::Static,
             _ => ServeMode::Static,
         }
