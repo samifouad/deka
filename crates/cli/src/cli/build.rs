@@ -825,9 +825,9 @@ impl<'a> JsSubsetEmitter<'a> {
                     BinaryOp::Mod => "%",
                     BinaryOp::Pow => "**",
                     BinaryOp::Concat => "+",
-                    BinaryOp::Eq | BinaryOp::EqEq => "==",
+                    BinaryOp::Eq | BinaryOp::EqEq => "===",
                     BinaryOp::EqEqEq => "===",
-                    BinaryOp::NotEq => "!=",
+                    BinaryOp::NotEq => "!==",
                     BinaryOp::NotEqEq => "!==",
                     BinaryOp::Lt => "<",
                     BinaryOp::LtEq => "<=",
@@ -1779,6 +1779,8 @@ $num = (int)"42"
         let js = emit_js_from_ast(&program, source.as_bytes(), SourceModuleMeta::empty())
             .expect("subset emit");
         assert!(js.contains("continue;"));
+        assert!(js.contains("if ((i === 2))"));
+        assert!(js.contains("if ((i === 8))"));
         assert!(js.contains("break;"));
         assert!(js.contains("!== undefined"));
         assert!(js.contains("Number.parseInt(\"42\", 10)"));
