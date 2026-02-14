@@ -13,7 +13,10 @@ export function renderWorkbench(container = document.body) {
 
       <aside id="fileTree" class="explorerPane" aria-label="Explorer">
         <div class="explorerHeader">
-          <span class="explorerTitle">Explorer</span>
+          <div class="explorerHeaderText">
+            <span class="explorerTitle">Explorer</span>
+            <span id="explorerPath" class="explorerPath">/home/user/demo</span>
+          </div>
           <div class="explorerActions">
             <button id="newFileBtn" class="explorerActionBtn" type="button" title="New File">New</button>
             <button id="newFolderBtn" class="explorerActionBtn" type="button" title="New Folder">Folder</button>

@@ -24,6 +24,7 @@ let newFileBtn = document.getElementById("newFileBtn");
 let newFolderBtn = document.getElementById("newFolderBtn");
 let fileTreeEl = document.getElementById("fileTree");
 let fileTreeListEl = document.getElementById("fileTreeList");
+let explorerPathEl = document.getElementById("explorerPath");
 let editorTabsEl = document.getElementById("editorTabs");
 let workspacePaneEl = document.querySelector(".workspacePane");
 let resultFrame = document.getElementById("resultFrame");
@@ -62,13 +63,17 @@ let lastCliArgCount = 0;
 let lastShebangArgCount = 0;
 const AUTORUN_DEBOUNCE_MS = 220;
 const lspBase = `${window.location.protocol}//${window.location.hostname}:${window.PHPX_LSP_PORT || "8531"}`;
-const DEFAULT_CWD = "/home/user";
+const DEMO_ROOT = "/home/user/demo";
+const DEMO_ENTRY = `${DEMO_ROOT}/app/home.phpx`;
+const DEFAULT_CWD = DEMO_ROOT;
 const BASE_FS_DIRS = [
   "/bin",
   "/usr",
   "/usr/bin",
   "/home",
   "/home/user",
+  "/home/user/demo",
+  "/home/user/demo/app",
   "/tmp",
   "/etc",
   "/var",
@@ -81,7 +86,7 @@ const BASE_FS_FILES = {
 const projectEnv = {
   DEKA_PHPX_ENABLE_DOTENV: "1",
   DEKA_PHPX_DISABLE_CACHE: "1",
-  PHPX_MODULE_ROOT: "/",
+  PHPX_MODULE_ROOT: DEMO_ROOT,
   HOME: "/home/user",
   USER: "user",
   PATH: "/usr/bin:/bin",
@@ -90,7 +95,7 @@ const projectEnv = {
 };
 const serverState = {
   running: false,
-  entry: "/app/home.phpx",
+  entry: DEMO_ENTRY,
   mode: "php",
   port: 8530,
   path: "/",
@@ -126,6 +131,23 @@ const defaultSource = [
   "</html>",
 ].join("\n");
 
+const remapBundledProjectFiles = (files, root) => {
+  const out = {};
+  for (const [rawPath, content] of Object.entries(files || {})) {
+    const rel = String(rawPath || "").replace(/^\/+/, "");
+    if (!rel) continue;
+    out[normalizePath(`${root}/${rel}`)] = content;
+  }
+  return out;
+};
+
+const resolveProjectPath = (value, fallback = DEMO_ENTRY) => {
+  const raw = String(value || "").trim();
+  if (!raw) return fallback;
+  if (raw.startsWith("/")) return normalizePath(raw);
+  return normalizePath(`${DEMO_ROOT}/${raw}`);
+};
+
 const parseJsonSafe = (value, fallback = {}) => {
   try {
     const parsed = JSON.parse(String(value ?? ""));
@@ -135,21 +157,20 @@ const parseJsonSafe = (value, fallback = {}) => {
   }
 };
 
-const bundledDekaConfig = parseJsonSafe(bundledProjectFiles["/deka.json"], {});
+const bundledProjectTree = remapBundledProjectFiles(bundledProjectFiles, DEMO_ROOT);
+const bundledDekaConfig = parseJsonSafe(bundledProjectTree[`${DEMO_ROOT}/deka.json`], {});
 const bundledServeConfig =
   bundledDekaConfig && typeof bundledDekaConfig.serve === "object" ? bundledDekaConfig.serve : {};
-const configuredServeEntry = normalizePath(
-  String(bundledServeConfig.entry || "/app/home.phpx")
-);
+const configuredServeEntry = resolveProjectPath(bundledServeConfig.entry, DEMO_ENTRY);
 const configuredServeMode = String(bundledServeConfig.mode || "php");
 const configuredServePort = Number(bundledServeConfig.port || 8530);
 
 const vfs = new VirtualFs({
   ...BASE_FS_FILES,
-  ...bundledProjectFiles,
+  ...bundledProjectTree,
   "/README.txt": "ADWA browser playground\\nUse terminal: ls, cd, pwd, open, cat, run\\n",
-  "/main.phpx": defaultSource,
-  "/app/home.phpx": defaultSource,
+  `${DEMO_ROOT}/main.phpx`: defaultSource,
+  [DEMO_ENTRY]: defaultSource,
 });
 for (const dir of BASE_FS_DIRS) {
   vfs.mkdir(dir);
@@ -157,17 +178,38 @@ for (const dir of BASE_FS_DIRS) {
 
 let currentFile = configuredServeEntry;
 let cwd = DEFAULT_CWD;
+let explorerRoot = DEFAULT_CWD;
 const openTabs = [{ path: currentFile, pinned: true }];
-const expandedFolders = new Set(["/"]);
+const EXPANDED_FOLDERS_STORAGE_KEY = "adwa.explorer.expanded.v1";
+const loadExpandedFolders = () => {
+  try {
+    const raw = localStorage.getItem(EXPANDED_FOLDERS_STORAGE_KEY);
+    const arr = JSON.parse(raw || "[]");
+    if (!Array.isArray(arr)) return new Set(["/", DEFAULT_CWD]);
+    const out = new Set(["/", DEFAULT_CWD]);
+    for (const item of arr) {
+      if (typeof item === "string" && item.startsWith("/")) out.add(normalizePath(item));
+    }
+    return out;
+  } catch {
+    return new Set(["/", DEFAULT_CWD]);
+  }
+};
+const expandedFolders = loadExpandedFolders();
+const saveExpandedFolders = () => {
+  try {
+    localStorage.setItem(EXPANDED_FOLDERS_STORAGE_KEY, JSON.stringify(Array.from(expandedFolders)));
+  } catch {}
+};
 
 try {
   const stat = vfs.stat(currentFile);
   if (stat.fileType !== "file") {
-    currentFile = "/app/home.phpx";
+    currentFile = DEMO_ENTRY;
     openTabs[0].path = currentFile;
   }
 } catch {
-  currentFile = "/app/home.phpx";
+  currentFile = DEMO_ENTRY;
   openTabs[0].path = currentFile;
 }
 
@@ -228,6 +270,14 @@ const ensureFolderExpandedFor = (filePath) => {
     current = `${current}/${parts[i]}`;
     expandedFolders.add(current || "/");
   }
+  saveExpandedFolders();
+};
+
+const syncExplorerToCwd = () => {
+  explorerRoot = normalizePath(cwd || DEFAULT_CWD);
+  expandedFolders.add(explorerRoot);
+  if (explorerPathEl) explorerPathEl.textContent = explorerRoot;
+  saveExpandedFolders();
 };
 
 const findTabIndexByPath = (path) => openTabs.findIndex((tab) => tab.path === path);
@@ -413,6 +463,7 @@ const renderFileTree = () => {
   if (!(fileTreeListEl instanceof HTMLElement)) return;
   fileTreeListEl.innerHTML = "";
   const root = { name: "/", path: "/", type: "dir", children: new Map() };
+  const targetRoot = normalizePath(explorerRoot || DEFAULT_CWD);
 
   const ensureTreeNode = (targetPath, typeHint = "dir") => {
     const parts = normalizePath(targetPath).split("/").filter(Boolean);
@@ -455,12 +506,13 @@ const renderFileTree = () => {
       const isOpen = expandedFolders.has(node.path);
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "treeRow treeFolder";
+      btn.className = `treeRow treeFolder${node.path === cwd ? " active" : ""}`;
       btn.style.paddingLeft = `${8 + depth * 14}px`;
       btn.innerHTML = `<span class="treeCaret">${isOpen ? icon("chevronDown") : icon("chevronRight")}</span><span class="treeIcon">${folderIconFor(isOpen)}</span><span class="treeLabel">${node.name}</span>`;
       btn.addEventListener("click", () => {
         if (isOpen) expandedFolders.delete(node.path);
         else expandedFolders.add(node.path);
+        saveExpandedFolders();
         renderFileTree();
       });
       li.appendChild(btn);
@@ -499,16 +551,37 @@ const renderFileTree = () => {
     return li;
   };
 
-  const topLevel = Array.from(root.children.values()).sort((a, b) => {
-    if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+  const findNodeByPath = (startNode, path) => {
+    if (startNode.path === path) return startNode;
+    if (!startNode.children) return null;
+    for (const child of startNode.children.values()) {
+      const found = findNodeByPath(child, path);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  let displayRoot = findNodeByPath(root, targetRoot);
+  if (!displayRoot || displayRoot.type !== "dir") {
+    displayRoot = root;
+  }
+
+  const topLevel = displayRoot.children
+    ? Array.from(displayRoot.children.values()).sort((a, b) => {
+        if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      })
+    : [];
+
   for (const node of topLevel) {
     fileTreeListEl.appendChild(renderNode(node, 0));
   }
+
+  if (explorerPathEl) explorerPathEl.textContent = targetRoot;
 };
 
 const selectFileTab = (path, options = {}) => {
+
   const file = normalizePath(path);
   ensureFolderExpandedFor(file);
   const existing = findTabIndexByPath(file);
@@ -546,7 +619,7 @@ const closeFileTab = (path) => {
   if (idx === -1) return;
   openTabs.splice(idx, 1);
   if (openTabs.length === 0) {
-    const fallback = statPath("/main.phpx") ? "/main.phpx" : (vfs.listFiles()[0] || "/README.txt");
+    const fallback = statPath(`${DEMO_ROOT}/main.phpx`) ? `${DEMO_ROOT}/main.phpx` : (vfs.listFiles()[0] || `${DEMO_ROOT}/README.txt`);
     if (fallback) openTabs.push({ path: fallback, pinned: true });
   }
   if (currentFile === file) {
@@ -1522,6 +1595,7 @@ const createFolderAt = async (inputPath) => {
     } catch {}
   }
   expandedFolders.add(resolved);
+  saveExpandedFolders();
   renderFileTree();
   log(`created dir ${resolved}`);
   return resolved;
@@ -1543,6 +1617,8 @@ const syncAllVfsToShell = async () => {
     await syncPathToShell(file, vfs.readFile(file));
   }
 };
+
+syncExplorerToCwd();
 
 const initShellContainer = async () => {
   const bindings = await import("./vendor/adwa_wasm/adwa_wasm.js");
@@ -1651,7 +1727,9 @@ const runShellCommand = async (line) => {
       }
       cwd = next;
       projectEnv.PWD = cwd;
+      syncExplorerToCwd();
       setPrompt();
+      renderFileTree();
       return;
     } catch {
       log(`cd: no such directory: ${next}`);
@@ -1978,7 +2056,7 @@ const boot = async () => {
       await executeRun(false);
     },
     setFile: (path, source) => {
-      const filePath = normalizePath(String(path || "/main.phpx"));
+      const filePath = normalizePath(String(path || `${DEMO_ROOT}/main.phpx`));
       const next = String(source ?? "");
       const bytes = new TextEncoder().encode(next);
       vfs.writeFile(filePath, bytes);
@@ -1988,7 +2066,7 @@ const boot = async () => {
       }
     },
     openFile: (path) => {
-      const filePath = normalizePath(String(path || "/main.phpx"));
+      const filePath = normalizePath(String(path || `${DEMO_ROOT}/main.phpx`));
       const stat = statPath(filePath);
       if (!stat || stat.fileType !== "file") return false;
       syncFileFromEditor();
@@ -2047,7 +2125,7 @@ const boot = async () => {
 
   if (newFileBtn instanceof HTMLButtonElement) {
     newFileBtn.addEventListener("click", async () => {
-      const seed = dirname(currentFile || "/main.phpx");
+      const seed = dirname(currentFile || `${DEMO_ROOT}/main.phpx`);
       const suggested = `${seed === "/" ? "" : seed}/untitled.phpx`;
       const input = window.prompt("New file path", suggested);
       if (input == null) return;

@@ -82,6 +82,22 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   padding: 8px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
+.explorerHeaderText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+.explorerPath {
+  color: #9da0a6;
+  font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 230px;
+}
+
 
 .explorerTitle {
   color: #c5c5c5;
@@ -145,7 +161,8 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 
 .treeRow:hover { background: #15233d; }
 .treeRow:hover { background: #2a2d2e; }
-.treeFile.active { background: #37373d; }
+.treeFile.active,
+.treeFolder.active { background: #37373d; }
 
 .treeCaret {
   width: 12px;
