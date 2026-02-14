@@ -76,7 +76,7 @@ fn run_web_project_build(context: &Context) -> Result<(), String> {
 
     let app_dir = project_root.join("app");
     let public_dir = project_root.join("public");
-    let entry_path = resolve_web_entry(&app_dir)?;
+    let entry_path = resolve_web_entry(&project_root)?;
 
     let dist_root = project_root.join("dist");
     let dist_client = dist_root.join("client");
@@ -369,21 +369,49 @@ fn ensure_web_project_layout(project_root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn resolve_web_entry(app_dir: &Path) -> Result<PathBuf, String> {
-    let main = app_dir.join("main.phpx");
-    if main.is_file() {
-        return Ok(main);
+fn resolve_web_entry(project_root: &Path) -> Result<PathBuf, String> {
+    let deka_path = project_root.join("deka.json");
+    let raw = fs::read_to_string(&deka_path)
+        .map_err(|err| format!("failed to read {}: {}", deka_path.display(), err))?;
+    let json: serde_json::Value = serde_json::from_str(&raw)
+        .map_err(|err| format!("invalid {}: {}", deka_path.display(), err))?;
+
+    let entry = json
+        .get("serve")
+        .and_then(|v| v.get("entry"))
+        .and_then(|v| v.as_str())
+        .filter(|v| !v.trim().is_empty())
+        .ok_or_else(|| {
+            format!(
+                "web build requires deka.json serve.entry (example: \"app/main.phpx\") in {}",
+                deka_path.display()
+            )
+        })?;
+
+    let entry_path = project_root.join(entry);
+    if !entry_path.is_file() {
+        return Err(format!(
+            "serve.entry points to missing file: {}",
+            entry_path.display()
+        ));
     }
 
-    let index = app_dir.join("index.phpx");
-    if index.is_file() {
-        return Ok(index);
+    let app_dir = project_root.join("app");
+    if !entry_path.starts_with(&app_dir) {
+        return Err(format!(
+            "serve.entry must point inside app/: {}",
+            entry_path.display()
+        ));
     }
 
-    Err(format!(
-        "web build requires app/main.phpx or app/index.phpx under {}",
-        app_dir.display()
-    ))
+    if entry_path.extension().and_then(|e| e.to_str()) != Some("phpx") {
+        return Err(format!(
+            "serve.entry must be a .phpx file: {}",
+            entry_path.display()
+        ));
+    }
+
+    Ok(entry_path)
 }
 
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
