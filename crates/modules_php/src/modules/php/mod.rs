@@ -126,6 +126,7 @@ struct WitVariantCase {
 }
 
 #[derive(serde::Serialize, Clone)]
+#[allow(dead_code)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum BridgeType {
     Unknown,
@@ -144,9 +145,6 @@ enum BridgeType {
         name: String,
         fields: Vec<BridgeField>,
     },
-    Enum {
-        name: String,
-    },
     Union {
         types: Vec<BridgeType>,
     },
@@ -160,9 +158,6 @@ enum BridgeType {
     Applied {
         base: String,
         args: Vec<BridgeType>,
-    },
-    TypeParam {
-        name: String,
     },
 }
 
@@ -727,28 +722,9 @@ impl<'a> TypeResolver<'a> {
         name.rsplit('\\').next().unwrap_or(name)
     }
 
-    fn resolve_alias(&mut self, name: &str) -> Option<BridgeType> {
-        let Some(alias) = self.aliases.get(name) else {
-            return None;
-        };
-        if !alias.params.is_empty() {
-            return Some(BridgeType::Mixed);
-        }
-        let mut guard = HashSet::new();
-        Some(self.convert_type_with_guard(alias.ty, &mut guard))
-    }
-
     fn convert_type(&mut self, ty: &'a AstType<'a>) -> BridgeType {
         let mut guard = HashSet::new();
         self.convert_type_internal(ty, &mut guard, None)
-    }
-
-    fn convert_type_with_guard(
-        &mut self,
-        ty: &'a AstType<'a>,
-        alias_guard: &mut HashSet<String>,
-    ) -> BridgeType {
-        self.convert_type_internal(ty, alias_guard, None)
     }
 
     fn convert_type_internal(
@@ -1027,16 +1003,15 @@ fn op_php_parse_phpx_types(
     #[string] source: String,
     #[string] file_path: String,
 ) -> Result<BridgeModuleTypes, deno_core::error::CoreError> {
-    let mut cleaned_source = None;
     let trimmed = source.trim_start();
-    let source_bytes = if trimmed.starts_with("<?php") {
+    let source_holder: std::borrow::Cow<[u8]> = if trimmed.starts_with("<?php") {
         let prefix_len = source.len() - trimmed.len();
         let without_tag = source[prefix_len + 5..].to_string();
-        cleaned_source = Some(without_tag);
-        cleaned_source.as_ref().unwrap().as_bytes()
+        std::borrow::Cow::Owned(without_tag.into_bytes())
     } else {
-        source.as_bytes()
+        std::borrow::Cow::Borrowed(source.as_bytes())
     };
+    let source_bytes = source_holder.as_ref();
     let arena = Bump::new();
     let lexer = Lexer::new(source_bytes);
     let path = std::path::Path::new(&file_path);
