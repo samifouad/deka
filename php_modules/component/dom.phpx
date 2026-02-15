@@ -128,9 +128,13 @@ const createRoot = (config = {}) => {
     return document.querySelector(selector);
   };
 
+  const normalizeDsdMarkup = (html) => {
+    return String(html || "").replace(/shadowrootmode=/gi, "data-shadowrootmode=");
+  };
+
   const swapHtml = (container, html) => {
     if (!container) return;
-    container.innerHTML = html;
+    container.innerHTML = normalizeDsdMarkup(html);
   };
 
   const mountDeclarativeShadows = (scope) => {
@@ -141,9 +145,9 @@ const createRoot = (config = {}) => {
     for (const host of hosts) {
       if (!(host instanceof Element)) continue;
       if (host.shadowRoot) continue;
-      const tpl = host.querySelector("template[shadowrootmode]");
+      const tpl = host.querySelector("template[shadowrootmode],template[data-shadowrootmode]");
       if (!(tpl instanceof HTMLTemplateElement)) continue;
-      const rawMode = tpl.getAttribute("shadowrootmode") || "open";
+      const rawMode = tpl.getAttribute("shadowrootmode") || tpl.getAttribute("data-shadowrootmode") || "open";
       const mode = rawMode === "closed" ? "closed" : "open";
       try {
         const sr = host.attachShadow({ mode });
@@ -393,9 +397,9 @@ const createRoot = (config = {}) => {
         .then((html) => {
           if (!html) return;
           if (el.shadowRoot) {
-            el.shadowRoot.innerHTML = html;
+            el.shadowRoot.innerHTML = normalizeDsdMarkup(html);
           } else {
-            el.innerHTML = html;
+            el.innerHTML = normalizeDsdMarkup(html);
           }
           el.dataset.dekaServerIslandLoaded = "1";
           hydrateIslands(el);
@@ -407,6 +411,7 @@ const createRoot = (config = {}) => {
     }
   };
 
+  window.__dekaMountDeclarativeShadows = mountDeclarativeShadows;
   window.__dekaHydrateIslands = hydrateIslands;
   mountDeclarativeShadows(initialContainer || document);
   hydrateIslands(initialContainer || document);
