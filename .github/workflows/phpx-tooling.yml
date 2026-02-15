@@ -45,6 +45,8 @@ jobs:
         run: scripts/verify-release-manifest.sh
       - name: Runtime parity/smoke checks
         run: DEKA_NEW_BIN=target/release/cli scripts/parity-runtime.sh
+      - name: Islands smoke checks
+        run: DEKA_CLI_BIN=target/release/cli scripts/test-islands-smoke.sh
       - name: Test phpx_lsp
         run: cargo test -p phpx_lsp
       - name: Run PHPX fixture suites

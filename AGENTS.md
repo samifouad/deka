@@ -50,6 +50,7 @@ Do not add Node/Bun compatibility work in this mission.
   - Execute basic human validation flow:
     - `deka run` smoke on a minimal PHPX file.
     - `deka serve` smoke and confirm endpoint behavior.
+    - `scripts/test-islands-smoke.sh` for islands SSR/hydration metadata + directive alias checks.
     - ADWA build/e2e checks for browser platform updates.
   - Record a short checkpoint summary in commit message or task notes:
     - what passed,

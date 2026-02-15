@@ -17,8 +17,8 @@ Implement and harden PHPX islands architecture for production SSR + selective hy
 
 - [x] 1.1 Create dedicated islands task tracker.
 - [x] 1.2 Add islands runtime smoke script for directive behavior.
-- [ ] 1.3 Add islands smoke script to checkpoint guidance.
-- [ ] 1.4 Add CI-friendly islands smoke invocation.
+- [x] 1.3 Add islands smoke script to checkpoint guidance.
+- [x] 1.4 Add CI-friendly islands smoke invocation.
 
 ## Phase 2: Directive Runtime Completeness
 
@@ -51,6 +51,6 @@ Implement and harden PHPX islands architecture for production SSR + selective hy
 
 ## Exit Criteria
 
-- [ ] Islands directives pass runtime smoke and targeted regressions.
+- [x] Islands directives pass runtime smoke and targeted regressions.
 - [ ] HMR + islands interop is stable in manual browser verification.
 - [ ] Docs and task status are fully updated.
