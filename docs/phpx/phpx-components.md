@@ -263,6 +263,47 @@ Example with custom container + nonce:
 Static rendering note:
 - If you omit `<Hydration />`, the page stays fully static (no client JS, no partial navigation).
 
+## Islands directives
+Use islands on components (capitalized tags), not DOM tags.
+
+Supported directives:
+- `client:load` or `clientLoad`: hydrate immediately after script boot.
+- `client:idle` or `clientIdle`: hydrate when the browser is idle (`requestIdleCallback`, fallback to timeout).
+- `client:visible` or `clientVisible`: hydrate when visible (`IntersectionObserver`, fallback immediate).
+- `client:media` or `clientMedia`: hydrate when a media query matches.
+- `client:only` or `clientOnly`: skip server body render; emit wrapper only and hydrate on load.
+
+Canonical example:
+```
+---
+import { jsx, jsxs } from 'component/core'
+import { Hydration } from 'component/dom'
+
+function SearchBox(: object) {
+  return <input id="search" placeholder="Search packages" />
+}
+
+function Chart(: object) {
+  return <div>Chart UI</div>
+}
+---
+<div id="app" dataLayout="registry">
+  <SearchBox client:idle={true} />
+  <Chart client:visible={true} />
+</div>
+<Hydration container="#app" layout="registry" />
+```
+
+Anti-patterns:
+- Do not attach `client:*` directives to DOM tags like `<div client:idle={true} />`.
+- Do not apply multiple `client:*` directives on one component.
+- Do not rely on partial navigation without matching layout ids (`dataLayout` + `Link layout`).
+
+## Cookbook
+1. Static SSR only (no JS): render HTML and omit `<Hydration />`.
+2. SSR + partial navigation: use `<Link />` + `<Hydration container="#app" layout="..." />`.
+3. SSR + islands: add `client:*` directives only to interactive components; keep page chrome static.
+
 ## Demo
 See `examples/phpx-components/app.phpx` for a working client-side navigation demo.
 

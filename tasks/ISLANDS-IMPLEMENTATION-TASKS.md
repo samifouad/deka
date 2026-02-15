@@ -45,12 +45,12 @@ Implement and harden PHPX islands architecture for production SSR + selective hy
 
 ## Phase 5: DX + Docs
 
-- [ ] 5.1 Document canonical islands usage patterns (`load/idle/visible/media/only`).
-- [ ] 5.2 Document anti-patterns and fallback semantics.
-- [ ] 5.3 Add minimal cookbook examples (SSR + islands + Link + Hydration).
+- [x] 5.1 Document canonical islands usage patterns (`load/idle/visible/media/only`).
+- [x] 5.2 Document anti-patterns and fallback semantics.
+- [x] 5.3 Add minimal cookbook examples (SSR + islands + Link + Hydration).
 
 ## Exit Criteria
 
 - [x] Islands directives pass runtime smoke and targeted regressions.
 - [ ] HMR + islands interop is stable in manual browser verification.
-- [ ] Docs and task status are fully updated.
+- [x] Docs and task status are fully updated.
