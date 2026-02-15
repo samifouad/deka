@@ -47,11 +47,46 @@ fn resolve_deka_script(name: &str) -> Option<String> {
     let path = cwd.join("deka.json");
     let content = std::fs::read_to_string(path).ok()?;
     let json: Value = serde_json::from_str(&content).ok()?;
-    json.get("scripts")?
-        .as_object()?
-        .get(name)?
-        .as_str()
-        .map(|s| s.to_string())
+    resolve_deka_script_from_json(name, &json)
+}
+
+fn resolve_deka_script_from_json(name: &str, json: &Value) -> Option<String> {
+    if let Some(script) = json
+        .get("scripts")
+        .and_then(|v| v.as_object())
+        .and_then(|obj| obj.get(name))
+        .and_then(|v| v.as_str())
+    {
+        return Some(script.to_string());
+    }
+
+    default_project_script(name, json)
+}
+
+fn default_project_script(name: &str, json: &Value) -> Option<String> {
+    if name != "dev" {
+        return None;
+    }
+
+    let project_type = json
+        .get("type")
+        .and_then(|v| v.as_str())
+        .map(|v| v.trim().to_ascii_lowercase());
+    if project_type.as_deref() != Some("serve") {
+        return None;
+    }
+
+    let has_entry = json
+        .get("serve")
+        .and_then(|v| v.get("entry"))
+        .and_then(|v| v.as_str())
+        .map(|v| !v.trim().is_empty())
+        .unwrap_or(false);
+    if !has_entry {
+        return None;
+    }
+
+    Some("deka serve --dev".to_string())
 }
 
 fn compose_script_command(script: &str, extra_args: &[String]) -> String {
@@ -84,4 +119,40 @@ fn run_shell_command(command: &str) -> Option<i32> {
             .ok()?
     };
     Some(status.code().unwrap_or(1))
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_explicit_script_first() {
+        let json: Value = serde_json::json!({
+            "type": "serve",
+            "serve": { "entry": "app/main.phpx" },
+            "scripts": { "dev": "deka serve --dev --watch" }
+        });
+        let script = resolve_deka_script_from_json("dev", &json).expect("script");
+        assert_eq!(script, "deka serve --dev --watch");
+    }
+
+    #[test]
+    fn resolves_default_dev_for_serve_projects() {
+        let json: Value = serde_json::json!({
+            "type": "serve",
+            "serve": { "entry": "app/main.phpx" }
+        });
+        let script = resolve_deka_script_from_json("dev", &json).expect("script");
+        assert_eq!(script, "deka serve --dev");
+    }
+
+    #[test]
+    fn does_not_resolve_default_dev_for_lib_projects() {
+        let json: Value = serde_json::json!({
+            "type": "lib",
+            "serve": { "entry": "app/main.phpx" }
+        });
+        assert!(resolve_deka_script_from_json("dev", &json).is_none());
+    }
 }
