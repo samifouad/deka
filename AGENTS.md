@@ -93,6 +93,14 @@ ADWA runtime/UI changes (current script names still use `adwa`):
 - Keep user-facing docs in `docs/php/` and `docs/phpx/`.
 - If runtime behavior changes, update relevant docs in the same task.
 
+
+## Runtime language support (explicit)
+
+- Dynamic runtime execution supports **PHPX only** (`.phpx`).
+- Do not implement or preserve dynamic execution support for `.php`, `.js`, `.jsx`, `.ts`, or `.tsx`.
+- File-based routing under `app/` and `api/` must resolve `.phpx` route files only.
+- Static assets (HTML/CSS/JS files) may be served as static files; this is distinct from dynamic handler execution.
+
 ## deka.json project contract (build/runtime)
 
 - `deka.json` is required at project root.
