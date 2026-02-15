@@ -40,7 +40,7 @@
         },
         "component/dom": {
           "src": "php_modules/component/dom.phpx",
-          "hash": "sha256:5e6261c843e73d0a76e82bd6bbee712ef40272c3104c91bb4d4471f6276558ee",
+          "hash": "sha256:606df5a487531eea9fc3b860e845d927a6c1ec815e825e72414fb22640229169",
           "cache": "php_modules/.cache/phpx/component/dom.php",
           "compiler": "phpx-cache-v3",
           "deps": [

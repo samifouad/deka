@@ -31,7 +31,7 @@ Implement and harden PHPX islands architecture for production SSR + selective hy
 
 ## Phase 3: Hydration Client Hardening
 
-- [ ] 3.1 Confirm scheduler behavior across directives in browser runtime.
+- [x] 3.1 Confirm scheduler behavior across directives in browser runtime.
 - [x] 3.2 Ensure hydration idempotence (`dekaIslandHydrated`) across partial swaps.
 - [x] 3.3 Ensure `window.__dekaHydrateIslands` is stable and safe to call repeatedly.
 - [x] 3.4 Add fallback behavior for browsers lacking `IntersectionObserver` and `requestIdleCallback`.
@@ -52,5 +52,5 @@ Implement and harden PHPX islands architecture for production SSR + selective hy
 ## Exit Criteria
 
 - [x] Islands directives pass runtime smoke and targeted regressions.
-- [ ] HMR + islands interop is stable in manual browser verification.
+- [x] HMR + islands interop is stable in manual browser verification.
 - [x] Docs and task status are fully updated.
