@@ -1,5 +1,5 @@
 import { isValidElement, __component_push_context, __component_pop_context } from 'component/core';
-import { json_encode } from 'encoding/json';
+import { json_encode, json_decode } from 'encoding/json';
 
 struct Root {
     $container: string = '#app';
@@ -524,7 +524,15 @@ export function handleServerIslandRequest($registry = false) {
 
 function __component_assoc_to_object($value) {
     if (is_array($value)) {
-        $is_list = array_keys($value) === range(0, count($value) - 1);
+        $is_list = true;
+        $idx = 0;
+        foreach ($value as $k => $item) {
+            if ($k !== $idx) {
+                $is_list = false;
+                break;
+            }
+            $idx = $idx + 1;
+        }
         if ($is_list) {
             $out = [];
             foreach ($value as $item) {
