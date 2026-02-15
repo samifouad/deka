@@ -226,6 +226,9 @@ mod tests {
         assert!(out.contains("selectionStart"));
         assert!(out.contains("window.scrollTo"));
         assert!(out.contains("__dekaHydrateIslands"));
+        assert!(out.contains("querySelectorAll('input,textarea,select')"));
+        assert!(out.contains("data-deka-id"));
+        assert!(out.contains("setSelectionRange"));
     }
 
     #[test]

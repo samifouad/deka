@@ -22,12 +22,12 @@ Implement and harden PHPX islands architecture for production SSR + selective hy
 
 ## Phase 2: Directive Runtime Completeness
 
-- [ ] 2.1 Verify SSR metadata parity for `client:load`.
+- [x] 2.1 Verify SSR metadata parity for `client:load`.
 - [x] 2.2 Verify SSR metadata parity for `client:idle`.
 - [x] 2.3 Verify SSR metadata parity for `client:visible`.
 - [x] 2.4 Verify SSR metadata parity for `client:media`.
 - [x] 2.5 Verify `client:only` server behavior (no SSR body, wrapper only).
-- [ ] 2.6 Ensure directive aliases (`clientLoad`, etc.) are normalized consistently.
+- [x] 2.6 Ensure directive aliases (`clientLoad`, etc.) are normalized consistently.
 
 ## Phase 3: Hydration Client Hardening
 
@@ -38,10 +38,10 @@ Implement and harden PHPX islands architecture for production SSR + selective hy
 
 ## Phase 4: HMR + Islands Interop
 
-- [ ] 4.1 Ensure island-id stability across unchanged structure renders.
-- [ ] 4.2 Confirm island-scoped patching path when full structure diff fails.
-- [ ] 4.3 Preserve active input/focus state during island patch updates.
-- [ ] 4.4 Add regression tests for island patch fallback in HMR websocket layer.
+- [x] 4.1 Ensure island-id stability across unchanged structure renders.
+- [x] 4.2 Confirm island-scoped patching path when full structure diff fails.
+- [x] 4.3 Preserve active input/focus state during island patch updates.
+- [x] 4.4 Add regression tests for island patch fallback in HMR websocket layer.
 
 ## Phase 5: DX + Docs
 

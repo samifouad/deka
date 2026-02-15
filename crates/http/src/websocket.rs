@@ -727,6 +727,47 @@ mod tests {
     }
 
     #[test]
+    fn multiple_islands_patch_only_the_changed_island() {
+        let path = "/__hmr_test_island_multi";
+        let _ = build_patch_from_snapshot(
+            path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<deka-island data-deka-island-id=\"i1\"><div data-deka-id=\"a\">A</div></deka-island><deka-island data-deka-island-id=\"i2\"><div data-deka-id=\"b\">B</div></deka-island>",
+        );
+        let payload = build_patch_from_snapshot(
+            path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<deka-island data-deka-island-id=\"i1\"><div data-deka-id=\"a\">A</div></deka-island><deka-island data-deka-island-id=\"i2\"><section data-deka-id=\"b2\">B2</section></deka-island>",
+        );
+        let json = parse(&payload);
+        assert_eq!(json["ops"].as_array().map(|v| v.len()), Some(1));
+        assert_eq!(json["ops"][0]["selector"], "[data-deka-island-id=\"i2\"]");
+        assert_eq!(json["ops"][0]["html"], "<section data-deka-id=\"b2\">B2</section>");
+    }
+
+    #[test]
+    fn island_id_change_forces_container_fallback_patch() {
+        let path = "/__hmr_test_island_id_change";
+        let _ = build_patch_from_snapshot(
+            path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<deka-island data-deka-island-id=\"i1\"><div data-deka-id=\"n1\">A</div></deka-island>",
+        );
+        let payload = build_patch_from_snapshot(
+            path,
+            &["main.phpx".to_string()],
+            "#app",
+            "<deka-island data-deka-island-id=\"i2\"><div data-deka-id=\"n1\">A</div></deka-island>",
+        );
+        let json = parse(&payload);
+        assert_eq!(json["ops"].as_array().map(|v| v.len()), Some(1));
+        assert_eq!(json["ops"][0]["selector"], "#app");
+    }
+
+    #[test]
     fn granular_patch_payload_is_smaller_than_full_replace() {
         let full_path = "/__hmr_test_size_full";
         let full_payload = build_patch_from_snapshot(
