@@ -27,8 +27,22 @@ pub fn cmd(context: &Context) {
     runtime::run(context);
 }
 
+fn requested_script_name<'a>(context: &'a Context) -> Option<&'a str> {
+    requested_script_name_from_args(&context.args.positionals, &context.args.commands)
+}
+
+fn requested_script_name_from_args<'a>(positionals: &'a [String], commands: &'a [String]) -> Option<&'a str> {
+    if let Some(first) = positionals.first() {
+        return Some(first.as_str());
+    }
+    if commands.len() > 1 {
+        return Some(commands[1].as_str());
+    }
+    None
+}
+
 fn try_run_deka_script(context: &Context) -> Option<i32> {
-    let first = context.args.positionals.first()?;
+    let first = requested_script_name(context)?;
     if first.contains('/') || first.contains('\\') || first.starts_with('.') {
         return None;
     }
@@ -64,14 +78,22 @@ fn resolve_deka_script_from_json(name: &str, json: &Value) -> Option<String> {
 }
 
 fn default_project_script(name: &str, json: &Value) -> Option<String> {
-    if name != "dev" {
-        return None;
-    }
-
     let project_type = json
         .get("type")
         .and_then(|v| v.as_str())
         .map(|v| v.trim().to_ascii_lowercase());
+
+    if name == "build" {
+        if project_type.as_deref() == Some("serve") {
+            return Some("deka build".to_string());
+        }
+        return None;
+    }
+
+    if name != "dev" {
+        return None;
+    }
+
     if project_type.as_deref() != Some("serve") {
         return None;
     }
@@ -121,7 +143,6 @@ fn run_shell_command(command: &str) -> Option<i32> {
     Some(status.code().unwrap_or(1))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +175,38 @@ mod tests {
             "serve": { "entry": "app/main.phpx" }
         });
         assert!(resolve_deka_script_from_json("dev", &json).is_none());
+    }
+
+    #[test]
+    fn resolves_default_build_for_serve_projects() {
+        let json: Value = serde_json::json!({
+            "type": "serve",
+            "serve": { "entry": "app/main.phpx" }
+        });
+        let script = resolve_deka_script_from_json("build", &json).expect("script");
+        assert_eq!(script, "deka build");
+    }
+
+    #[test]
+    fn does_not_resolve_default_build_for_lib_projects() {
+        let json: Value = serde_json::json!({
+            "type": "lib",
+            "serve": { "entry": "app/main.phpx" }
+        });
+        assert!(resolve_deka_script_from_json("build", &json).is_none());
+    }
+
+    #[test]
+    fn requested_script_prefers_positionals() {
+        let positionals = vec!["dev".to_string()];
+        let commands = vec!["run".to_string(), "build".to_string()];
+        assert_eq!(requested_script_name_from_args(&positionals, &commands), Some("dev"));
+    }
+
+    #[test]
+    fn requested_script_falls_back_to_second_command_token() {
+        let positionals: Vec<String> = vec![];
+        let commands = vec!["run".to_string(), "build".to_string()];
+        assert_eq!(requested_script_name_from_args(&positionals, &commands), Some("build"));
     }
 }

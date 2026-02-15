@@ -529,17 +529,50 @@ fn has_hydration_component(source: &str) -> bool {
 
 fn extract_template_html(source: &str) -> Option<String> {
     let lines: Vec<&str> = source.lines().collect();
-    let (_start, end) = frontmatter_range(&lines)?;
+    let (start, end) = frontmatter_range(&lines)?;
     if end + 1 >= lines.len() {
         return None;
     }
     let template = lines[end + 1..].join("\n");
-    let trimmed = template.trim();
+    let bindings = parse_frontmatter_bindings(&lines[start..end]);
+    let rendered = apply_frontmatter_bindings(&template, &bindings);
+    let trimmed = rendered.trim();
     if trimmed.is_empty() {
         None
     } else {
         Some(trimmed.to_string())
     }
+}
+
+fn parse_frontmatter_bindings(lines: &[&str]) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    for line in lines {
+        let trimmed = line.trim().trim_end_matches(';').trim();
+        if !trimmed.starts_with('$') {
+            continue;
+        }
+        let Some((lhs, rhs)) = trimmed.split_once('=') else {
+            continue;
+        };
+        let key = lhs.trim().trim_start_matches('$').trim();
+        if key.is_empty() {
+            continue;
+        }
+        let value = rhs.trim();
+        if let Some(unquoted) = unquote(value) {
+            out.insert(key.to_string(), unquoted.to_string());
+        }
+    }
+    out
+}
+
+fn apply_frontmatter_bindings(template: &str, bindings: &BTreeMap<String, String>) -> String {
+    let mut out = template.to_string();
+    for (key, value) in bindings {
+        let token = format!("{{${}}}", key);
+        out = out.replace(&token, value);
+    }
+    out
 }
 
 fn inject_app_html(index_html: &str, app_html: &str) -> String {

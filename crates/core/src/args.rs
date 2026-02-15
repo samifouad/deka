@@ -92,6 +92,15 @@ impl Args {
                     commands.push(subcommand.name.to_string());
                     continue;
                 }
+
+                if arg_str.starts_with('-') {
+                    let suggestions = suggest(arg_str, &suggestion_tokens);
+                    errors.push(ParseError::unknown(arg.clone(), suggestions));
+                    continue;
+                }
+
+                positionals.push(arg.clone());
+                continue;
             }
 
             if let Some(command) = registry.command_for(arg_str) {
@@ -103,11 +112,6 @@ impl Args {
             if arg_str.starts_with('-') {
                 let suggestions = suggest(arg_str, &suggestion_tokens);
                 errors.push(ParseError::unknown(arg.clone(), suggestions));
-                continue;
-            }
-
-            if current_command.is_some() {
-                positionals.push(arg.clone());
                 continue;
             }
 
