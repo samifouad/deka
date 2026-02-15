@@ -133,7 +133,7 @@ pub fn validate_frontmatter(source: &str, file_path: &str) -> Vec<ValidationErro
     errors
 }
 
-pub fn validate_template_section(source: &str, _file_path: &str) -> Vec<ValidationError> {
+pub fn validate_template_section(source: &str, file_path: &str) -> Vec<ValidationError> {
     let lines: Vec<&str> = source.lines().collect();
     let Some((start, end)) = frontmatter_bounds(&lines) else {
         return Vec::new();
@@ -149,7 +149,37 @@ pub fn validate_template_section(source: &str, _file_path: &str) -> Vec<Validati
         return Vec::new();
     }
 
-    let frontmatter = frontmatter_lines.join("\n");
+    // Template syntax validation runs through the PHPX parser. Frontmatter import/export
+    // lines are handled by the module loader (not the parser), so leave them out here to
+    // avoid recovery noise that can cascade into false JSX errors in template lines.
+    let sanitized_frontmatter_lines: Vec<&str> = frontmatter_lines
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, line)| {
+            let stripped_owned = strip_php_tags_inline(line);
+            let stripped = stripped_owned.trim();
+            if stripped.is_empty() {
+                return Some(*line);
+            }
+            if stripped.starts_with("//")
+                || stripped.starts_with("#")
+                || stripped.starts_with("/*")
+                || stripped.ends_with("*/")
+            {
+                return Some(*line);
+            }
+            if stripped.starts_with("import ")
+                && parse_import_line(stripped, line, idx + 1, file_path).is_ok()
+            {
+                return None;
+            }
+            if stripped.starts_with("export ") {
+                return None;
+            }
+            Some(*line)
+        })
+        .collect();
+    let frontmatter = sanitized_frontmatter_lines.join("\n");
     let template = template_lines.join("\n");
     let prefix = "\n$__phpx_template = <__fragment__>\n";
     let suffix = "\n</__fragment__>;\n";
