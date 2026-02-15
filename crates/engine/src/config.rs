@@ -153,7 +153,18 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         });
     }
 
-    // Directory input can use config entry defaults.
+    // Convention: if an app/ folder exists, default to PHP app routing mode.
+    // This takes precedence over serve.entry when serving a directory.
+    let app_dir = abs_path.join("app");
+    if app_dir.is_dir() {
+        return Ok(ResolvedHandler {
+            path: abs_path,
+            mode: serve_config.mode.clone().unwrap_or(ServeMode::Php),
+            config: serve_config,
+        });
+    }
+
+    // Directory input can use config entry defaults when no app router exists.
     if let Some(ref entry) = serve_config.entry {
         let entry_path = if std::path::Path::new(entry).is_absolute() {
             PathBuf::from(entry)
@@ -172,17 +183,6 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         return Ok(ResolvedHandler {
             path: entry_path,
             mode,
-            config: serve_config,
-        });
-    }
-
-    // Convention: if an app/ folder exists, default to PHP app routing mode.
-    // The PHP bridge resolves page/layout routes from this directory at request time.
-    let app_dir = abs_path.join("app");
-    if app_dir.is_dir() {
-        return Ok(ResolvedHandler {
-            path: abs_path,
-            mode: serve_config.mode.clone().unwrap_or(ServeMode::Php),
             config: serve_config,
         });
     }
@@ -381,6 +381,21 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("{}_{}", prefix, nonce));
         fs::create_dir_all(&dir).expect("mkdir");
         dir
+    }
+
+
+    #[test]
+    fn app_directory_precedes_serve_entry_for_directory_input() {
+        let dir = temp_dir("deka_engine_app_over_entry");
+        let app_dir = dir.join("app");
+        fs::create_dir_all(&app_dir).expect("mkdir app");
+        fs::write(app_dir.join("page.phpx"), "<?php echo 'ok';").expect("write page");
+        fs::write(dir.join("main.phpx"), "<?php echo 'main';").expect("write configured");
+        fs::write(dir.join("serve.json"), r#"{"entry":"main.phpx"}"#).expect("write config");
+
+        let resolved = resolve_handler_path(dir.to_str().expect("path")).expect("resolve");
+        assert!(resolved.path.is_dir());
+        assert!(matches!(resolved.mode, ServeMode::Php));
     }
 
     #[test]

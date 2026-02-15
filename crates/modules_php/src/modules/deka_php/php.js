@@ -5098,7 +5098,7 @@ function resolvePhpDirectoryRoute(rootDir, pathname) {
         const matchedLayouts = [];
         for (const layoutRoute of manifest.layouts){
             if (layoutRoute.tokens.length > route.tokens.length) continue;
-            const layoutParams = matchRouteTokens(layoutRoute.tokens, urlSegments.slice(0, route.tokens.length));
+            const layoutParams = matchRouteTokens(layoutRoute.tokens, urlSegments.slice(0, layoutRoute.tokens.length));
             if (layoutParams === null) continue;
             matchedLayouts.push(layoutRoute.file);
         }
