@@ -388,6 +388,14 @@ fn ensure_web_project_layout(project_root: &Path) -> Result<(), String> {
         return Err(format!("missing required file: {}", index.display()));
     }
 
+    let deka_php = project_root.join("php_modules").join("deka.php");
+    if !deka_php.is_file() {
+        return Err(format!(
+            "missing required runtime prelude: {} (run `deka init`)",
+            deka_php.display()
+        ));
+    }
+
     let json = load_deka_json(project_root)?;
     let project_type = json
         .get("type")
@@ -2888,6 +2896,23 @@ class User {}
     }
 
     #[test]
+    fn ensure_web_project_layout_requires_deka_php_prelude() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::fs::write(
+            tmp.path().join("deka.json"),
+            "{\"type\":\"serve\",\"serve\":{\"entry\":\"app/main.phpx\"}}",
+        )
+        .expect("deka.json");
+        std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
+        std::fs::create_dir_all(tmp.path().join("app")).expect("app");
+        std::fs::create_dir_all(tmp.path().join("public")).expect("public");
+        std::fs::write(tmp.path().join("public").join("index.html"), "<html></html>").expect("index");
+
+        let err = ensure_web_project_layout(tmp.path()).expect_err("deka.php should be required");
+        assert!(err.contains("php_modules/deka.php"));
+    }
+
+    #[test]
     fn ensure_web_project_layout_requires_type_serve() {
         let tmp = tempfile::tempdir().expect("tmp");
         std::fs::write(
@@ -2898,7 +2923,9 @@ class User {}
         std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
         std::fs::create_dir_all(tmp.path().join("app")).expect("app");
         std::fs::create_dir_all(tmp.path().join("public")).expect("public");
+        std::fs::create_dir_all(tmp.path().join("php_modules")).expect("php_modules");
         std::fs::write(tmp.path().join("public").join("index.html"), "<html></html>").expect("index");
+        std::fs::write(tmp.path().join("php_modules").join("deka.php"), "<?php ?>").expect("deka.php");
 
         let err = ensure_web_project_layout(tmp.path()).expect_err("type should be required");
         assert!(err.contains("type=\"serve\""));
@@ -2915,7 +2942,9 @@ class User {}
         std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
         std::fs::create_dir_all(tmp.path().join("app")).expect("app");
         std::fs::create_dir_all(tmp.path().join("public")).expect("public");
+        std::fs::create_dir_all(tmp.path().join("php_modules")).expect("php_modules");
         std::fs::write(tmp.path().join("public").join("index.html"), "<html></html>").expect("index");
+        std::fs::write(tmp.path().join("php_modules").join("deka.php"), "<?php ?>").expect("deka.php");
 
         ensure_web_project_layout(tmp.path()).expect("web layout should pass");
     }
