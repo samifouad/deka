@@ -127,7 +127,7 @@ assert_contains 'dekaIslandScheduled' "$HTML"
 assert_contains 'requestIdleCallback' "$HTML"
 assert_contains 'IntersectionObserver' "$HTML"
 
-if ! grep -Eq '<deka-island[^>]*data-component="[^"]*OnlyCard"[^>]*></deka-island>' <<<"$HTML"; then
+if ! grep -Eq '<deka-island[^>]*data-component="[^"]*OnlyCard"[^>]*>\s*<template shadowrootmode="open"></template>\s*</deka-island>' <<<"$HTML"; then
   echo "assertion failed: client:only island wrapper was not empty" >&2
   echo "--- html ---" >&2
   echo "$HTML" >&2

@@ -366,7 +366,7 @@ impl JsxSyntaxValidator<'_> {
                 attr.span,
                 self.source,
                 format!("Invalid JSX attribute name '{}'.", name),
-                "Only `client:*` directive attributes may use ':'.",
+                "Only `client:*` or `server:defer` directive attributes may use ':'.",
             ));
         }
     }
@@ -570,7 +570,7 @@ impl JsxComponentValidator<'_> {
                 span_of_first_attr(directives[0]),
                 self.source,
                 "Island directives are only valid on components.".to_string(),
-                "Use `client:*` directives on a capitalized component tag.",
+                "Use `client:*` or `server:defer` directives on a capitalized component tag.",
             ));
             return false;
         }
@@ -593,8 +593,8 @@ impl JsxComponentValidator<'_> {
                 self.errors.push(jsx_error(
                     name.span,
                     self.source,
-                    "Only one island directive may be used per component.".to_string(),
-                    "Use one of: `client:load`, `client:idle`, `client:visible`, `client:media`, `client:only`.",
+                    "Only one hydration/render directive may be used per component.".to_string(),
+                    "Use one of: `client:load`, `client:idle`, `client:visible`, `client:media`, `client:only`, `server:defer`.",
                 ));
             }
             for attr in directives {
@@ -947,6 +947,9 @@ fn is_island_directive_attr(name: &str) -> bool {
             | "client:only"
             | "clientOnly"
             | "client-only"
+            | "server:defer"
+            | "serverDefer"
+            | "server-defer"
     )
 }
 

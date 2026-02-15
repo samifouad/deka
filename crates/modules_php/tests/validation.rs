@@ -333,6 +333,25 @@ fn jsx_comparison_requires_spacing() {
     assert_has_error(&result, ErrorKind::JsxError);
 }
 
+
+#[test]
+fn jsx_server_defer_component_ok() {
+    let path = fixtures_root().join("jsx/server_defer_ok.phpx");
+    let result = compile_fixture(&path);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+}
+
+#[test]
+fn jsx_server_defer_on_dom_tag_reports_error() {
+    let path = fixtures_root().join("jsx/server_defer_dom_invalid.phpx");
+    let result = compile_fixture(&path);
+    assert_has_error(&result, ErrorKind::JsxError);
+}
+
 #[test]
 fn frontmatter_ok() {
     let path = fixtures_root().join("frontmatter/ok.phpx");

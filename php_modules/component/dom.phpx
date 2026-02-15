@@ -133,6 +133,26 @@ const createRoot = (config = {}) => {
     container.innerHTML = html;
   };
 
+  const mountDeclarativeShadows = (scope) => {
+    const root = scope || document;
+    const hosts = root.querySelectorAll
+      ? root.querySelectorAll("deka-island,deka-server-island")
+      : [];
+    for (const host of hosts) {
+      if (!(host instanceof Element)) continue;
+      if (host.shadowRoot) continue;
+      const tpl = host.querySelector("template[shadowrootmode]");
+      if (!(tpl instanceof HTMLTemplateElement)) continue;
+      const rawMode = tpl.getAttribute("shadowrootmode") || "open";
+      const mode = rawMode === "closed" ? "closed" : "open";
+      try {
+        const sr = host.attachShadow({ mode });
+        sr.appendChild(tpl.content.cloneNode(true));
+        tpl.remove();
+      } catch (_) {}
+    }
+  };
+
   const getLayout = (container) => {
     if (!container) return "";
     return container.dataset.layout || container.dataset.componentLayout || "";
@@ -149,7 +169,9 @@ const createRoot = (config = {}) => {
     if (!payload || typeof payload.html !== "string") return;
     const container = getContainer(containerSelector || root.container);
     swapHtml(container, payload.html);
+    mountDeclarativeShadows(container);
     hydrateIslands(container);
+    loadServerIslands(container);
     if (typeof payload.title === "string" && payload.title !== "") {
       document.title = payload.title;
     }
@@ -332,8 +354,63 @@ const createRoot = (config = {}) => {
       scheduleByDirective(el);
     }
   };
+
+  const loadServerIslands = (scope) => {
+    const root = scope || document;
+    const islands = root.querySelectorAll
+      ? root.querySelectorAll("[data-deka-server-island]")
+      : [];
+
+    const toBase64 = (value) => {
+      try {
+        return btoa(unescape(encodeURIComponent(String(value || "{}"))));
+      } catch (_) {
+        return btoa(String(value || "{}"));
+      }
+    };
+
+    for (const el of islands) {
+      if (!(el instanceof Element)) continue;
+      if (el.dataset.dekaServerIslandLoaded === "1") continue;
+      if (el.dataset.dekaServerIslandLoading === "1") continue;
+
+      const component = el.getAttribute("data-component") || "";
+      const rawProps = el.getAttribute("data-props") || "{}";
+      if (!component) continue;
+
+      el.dataset.dekaServerIslandLoading = "1";
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("__deka_server_island", "1");
+      url.searchParams.set("component", component);
+      url.searchParams.set("props", toBase64(rawProps));
+
+      fetch(url.toString(), {
+        credentials: "same-origin",
+        headers: { Accept: "text/html" },
+      })
+        .then((res) => (res.ok ? res.text() : ""))
+        .then((html) => {
+          if (!html) return;
+          if (el.shadowRoot) {
+            el.shadowRoot.innerHTML = html;
+          } else {
+            el.innerHTML = html;
+          }
+          el.dataset.dekaServerIslandLoaded = "1";
+          hydrateIslands(el);
+        })
+        .catch(() => {})
+        .finally(() => {
+          el.dataset.dekaServerIslandLoading = "0";
+        });
+    }
+  };
+
   window.__dekaHydrateIslands = hydrateIslands;
+  mountDeclarativeShadows(initialContainer || document);
   hydrateIslands(initialContainer || document);
+  loadServerIslands(initialContainer || document);
 
   document.addEventListener("click", onClick);
   window.addEventListener("popstate", onPopState);
@@ -393,6 +470,84 @@ export function isPartialRequest() {
     return false;
 }
 
+export function handleServerIslandRequest($registry = false) {
+    if (!isset($_GET['__deka_server_island']) || $_GET['__deka_server_island'] !== '1') {
+        return false;
+    }
+
+    $component = isset($_GET['component']) ? '' . $_GET['component'] : '';
+    if ($component === '') {
+        return false;
+    }
+
+    $props_json = '{}';
+    if (isset($_GET['props'])) {
+        $raw = '' . $_GET['props'];
+        $raw = str_replace(' ', '+', $raw);
+        $decoded = base64_decode($raw);
+        if ($decoded !== false && $decoded !== '') {
+            $props_json = $decoded;
+        }
+    }
+
+    $props = json_decode($props_json, true);
+    if (!is_array($props) && !is_object($props)) {
+        $props = {};
+    }
+    $props = __component_assoc_to_object($props);
+
+    $callable = false;
+    if (is_array($registry) && array_key_exists($component, $registry)) {
+        $callable = $registry[$component];
+    } else if (is_object($registry) && isset($registry->{$component})) {
+        $callable = $registry->{$component};
+    } else if (function_exists($component)) {
+        $callable = $component;
+    }
+
+    if ($callable === false || !is_callable($callable)) {
+        if (function_exists('header')) {
+            header('HTTP/1.1 404 Not Found');
+            header('Content-Type: text/plain; charset=utf-8');
+        }
+        echo 'server island component not found';
+        return true;
+    }
+
+    $node = $callable($props);
+    if (function_exists('header')) {
+        header('Content-Type: text/html; charset=utf-8');
+    }
+    echo renderToString($node);
+    return true;
+}
+
+function __component_assoc_to_object($value) {
+    if (is_array($value)) {
+        $is_list = array_keys($value) === range(0, count($value) - 1);
+        if ($is_list) {
+            $out = [];
+            foreach ($value as $item) {
+                $out[] = __component_assoc_to_object($item);
+            }
+            return $out;
+        }
+        $out = {};
+        foreach ($value as $k => $v) {
+            $out->{$k} = __component_assoc_to_object($v);
+        }
+        return $out;
+    }
+    if (is_object($value)) {
+        $out = {};
+        foreach ($value as $k => $v) {
+            $out->{$k} = __component_assoc_to_object($v);
+        }
+        return $out;
+    }
+    return $value;
+}
+
 function __component_render_node($node) {
     if (isValidElement($node)) {
         return __component_render_vnode($node);
@@ -444,6 +599,9 @@ function __component_render_vnode($node) {
 
     if (!is_string($type) && is_callable($type)) {
         $island = __component_island_meta($type, $props);
+        if ($island !== false && isset($island.serverDefer) && $island.serverDefer) {
+            return __component_wrap_server_island(__component_render_children(__component_read_children($props)), $island);
+        }
         $split = __component_split_component_call_props($props);
         $next = $type($split.call);
         $next = __component_apply_component_passthrough($next, $split.passthrough);
@@ -456,6 +614,9 @@ function __component_render_vnode($node) {
 
     if (is_string($type) && __component_is_component_name($type) && function_exists($type)) {
         $island = __component_island_meta($type, $props)
+        if ($island !== false && isset($island.serverDefer) && $island.serverDefer) {
+            return __component_wrap_server_island(__component_render_children(__component_read_children($props)), $island)
+        }
         $split = __component_split_component_call_props($props)
         $next = $type($split.call)
         $next = __component_apply_component_passthrough($next, $split.passthrough)
@@ -496,6 +657,9 @@ async function __component_render_vnode_async($node): Promise<string> {
 
     if (!is_string($type) && is_callable($type)) {
         $island = __component_island_meta($type, $props)
+        if ($island !== false && isset($island.serverDefer) && $island.serverDefer) {
+            return __component_wrap_server_island(await __component_render_children_async(__component_read_children($props)), $island)
+        }
         $split = __component_split_component_call_props($props)
         $next = $type($split.call)
         if (__component_is_promise($next)) {
@@ -508,6 +672,9 @@ async function __component_render_vnode_async($node): Promise<string> {
 
     if (is_string($type) && __component_is_component_name($type) && function_exists($type)) {
         $island = __component_island_meta($type, $props)
+        if ($island !== false && isset($island.serverDefer) && $island.serverDefer) {
+            return __component_wrap_server_island(await __component_render_children_async(__component_read_children($props)), $island)
+        }
         $split = __component_split_component_call_props($props)
         $next = $type($split.call)
         if (__component_is_promise($next)) {
@@ -863,17 +1030,37 @@ function &__component_island_counter() {
 }
 
 function __component_island_meta($type, $props) {
+    $name = __component_callable_name($type);
+
+    if (__component_server_island_defer($props)) {
+        $payload_props = __component_server_island_payload_props($props);
+        $payload_json = json_encode($payload_props);
+        if (!is_string($payload_json) || $payload_json === '') {
+            $payload_json = '{}';
+        }
+        return {
+            id: __component_next_island_id(),
+            directive: 'load',
+            media: '',
+            only: false,
+            name: $name,
+            serverDefer: true,
+            payloadJson: $payload_json,
+        };
+    }
+
     $directive = __component_island_directive($props);
     if ($directive === false) {
         return false;
     }
-    $name = __component_callable_name($type);
     return {
         id: __component_next_island_id(),
         directive: $directive.directive,
         media: $directive.media,
         only: $directive.only,
         name: $name,
+        serverDefer: false,
+        payloadJson: '{}',
     };
 }
 
@@ -925,6 +1112,17 @@ function __component_island_directive($props) {
     };
 }
 
+function __component_server_island_defer($props): bool {
+    $candidates = ['server:defer', 'serverDefer', 'server-defer'];
+    foreach ($candidates as $key) {
+        $val = __component_prop_value($props, $key);
+        if ($val !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function __component_prop_value($props, $key) {
     if (is_array($props)) {
         return array_key_exists($key, $props) ? $props[$key] : false;
@@ -935,6 +1133,7 @@ function __component_prop_value($props, $key) {
         if ($key === 'clientVisible' && isset($props.clientVisible)) return $props.clientVisible;
         if ($key === 'clientMedia' && isset($props.clientMedia)) return $props.clientMedia;
         if ($key === 'clientOnly' && isset($props.clientOnly)) return $props.clientOnly;
+        if ($key === 'serverDefer' && isset($props.serverDefer)) return $props.serverDefer;
         foreach ($props as $prop_key => $prop_value) {
             if ($prop_key === $key) {
                 return $prop_value;
@@ -964,10 +1163,28 @@ function __component_strip_island_props($props) {
         'client:only',
         'clientOnly',
         'client-only',
+        'server:defer',
+        'serverDefer',
+        'server-defer',
     ];
     $out = {};
     foreach ($props as $k => $v) {
         if (in_array($k, $drop, true)) {
+            continue;
+        }
+        $out->{$k} = $v;
+    }
+    return $out;
+}
+
+function __component_server_island_payload_props($props) {
+    $clean = __component_strip_island_props($props);
+    if (!is_array($clean) && !is_object($clean)) {
+        return {};
+    }
+    $out = {};
+    foreach ($clean as $k => $v) {
+        if ($k === 'children' || $k === 'fallback') {
             continue;
         }
         $out->{$k} = $v;
@@ -1040,6 +1257,18 @@ function __component_has_keys($value): bool {
     return false
 }
 
+function __component_wrap_server_island($fallback_html, $island) {
+    if ($island === false) {
+        return $fallback_html;
+    }
+    $attrs = '';
+    $attrs .= ' data-deka-server-island="1"';
+    $attrs .= ' data-deka-island-id="' . __component_escape_attr($island.id) . '"';
+    $attrs .= ' data-component="' . __component_escape_attr($island.name) . '"';
+    $attrs .= ' data-props="' . __component_escape_attr($island.payloadJson) . '"';
+    return '<deka-server-island' . $attrs . '><template shadowrootmode="open">' . $fallback_html . '</template></deka-server-island>';
+}
+
 function __component_wrap_island($html, $island) {
     if ($island === false) {
         return $html;
@@ -1055,7 +1284,7 @@ function __component_wrap_island($html, $island) {
     if ($island.media !== '') {
         $attrs .= ' data-media="' . __component_escape_attr($island.media) . '"';
     }
-    return '<deka-island' . $attrs . '>' . $html . '</deka-island>';
+    return '<deka-island' . $attrs . '><template shadowrootmode="open">' . $html . '</template></deka-island>';
 }
 
 function __component_callable_name($type) {
