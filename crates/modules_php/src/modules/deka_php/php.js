@@ -4274,6 +4274,49 @@ function routeHostCall(kind, action, payload) {
         }
         return { ok: false, error: 'fs protobuf bridge ops unavailable' };
     }
+    if (kind === 'time') {
+        const act = String(action || '');
+        const req = payload || {};
+        if (act === 'now_ms') {
+            const decoded = {
+                ok: true,
+                now_ms: Date.now()
+            };
+            return Object.entries(decoded || {});
+        }
+        if (act === 'sleep_ms') {
+            const msRaw = Number(req.milliseconds ?? req.ms ?? 0);
+            const ms = Number.isFinite(msRaw) ? Math.max(0, Math.floor(msRaw)) : 0;
+            try {
+                if (ms > 0) {
+                    if (typeof SharedArrayBuffer !== 'undefined' && typeof Atomics !== 'undefined' && typeof Atomics.wait === 'function') {
+                        const sab = new SharedArrayBuffer(4);
+                        const arr = new Int32Array(sab);
+                        Atomics.wait(arr, 0, 0, ms);
+                    } else {
+                        const end = Date.now() + ms;
+                        while (Date.now() < end) {
+                        }
+                    }
+                }
+                const decoded = {
+                    ok: true,
+                    slept_ms: ms
+                };
+                return Object.entries(decoded || {});
+            } catch (err) {
+                const decoded = {
+                    ok: false,
+                    error: err && err.message ? err.message : String(err)
+                };
+                return Object.entries(decoded || {});
+            }
+        }
+        return {
+            ok: false,
+            error: `unknown time action '${act}'`
+        };
+    }
     if (kind === 'crypto') {
         const act = String(action || '');
         if (act === 'random_bytes') {
@@ -4439,8 +4482,9 @@ function phpWasmCall(modulePtr, moduleLen, exportPtr, exportLen, argsPtr, argsLe
         const isNetBridge = moduleId === '__deka_net' || moduleId.includes('__deka_net');
         const isFsBridge = moduleId === '__deka_fs' || moduleId.includes('__deka_fs');
         const isCryptoBridge = moduleId === '__deka_crypto' || moduleId.includes('__deka_crypto');
+        const isTimeBridge = moduleId === '__deka_time' || moduleId.includes('__deka_time');
         const isLegacyHostBridge = moduleId.startsWith('__deka_');
-        if (isDbBridge || isNetBridge || isFsBridge || isCryptoBridge || isLegacyHostBridge) {
+        if (isDbBridge || isNetBridge || isFsBridge || isCryptoBridge || isTimeBridge || isLegacyHostBridge) {
             let payload = null;
             if (argsJson) {
                 try {
@@ -4476,6 +4520,8 @@ function phpWasmCall(modulePtr, moduleLen, exportPtr, exportLen, argsPtr, argsLe
                     } else {
                         result = routeHostCall('crypto', actionName, payload);
                     }
+                } else if (isTimeBridge || moduleId.includes('time')) {
+                    result = routeHostCall('time', String(exportName || ''), payload);
                 } else {
                     result = {
                         ok: false,

@@ -4,3 +4,10 @@ export function bridge($kind, $action, $payload = {}) {
     }
     return \__deka_wasm_call('__deka_' . ('' . $kind), '' . $action, $payload)
 }
+
+export async function bridge_async($kind, $action, $payload = {}): Promise<mixed> {
+    if (function_exists('__bridge_async')) {
+        return await \__bridge_async($kind, $action, $payload)
+    }
+    return await \__deka_wasm_call_async('__deka_' . ('' . $kind), '' . $action, $payload)
+}
