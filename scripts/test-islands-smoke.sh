@@ -36,6 +36,7 @@ cp -R "$(cd "$(dirname "$CLI_BIN")/../.." && pwd)/php_modules" php_modules
 cat > app/page.phpx <<'PHPX'
 ---
 import { jsx, jsxs } from 'component/core'
+import { Hydration } from 'component/dom'
 
 function IdleCard($props: object) {
   return <section>Idle</section>
@@ -59,6 +60,7 @@ function OnlyCard($props: object) {
   <MediaCard client:media="(min-width: 768px)" />
   <OnlyCard client:only={true} />
 </div>
+<Hydration container="#app" layout="users" />
 PHPX
 
 "$CLI_BIN" serve "$ROOT" --port 8551 >/tmp/deka_islands_smoke.log 2>&1 &
@@ -71,6 +73,11 @@ assert_contains 'data-client="visible"' "$HTML"
 assert_contains 'data-client="media"' "$HTML"
 assert_contains 'data-media="(min-width: 768px)"' "$HTML"
 assert_contains 'data-client="load"' "$HTML"
+
+assert_contains '__dekaHydrateIslands' "$HTML"
+assert_contains 'dekaIslandScheduled' "$HTML"
+assert_contains 'requestIdleCallback' "$HTML"
+assert_contains 'IntersectionObserver' "$HTML"
 
 if ! grep -Eq '<deka-island[^>]*data-component="[^"]*OnlyCard"[^>]*></deka-island>' <<<"$HTML"; then
   echo "assertion failed: client:only island wrapper was not empty" >&2

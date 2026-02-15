@@ -224,14 +224,46 @@ const createRoot = (config = {}) => {
 
   const initialContainer = getContainer(root.container);
   ensureLayout(initialContainer);
+  const __islandVisibleObservers = new WeakMap();
+  const __islandMediaListeners = new WeakMap();
+
   const scheduleByDirective = (el) => {
+    if (!(el instanceof Element)) return;
+    if (el.dataset.dekaIslandHydrated === "1") return;
+
     const mode = (el.getAttribute("data-client") || "load").toLowerCase();
+
+    const cleanupScheduledState = () => {
+      el.dataset.dekaIslandScheduled = "0";
+
+      const observer = __islandVisibleObservers.get(el);
+      if (observer) {
+        observer.disconnect();
+        __islandVisibleObservers.delete(el);
+      }
+
+      const mediaCleanup = __islandMediaListeners.get(el);
+      if (typeof mediaCleanup === "function") {
+        mediaCleanup();
+        __islandMediaListeners.delete(el);
+      }
+    };
+
     const hydrate = () => {
       if (el.dataset.dekaIslandHydrated === "1") return;
       el.dataset.dekaIslandHydrated = "1";
+      cleanupScheduledState();
       el.dispatchEvent(new CustomEvent("deka:island:hydrate", { bubbles: true }));
     };
+
+    const markScheduled = () => {
+      if (el.dataset.dekaIslandScheduled === "1") return false;
+      el.dataset.dekaIslandScheduled = "1";
+      return true;
+    };
+
     if (mode === "idle") {
+      if (!markScheduled()) return;
       if ("requestIdleCallback" in window) {
         window.requestIdleCallback(hydrate);
       } else {
@@ -239,45 +271,58 @@ const createRoot = (config = {}) => {
       }
       return;
     }
+
     if (mode === "visible") {
+      if (!markScheduled()) return;
       if ("IntersectionObserver" in window) {
         const io = new IntersectionObserver((entries) => {
           for (const entry of entries) {
             if (entry.isIntersecting) {
-              io.disconnect();
               hydrate();
               break;
             }
           }
         });
+        __islandVisibleObservers.set(el, io);
         io.observe(el);
       } else {
         hydrate();
       }
       return;
     }
+
     if (mode === "media") {
+      if (!markScheduled()) return;
       const query = el.getAttribute("data-media") || "";
       if (!query || !("matchMedia" in window)) {
         hydrate();
         return;
       }
+
       const mql = window.matchMedia(query);
       const run = () => {
         if (mql.matches) {
           hydrate();
         }
       };
+
       run();
+
+      let cleanup = () => {};
       if (mql.addEventListener) {
         mql.addEventListener("change", run);
+        cleanup = () => mql.removeEventListener("change", run);
       } else if (mql.addListener) {
         mql.addListener(run);
+        cleanup = () => mql.removeListener(run);
       }
+      __islandMediaListeners.set(el, cleanup);
       return;
     }
+
     hydrate();
   };
+
   const hydrateIslands = (scope) => {
     const root = scope || document;
     const islands = root.querySelectorAll
@@ -331,7 +376,8 @@ export function Hydration($props = false) {
         }
     }
     $script = __component_build_hydration_script($config);
-    return <script nonce={$nonce !== '' ? $nonce : false}>{$script}</script>;
+    $inner = { __html: $script };
+    return <script nonce={$nonce !== '' ? $nonce : false} dangerouslySetInnerHTML={$inner}></script>;
 }
 
 export function isPartialRequest() {
