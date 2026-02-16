@@ -13,7 +13,7 @@ EDITOR_VENDOR_DIR="$DEMO_DIR/vendor/adwa_editor"
 PHP_RUNTIME_JS_SRC="$MVP_ROOT/crates/modules_php/src/modules/deka_php/php.js"
 PHP_MODULES_SRC="$MVP_ROOT/php_modules"
 DEKA_LOCK_SRC="$MVP_ROOT/deka.lock"
-DEKA_CONFIG_SRC="$ROOT_DIR/deka.json"
+DEKA_CONFIG_SRC="$ROOT_DIR/website/project/deka.json"
 INCLUDE_EDITOR_ASSETS="${ADWA_DEMO_INCLUDE_EDITOR:-0}"
 
 "$ROOT_DIR/scripts/build-wasm.sh"

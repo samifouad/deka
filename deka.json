@@ -1,8 +1,4 @@
 {
-  "serve": {
-    "entry": "app/home.phpx",
-    "mode": "php"
-  },
   "scripts": {
     "dev": "./scripts/dev.sh",
     "test": "ADWA_E2E_INCLUDE_PHPX=1 ../scripts/test-adwa-playground-e2e.sh"

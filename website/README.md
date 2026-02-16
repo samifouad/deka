@@ -40,3 +40,10 @@ ADWA_DEMO_INCLUDE_EDITOR=1 ./scripts/build-demo.sh
 ```
 
 When editor wasm assets are not present, diagnostics/completion fall back to sidecar mode.
+
+## Config split
+
+This folder has two separate configs:
+
+- `website/deka.json`: static serving for the website shell (`index.html`).
+- `website/project/deka.json`: bundled as `/deka.json` for the in-browser PHPX demo runtime.
