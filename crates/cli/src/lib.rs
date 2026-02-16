@@ -12,6 +12,8 @@ pub fn build_registry() -> Registry {
     cli::init::register(&mut registry);
     cli::user::register(&mut registry);
     wasm_cmd::register(&mut registry);
+    #[cfg(target_arch = "wasm32")]
+    cli::db_wasm::register(&mut registry);
     #[cfg(feature = "native")]
     {
         cli::build::register(&mut registry);
@@ -61,44 +63,97 @@ fn run_for_wasm(args: Vec<String>) -> WasmRunOutput {
     }
 
     let cmd = &parsed.args;
+
     if cmd.commands.is_empty() {
         if cmd.flags.is_empty() {
             cli::help(&registry);
             let output = stdio::end_capture();
             return WasmRunOutput { code: 0, output };
         }
-        if cmd.flags.contains_key("--help")
-            || cmd.flags.contains_key("-H")
-            || cmd.flags.contains_key("help")
-        {
+        if cmd.flags.contains_key("--help") || cmd.flags.contains_key("-H") || cmd.flags.contains_key("help") {
             cli::help(&registry);
             let output = stdio::end_capture();
             return WasmRunOutput { code: 0, output };
         }
-        if cmd.flags.contains_key("--version")
-            || cmd.flags.contains_key("-V")
-            || cmd.flags.contains_key("version")
-        {
+        if cmd.flags.contains_key("--version") || cmd.flags.contains_key("-V") || cmd.flags.contains_key("version") {
             let verbose = cmd.flags.contains_key("--verbose");
             cli::version(verbose);
             let output = stdio::end_capture();
             return WasmRunOutput { code: 0, output };
         }
-        if cmd.flags.contains_key("--update")
-            || cmd.flags.contains_key("-U")
-            || cmd.flags.contains_key("update")
-        {
+        if cmd.flags.contains_key("--update") || cmd.flags.contains_key("-U") || cmd.flags.contains_key("update") {
             cli::update();
             let output = stdio::end_capture();
             return WasmRunOutput { code: 0, output };
         }
     }
 
-    cli::error(Some(
-        "browser wasm runtime currently supports: --help, --version, --update",
-    ));
+    let env = core::EnvContext::load();
+    let handler = match core::HandlerContext::from_env(cmd) {
+        Ok(handler) => handler,
+        Err(_) => {
+            match core::resolve_handler_path(".") {
+                Ok(resolved) => {
+                    let static_config = core::StaticServeConfig::load(&resolved.directory);
+                    core::HandlerContext {
+                        input: ".".to_string(),
+                        resolved,
+                        static_config,
+                        serve_config_path: None,
+                    }
+                }
+                Err(message) => {
+                    cli::error(Some(message.as_str()));
+                    let output = stdio::end_capture();
+                    return WasmRunOutput { code: 1, output };
+                }
+            }
+        }
+    };
+
+    let context = core::Context {
+        args: cmd.clone(),
+        env,
+        handler,
+    };
+
+    if cmd.commands.len() > 2 {
+        cli::error(None);
+        let output = stdio::end_capture();
+        return WasmRunOutput { code: 1, output };
+    }
+
+    let cmd_name = match cmd.commands.get(0) {
+        Some(value) => value,
+        None => {
+            cli::error(None);
+            let output = stdio::end_capture();
+            return WasmRunOutput { code: 1, output };
+        }
+    };
+
+    let Some(command) = registry.command_named(cmd_name) else {
+        cli::error(None);
+        let output = stdio::end_capture();
+        return WasmRunOutput { code: 1, output };
+    };
+
+    if cmd.commands.len() == 1 {
+        (command.handler)(&context);
+        let output = stdio::end_capture();
+        return WasmRunOutput { code: 0, output };
+    }
+
+    let sub_name = &cmd.commands[1];
+    let Some(subcommand) = registry.subcommand_named(command, sub_name) else {
+        cli::error(None);
+        let output = stdio::end_capture();
+        return WasmRunOutput { code: 1, output };
+    };
+
+    (subcommand.handler)(&context);
     let output = stdio::end_capture();
-    WasmRunOutput { code: 1, output }
+    WasmRunOutput { code: 0, output }
 }
 
 #[cfg(target_arch = "wasm32")]

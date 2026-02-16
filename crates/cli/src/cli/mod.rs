@@ -12,6 +12,8 @@ pub mod build;
 pub mod compile;
 #[cfg(feature = "native")]
 pub mod db;
+#[cfg(target_arch = "wasm32")]
+pub mod db_wasm;
 #[cfg(feature = "native")]
 pub mod install;
 #[cfg(feature = "native")]
@@ -152,6 +154,7 @@ pub fn error(msg: Option<&str>) {
 }
 
 pub fn execute(registry: &Registry) {
+    #[cfg(feature = "native")]
     let has_user_args = std::env::args().nth(1).is_some();
 
     let parsed = core::parse_env(registry);
