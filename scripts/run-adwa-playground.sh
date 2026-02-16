@@ -24,8 +24,8 @@ if [[ "${1:-}" == "--build-only" ]]; then
 fi
 
 if command -v python3 >/dev/null 2>&1; then
-  echo "[adwa-playground] serving $ADWA_DIR/examples/browser at http://localhost:${PORT}"
-  exec python3 -m http.server "$PORT" --directory "$ADWA_DIR/examples/browser"
+  echo "[adwa-playground] serving $ADWA_DIR/website at http://localhost:${PORT}"
+  exec python3 -m http.server "$PORT" --directory "$ADWA_DIR/website"
 fi
 
 echo "[adwa-playground] python3 is required to serve the demo (or use your own static server)"
