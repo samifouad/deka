@@ -17,7 +17,7 @@ Adwa is a Rust-first browser runtime and UI playground for Deka's web-host execu
 - `crates/adwa-core`: platform-agnostic Rust core APIs and host model.
 - `crates/adwa-wasm`: browser/WASM adapter and JS bindings.
 - `js/`: browser-side host bridge and runtime adapter utilities.
-- `examples/browser`: interactive browser playground (editor + render + console).
+- `website`: interactive browser playground (editor + render + console).
 - `scripts/`: build/dev helpers.
 
 ## Runtime payload policy
@@ -43,7 +43,7 @@ See `ARCHITECTURE.md` and `API_MAPPING.md` for deeper details.
 
 ### Dev deliverables
 - Rust outputs in `target/release/*` during local iteration.
-- Browser demo payload under `examples/browser/vendor/*` after:
+- Browser demo payload under `website/vendor/*` after:
 
 ```sh
 ./scripts/build-demo.sh
@@ -54,12 +54,12 @@ Required runtime payload:
 - `crates/adwa-wasm/pkg/adwa_wasm_bg.wasm`
 - `crates/adwa-wasm/pkg/adwa_wasm.js`
 - `crates/adwa-wasm/pkg/adwa_wasm.d.ts`
-- Browser app files in `examples/browser/` (`index.html`, `main.js`, `styles.css`, `core/*`, `ui/*`)
-- Runtime vendor bundle in `examples/browser/vendor/adwa_wasm/*`
-- Runtime vendor bundle in `examples/browser/vendor/adwa_js/*`
+- Browser app files in `website/` (`index.html`, `main.js`, `styles.css`, `core/*`, `ui/*`)
+- Runtime vendor bundle in `website/vendor/adwa_wasm/*`
+- Runtime vendor bundle in `website/vendor/adwa_js/*`
 
 Optional editor payload (only when enabled):
-- `examples/browser/vendor/adwa_editor/*`
+- `website/vendor/adwa_editor/*`
 
 To include optional editor payload:
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEMO_DIR="$ROOT_DIR/examples/browser"
+DEMO_DIR="$ROOT_DIR/website"
 WASM_PKG_DIR="$ROOT_DIR/crates/adwa-wasm/pkg"
 ADWA_JS_DIST_DIR="$ROOT_DIR/js/dist"
 MVP_ROOT="${DEKA_MVP_ROOT:-$ROOT_DIR/../mvp}"
@@ -125,4 +125,4 @@ const content =
 fs.writeFileSync(outPath, content, "utf8");
 EOF2
 
-echo "Demo assets built. Serve $ROOT_DIR/examples/browser"
+echo "Demo assets built. Serve $ROOT_DIR/website"
