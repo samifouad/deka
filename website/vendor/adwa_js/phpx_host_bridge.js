@@ -1,3 +1,4 @@
+import { handleDbBridge } from "./phpx_db_bridge.js";
 const SERVER_CAPS = {
     fs: true,
     net: true,
@@ -11,7 +12,7 @@ const ADWA_CAPS = {
     net: true,
     processEnv: false,
     clockRandom: true,
-    db: false,
+    db: true,
     wasmImports: true,
 };
 export class PhpHostBridge {
@@ -59,6 +60,9 @@ export class PhpHostBridge {
             }
             if (kind === "net" || kind === "tcp" || kind === "tls") {
                 return { ok: true, value: this.callNet(kind, action, payload) };
+            }
+            if (kind === "db" || kind === "sqlite" || kind === "postgres" || kind === "mysql") {
+                return { ok: true, value: handleDbBridge(kind, action, payload) };
             }
             return {
                 ok: false,
@@ -282,7 +286,7 @@ function capabilityError(host, capability, kind, action, suggestion) {
 }
 function capabilitySuggestion(host, capability, kind, action) {
     if (capability === "db") {
-        return "Database calls are disabled in adwa. Use server host for DB-backed paths, or mock data in the browser demo.";
+        return "Database capability is disabled for this host profile. Enable db capability or provide a compatible db adapter.";
     }
     if (capability === "processEnv") {
         return "Process/env APIs are restricted in adwa. Pass config through runtime context/env injection instead.";

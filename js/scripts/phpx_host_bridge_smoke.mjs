@@ -104,12 +104,12 @@ const bridge = createPhpHostBridge({
   env: { APP_ENV: "dev" },
 });
 
-const denied = bridge.call({ kind: "db", action: "stats", payload: {} });
-assert(!denied.ok, "db should be denied in adwa");
-assert(String(denied.error || "").includes("CapabilityError"), "capability error expected");
-assert(denied.code === "CAPABILITY_DENIED", "expected capability denied code");
-assert(denied.info?.kind === "capability_denied", "expected structured capability denied info");
-assert(String(denied.info?.suggestion || "").length > 0, "expected actionable suggestion");
+const dbOpen = bridge.call({
+  kind: "db",
+  action: "open",
+  payload: { driver: "sqlite", config: { database: "host-bridge-smoke" } },
+});
+assert(dbOpen.ok, "db should be available in adwa host bridge");
 
 const write = bridge.call({
   kind: "fs",
