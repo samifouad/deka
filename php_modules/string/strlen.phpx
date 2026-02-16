@@ -12,6 +12,11 @@
 /// </Function>
 import { __deka_strlen_bytes } from './bytes_utils.phpx';
 
+/// docid: phpx/string/strlen()
+/// <Function name="strlen">
+///   <Description>PHPX standard module function `strlen` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function strlen($string) {
     if (func_num_args() !== 1) {
         return null;

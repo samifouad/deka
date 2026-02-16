@@ -5,6 +5,14 @@ struct Root {
     $container: string = '#app';
 }
 
+/// docid: phpx/component/createRoot()
+/// <Function name="createRoot">
+///   <Description>PHPX standard module function `createRoot` from `component`.</Description>
+///   <Parameter name="$config" type="mixed" required="false">
+///     Parameter $config.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function createRoot($config = false) {
     $container = '#app';
 
@@ -21,6 +29,14 @@ export function createRoot($config = false) {
     return Root { $container: '' . $container };
 }
 
+/// docid: phpx/component/renderToString()
+/// <Function name="renderToString">
+///   <Description>PHPX standard module function `renderToString` from `component`.</Description>
+///   <Parameter name="$node" type="mixed" required="false">
+///     Parameter $node.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function renderToString($node) {
     __component_reset_node_id()
     __component_reset_island_id()
@@ -33,11 +49,33 @@ export async function renderToStringAsync($node): Promise<string> {
     return await __component_render_node_async($node)
 }
 
+/// docid: phpx/component/renderToStream()
+/// <Function name="renderToStream">
+///   <Description>PHPX standard module function `renderToStream` from `component`.</Description>
+///   <Parameter name="$node" type="mixed" required="false">
+///     Parameter $node.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function renderToStream($node) {
     // Streaming is not wired yet; return a full string for now.
     return renderToString($node);
 }
 
+/// docid: phpx/component/renderPartial()
+/// <Function name="renderPartial">
+///   <Description>PHPX standard module function `renderPartial` from `component`.</Description>
+///   <Parameter name="$node" type="mixed" required="false">
+///     Parameter $node.
+///   </Parameter>
+///   <Parameter name="$title" type="mixed" required="false">
+///     Parameter $title.
+///   </Parameter>
+///   <Parameter name="$head" type="mixed" required="false">
+///     Parameter $head.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function renderPartial($node, $title = '', $head = '') {
     $payload = {
         html: renderToString($node),
@@ -49,10 +87,38 @@ export function renderPartial($node, $title = '', $head = '') {
     return $payload;
 }
 
+/// docid: phpx/component/renderPartialJson()
+/// <Function name="renderPartialJson">
+///   <Description>PHPX standard module function `renderPartialJson` from `component`.</Description>
+///   <Parameter name="$node" type="mixed" required="false">
+///     Parameter $node.
+///   </Parameter>
+///   <Parameter name="$title" type="mixed" required="false">
+///     Parameter $title.
+///   </Parameter>
+///   <Parameter name="$head" type="mixed" required="false">
+///     Parameter $head.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function renderPartialJson($node, $title = '', $head = '') {
     return json_encode(renderPartial($node, $title, $head));
 }
 
+/// docid: phpx/component/renderPartialResponse()
+/// <Function name="renderPartialResponse">
+///   <Description>PHPX standard module function `renderPartialResponse` from `component`.</Description>
+///   <Parameter name="$node" type="mixed" required="false">
+///     Parameter $node.
+///   </Parameter>
+///   <Parameter name="$title" type="mixed" required="false">
+///     Parameter $title.
+///   </Parameter>
+///   <Parameter name="$head" type="mixed" required="false">
+///     Parameter $head.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function renderPartialResponse($node, $title = '', $head = '') {
     if (function_exists('header')) {
         header('Content-Type: application/json; charset=utf-8');
@@ -60,6 +126,14 @@ export function renderPartialResponse($node, $title = '', $head = '') {
     return renderPartialJson($node, $title, $head);
 }
 
+/// docid: phpx/component/Link()
+/// <Function name="Link">
+///   <Description>PHPX standard module function `Link` from `component`.</Description>
+///   <Parameter name="$props" type="mixed" required="false">
+///     Parameter $props.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function Link($props) {
     $href = '';
     $target = '';
@@ -430,6 +504,14 @@ function __component_build_hydration_script($config) {
     return "(function(){\n" . __component_hydration_source() . "\nconst __phpxHydrationConfig = " . $json . " || {};\ncreateRoot(__phpxHydrationConfig);\n})();";
 }
 
+/// docid: phpx/component/Hydration()
+/// <Function name="Hydration">
+///   <Description>PHPX standard module function `Hydration` from `component`.</Description>
+///   <Parameter name="$props" type="mixed" required="false">
+///     Parameter $props.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function Hydration($props = false) {
     $config = {};
     $nonce = '';
@@ -462,6 +544,11 @@ export function Hydration($props = false) {
     return <script nonce={$nonce !== '' ? $nonce : false} dangerouslySetInnerHTML={$inner}></script>;
 }
 
+/// docid: phpx/component/isPartialRequest()
+/// <Function name="isPartialRequest">
+///   <Description>PHPX standard module function `isPartialRequest` from `component`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function isPartialRequest() {
     if (isset($_GET['partial']) && $_GET['partial'] === '1') {
         return true;
@@ -531,6 +618,14 @@ export async function handleServerIslandRequestAsync($registry = false): Promise
     echo await renderToStringAsync($node);
     return true;
 }
+/// docid: phpx/component/handleServerIslandRequest()
+/// <Function name="handleServerIslandRequest">
+///   <Description>PHPX standard module function `handleServerIslandRequest` from `component`.</Description>
+///   <Parameter name="$registry" type="mixed" required="false">
+///     Parameter $registry.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function handleServerIslandRequest($registry = false) {
     if (!isset($_GET['__deka_server_island']) || $_GET['__deka_server_island'] !== '1') {
         return false;

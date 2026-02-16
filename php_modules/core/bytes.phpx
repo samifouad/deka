@@ -1,15 +1,35 @@
+/// docid: phpx/core/bytes_from_string()
+/// <Function name="bytes_from_string">
+///   <Description>PHPX standard module function `bytes_from_string` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function bytes_from_string($str) {
     return $str;
 }
 
+/// docid: phpx/core/bytes_to_string()
+/// <Function name="bytes_to_string">
+///   <Description>PHPX standard module function `bytes_to_string` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function bytes_to_string($bytes) {
     return $bytes;
 }
 
+/// docid: phpx/core/bytes_len()
+/// <Function name="bytes_len">
+///   <Description>PHPX standard module function `bytes_len` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function bytes_len($bytes) {
     return strlen($bytes);
 }
 
+/// docid: phpx/core/bytes_get()
+/// <Function name="bytes_get">
+///   <Description>PHPX standard module function `bytes_get` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function bytes_get($bytes, $index) {
     if ($index < 0 || $index >= strlen($bytes)) {
         return null;
@@ -17,6 +37,11 @@ export function bytes_get($bytes, $index) {
     return ord($bytes[$index]);
 }
 
+/// docid: phpx/core/bytes_set()
+/// <Function name="bytes_set">
+///   <Description>PHPX standard module function `bytes_set` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function bytes_set($bytes, $index, $byte) {
     if ($index < 0 || $index >= strlen($bytes)) {
         return $bytes
@@ -32,6 +57,11 @@ export function bytes_set($bytes, $index, $byte) {
     return $prefix . chr($byte) . $suffix
 }
 
+/// docid: phpx/core/bytes_slice()
+/// <Function name="bytes_slice">
+///   <Description>PHPX standard module function `bytes_slice` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function bytes_slice($bytes, $start, $length = null) {
     if ($length === null) {
         return substr($bytes, $start);
@@ -39,10 +69,20 @@ export function bytes_slice($bytes, $start, $length = null) {
     return substr($bytes, $start, $length);
 }
 
+/// docid: phpx/core/bytes_concat()
+/// <Function name="bytes_concat">
+///   <Description>PHPX standard module function `bytes_concat` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function bytes_concat($a, $b) {
     return $a . $b;
 }
 
+/// docid: phpx/core/bytes_to_array()
+/// <Function name="bytes_to_array">
+///   <Description>PHPX standard module function `bytes_to_array` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function bytes_to_array($bytes) {
     $out = []
     $n = strlen($bytes)
@@ -52,6 +92,11 @@ export function bytes_to_array($bytes) {
     return $out
 }
 
+/// docid: phpx/core/bytes_from_array()
+/// <Function name="bytes_from_array">
+///   <Description>PHPX standard module function `bytes_from_array` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function bytes_from_array($arr) {
     if (!is_array($arr)) {
         return ''

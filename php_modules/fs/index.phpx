@@ -38,6 +38,11 @@ function normalize_result($raw) {
     return result_err('invalid fs response')
 }
 
+/// docid: phpx/fs/openSync()
+/// <Function name="openSync">
+///   <Description>PHPX standard module function `openSync` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function openSync($path, $mode = 'r') {
     $raw = bridge('fs', 'open', { path: $path, mode: $mode })
     $res = normalize_result($raw)
@@ -51,6 +56,11 @@ export function openSync($path, $mode = 'r') {
     return result_err('open succeeded without handle')
 }
 
+/// docid: phpx/fs/readSync()
+/// <Function name="readSync">
+///   <Description>PHPX standard module function `readSync` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function readSync($handle, $max_bytes = 65536) {
     $raw = bridge('fs', 'read', { handle: $handle, max_bytes: $max_bytes })
     $res = normalize_result($raw)
@@ -75,17 +85,32 @@ export function readSync($handle, $max_bytes = 65536) {
     return result_err('read returned invalid payload')
 }
 
+/// docid: phpx/fs/writeSync()
+/// <Function name="writeSync">
+///   <Description>PHPX standard module function `writeSync` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function writeSync($handle, $bytes) {
     $arr = bytes_to_array($bytes)
     $raw = bridge('fs', 'write', { handle: $handle, data: $arr })
     return normalize_result($raw)
 }
 
+/// docid: phpx/fs/closeSync()
+/// <Function name="closeSync">
+///   <Description>PHPX standard module function `closeSync` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function closeSync($handle) {
     $raw = bridge('fs', 'close', { handle: $handle })
     return normalize_result($raw)
 }
 
+/// docid: phpx/fs/readFileSync()
+/// <Function name="readFileSync">
+///   <Description>PHPX standard module function `readFileSync` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function readFileSync($path) {
     $raw = bridge('fs', 'read_file', { path: $path })
     $res = normalize_result($raw)
@@ -103,41 +128,86 @@ export function readFileSync($path) {
     return result_err('read_file returned invalid payload')
 }
 
+/// docid: phpx/fs/writeFileSync()
+/// <Function name="writeFileSync">
+///   <Description>PHPX standard module function `writeFileSync` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function writeFileSync($path, $bytes) {
     $arr = bytes_to_array($bytes)
     $raw = bridge('fs', 'write_file', { path: $path, data: $arr })
     return normalize_result($raw)
 }
 
+/// docid: phpx/fs/open()
+/// <Function name="open">
+///   <Description>PHPX standard module function `open` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function open($path, $mode = 'r') {
     return openSync($path, $mode)
 }
 
+/// docid: phpx/fs/read()
+/// <Function name="read">
+///   <Description>PHPX standard module function `read` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function read($handle, $max_bytes = 65536) {
     return readSync($handle, $max_bytes)
 }
 
+/// docid: phpx/fs/write()
+/// <Function name="write">
+///   <Description>PHPX standard module function `write` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function write($handle, $bytes) {
     return writeSync($handle, $bytes)
 }
 
+/// docid: phpx/fs/close()
+/// <Function name="close">
+///   <Description>PHPX standard module function `close` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function close($handle) {
     return closeSync($handle)
 }
 
+/// docid: phpx/fs/readFile()
+/// <Function name="readFile">
+///   <Description>PHPX standard module function `readFile` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function readFile($path) {
     return readFileSync($path)
 }
 
+/// docid: phpx/fs/writeFile()
+/// <Function name="writeFile">
+///   <Description>PHPX standard module function `writeFile` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function writeFile($path, $bytes) {
     return writeFileSync($path, $bytes)
 }
 
 // Backward compatibility aliases.
+/// docid: phpx/fs/read_file()
+/// <Function name="read_file">
+///   <Description>PHPX standard module function `read_file` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function read_file($path) {
     return readFileSync($path)
 }
 
+/// docid: phpx/fs/write_file()
+/// <Function name="write_file">
+///   <Description>PHPX standard module function `write_file` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function write_file($path, $bytes) {
     return writeFileSync($path, $bytes)
 }

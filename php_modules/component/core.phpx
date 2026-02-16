@@ -20,16 +20,58 @@ function &__component_context_next_id() {
     return $next;
 }
 
+/// docid: phpx/component/jsx()
+/// <Function name="jsx">
+///   <Description>PHPX standard module function `jsx` from `component`.</Description>
+///   <Parameter name="$type" type="mixed" required="false">
+///     Parameter $type.
+///   </Parameter>
+///   <Parameter name="$props" type="mixed" required="false">
+///     Parameter $props.
+///   </Parameter>
+///   <Parameter name="$key" type="mixed" required="false">
+///     Parameter $key.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function jsx($type, $props, $key = '') {
     $props = __component_normalize_prop_aliases($props);
     return VNode { $type: $type, $props: $props, $key: $key };
 }
 
+/// docid: phpx/component/jsxs()
+/// <Function name="jsxs">
+///   <Description>PHPX standard module function `jsxs` from `component`.</Description>
+///   <Parameter name="$type" type="mixed" required="false">
+///     Parameter $type.
+///   </Parameter>
+///   <Parameter name="$props" type="mixed" required="false">
+///     Parameter $props.
+///   </Parameter>
+///   <Parameter name="$key" type="mixed" required="false">
+///     Parameter $key.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function jsxs($type, $props, $key = '') {
     $props = __component_normalize_prop_aliases($props);
     return VNode { $type: $type, $props: $props, $key: $key };
 }
 
+/// docid: phpx/component/createElement()
+/// <Function name="createElement">
+///   <Description>PHPX standard module function `createElement` from `component`.</Description>
+///   <Parameter name="$type" type="mixed" required="false">
+///     Parameter $type.
+///   </Parameter>
+///   <Parameter name="$props" type="mixed" required="false">
+///     Parameter $props.
+///   </Parameter>
+///   <Parameter name="$children" type="mixed" required="false">
+///     Parameter $children.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function createElement($type, $props, ...$children) {
     $props = __component_normalize_prop_aliases($props);
     if (count($children) > 0) {
@@ -124,10 +166,26 @@ function __component_normalize_prop_alias_array(&$props, $primary, $alternate) {
 }
 
 
+/// docid: phpx/component/isValidElement()
+/// <Function name="isValidElement">
+///   <Description>PHPX standard module function `isValidElement` from `component`.</Description>
+///   <Parameter name="$value" type="mixed" required="false">
+///     Parameter $value.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function isValidElement($value): bool {
     return $value instanceof VNode;
 }
 
+/// docid: phpx/component/childrenToArray()
+/// <Function name="childrenToArray">
+///   <Description>PHPX standard module function `childrenToArray` from `component`.</Description>
+///   <Parameter name="$children" type="mixed" required="false">
+///     Parameter $children.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function childrenToArray($children): array {
     if (is_array($children)) {
         return $children;
@@ -135,6 +193,14 @@ export function childrenToArray($children): array {
     return [$children];
 }
 
+/// docid: phpx/component/createContext()
+/// <Function name="createContext">
+///   <Description>PHPX standard module function `createContext` from `component`.</Description>
+///   <Parameter name="$default" type="mixed" required="false">
+///     Parameter $default.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function createContext($default) {
     $next = &__component_context_next_id();
     $id = $next;
@@ -152,14 +218,38 @@ function __popContext() {
     array_pop($stack);
 }
 
+/// docid: phpx/component/__component_push_context()
+/// <Function name="__component_push_context">
+///   <Description>PHPX standard module function `__component_push_context` from `component`.</Description>
+///   <Parameter name="$ctx" type="mixed" required="false">
+///     Parameter $ctx.
+///   </Parameter>
+///   <Parameter name="$value" type="mixed" required="false">
+///     Parameter $value.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __component_push_context($ctx, $value) {
     __pushContext($ctx, $value);
 }
 
+/// docid: phpx/component/__component_pop_context()
+/// <Function name="__component_pop_context">
+///   <Description>PHPX standard module function `__component_pop_context` from `component`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __component_pop_context() {
     __popContext();
 }
 
+/// docid: phpx/component/useContext()
+/// <Function name="useContext">
+///   <Description>PHPX standard module function `useContext` from `component`.</Description>
+///   <Parameter name="$ctx" type="mixed" required="false">
+///     Parameter $ctx.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function useContext($ctx) {
     $stack = &__component_context_stack();
     for ($i = count($stack) - 1; $i >= 0; $i--) {
@@ -171,14 +261,41 @@ export function useContext($ctx) {
     return $ctx.default;
 }
 
+/// docid: phpx/component/ContextProvider()
+/// <Function name="ContextProvider">
+///   <Description>PHPX standard module function `ContextProvider` from `component`.</Description>
+///   <Parameter name="$props" type="mixed" required="false">
+///     Parameter $props.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function ContextProvider($props) {
     return $props.children;
 }
 
+/// docid: phpx/component/Suspense()
+/// <Function name="Suspense">
+///   <Description>PHPX standard module function `Suspense` from `component`.</Description>
+///   <Parameter name="$props" type="mixed" required="false">
+///     Parameter $props.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function Suspense($props) {
     return $props.children;
 }
 
+/// docid: phpx/component/__component_each()
+/// <Function name="__component_each">
+///   <Description>PHPX standard module function `__component_each` from `component`.</Description>
+///   <Parameter name="$items" type="mixed" required="false">
+///     Parameter $items.
+///   </Parameter>
+///   <Parameter name="$fn" type="mixed" required="false">
+///     Parameter $fn.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __component_each($items, $fn) {
     $out = [];
     if ($items === false || $items === null) {
@@ -198,6 +315,17 @@ export function __component_each($items, $fn) {
     return $out;
 }
 
+/// docid: phpx/component/__component_each_kv()
+/// <Function name="__component_each_kv">
+///   <Description>PHPX standard module function `__component_each_kv` from `component`.</Description>
+///   <Parameter name="$items" type="mixed" required="false">
+///     Parameter $items.
+///   </Parameter>
+///   <Parameter name="$fn" type="mixed" required="false">
+///     Parameter $fn.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __component_each_kv($items, $fn) {
     $out = [];
     if ($items === false || $items === null) {

@@ -48,23 +48,43 @@ function &__framework_request_context_store() {
   return $store
 }
 
+/// docid: phpx/framework/set_request_context()
+/// <Function name="set_request_context">
+///   <Description>PHPX standard module function `set_request_context` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function set_request_context($ctx) {
   $store = &__framework_request_context_store()
   $store = to_assoc($ctx)
   return $store
 }
 
+/// docid: phpx/framework/request_context()
+/// <Function name="request_context">
+///   <Description>PHPX standard module function `request_context` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function request_context() {
   $store = &__framework_request_context_store()
   return $store
 }
 
+/// docid: phpx/framework/clear_request_context()
+/// <Function name="clear_request_context">
+///   <Description>PHPX standard module function `clear_request_context` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function clear_request_context() {
   $store = &__framework_request_context_store()
   $store = []
   return true
 }
 
+/// docid: phpx/framework/auth()
+/// <Function name="auth">
+///   <Description>PHPX standard module function `auth` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function auth() {
   $ctx = request_context()
   if (array_key_exists('auth', $ctx)) {
@@ -76,6 +96,11 @@ export function auth() {
   return result_err('auth missing')
 }
 
+/// docid: phpx/framework/requireAuth()
+/// <Function name="requireAuth">
+///   <Description>PHPX standard module function `requireAuth` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function requireAuth() {
   $res = auth()
   if (!result_is_ok($res)) {
@@ -89,6 +114,11 @@ export function requireAuth() {
   return result_ok($auth)
 }
 
+/// docid: phpx/framework/requireScope()
+/// <Function name="requireScope">
+///   <Description>PHPX standard module function `requireScope` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function requireScope($scope) {
   $required = '' . $scope
   $auth_res = requireAuth()
@@ -103,6 +133,11 @@ export function requireScope($scope) {
   return result_err('forbidden: missing scope ' . $required)
 }
 
+/// docid: phpx/framework/auth_snapshot()
+/// <Function name="auth_snapshot">
+///   <Description>PHPX standard module function `auth_snapshot` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function auth_snapshot($auth) {
   $src = is_array($auth) ? $auth : (array) $auth
   $allowed = ['user_id', 'handle', 'scopes', 'org_id', 'session_id']
@@ -115,14 +150,29 @@ export function auth_snapshot($auth) {
   return $out
 }
 
+/// docid: phpx/framework/createRequestContext()
+/// <Function name="createRequestContext">
+///   <Description>PHPX standard module function `createRequestContext` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function createRequestContext($default = null) {
   return createContext($default)
 }
 
+/// docid: phpx/framework/RequestContextProvider()
+/// <Function name="RequestContextProvider">
+///   <Description>PHPX standard module function `RequestContextProvider` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function RequestContextProvider($props) {
   return ContextProvider($props)
 }
 
+/// docid: phpx/framework/useContext()
+/// <Function name="useContext">
+///   <Description>PHPX standard module function `useContext` from `framework`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function useContext($ctx) {
   return component_use_context($ctx)
 }

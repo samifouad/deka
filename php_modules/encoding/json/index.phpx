@@ -79,7 +79,7 @@ function __deka_json_to_assoc($value) {
     return null;
 }
 
-/// docid: php/json/json_encode()
+/// docid: phpx/json/json_encode()
 /// <Function name="json_encode">
 ///   <Description>
 ///     Encodes a PHP value into a JSON string. Returns false when encoding fails
@@ -113,7 +113,7 @@ export function json_encode($value, $flags = 0, $depth = 512) {
     return $out;
 }
 
-/// docid: php/json/json_decode()
+/// docid: phpx/json/json_decode()
 /// <Function name="json_decode">
 ///   <Description>
 ///     Decodes a JSON string into a PHP value. Returns null on failure and
@@ -158,7 +158,7 @@ export function json_decode($json, $assoc = false, $depth = 512, $flags = 0) {
     return $value;
 }
 
-/// docid: php/json/json_decode_result()
+/// docid: phpx/json/json_decode_result()
 /// <Function name="json_decode_result">
 ///   <Description>
 ///     Decodes JSON and returns a Result-style array with ok/value or ok/error.
@@ -186,7 +186,7 @@ export function json_decode_result($json, $assoc = false, $depth = 512, $flags =
     ]);
 }
 
-/// docid: php/json/json_last_error()
+/// docid: phpx/json/json_last_error()
 /// <Function name="json_last_error">
 ///   <Description>
 ///     Returns the last JSON error code.
@@ -200,7 +200,7 @@ export function json_last_error() {
     return defined('JSON_ERROR_NONE') ? JSON_ERROR_NONE : 0;
 }
 
-/// docid: php/json/json_last_error_msg()
+/// docid: phpx/json/json_last_error_msg()
 /// <Function name="json_last_error_msg">
 ///   <Description>
 ///     Returns the last JSON error message.
@@ -214,7 +214,7 @@ export function json_last_error_msg() {
     return __deka_json_error_message(json_last_error());
 }
 
-/// docid: php/json/json_validate()
+/// docid: phpx/json/json_validate()
 /// <Function name="json_validate">
 ///   <Description>
 ///     Validates a JSON string without returning the decoded value.

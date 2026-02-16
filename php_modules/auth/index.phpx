@@ -24,6 +24,14 @@ function random_b64url($len = 32) {
   return result_ok(b64url_encode_bytes($res->value))
 }
 
+/// docid: phpx/auth/pkce_pair()
+/// <Function name="pkce_pair">
+///   <Description>PHPX standard module function `pkce_pair` from `auth`.</Description>
+///   <Parameter name="$verifier_len" type="mixed" required="false">
+///     Parameter $verifier_len.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function pkce_pair($verifier_len = 32) {
   $verifier_res = random_b64url($verifier_len)
   if (!result_is_ok($verifier_res)) {
@@ -40,14 +48,50 @@ export function pkce_pair($verifier_len = 32) {
   })
 }
 
+/// docid: phpx/auth/new_state()
+/// <Function name="new_state">
+///   <Description>PHPX standard module function `new_state` from `auth`.</Description>
+///   <Parameter name="$len" type="mixed" required="false">
+///     Parameter $len.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function new_state($len = 24) {
   return random_b64url($len)
 }
 
+/// docid: phpx/auth/new_nonce()
+/// <Function name="new_nonce">
+///   <Description>PHPX standard module function `new_nonce` from `auth`.</Description>
+///   <Parameter name="$len" type="mixed" required="false">
+///     Parameter $len.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function new_nonce($len = 24) {
   return random_b64url($len)
 }
 
+/// docid: phpx/auth/sign_oauth_state()
+/// <Function name="sign_oauth_state">
+///   <Description>PHPX standard module function `sign_oauth_state` from `auth`.</Description>
+///   <Parameter name="$state" type="mixed" required="false">
+///     Parameter $state.
+///   </Parameter>
+///   <Parameter name="$nonce" type="mixed" required="false">
+///     Parameter $nonce.
+///   </Parameter>
+///   <Parameter name="$secret" type="mixed" required="false">
+///     Parameter $secret.
+///   </Parameter>
+///   <Parameter name="$exp_in" type="mixed" required="false">
+///     Parameter $exp_in.
+///   </Parameter>
+///   <Parameter name="$extra" type="mixed" required="false">
+///     Parameter $extra.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function sign_oauth_state($state, $nonce, $secret, $exp_in = 600, $extra = []) {
   $payload = is_array($extra) ? $extra : []
   $payload['state'] = '' . $state
@@ -55,6 +99,26 @@ export function sign_oauth_state($state, $nonce, $secret, $exp_in = 600, $extra 
   return jwt_sign($payload, $secret, [ 'exp_in' => (int) $exp_in ])
 }
 
+/// docid: phpx/auth/verify_oauth_state()
+/// <Function name="verify_oauth_state">
+///   <Description>PHPX standard module function `verify_oauth_state` from `auth`.</Description>
+///   <Parameter name="$token" type="mixed" required="false">
+///     Parameter $token.
+///   </Parameter>
+///   <Parameter name="$secret" type="mixed" required="false">
+///     Parameter $secret.
+///   </Parameter>
+///   <Parameter name="$expected_state" type="mixed" required="false">
+///     Parameter $expected_state.
+///   </Parameter>
+///   <Parameter name="$expected_nonce" type="mixed" required="false">
+///     Parameter $expected_nonce.
+///   </Parameter>
+///   <Parameter name="$options" type="mixed" required="false">
+///     Parameter $options.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function verify_oauth_state($token, $secret, $expected_state, $expected_nonce, $options = []) {
   $verify = jwt_verify($token, $secret, $options)
   if (!result_is_ok($verify)) {

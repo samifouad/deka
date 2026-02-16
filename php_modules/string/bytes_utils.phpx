@@ -1,3 +1,8 @@
+/// docid: phpx/string/__deka_strlen_bytes()
+/// <Function name="__deka_strlen_bytes">
+///   <Description>PHPX standard module function `__deka_strlen_bytes` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_strlen_bytes($value) {
     $len = 0;
     while (isset($value[$len])) {
@@ -6,6 +11,11 @@ export function __deka_strlen_bytes($value) {
     return $len;
 }
 
+/// docid: phpx/string/__deka_slice_bytes()
+/// <Function name="__deka_slice_bytes">
+///   <Description>PHPX standard module function `__deka_slice_bytes` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_slice_bytes($value, $start, $end) {
     $out = '';
     for ($i = $start; $i < $end; $i += 1) {
@@ -14,6 +24,11 @@ export function __deka_slice_bytes($value, $start, $end) {
     return $out;
 }
 
+/// docid: phpx/string/__deka_substr_bytes()
+/// <Function name="__deka_substr_bytes">
+///   <Description>PHPX standard module function `__deka_substr_bytes` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_substr_bytes($value, $start, $length) {
     if ($length <= 0) {
         return '';
@@ -21,6 +36,11 @@ export function __deka_substr_bytes($value, $start, $length) {
     return __deka_slice_bytes($value, $start, $start + $length);
 }
 
+/// docid: phpx/string/__deka_strpos_bytes()
+/// <Function name="__deka_strpos_bytes">
+///   <Description>PHPX standard module function `__deka_strpos_bytes` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_strpos_bytes($haystack, $needle, $offset = 0) {
     $hlen = __deka_strlen_bytes($haystack);
     $nlen = __deka_strlen_bytes($needle);
@@ -55,6 +75,11 @@ export function __deka_strpos_bytes($haystack, $needle, $offset = 0) {
     return -1;
 }
 
+/// docid: phpx/string/__deka_to_lower_ascii()
+/// <Function name="__deka_to_lower_ascii">
+///   <Description>PHPX standard module function `__deka_to_lower_ascii` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_to_lower_ascii($value) {
     $len = __deka_strlen_bytes($value);
     $out = '';
@@ -68,6 +93,11 @@ export function __deka_to_lower_ascii($value) {
     return $out;
 }
 
+/// docid: phpx/string/__deka_to_upper_ascii()
+/// <Function name="__deka_to_upper_ascii">
+///   <Description>PHPX standard module function `__deka_to_upper_ascii` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_to_upper_ascii($value) {
     $len = __deka_strlen_bytes($value);
     $out = '';

@@ -1,5 +1,10 @@
 import { __deka_slice_bytes, __deka_strlen_bytes } from './bytes_utils.phpx';
 
+/// docid: phpx/string/__deka_format_sprintf_from_args()
+/// <Function name="__deka_format_sprintf_from_args">
+///   <Description>PHPX standard module function `__deka_format_sprintf_from_args` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_format_sprintf_from_args($args) {
     if (!is_array($args)) {
         return null;
@@ -60,6 +65,11 @@ export function __deka_format_sprintf_from_args($args) {
     return $output;
 }
 
+/// docid: phpx/string/__deka_build_format_args_from_array()
+/// <Function name="__deka_build_format_args_from_array">
+///   <Description>PHPX standard module function `__deka_build_format_args_from_array` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_build_format_args_from_array($format, $values, $name, $argIndex) {
     if (!is_array($values)) {
         return null;

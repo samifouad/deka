@@ -1,5 +1,5 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { bridge } from 'core/bridge'
+import { bridge, bridge_async } from 'core/bridge'
 
 function normalize_result($raw) {
     if (is_array($raw) && array_key_exists('ok', $raw)) {
@@ -111,6 +111,17 @@ function normalize_params($params) {
     return [normalize_param_value($params)]
 }
 
+/// docid: phpx/db/openSync()
+/// <Function name="openSync">
+///   <Description>PHPX standard module function `openSync` from `db`.</Description>
+///   <Parameter name="$driver" type="mixed" required="false">
+///     Parameter $driver.
+///   </Parameter>
+///   <Parameter name="$config" type="mixed" required="false">
+///     Parameter $config.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function openSync($driver, $config) {
     $raw = bridge('db', 'open', {
         driver: $driver,
@@ -119,10 +130,35 @@ export function openSync($driver, $config) {
     return normalize_result($raw)
 }
 
+/// docid: phpx/db/openHandleSync()
+/// <Function name="openHandleSync">
+///   <Description>PHPX standard module function `openHandleSync` from `db`.</Description>
+///   <Parameter name="$driver" type="mixed" required="false">
+///     Parameter $driver.
+///   </Parameter>
+///   <Parameter name="$config" type="mixed" required="false">
+///     Parameter $config.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function openHandleSync($driver, $config) {
     return extract_handle(openSync($driver, $config))
 }
 
+/// docid: phpx/db/querySync()
+/// <Function name="querySync">
+///   <Description>PHPX standard module function `querySync` from `db`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$sql" type="mixed" required="false">
+///     Parameter $sql.
+///   </Parameter>
+///   <Parameter name="$params" type="mixed" required="false">
+///     Parameter $params.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function querySync($handle, $sql, $params = []) {
     $safe_params = normalize_params($params)
     $raw = bridge('db', 'query', {
@@ -133,10 +169,32 @@ export function querySync($handle, $sql, $params = []) {
     return normalize_result($raw)
 }
 
+/// docid: phpx/db/rows()
+/// <Function name="rows">
+///   <Description>PHPX standard module function `rows` from `db`.</Description>
+///   <Parameter name="$res" type="mixed" required="false">
+///     Parameter $res.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function rows($res) {
     return extract_rows($res)
 }
 
+/// docid: phpx/db/queryOneSync()
+/// <Function name="queryOneSync">
+///   <Description>PHPX standard module function `queryOneSync` from `db`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$sql" type="mixed" required="false">
+///     Parameter $sql.
+///   </Parameter>
+///   <Parameter name="$params" type="mixed" required="false">
+///     Parameter $params.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function queryOneSync($handle, $sql, $params = []) {
     $rows = rows(querySync($handle, $sql, normalize_params($params)))
     if (!result_is_ok($rows)) {
@@ -148,6 +206,20 @@ export function queryOneSync($handle, $sql, $params = []) {
     return result_ok($rows->value[0])
 }
 
+/// docid: phpx/db/execSync()
+/// <Function name="execSync">
+///   <Description>PHPX standard module function `execSync` from `db`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$sql" type="mixed" required="false">
+///     Parameter $sql.
+///   </Parameter>
+///   <Parameter name="$params" type="mixed" required="false">
+///     Parameter $params.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function execSync($handle, $sql, $params = []) {
     $safe_params = normalize_params($params)
     $raw = bridge('db', 'exec', {
@@ -158,6 +230,14 @@ export function execSync($handle, $sql, $params = []) {
     return normalize_result($raw)
 }
 
+/// docid: phpx/db/affected_rows()
+/// <Function name="affected_rows">
+///   <Description>PHPX standard module function `affected_rows` from `db`.</Description>
+///   <Parameter name="$res" type="mixed" required="false">
+///     Parameter $res.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function affected_rows($res) {
     if (!result_is_ok($res)) {
         return result_err($res->error)
@@ -170,27 +250,64 @@ export function affected_rows($res) {
     return result_ok((int) $res->value['affected_rows'])
 }
 
+/// docid: phpx/db/beginSync()
+/// <Function name="beginSync">
+///   <Description>PHPX standard module function `beginSync` from `db`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function beginSync($handle) {
     $raw = bridge('db', 'begin', { handle: $handle })
     return normalize_result($raw)
 }
 
+/// docid: phpx/db/commitSync()
+/// <Function name="commitSync">
+///   <Description>PHPX standard module function `commitSync` from `db`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function commitSync($handle) {
     $raw = bridge('db', 'commit', { handle: $handle })
     return normalize_result($raw)
 }
 
+/// docid: phpx/db/rollbackSync()
+/// <Function name="rollbackSync">
+///   <Description>PHPX standard module function `rollbackSync` from `db`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function rollbackSync($handle) {
     $raw = bridge('db', 'rollback', { handle: $handle })
     return normalize_result($raw)
 }
 
+/// docid: phpx/db/closeSync()
+/// <Function name="closeSync">
+///   <Description>PHPX standard module function `closeSync` from `db`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function closeSync($handle) {
     $raw = bridge('db', 'close', { handle: $handle })
     return normalize_result($raw)
 }
 
-export function stats() {
+/// docid: phpx/db/statsSync()
+/// <Function name="statsSync">
+///   <Description>PHPX standard module function `statsSync` from `db`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function statsSync() {
     $raw = bridge('db', 'stats', {})
     $res = normalize_result($raw)
     if (!result_is_ok($res)) {
@@ -209,51 +326,115 @@ export function stats() {
     return $res
 }
 
-export function open($driver, $config) {
-    return openSync($driver, $config)
+export async function open($driver, $config) {
+    $raw = await bridge_async('db', 'open', {
+        driver: $driver,
+        config: $config
+    })
+    return normalize_result($raw)
 }
 
-export function openHandle($driver, $config) {
-    return openHandleSync($driver, $config)
+export async function openHandle($driver, $config) {
+    return extract_handle(await open($driver, $config))
 }
 
-export function query($handle, $sql, $params = []) {
-    return querySync($handle, $sql, $params)
+export async function query($handle, $sql, $params = []) {
+    $safe_params = normalize_params($params)
+    $raw = await bridge_async('db', 'query', {
+        handle: $handle,
+        sql: $sql,
+        params: $safe_params
+    })
+    return normalize_result($raw)
 }
 
-export function queryOne($handle, $sql, $params = []) {
-    return queryOneSync($handle, $sql, $params)
+export async function queryOne($handle, $sql, $params = []) {
+    $rows = rows(await query($handle, $sql, normalize_params($params)))
+    if (!result_is_ok($rows)) {
+        return result_err($rows->error)
+    }
+    if (count($rows->value) === 0) {
+        return result_err('no rows')
+    }
+    return result_ok($rows->value[0])
 }
 
-export function exec($handle, $sql, $params = []) {
-    return execSync($handle, $sql, $params)
+export async function exec($handle, $sql, $params = []) {
+    $safe_params = normalize_params($params)
+    $raw = await bridge_async('db', 'exec', {
+        handle: $handle,
+        sql: $sql,
+        params: $safe_params
+    })
+    return normalize_result($raw)
 }
 
-export function begin($handle) {
-    return beginSync($handle)
+export async function begin($handle) {
+    $raw = await bridge_async('db', 'begin', { handle: $handle })
+    return normalize_result($raw)
 }
 
-export function commit($handle) {
-    return commitSync($handle)
+export async function commit($handle) {
+    $raw = await bridge_async('db', 'commit', { handle: $handle })
+    return normalize_result($raw)
 }
 
-export function rollback($handle) {
-    return rollbackSync($handle)
+export async function rollback($handle) {
+    $raw = await bridge_async('db', 'rollback', { handle: $handle })
+    return normalize_result($raw)
 }
 
-export function close($handle) {
-    return closeSync($handle)
+export async function close($handle) {
+    $raw = await bridge_async('db', 'close', { handle: $handle })
+    return normalize_result($raw)
+}
+
+export async function stats() {
+    return statsSync()
 }
 
 // Backward compatibility aliases.
+/// docid: phpx/db/open_handle()
+/// <Function name="open_handle">
+///   <Description>PHPX standard module function `open_handle` from `db`.</Description>
+///   <Parameter name="$driver" type="mixed" required="false">
+///     Parameter $driver.
+///   </Parameter>
+///   <Parameter name="$config" type="mixed" required="false">
+///     Parameter $config.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function open_handle($driver, $config) {
     return openHandleSync($driver, $config)
 }
 
+/// docid: phpx/db/query_one()
+/// <Function name="query_one">
+///   <Description>PHPX standard module function `query_one` from `db`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$sql" type="mixed" required="false">
+///     Parameter $sql.
+///   </Parameter>
+///   <Parameter name="$params" type="mixed" required="false">
+///     Parameter $params.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function query_one($handle, $sql, $params = []) {
     return queryOneSync($handle, $sql, $params)
 }
 
+/// docid: phpx/db/affectedRows()
+/// <Function name="affectedRows">
+///   <Description>PHPX standard module function `affectedRows` from `db`.</Description>
+///   <Parameter name="$res" type="mixed" required="false">
+///     Parameter $res.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function affectedRows($res) {
     return affected_rows($res)
 }

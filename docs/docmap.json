@@ -1,43 +1,96 @@
 {
   "defaults": {
-    "php": {
-      "category": "general",
-      "categoryLabel": "General",
-      "categoryOrder": 90
-    },
-    "js": {
+    "phpx": {
       "category": "overview",
       "categoryLabel": "Overview",
       "categoryOrder": 0
     }
   },
   "prefixes": {
-    "php/types": {
-      "categoryLabel": "Types",
-      "categoryOrder": 5
+    "phpx/overview": {
+      "categoryLabel": "Overview",
+      "categoryOrder": 0
     },
-    "php/string": {
-      "categoryLabel": "String",
+    "phpx/general": {
+      "categoryLabel": "General",
       "categoryOrder": 10
     },
-    "php/array": {
+    "phpx/types": {
+      "categoryLabel": "Types",
+      "categoryOrder": 20
+    },
+    "phpx/string": {
+      "categoryLabel": "String",
+      "categoryOrder": 30
+    },
+    "phpx/array": {
       "categoryLabel": "Array",
-      "categoryOrder": 12
+      "categoryOrder": 40
     },
-    "php/internals": {
-      "categoryLabel": "Internals",
-      "categoryOrder": 85
-    },
-    "php/json": {
+    "phpx/json": {
       "categoryLabel": "JSON",
-      "categoryOrder": 11
+      "categoryOrder": 50
+    },
+    "phpx/core": {
+      "categoryLabel": "Core",
+      "categoryOrder": 20
+    },
+    "phpx/component": {
+      "categoryLabel": "Components",
+      "categoryOrder": 25
+    },
+    "phpx/db": {
+      "categoryLabel": "Database",
+      "categoryOrder": 30
+    },
+    "phpx/db-postgres": {
+      "categoryLabel": "Database (Postgres)",
+      "categoryOrder": 31
+    },
+    "phpx/db-mysql": {
+      "categoryLabel": "Database (MySQL)",
+      "categoryOrder": 32
+    },
+    "phpx/db-sqlite": {
+      "categoryLabel": "Database (SQLite)",
+      "categoryOrder": 33
+    },
+    "phpx/time": {
+      "categoryLabel": "Time",
+      "categoryOrder": 40
+    },
+    "phpx/tcp": {
+      "categoryLabel": "TCP",
+      "categoryOrder": 41
+    },
+    "phpx/tls": {
+      "categoryLabel": "TLS",
+      "categoryOrder": 42
+    },
+    "phpx/auth": {
+      "categoryLabel": "Auth",
+      "categoryOrder": 43
     }
   },
-  "aliases": {
-    "php/get_str_func()": "php/string/get_str_func()"
-  },
+  "aliases": {},
   "categoryOrder": {
-    "php": ["overview", "types", "string", "array", "json", "runtime", "internals", "extensions"],
-    "js": ["overview", "runtime", "built-ins"]
+    "phpx": [
+      "overview",
+      "general",
+      "core",
+      "component",
+      "db",
+      "db-postgres",
+      "db-mysql",
+      "db-sqlite",
+      "time",
+      "tcp",
+      "tls",
+      "auth",
+      "types",
+      "string",
+      "array",
+      "json"
+    ]
   }
 }

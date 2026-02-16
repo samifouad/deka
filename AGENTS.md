@@ -91,8 +91,12 @@ ADWA runtime/UI changes (current script names still use `adwa`):
 ## Docs and tasks policy
 
 - Keep active plans and checklists in `tasks/`.
-- Keep user-facing docs in `docs/php/` and `docs/phpx/`.
+- Keep user-facing docs in `docs/phpx/`.
+- Keep internal plans/devlogs/design notes in `tasks/phpx/` (never under `docs/phpx/`).
 - If runtime behavior changes, update relevant docs in the same task.
+- `php_modules` exported APIs must include `/// docid:` blocks; docs publish/build must fail when coverage is missing.
+- Use `scripts/build-release-docs.sh` as the default release pipeline (build `cli` + publish/bundle docs).
+- CI docs gates live in `.github/workflows/phpx-docs.yml` (`scripts/check-module-docs.sh` and `scripts/build-release-docs.sh`).
 
 
 ## Runtime language support (explicit)
@@ -115,3 +119,11 @@ ADWA runtime/UI changes (current script names still use `adwa`):
   - `deka.lock` present
   - `public/index.html` present
 - Do not infer project kind from folder shape alone when `deka.json` explicitly defines `type`.
+
+## Introspect metrics (quick reality check)
+
+- The `introspect` crate is primarily a CLI/UI client; core op timing collection lives in runtime pool internals.
+- Deno op metrics are tracked in `crates/pool/src/isolate_pool.rs` via `OpMetricsEvent` (`Dispatched`, `Completed`, `CompletedAsync`, `ErrorAsync`, etc.).
+- Per-op summaries include `in_flight` counts (`OpTimingSummary.in_flight`) and request traces include per-request `op_timings`.
+- `crates/modules_php` bridge stats (`op_php_bridge_proto_stats`) provide transport-level metrics (calls/bytes/time), not full isolate op scheduling metrics.
+- If async behavior is in question, validate with runtime op timing output (or introspect debug views) rather than only module-level wrappers.

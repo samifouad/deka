@@ -1,3 +1,8 @@
+/// docid: phpx/core/byte_from_char()
+/// <Function name="byte_from_char">
+///   <Description>PHPX standard module function `byte_from_char` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function byte_from_char($ch) {
     if ($ch === null || $ch === '') {
         return null;
@@ -5,6 +10,11 @@ export function byte_from_char($ch) {
     return __deka_ord($ch);
 }
 
+/// docid: phpx/core/byte_to_char()
+/// <Function name="byte_to_char">
+///   <Description>PHPX standard module function `byte_to_char` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function byte_to_char($byte) {
     if ($byte === null) {
         return null;
@@ -12,6 +22,11 @@ export function byte_to_char($byte) {
     return __deka_chr($byte);
 }
 
+/// docid: phpx/core/byte_is_whitespace()
+/// <Function name="byte_is_whitespace">
+///   <Description>PHPX standard module function `byte_is_whitespace` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function byte_is_whitespace($byte) {
     if ($byte === null) {
         return false;
@@ -19,6 +34,11 @@ export function byte_is_whitespace($byte) {
     return $byte === 32 || $byte === 10 || $byte === 13 || $byte === 9;
 }
 
+/// docid: phpx/core/byte_is_digit()
+/// <Function name="byte_is_digit">
+///   <Description>PHPX standard module function `byte_is_digit` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function byte_is_digit($byte) {
     if ($byte === null) {
         return false;
@@ -26,6 +46,11 @@ export function byte_is_digit($byte) {
     return $byte >= 48 && $byte <= 57;
 }
 
+/// docid: phpx/core/byte_is_hex()
+/// <Function name="byte_is_hex">
+///   <Description>PHPX standard module function `byte_is_hex` from `core`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function byte_is_hex($byte) {
     if ($byte === null) {
         return false;

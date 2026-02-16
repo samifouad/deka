@@ -60,22 +60,47 @@ function __u32_le_at($bytes, $offset) {
     return ($b0 | ($b1 << 8) | ($b2 << 16) | ($b3 << 24))
 }
 
+/// docid: phpx/encoding-binary/u16_be()
+/// <Function name="u16_be">
+///   <Description>PHPX standard module function `u16_be` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function u16_be($value) {
     return bytes_from_string(__i16_be($value))
 }
 
+/// docid: phpx/encoding-binary/u16_le()
+/// <Function name="u16_le">
+///   <Description>PHPX standard module function `u16_le` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function u16_le($value) {
     return bytes_from_string(__i16_le($value))
 }
 
+/// docid: phpx/encoding-binary/u32_be()
+/// <Function name="u32_be">
+///   <Description>PHPX standard module function `u32_be` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function u32_be($value) {
     return bytes_from_string(__i32_be($value))
 }
 
+/// docid: phpx/encoding-binary/u32_le()
+/// <Function name="u32_le">
+///   <Description>PHPX standard module function `u32_le` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function u32_le($value) {
     return bytes_from_string(__i32_le($value))
 }
 
+/// docid: phpx/encoding-binary/read_u16_be()
+/// <Function name="read_u16_be">
+///   <Description>PHPX standard module function `read_u16_be` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function read_u16_be($bytes, $offset = 0) {
     $value = __u16_be_at($bytes, (int) $offset)
     if ($value === null) {
@@ -84,6 +109,11 @@ export function read_u16_be($bytes, $offset = 0) {
     return { ok: true, value: $value, next: (int) $offset + 2 }
 }
 
+/// docid: phpx/encoding-binary/read_u16_le()
+/// <Function name="read_u16_le">
+///   <Description>PHPX standard module function `read_u16_le` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function read_u16_le($bytes, $offset = 0) {
     $value = __u16_le_at($bytes, (int) $offset)
     if ($value === null) {
@@ -92,6 +122,11 @@ export function read_u16_le($bytes, $offset = 0) {
     return { ok: true, value: $value, next: (int) $offset + 2 }
 }
 
+/// docid: phpx/encoding-binary/read_u32_be()
+/// <Function name="read_u32_be">
+///   <Description>PHPX standard module function `read_u32_be` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function read_u32_be($bytes, $offset = 0) {
     $value = __u32_be_at($bytes, (int) $offset)
     if ($value === null) {
@@ -100,6 +135,11 @@ export function read_u32_be($bytes, $offset = 0) {
     return { ok: true, value: $value, next: (int) $offset + 4 }
 }
 
+/// docid: phpx/encoding-binary/read_u32_le()
+/// <Function name="read_u32_le">
+///   <Description>PHPX standard module function `read_u32_le` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function read_u32_le($bytes, $offset = 0) {
     $value = __u32_le_at($bytes, (int) $offset)
     if ($value === null) {
@@ -108,18 +148,38 @@ export function read_u32_le($bytes, $offset = 0) {
     return { ok: true, value: $value, next: (int) $offset + 4 }
 }
 
+/// docid: phpx/encoding-binary/append_u16_be()
+/// <Function name="append_u16_be">
+///   <Description>PHPX standard module function `append_u16_be` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function append_u16_be($bytes, $value) {
     return bytes_concat($bytes, u16_be($value))
 }
 
+/// docid: phpx/encoding-binary/append_u16_le()
+/// <Function name="append_u16_le">
+///   <Description>PHPX standard module function `append_u16_le` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function append_u16_le($bytes, $value) {
     return bytes_concat($bytes, u16_le($value))
 }
 
+/// docid: phpx/encoding-binary/append_u32_be()
+/// <Function name="append_u32_be">
+///   <Description>PHPX standard module function `append_u32_be` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function append_u32_be($bytes, $value) {
     return bytes_concat($bytes, u32_be($value))
 }
 
+/// docid: phpx/encoding-binary/append_u32_le()
+/// <Function name="append_u32_le">
+///   <Description>PHPX standard module function `append_u32_le` from `encoding-binary`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function append_u32_le($bytes, $value) {
     return bytes_concat($bytes, u32_le($value))
 }

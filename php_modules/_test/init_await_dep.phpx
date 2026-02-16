@@ -10,6 +10,11 @@ $tag = await makeTag('B')
 $GLOBALS['__TEST_INIT_DEP_TAG_ASYNC'] = $tag
 $GLOBALS['__TEST_INIT_ORDER_ASYNC'][] = $tag
 
+/// docid: phpx/_test/depTag()
+/// <Function name="depTag">
+///   <Description>PHPX standard module function `depTag` from `_test`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function depTag() {
   return $GLOBALS['__TEST_INIT_DEP_TAG_ASYNC']
 }

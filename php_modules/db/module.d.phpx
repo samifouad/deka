@@ -41,7 +41,7 @@ export function begin($handle: int): Promise<Result<DbUnitOk, string>>
 export function commit($handle: int): Promise<Result<DbUnitOk, string>>
 export function rollback($handle: int): Promise<Result<DbUnitOk, string>>
 export function close($handle: int): Promise<Result<DbUnitOk, string>>
-export function stats(): Result<DbStatsOk, string>
+export function stats(): Promise<Result<DbStatsOk, string>>
 
 export function openSync($driver: string, $config: Object): Result<DbOpenOk, string>
 export function openHandleSync($driver: string, $config: Object): Result<int, string>
@@ -52,6 +52,7 @@ export function beginSync($handle: int): Result<DbUnitOk, string>
 export function commitSync($handle: int): Result<DbUnitOk, string>
 export function rollbackSync($handle: int): Result<DbUnitOk, string>
 export function closeSync($handle: int): Result<DbUnitOk, string>
+export function statsSync(): Result<DbStatsOk, string>
 
 export function open_handle($driver: string, $config: Object): Result<int, string>
 export function query_one($handle: int, $sql: string, $params: array = []): Result<Object, string>

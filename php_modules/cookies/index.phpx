@@ -27,6 +27,11 @@ function same_site_value($value) {
   return 'Lax'
 }
 
+/// docid: phpx/cookies/all()
+/// <Function name="all">
+///   <Description>PHPX standard module function `all` from `cookies`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function all() {
   if (is_array($_COOKIE)) {
     return $_COOKIE
@@ -34,11 +39,21 @@ export function all() {
   return []
 }
 
+/// docid: phpx/cookies/has()
+/// <Function name="has">
+///   <Description>PHPX standard module function `has` from `cookies`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function has($name) {
   $key = '' . $name
   return array_key_exists($key, all())
 }
 
+/// docid: phpx/cookies/get()
+/// <Function name="get">
+///   <Description>PHPX standard module function `get` from `cookies`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function get($name, $fallback = null) {
   $key = '' . $name
   if (has($key)) {
@@ -47,6 +62,11 @@ export function get($name, $fallback = null) {
   return $fallback
 }
 
+/// docid: phpx/cookies/build_set_cookie()
+/// <Function name="build_set_cookie">
+///   <Description>PHPX standard module function `build_set_cookie` from `cookies`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function build_set_cookie($name, $value, $options = []) {
   $key = '' . $name
   $cookie = $key . '=' . cookie_encode($value)
@@ -90,12 +110,22 @@ export function build_set_cookie($name, $value, $options = []) {
   return $cookie
 }
 
+/// docid: phpx/cookies/set_header()
+/// <Function name="set_header">
+///   <Description>PHPX standard module function `set_header` from `cookies`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function set_header($name, $value, $options = []) {
   $line = build_set_cookie($name, $value, $options)
   header('Set-Cookie: ' . $line, false)
   return $line
 }
 
+/// docid: phpx/cookies/clear_header()
+/// <Function name="clear_header">
+///   <Description>PHPX standard module function `clear_header` from `cookies`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function clear_header($name, $options = []) {
   $opts = is_array($options) ? $options : []
   $opts['max_age'] = 0

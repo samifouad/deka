@@ -1,5 +1,10 @@
 import { __deka_slice_bytes, __deka_strlen_bytes } from './bytes_utils.phpx';
 
+/// docid: phpx/string/__deka_html_escape()
+/// <Function name="__deka_html_escape">
+///   <Description>PHPX standard module function `__deka_html_escape` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_html_escape($value, $encodeQuotes = true, $doubleEncode = true) {
     $input = '' . $value;
     $len = __deka_strlen_bytes($input);
@@ -45,6 +50,11 @@ export function __deka_html_escape($value, $encodeQuotes = true, $doubleEncode =
     return $out;
 }
 
+/// docid: phpx/string/__deka_html_unescape()
+/// <Function name="__deka_html_unescape">
+///   <Description>PHPX standard module function `__deka_html_unescape` from `string`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function __deka_html_unescape($value) {
     $input = '' . $value;
     $len = __deka_strlen_bytes($input);

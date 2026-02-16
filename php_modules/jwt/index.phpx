@@ -70,6 +70,11 @@ function normalize_claims($payload, $options = []) {
   return $claims
 }
 
+/// docid: phpx/jwt/sign()
+/// <Function name="sign">
+///   <Description>PHPX standard module function `sign` from `jwt`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function sign($payload, $secret, $options = []) {
   $alg = is_array($options) && array_key_exists('alg', $options) ? strtoupper('' . $options['alg']) : 'HS256'
   if ($alg !== 'HS256') {
@@ -151,6 +156,11 @@ function validate_claims($claims, $options = []) {
   return result_ok(true)
 }
 
+/// docid: phpx/jwt/verify()
+/// <Function name="verify">
+///   <Description>PHPX standard module function `verify` from `jwt`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function verify($token, $secret, $options = []) {
   $parts_res = decode_parts($token)
   if (!result_is_ok($parts_res)) {

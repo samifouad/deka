@@ -1,5 +1,5 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { openHandleSync, querySync as db_query_sync, queryOneSync as db_query_one_sync, execSync as db_exec_sync, beginSync as db_begin_sync, commitSync as db_commit_sync, rollbackSync as db_rollback_sync, closeSync as db_close_sync } from 'db'
+import { openHandle, query as db_query, queryOne as db_query_one, exec as db_exec, begin as db_begin, commit as db_commit, rollback as db_rollback, close as db_close, openHandleSync, querySync as db_query_sync, queryOneSync as db_query_one_sync, execSync as db_exec_sync, beginSync as db_begin_sync, commitSync as db_commit_sync, rollbackSync as db_rollback_sync, closeSync as db_close_sync } from 'db'
 import { tcp_connect, tcp_read_exact, tcp_write, tcp_close, tcp_set_deadline } from 'tcp'
 import { bytes_get } from 'core/bytes'
 
@@ -800,6 +800,14 @@ function __my_query_wire($conn, $sql) {
     return result_ok({ rows: $rows.value, affected_rows: count($rows.value) })
 }
 
+/// docid: phpx/db-mysql/connectSync()
+/// <Function name="connectSync">
+///   <Description>PHPX standard module function `connectSync` from `db-mysql`.</Description>
+///   <Parameter name="$config" type="mixed" required="false">
+///     Parameter $config.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function connectSync($config) {
     $prefer_wire = false
     if (is_array($config) && array_key_exists('prefer_wire', $config)) {
@@ -815,6 +823,20 @@ export function connectSync($config) {
     return openHandleSync('mysql', $config)
 }
 
+/// docid: phpx/db-mysql/querySync()
+/// <Function name="querySync">
+///   <Description>PHPX standard module function `querySync` from `db-mysql`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$sql" type="mixed" required="false">
+///     Parameter $sql.
+///   </Parameter>
+///   <Parameter name="$params" type="mixed" required="false">
+///     Parameter $params.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function querySync($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
@@ -833,6 +855,20 @@ export function querySync($handle, $sql, $params = []) {
     return db_query_sync($handle, $sql, $params)
 }
 
+/// docid: phpx/db-mysql/queryOneSync()
+/// <Function name="queryOneSync">
+///   <Description>PHPX standard module function `queryOneSync` from `db-mysql`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$sql" type="mixed" required="false">
+///     Parameter $sql.
+///   </Parameter>
+///   <Parameter name="$params" type="mixed" required="false">
+///     Parameter $params.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function queryOneSync($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
@@ -857,6 +893,20 @@ export function queryOneSync($handle, $sql, $params = []) {
     return db_query_one_sync($handle, $sql, $params)
 }
 
+/// docid: phpx/db-mysql/execSync()
+/// <Function name="execSync">
+///   <Description>PHPX standard module function `execSync` from `db-mysql`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$sql" type="mixed" required="false">
+///     Parameter $sql.
+///   </Parameter>
+///   <Parameter name="$params" type="mixed" required="false">
+///     Parameter $params.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function execSync($handle, $sql, $params = []) {
     if (__my_is_wire_handle($handle)) {
         if (is_array($params) && count($params) > 0) {
@@ -875,6 +925,14 @@ export function execSync($handle, $sql, $params = []) {
     return db_exec_sync($handle, $sql, $params)
 }
 
+/// docid: phpx/db-mysql/beginSync()
+/// <Function name="beginSync">
+///   <Description>PHPX standard module function `beginSync` from `db-mysql`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function beginSync($handle) {
     if (__my_is_wire_handle($handle)) {
         $res = execSync($handle, 'START TRANSACTION', [])
@@ -886,6 +944,14 @@ export function beginSync($handle) {
     return db_begin_sync($handle)
 }
 
+/// docid: phpx/db-mysql/commitSync()
+/// <Function name="commitSync">
+///   <Description>PHPX standard module function `commitSync` from `db-mysql`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function commitSync($handle) {
     if (__my_is_wire_handle($handle)) {
         $res = execSync($handle, 'COMMIT', [])
@@ -897,6 +963,14 @@ export function commitSync($handle) {
     return db_commit_sync($handle)
 }
 
+/// docid: phpx/db-mysql/rollbackSync()
+/// <Function name="rollbackSync">
+///   <Description>PHPX standard module function `rollbackSync` from `db-mysql`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function rollbackSync($handle) {
     if (__my_is_wire_handle($handle)) {
         $res = execSync($handle, 'ROLLBACK', [])
@@ -908,6 +982,14 @@ export function rollbackSync($handle) {
     return db_rollback_sync($handle)
 }
 
+/// docid: phpx/db-mysql/closeSync()
+/// <Function name="closeSync">
+///   <Description>PHPX standard module function `closeSync` from `db-mysql`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function closeSync($handle) {
     if (__my_is_wire_handle($handle)) {
         $handle.seq = 0
@@ -917,39 +999,74 @@ export function closeSync($handle) {
     return db_close_sync($handle)
 }
 
-export function connect($config) {
-    return connectSync($config)
+export async function connect($config) {
+    return await openHandle('mysql', $config)
 }
 
-export function query($handle, $sql, $params = []) {
-    return querySync($handle, $sql, $params)
+export async function query($handle, $sql, $params = []) {
+    if (__my_is_wire_handle($handle)) {
+        return querySync($handle, $sql, $params)
+    }
+    return await db_query($handle, $sql, $params)
 }
 
-export function queryOne($handle, $sql, $params = []) {
-    return queryOneSync($handle, $sql, $params)
+export async function queryOne($handle, $sql, $params = []) {
+    if (__my_is_wire_handle($handle)) {
+        return queryOneSync($handle, $sql, $params)
+    }
+    return await db_query_one($handle, $sql, $params)
 }
 
-export function exec($handle, $sql, $params = []) {
-    return execSync($handle, $sql, $params)
+export async function exec($handle, $sql, $params = []) {
+    if (__my_is_wire_handle($handle)) {
+        return execSync($handle, $sql, $params)
+    }
+    return await db_exec($handle, $sql, $params)
 }
 
-export function begin($handle) {
-    return beginSync($handle)
+export async function begin($handle) {
+    if (__my_is_wire_handle($handle)) {
+        return beginSync($handle)
+    }
+    return await db_begin($handle)
 }
 
-export function commit($handle) {
-    return commitSync($handle)
+export async function commit($handle) {
+    if (__my_is_wire_handle($handle)) {
+        return commitSync($handle)
+    }
+    return await db_commit($handle)
 }
 
-export function rollback($handle) {
-    return rollbackSync($handle)
+export async function rollback($handle) {
+    if (__my_is_wire_handle($handle)) {
+        return rollbackSync($handle)
+    }
+    return await db_rollback($handle)
 }
 
-export function close($handle) {
-    return closeSync($handle)
+export async function close($handle) {
+    if (__my_is_wire_handle($handle)) {
+        return closeSync($handle)
+    }
+    return await db_close($handle)
 }
 
 // Backward compatibility alias.
+/// docid: phpx/db-mysql/query_one()
+/// <Function name="query_one">
+///   <Description>PHPX standard module function `query_one` from `db-mysql`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$sql" type="mixed" required="false">
+///     Parameter $sql.
+///   </Parameter>
+///   <Parameter name="$params" type="mixed" required="false">
+///     Parameter $params.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
 export function query_one($handle, $sql, $params = []) {
     return queryOneSync($handle, $sql, $params)
 }

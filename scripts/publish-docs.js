@@ -3,13 +3,17 @@
  * Publish docs from the core repo into the website content tree.
  *
  * Usage:
- *   node scripts/publish-docs.js --manual docs/php,docs/phpx --scan . --out ../deka-website/content/docs
+ *   node scripts/publish-docs.js --manual docs/phpx --scan . --out ../deka-website/content/docs
  *
  * Flags:
- *   --manual   Source directories for hand-written docs (comma-separated, default: docs/php,docs/phpx)
+ *   --manual   Source directories for hand-written docs (comma-separated, default: docs/phpx)
  *   --scan     Directory to scan for docid comments (default: .)
  *   --map      Doc routing map (default: docs/docmap.json)
  *   --examples Directory for example files (default: examples)
+ *   --sections Allowed doc sections (comma-separated, default: phpx)
+ *   --version  Docs version marker in frontmatter (default: latest)
+ *   --require-module-docs Validate all exported php_modules APIs have docid blocks (default: true)
+ *   --no-require-module-docs Disable php_modules doc validation
  *   --out      Output directory inside deka-website (required)
  *   --force    Overwrite existing output files
  *   --dry-run  Print planned writes without touching disk
@@ -38,10 +42,13 @@ function parseArgs(argv) {
   }
 
   return {
-    manual: args.get('--manual') || 'docs/php,docs/phpx',
+    manual: args.get('--manual') || 'docs/phpx',
     scan: args.get('--scan') || '.',
     map: args.get('--map') || 'docs/docmap.json',
     examples: args.get('--examples') || 'examples',
+    sections: args.get('--sections') || 'phpx',
+    version: args.get('--version') || 'latest',
+    requireModuleDocs: !Boolean(args.get('--no-require-module-docs')),
     out: args.get('--out'),
     force: Boolean(args.get('--force')),
     dryRun: Boolean(args.get('--dry-run')),
@@ -83,6 +90,9 @@ function ensureFrontmatter(content, additions) {
   if (typeof additions.categoryOrder === 'number' && !hasKey('categoryOrder')) {
     lines.push(`categoryOrder: ${additions.categoryOrder}`)
   }
+  if (additions.version && !hasKey('version')) {
+    lines.push(`version: "${additions.version}"`)
+  }
 
   if (frontmatter) {
     return serializeFrontmatter(lines, body)
@@ -106,7 +116,7 @@ function deriveManualMeta(rootDir, filePath) {
   return { section, category }
 }
 
-function copyManualDocs(sourceDir, outDir, dryRun, docMap, rootDir = sourceDir) {
+function copyManualDocs(sourceDir, outDir, dryRun, docMap, allowedSections, version, rootDir = sourceDir) {
   if (!fs.existsSync(sourceDir)) {
     console.warn(`Manual docs directory not found: ${sourceDir}`)
     return
@@ -117,19 +127,23 @@ function copyManualDocs(sourceDir, outDir, dryRun, docMap, rootDir = sourceDir) 
     const src = path.join(sourceDir, entry.name)
     const dest = path.join(outDir, entry.name)
     if (entry.isDirectory()) {
-      copyManualDocs(src, dest, dryRun, docMap, rootDir)
+      copyManualDocs(src, dest, dryRun, docMap, allowedSections, version, rootDir)
     } else if (entry.name.endsWith('.md') || entry.name.endsWith('.mdx')) {
       if (dryRun) {
         console.log(`[dry-run] copy ${src} -> ${dest}`)
       } else {
         const meta = deriveManualMeta(rootDir, src)
         if (meta) {
+          if (allowedSections.size && !allowedSections.has(meta.section)) {
+            continue
+          }
           const content = fs.readFileSync(src, 'utf8')
           const categoryMeta = getCategoryMeta(meta.section, meta.category, docMap)
           const updated = ensureFrontmatter(content, {
             category: meta.category,
             categoryLabel: categoryMeta.categoryLabel,
             categoryOrder: categoryMeta.categoryOrder,
+            version,
           })
           ensureDir(path.dirname(dest), dryRun)
           fs.writeFileSync(dest, updated, 'utf8')
@@ -355,10 +369,13 @@ function extractDescription(bodyLines) {
   return fallbackLine ? fallbackLine.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() : ''
 }
 
-function writeDoc(outRoot, filePath, doc, force, dryRun, docMap, examplesMap) {
+function writeDoc(outRoot, filePath, doc, force, dryRun, docMap, examplesMap, allowedSections, version) {
   const parsed = parseDocId(doc.docid, docMap)
   if (!parsed) {
     console.warn(`Skipping invalid docid: ${doc.docid} (${filePath})`)
+    return
+  }
+  if (allowedSections.size && !allowedSections.has(parsed.section)) {
     return
   }
 
@@ -377,6 +394,7 @@ function writeDoc(outRoot, filePath, doc, force, dryRun, docMap, examplesMap) {
     `docid: "${doc.docid}"`,
     `section: "${parsed.section}"`,
     `category: "${parsed.category}"`,
+    `version: "${version}"`,
     parsed.categoryLabel ? `categoryLabel: "${parsed.categoryLabel}"` : null,
     typeof parsed.categoryOrder === 'number' ? `categoryOrder: ${parsed.categoryOrder}` : null,
     `source: "${path.relative(process.cwd(), filePath)}"`,
@@ -417,21 +435,111 @@ function writeDoc(outRoot, filePath, doc, force, dryRun, docMap, examplesMap) {
   fs.writeFileSync(outFile, output, 'utf8')
 }
 
-function extractCommentDocs(scanRoot, outRoot, force, dryRun, docMap, examplesMap) {
+function isInternalModuleDocSource(filePath, scanRoot) {
+  const rel = path.relative(scanRoot, filePath).split(path.sep).join('/')
+  if (!rel.startsWith('php_modules/')) return false
+  return rel.startsWith('php_modules/_') || rel.startsWith('php_modules/@') || rel.includes('/.cache/')
+}
+
+function extractCommentDocs(
+  scanRoot,
+  outRoot,
+  force,
+  dryRun,
+  docMap,
+  examplesMap,
+  allowedSections,
+  version
+) {
   const files = listFiles(scanRoot)
   const seen = new Set()
   for (const filePath of files) {
+    if (filePath.endsWith('.md') || filePath.endsWith('.mdx')) {
+      continue
+    }
+    if (isInternalModuleDocSource(filePath, scanRoot)) {
+      continue
+    }
     const docs = extractDocBlocks(filePath)
     for (const doc of docs) {
-      const key = doc.docid
-      if (seen.has(key)) {
-        console.warn(`Duplicate docid detected: ${key}`)
+      const resolved = resolveDocId(doc.docid, docMap)
+      const section = resolved.split('/').filter(Boolean)[0] || ''
+      if (allowedSections.size && !allowedSections.has(section)) {
+        continue
       }
-      seen.add(key)
-      writeDoc(outRoot, filePath, doc, force, dryRun, docMap, examplesMap)
+      if (seen.has(resolved)) {
+        console.warn(`Duplicate docid detected: ${resolved}`)
+      }
+      seen.add(resolved)
+      writeDoc(
+        outRoot,
+        filePath,
+        doc,
+        force,
+        dryRun,
+        docMap,
+        examplesMap,
+        allowedSections,
+        version
+      )
     }
   }
 }
+
+
+function isPublicModuleFile(filePath, scanRoot) {
+  const rel = path.relative(scanRoot, filePath).split(path.sep).join('/')
+  if (!rel.startsWith('php_modules/')) return false
+  if (!rel.endsWith('.phpx')) return false
+  if (rel.endsWith('.d.phpx')) return false
+  if (rel.includes('/.cache/')) return false
+  return true
+}
+
+function validateModuleDocCoverage(scanRoot) {
+  const files = listFiles(scanRoot)
+  const missing = []
+
+  for (const filePath of files) {
+    if (!isPublicModuleFile(filePath, scanRoot)) continue
+    const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/)
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const match = lines[i].match(/^\s*export\s+function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/)
+      if (!match) continue
+
+      const fnName = match[1]
+      let j = i - 1
+      while (j >= 0 && lines[j].trim() === '') j -= 1
+
+      let hasDocId = false
+      while (j >= 0 && /^\s*\/\/\//.test(lines[j])) {
+        if (/^\s*\/\/\/\s*docid:\s*[^\s]+\s*$/.test(lines[j])) {
+          hasDocId = true
+        }
+        j -= 1
+      }
+
+      if (!hasDocId) {
+        missing.push(`${filePath}:${i + 1} export function ${fnName}`)
+      }
+    }
+  }
+
+  if (missing.length > 0) {
+    const preview = missing.slice(0, 50)
+    const rest = missing.length - preview.length
+    const details = preview.join('\n')
+    const suffix = rest > 0 ? `\n... and ${rest} more` : ''
+    throw new Error(
+      `Missing php_modules doccomments (/// docid) on exported functions:\n${details}${suffix}\n\n` +
+      `Add a doc block immediately above each export, e.g.:\n` +
+      `/// docid: phpx/<category>/<name>()\n` +
+      `/// <Function name=\"<name>\"> ... </Function>`
+    )
+  }
+}
+
 
 function main() {
   const options = parseArgs(process.argv)
@@ -451,16 +559,43 @@ function main() {
   const docMap = mapPath ? loadDocMap(mapPath) : null
   const examplesRoot = options.examples ? path.resolve(options.examples) : null
   const examplesMap = collectExamples(examplesRoot)
+  const allowedSections = new Set(
+    String(options.sections)
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+  )
+  const version = String(options.version).trim() || 'latest'
 
   console.log(`Publishing docs to ${outRoot}`)
   for (const manualRoot of manualRoots) {
     const section = path.basename(manualRoot)
     const isSectionRoot = section === 'php' || section === 'phpx' || section === 'js'
+    if (isSectionRoot && allowedSections.size && !allowedSections.has(section)) {
+      continue
+    }
     const manualOutRoot = isSectionRoot ? path.join(outRoot, section) : outRoot
     const metaRoot = isSectionRoot ? path.dirname(manualRoot) : manualRoot
-    copyManualDocs(manualRoot, manualOutRoot, options.dryRun, docMap, metaRoot)
+    copyManualDocs(
+      manualRoot,
+      manualOutRoot,
+      options.dryRun,
+      docMap,
+      allowedSections,
+      version,
+      metaRoot
+    )
   }
-  extractCommentDocs(scanRoot, outRoot, options.force, options.dryRun, docMap, examplesMap)
+  extractCommentDocs(
+    scanRoot,
+    outRoot,
+    options.force,
+    options.dryRun,
+    docMap,
+    examplesMap,
+    allowedSections,
+    version
+  )
 }
 
 main()
