@@ -43,7 +43,7 @@ pub fn register(registry: &mut Registry) {
     });
     registry.add_param(ParamSpec {
         name: "--registry-url",
-        description: "registry base URL (default: LINKHASH_REGISTRY_URL or http://localhost:8530)",
+        description: "registry base URL (default: LINKHASH_REGISTRY_URL or http://localhost:8508)",
     });
     registry.add_param(ParamSpec {
         name: "--visibility",
@@ -112,7 +112,7 @@ fn build_request(context: &Context) -> Result<PublishRequest> {
         .get("--registry-url")
         .cloned()
         .or_else(|| std::env::var("LINKHASH_REGISTRY_URL").ok())
-        .unwrap_or_else(|| "http://localhost:8530".to_string());
+        .unwrap_or_else(|| "http://localhost:8508".to_string());
 
     let visibility = params
         .get("--visibility")

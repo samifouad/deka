@@ -16,7 +16,7 @@ Goal: fork `deka-git` into Linkhash and customize it as the canonical Git/packag
 - [x] 4. Migrate repo ownership paths from network/address to username/repo
 - [x] 5. Remove deploy/JWT coupling from Git push path
 - [x] 6. Add package metadata/artifact endpoints for installer consumption
-- [ ] 7. Wire Deka installer default remote to Linkhash and run test download
+- [x] 7. Wire Deka installer default remote to Linkhash and run test download
 - [ ] 8. End-to-end runbook + docs for push + install flow
 
 ## Execution Rules
@@ -53,3 +53,12 @@ Goal: fork `deka-git` into Linkhash and customize it as the canonical Git/packag
   - Validation:
     - `cargo check` (pass)
     - `cargo test` (pass)
+- 2026-02-17 Task 7 complete in commits `1c1cb43` (fork) + pending `mvp`
+  - `pm` now supports PHP ecosystem installation from Linkhash package endpoints.
+  - Default Linkhash registry base URL is now `http://localhost:8508` (override: `LINKHASH_REGISTRY_URL`).
+  - `deka publish` default registry URL updated to `http://localhost:8508`.
+  - Live test executed end-to-end:
+    - pushed git repo to forked `deka-git`
+    - published `stdlib/core@0.1.0`
+    - ran `deka install --ecosystem php --spec stdlib/core@0.1.0`
+    - verified files in `php_modules/stdlib/core/*` and lock entry in `deka.lock`.

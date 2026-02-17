@@ -9,6 +9,7 @@ use crate::{
     spec::{Ecosystem, parse_hinted_spec, parse_package_spec},
 };
 use anyhow::{Context, Result, bail};
+use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::{
     collections::{BTreeMap, HashSet, VecDeque},
@@ -33,6 +34,10 @@ pub async fn run_install(payload: InstallPayload) -> Result<()> {
         .and_then(Ecosystem::from_str)
         .unwrap_or(Ecosystem::Node);
     let quiet = payload.quiet;
+
+    if override_ecosystem == Ecosystem::Php {
+        return run_php_install(specs, quiet).await;
+    }
 
     if payload.prompt && !payload.yes {
         let message = if auto_resolved {
@@ -233,6 +238,148 @@ pub async fn run_install(payload: InstallPayload) -> Result<()> {
     let duration = Instant::now().duration_since(start);
     emit_summary(installed_count, duration.as_millis() as u64, quiet)?;
     Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct PhpPackageSummary {
+    latest: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PhpPackageRelease {
+    package_name: String,
+    version: String,
+    owner: String,
+    repo: String,
+    git_ref: String,
+    description: Option<String>,
+    manifest: Option<Value>,
+}
+
+async fn run_php_install(specs: Vec<String>, quiet: bool) -> Result<()> {
+    if specs.is_empty() {
+        bail!("no PHP package specs provided (use --spec)");
+    }
+
+    let cache = CachePaths::new()?;
+    cache.ensure()?;
+    let registry = linkhash_registry_url();
+    let start = Instant::now();
+    let mut installed_count = 0usize;
+
+    for spec in specs {
+        let (name, version_hint) = parse_package_spec(&spec);
+        let version = if let Some(v) = version_hint {
+            v
+        } else {
+            fetch_php_latest(&registry, &name).await?
+        };
+
+        let release = fetch_php_release(&registry, &name, &version).await?;
+        let tarball_url = format!(
+            "{}/api/packages/{}/{}/download",
+            registry.trim_end_matches('/'),
+            urlencoding::encode(&name),
+            urlencoding::encode(&version)
+        );
+        let bytes = download_tarball(&tarball_url).await?;
+        let integrity = compute_sha512(&bytes);
+
+        let key = cache_key(&format!("php+{}", name), &version);
+        let archive_path = cache.archive_path(&key);
+        fs::write(&archive_path, &bytes)
+            .with_context(|| format!("failed to write archive {}", archive_path.display()))?;
+
+        let cache_dir = cache.cache_dir(&key);
+        extract_tarball(&archive_path, &cache_dir, &cache.tmp)?;
+
+        let destination = php_modules_path_for(&name)?;
+        copy_package(&cache_dir, &destination)?;
+
+        let metadata = json!({
+            "owner": release.owner,
+            "repo": release.repo,
+            "gitRef": release.git_ref,
+            "description": release.description,
+            "manifest": release.manifest,
+        });
+        lock::update_lock_entry(
+            "php",
+            &release.package_name,
+            format!("{}@{}", release.package_name, release.version),
+            tarball_url,
+            metadata,
+            integrity,
+        )?;
+        installed_count += 1;
+    }
+
+    let duration = Instant::now().duration_since(start);
+    emit_summary(installed_count, duration.as_millis() as u64, quiet)?;
+    Ok(())
+}
+
+fn linkhash_registry_url() -> String {
+    std::env::var("LINKHASH_REGISTRY_URL").unwrap_or_else(|_| "http://localhost:8508".to_string())
+}
+
+async fn fetch_php_latest(registry: &str, name: &str) -> Result<String> {
+    let encoded_name = urlencoding::encode(name);
+    let url = format!(
+        "{}/api/packages/{}",
+        registry.trim_end_matches('/'),
+        encoded_name
+    );
+
+    let response = reqwest::get(&url)
+        .await
+        .with_context(|| format!("failed to fetch package summary for {}", name))?;
+    if !response.status().is_success() {
+        bail!("package summary request failed ({}): {}", response.status(), name);
+    }
+    let payload = response
+        .json::<PhpPackageSummary>()
+        .await
+        .context("failed to parse package summary")?;
+    payload
+        .latest
+        .context("no latest version found for package")
+}
+
+async fn fetch_php_release(registry: &str, name: &str, version: &str) -> Result<PhpPackageRelease> {
+    let url = format!(
+        "{}/api/packages/{}/{}",
+        registry.trim_end_matches('/'),
+        urlencoding::encode(name),
+        urlencoding::encode(version)
+    );
+    let response = reqwest::get(&url)
+        .await
+        .with_context(|| format!("failed to fetch package release {}@{}", name, version))?;
+    if !response.status().is_success() {
+        bail!(
+            "package release request failed ({}): {}@{}",
+            response.status(),
+            name,
+            version
+        );
+    }
+    response
+        .json::<PhpPackageRelease>()
+        .await
+        .context("failed to parse package release")
+}
+
+fn php_modules_path_for(package_name: &str) -> Result<PathBuf> {
+    let cwd = std::env::current_dir().context("failed to resolve current directory")?;
+    let mut path = cwd.join("php_modules");
+    for segment in package_name.split('/') {
+        if segment.is_empty() || segment == "." || segment == ".." {
+            bail!("invalid php package name segment");
+        }
+        path = path.join(segment);
+    }
+    Ok(path)
 }
 
 pub fn run_probe(path: &PathBuf) -> Result<()> {
