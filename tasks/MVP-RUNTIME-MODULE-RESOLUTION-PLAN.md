@@ -32,7 +32,7 @@ Goal: make module resolution lockfile-driven across local + global `php_modules`
   - local-over-global precedence
   - missing lock/module failures
   - [x] Run tests.
-  - [ ] Commit: `test(runtime): add module resolution baseline coverage`
+  - [x] Commit: `test(runtime): add module resolution baseline coverage`
 
   ## Task 2: Add `PHPX_MODULE_ROOT` Resolver Tier
   - [x] Implement global tier support in runtime resolver.
@@ -41,21 +41,21 @@ Goal: make module resolution lockfile-driven across local + global `php_modules`
   - global/no-project mode: global lock required
   - [x] Remove/disable `DEKA_LOCK_ROOT` usage.
   - [x] Run tests.
-- [ ] Commit: `feat(runtime): add PHPX_MODULE_ROOT global module tier`
+- [x] Commit: `feat(runtime): add PHPX_MODULE_ROOT global module tier`
 
   ## Task 3: Lockfile-Driven Resolution
   - [x] Ensure module lookup first consults lock entries.
   - [x] Enforce that filesystem modules not in lock are rejected.
   - [x] Add diagnostics for lock miss with import path and expected entry.
   - [x] Run tests.
-- [ ] Commit: `feat(runtime): enforce lockfile-driven php module resolution`
+- [x] Commit: `feat(runtime): enforce lockfile-driven php module resolution`
 
   ## Task 4: Integrity Validation
   - [x] Extend lock schema/reader as needed for php module integrity fields.
   - [x] Validate loaded module bytes against lock hash/integrity.
   - [x] Fail fast on mismatch with clear remediation text.
   - [x] Run tests.
-- [ ] Commit: `feat(runtime): validate php module integrity against lock`
+- [x] Commit: `feat(runtime): validate php module integrity against lock`
 
   ## Task 5: Import Shorthand + Index Semantics
   - [x] Normalize import resolver behavior for:
@@ -107,11 +107,11 @@ Goal: make module resolution lockfile-driven across local + global `php_modules`
   - test+commit requirement per task
 - [x] Update runtime/docs pages for module resolution contract.
 - [x] Run doc checks if available.
-- [ ] Commit: `docs: document php module resolution contract for MVP`
+- [x] Commit: `docs: document php module resolution contract for MVP`
 
 ## Definition of Done
 - [x] All tasks checked.
 - [x] All relevant tests passing.
-- [ ] One commit per task.
+- [x] One commit per task.
 - [x] No legacy root env behavior.
 - [x] Deterministic lock-driven local/global resolution confirmed.

@@ -120,6 +120,21 @@ ADWA runtime/UI changes (current script names still use `adwa`):
   - `public/index.html` present
 - Do not infer project kind from folder shape alone when `deka.json` explicitly defines `type`.
 
+## PHPX module resolution contract (MVP)
+
+- Resolver order is deterministic:
+  1) local `<project>/php_modules` (requires local `deka.lock`)
+  2) global `<PHPX_MODULE_ROOT>/php_modules` (requires global `deka.lock`)
+- `deka.lock` is source of truth for package-style PHPX module resolution.
+- Runtime must reject drift:
+  - lock entry missing for requested package module
+  - lock entry points to missing bytes
+  - lock hash/integrity mismatch
+- Import shorthand/index behavior must be consistent for both `@/...` and package paths (`Foo.phpx` and `Foo/index.phpx`).
+- Compiled module cache keys must include lock identity (`lockfileVersion` + lock hash).
+- Only `PHPX_MODULE_ROOT` is supported for global root overrides.
+- Each module-resolution task update requires tests and a commit before moving to the next task.
+
 ## Introspect metrics (quick reality check)
 
 - The `introspect` crate is primarily a CLI/UI client; core op timing collection lives in runtime pool internals.

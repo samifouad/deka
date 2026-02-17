@@ -42,6 +42,10 @@ Sami
 ## Path behavior
 
 - `@/` resolves from project root
+- package imports resolve via `deka.lock` entries (lockfile is source of truth)
+- resolver order is deterministic:
+  1) local `<project>/php_modules`
+  2) global `<PHPX_MODULE_ROOT>/php_modules`
 - importing a folder resolves `index.phpx` where applicable
 - component folders and route folders are independent concerns
 

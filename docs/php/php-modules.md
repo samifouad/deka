@@ -23,13 +23,18 @@ This document defines the intended behavior for the PHP module system in deka.
 1) The runtime always auto-includes `php_modules/deka.php` before user code.
    - This is the only magic. No other autoload system exists.
 2) Module mode is enabled for `.phpx` entrypoints or when a `.php` file uses `import`.
-3) The project root is discovered by locating `deka.lock`.
-   - `php_modules/` must live alongside `deka.lock`.
-   - Set `PHPX_MODULE_ROOT=/path/to/project` for a global user-level lock+modules root.
-4) When module mode is enabled, the runtime always keeps a cache updated.
+3) Resolution is lockfile-driven and deterministic.
+   - Local tier first: `<project>/php_modules` next to local `deka.lock`.
+   - Global tier second: `<PHPX_MODULE_ROOT>/php_modules` next to global `deka.lock`.
+   - `PHPX_MODULE_ROOT` is the only supported global-root env var.
+   - In local project mode, local `deka.lock` is required.
+   - In global-only mode, global `deka.lock` is required.
+   - Package-style imports are resolved from `deka.lock` entries (source of truth), not filesystem scans.
+4) When module mode is enabled, the runtime keeps a cache updated.
    - `.phpx` files are parsed and compiled into a module registry.
    - Compiled artifacts are stored under `php_modules/.cache/phpx/`.
    - Cache metadata (hash + paths) is written into `deka.lock` under `php.cache`.
+   - Cache identity includes lock identity (`lockfileVersion` + lock hash) to avoid stale loads after lock changes.
    - The registry maps module exports to callable functions (lazy-loaded).
 4) The stdlib module list comes from `php_modules/stdlib.json` (hand-maintained).
    - Used to build a lazy registry even when module mode is disabled.
@@ -38,6 +43,13 @@ This document defines the intended behavior for the PHP module system in deka.
 - Relative paths: `import { foo } from './string.phpx'`
 - Package-style: `import { foo } from 'string'` resolves to
   `php_modules/string/index.phpx`
+- Package-style resolution enforces lock entries:
+  - missing lock entry => resolver error
+  - lock entry path missing on disk => resolver error
+  - lock entry hash mismatch (`sha256:*`) => integrity error
+- Shorthand/index semantics are consistent:
+  - `Foo` -> `Foo.phpx` or `Foo/index.phpx`
+  - `@/components/Card` -> `components/Card.phpx` or `components/Card/index.phpx`
 - Import/export is only valid in `.phpx`, except `.php` may opt-in with top-of-file `import`.
 - Re-exports are supported: `export { foo } from './bar.phpx'`.
 - Wasm imports opt in via `as wasm`: `import { greet } from '@user/hello' as wasm;`
@@ -110,7 +122,10 @@ Initial categories (Node-like):
 - crypto
 
 ## Error behavior
+- Missing `deka.lock` => hard error with local/global remediation.
 - Missing `php_modules/deka.php` => hard error + `deka init` hint.
+- Missing module => error includes import location + attempted roots + lock status.
+- Integrity mismatch => hard error with expected/actual hash and reinstall guidance.
 - `import`/`export` in `.php` => syntax error unless the `import` is at the very
   top of the file (before any code, `namespace`, `use`, `include`, or `require`).
 - Privileged API from `.php` => runtime error.
@@ -136,7 +151,7 @@ project/
 ```
 
 ## Prototype notes (current)
-- Module discovery scans `php_modules/` for `.phpx` files at runtime.
+- Package module resolution is lockfile-driven (`deka.lock`).
 - .phpx supports `import { foo } from './bar.phpx'` and `export function foo()`.
 - Imports are validated and a simple dependency graph is built (cycles error).
 - .phpx exports compile into per-module namespaces (php-rs namespace + `use` resolution now supported).
