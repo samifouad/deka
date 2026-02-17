@@ -53,7 +53,7 @@ Goal: fork `deka-git` into Linkhash and customize it as the canonical Git/packag
   - Validation:
     - `cargo check` (pass)
     - `cargo test` (pass)
-- 2026-02-17 Task 7 complete in commits `1c1cb43` (fork) + pending `mvp`
+- 2026-02-17 Task 7 complete in commits `1c1cb43` (fork) + `28a9738` (mvp)
   - `pm` now supports PHP ecosystem installation from Linkhash package endpoints.
   - Default Linkhash registry base URL is now `http://localhost:8508` (override: `LINKHASH_REGISTRY_URL`).
   - `deka publish` default registry URL updated to `http://localhost:8508`.
@@ -62,6 +62,6 @@ Goal: fork `deka-git` into Linkhash and customize it as the canonical Git/packag
     - published `stdlib/core@0.1.0`
     - ran `deka install --ecosystem php --spec stdlib/core@0.1.0`
     - verified files in `php_modules/stdlib/core/*` and lock entry in `deka.lock`.
-- 2026-02-17 Task 8 complete in commits `41243ff` (fork) + pending `mvp`
+- 2026-02-17 Task 8 complete in commits `41243ff` (fork) + `ef8d6ba` (mvp)
   - Updated fork README with current auth model, API contract, and publish/install sequence.
   - Added `docs/phpx/linkhash-package-runbook.md` with exact end-to-end commands.
