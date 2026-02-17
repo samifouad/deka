@@ -1,4 +1,5 @@
 use core::{CommandSpec, Context, Registry, SubcommandSpec};
+use std::io::{self, Write};
 use stdio;
 
 use crate::cli::auth_store::{self, AuthProfile};
@@ -72,28 +73,40 @@ fn cmd_auth(_context: &Context) {
 }
 
 fn cmd_login(context: &Context) {
-    let username_raw = context.args.params.get("--username").cloned();
+    let username_raw = context
+        .args
+        .params
+        .get("--username")
+        .cloned()
+        .or_else(|| prompt_required("Username (@username): "));
     let token = context
         .args
         .params
         .get("--token")
         .cloned()
-        .or_else(|| std::env::var("LINKHASH_TOKEN").ok());
+        .or_else(|| std::env::var("LINKHASH_TOKEN").ok())
+        .or_else(|| prompt_required("Token: "));
     let registry_url = context
         .args
         .params
         .get("--registry-url")
         .cloned()
         .or_else(|| std::env::var("LINKHASH_REGISTRY_URL").ok())
+        .or_else(|| {
+            prompt_optional(
+                "Registry URL [http://localhost:8508]: ",
+                Some("http://localhost:8508"),
+            )
+        })
         .unwrap_or_else(|| "http://localhost:8508".to_string());
 
     let Some(token) = token else {
-        stdio::error("auth", "missing --token (or LINKHASH_TOKEN env)");
+        stdio::error("auth", "missing token");
         return;
     };
 
     let Some(username_raw) = username_raw else {
-        stdio::error("auth", "missing --username (expected @username)");
+        stdio::error("auth", "missing username (expected @username)");
         return;
     };
 
@@ -155,4 +168,31 @@ fn is_valid_username(username: &str) -> bool {
     username[1..]
         .chars()
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+}
+
+fn prompt_required(prompt: &str) -> Option<String> {
+    let value = prompt_optional(prompt, None)?;
+    if value.trim().is_empty() {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+fn prompt_optional(prompt: &str, default_value: Option<&str>) -> Option<String> {
+    print!("{}", prompt);
+    if io::stdout().flush().is_err() {
+        return None;
+    }
+
+    let mut buf = String::new();
+    if io::stdin().read_line(&mut buf).is_err() {
+        return None;
+    }
+
+    let trimmed = buf.trim().to_string();
+    if trimmed.is_empty() {
+        return default_value.map(|s| s.to_string());
+    }
+    Some(trimmed)
 }

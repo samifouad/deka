@@ -10,6 +10,7 @@
 - [x] Added `auth` command with subcommands: `login`, `logout`, `whoami`.
 - [x] Added top-level aliases: `login`, `logout`, `whoami`.
 - [x] Added local auth profile persistence at `~/.config/deka/auth.json`.
+- [x] Added interactive `deka login` prompt flow when flags are omitted.
 - [x] Added `pkg` command with subcommands `install` and `publish`.
 - [x] Registered top-level `publish` + `pkg publish`.
 - [x] Added top-level `add` and `i` commands (PHP install shorthand).
@@ -24,6 +25,7 @@
 - `cargo build --release -p cli` (pass)
 - Smoke:
   - `deka login --username sam --token ...` => saved as `@sam`
+  - `deka login` (interactive stdin) => prompts for username/token/registry
   - `deka whoami` / `deka auth whoami` => shows saved profile
   - `deka add foo` => rejects unscoped non-stdlib package
   - `deka pkg publish` / `deka publish` both wired
