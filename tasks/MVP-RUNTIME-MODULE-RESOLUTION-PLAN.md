@@ -74,12 +74,12 @@ Goal: make module resolution lockfile-driven across local + global `php_modules`
 - [ ] Commit: `fix(runtime): key module cache by lock identity`
 
 ## Task 7: Installer + Runtime Contract
-- [ ] Ensure installer writes lock entries with tier + integrity metadata.
-- [ ] Ensure installer places bytes under correct roots:
+- [x] Ensure installer writes lock entries with tier + integrity metadata.
+- [x] Ensure installer places bytes under correct roots:
   - local project `php_modules`
   - global `PHPX_MODULE_ROOT/php_modules`
-- [ ] Add cross-check tests with runtime loader.
-- [ ] Run tests.
+- [x] Add cross-check tests with runtime loader.
+- [x] Run tests.
 - [ ] Commit: `feat(cli): align install output with runtime lock contract`
 
 ## Task 8: Error UX and Diagnostics
