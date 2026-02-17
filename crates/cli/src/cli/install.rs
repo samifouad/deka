@@ -4,7 +4,7 @@ use pm::{InstallPayload, run_install};
 use std::path::PathBuf;
 use stdio;
 
-const COMMAND: CommandSpec = CommandSpec {
+const INSTALL_COMMAND: CommandSpec = CommandSpec {
     name: "install",
     category: "package",
     summary: "install dependencies via the package manager",
@@ -13,8 +13,28 @@ const COMMAND: CommandSpec = CommandSpec {
     handler: cmd,
 };
 
+const ADD_COMMAND: CommandSpec = CommandSpec {
+    name: "add",
+    category: "package",
+    summary: "install php package(s) (shorthand)",
+    aliases: &[],
+    subcommands: &[],
+    handler: cmd,
+};
+
+const I_COMMAND: CommandSpec = CommandSpec {
+    name: "i",
+    category: "package",
+    summary: "install php package(s) (short alias)",
+    aliases: &[],
+    subcommands: &[],
+    handler: cmd,
+};
+
 pub fn register(registry: &mut Registry) {
-    registry.add_command(COMMAND);
+    registry.add_command(INSTALL_COMMAND);
+    registry.add_command(ADD_COMMAND);
+    registry.add_command(I_COMMAND);
     registry.add_flag(FlagSpec {
         name: "--quiet",
         aliases: &["-q"],
@@ -65,6 +85,13 @@ pub fn cmd(context: &Context) {
 }
 
 fn build_payload(context: &Context) -> Result<InstallPayload> {
+    let command_name = context
+        .args
+        .commands
+        .first()
+        .map(String::as_str)
+        .unwrap_or("install");
+
     let mut payload = if let Some(payload_path) = context.args.params.get("--payload") {
         let mut payload = InstallPayload::from_file(&PathBuf::from(payload_path))?;
         if let Some(path) = context.args.params.get("--ecosystem") {
@@ -72,13 +99,27 @@ fn build_payload(context: &Context) -> Result<InstallPayload> {
         }
         payload
     } else {
-        let specs = context
+        let mut specs = context
             .args
             .params
             .get("--spec")
             .map(|value| parse_spec_list(value))
             .unwrap_or_default();
-        let ecosystem = context.args.params.get("--ecosystem").cloned();
+        if specs.is_empty() && !context.args.positionals.is_empty() {
+            specs = context.args.positionals.clone();
+        }
+        let ecosystem = context
+            .args
+            .params
+            .get("--ecosystem")
+            .cloned()
+            .or_else(|| {
+                if command_name == "install" {
+                    None
+                } else {
+                    Some("php".to_string())
+                }
+            });
         InstallPayload {
             specs,
             ecosystem,
@@ -87,6 +128,14 @@ fn build_payload(context: &Context) -> Result<InstallPayload> {
             quiet: false,
         }
     };
+
+    if payload.ecosystem.as_deref() == Some("php") {
+        let mut resolved_specs = Vec::new();
+        for spec in &payload.specs {
+            resolved_specs.push(resolve_php_spec(spec)?);
+        }
+        payload.specs = resolved_specs;
+    }
 
     apply_flags(&mut payload, context);
     Ok(payload)
@@ -111,4 +160,51 @@ fn parse_spec_list(value: &str) -> Vec<String> {
         .filter(|segment| !segment.is_empty())
         .map(str::to_string)
         .collect()
+}
+
+fn resolve_php_spec(raw: &str) -> Result<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(trimmed.to_string());
+    }
+    if trimmed.starts_with('@') {
+        if is_valid_scoped_name(trimmed) {
+            return Ok(trimmed.to_string());
+        }
+        return Err(anyhow::anyhow!(
+            "invalid php package `{}` (expected @scope/name[@version])",
+            trimmed
+        ));
+    }
+
+    match trimmed {
+        "json" | "jwt" => Ok(format!("@deka/{}", trimmed)),
+        _ => Err(anyhow::anyhow!(
+            "unscoped php package `{}` is not allowed. use @scope/name (or stdlib alias like json/jwt)",
+            trimmed
+        )),
+    }
+}
+
+fn is_valid_scoped_name(spec: &str) -> bool {
+    let without_version = if let Some(idx) = spec[1..].find('@') {
+        &spec[..idx + 1]
+    } else {
+        spec
+    };
+    let mut parts = without_version.split('/');
+    let scope = parts.next().unwrap_or("");
+    let name = parts.next().unwrap_or("");
+    if parts.next().is_some() {
+        return false;
+    }
+    if !scope.starts_with('@') || scope.len() <= 1 || name.is_empty() {
+        return false;
+    }
+    scope[1..]
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+        && name
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
 }

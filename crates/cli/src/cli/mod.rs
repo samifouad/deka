@@ -7,6 +7,10 @@ use stdio::{ascii, error as stdio_error, raw};
 pub mod init;
 pub mod user;
 #[cfg(feature = "native")]
+pub mod auth;
+#[cfg(feature = "native")]
+pub mod auth_store;
+#[cfg(feature = "native")]
 pub mod build;
 #[cfg(feature = "native")]
 pub mod compile;
@@ -18,6 +22,10 @@ pub mod db_wasm;
 pub mod install;
 #[cfg(feature = "native")]
 pub mod lsp;
+#[cfg(feature = "native")]
+pub mod pkg;
+#[cfg(feature = "native")]
+pub mod publish;
 #[cfg(feature = "native")]
 pub mod run;
 #[cfg(feature = "native")]
@@ -75,6 +83,18 @@ pub fn register_global_params(registry: &mut Registry) {
     registry.add_param(ParamSpec {
         name: "-o",
         description: "build output directory",
+    });
+    registry.add_param(ParamSpec {
+        name: "--username",
+        description: "linkhash username (recommended format: @username)",
+    });
+    registry.add_param(ParamSpec {
+        name: "--token",
+        description: "linkhash auth token",
+    });
+    registry.add_param(ParamSpec {
+        name: "--registry-url",
+        description: "linkhash registry base URL",
     });
 }
 

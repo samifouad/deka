@@ -16,11 +16,14 @@ pub fn build_registry() -> Registry {
     cli::db_wasm::register(&mut registry);
     #[cfg(feature = "native")]
     {
+        cli::auth::register(&mut registry);
         cli::build::register(&mut registry);
         cli::compile::register(&mut registry);
         cli::db::register(&mut registry);
         cli::install::register(&mut registry);
         cli::lsp::register(&mut registry);
+        cli::pkg::register(&mut registry);
+        cli::publish::register(&mut registry);
         cli::run::register(&mut registry);
         cli::serve::register(&mut registry);
         cli::self_cmd::register(&mut registry);

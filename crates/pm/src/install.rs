@@ -268,7 +268,8 @@ async fn run_php_install(specs: Vec<String>, quiet: bool) -> Result<()> {
     let mut installed_count = 0usize;
 
     for spec in specs {
-        let (name, version_hint) = parse_package_spec(&spec);
+        let normalized = normalize_php_spec(&spec)?;
+        let (name, version_hint) = parse_package_spec(&normalized);
         let version = if let Some(v) = version_hint {
             v
         } else {
@@ -317,6 +318,49 @@ async fn run_php_install(specs: Vec<String>, quiet: bool) -> Result<()> {
     let duration = Instant::now().duration_since(start);
     emit_summary(installed_count, duration.as_millis() as u64, quiet)?;
     Ok(())
+}
+
+fn normalize_php_spec(spec: &str) -> Result<String> {
+    let trimmed = spec.trim();
+    if trimmed.starts_with('@') {
+        if is_valid_scoped_name(trimmed) {
+            return Ok(trimmed.to_string());
+        }
+        bail!("invalid php package `{}` (expected @scope/name[@version])", trimmed);
+    }
+    match trimmed {
+        "json" | "jwt" => Ok(format!("@deka/{}", trimmed)),
+        _ => bail!(
+            "unscoped php package `{}` is not allowed. use @scope/name (or stdlib alias json/jwt)",
+            trimmed
+        ),
+    }
+}
+
+fn is_valid_scoped_name(spec: &str) -> bool {
+    if !spec.starts_with('@') {
+        return false;
+    }
+    let without_version = if let Some(idx) = spec[1..].find('@') {
+        &spec[..idx + 1]
+    } else {
+        spec
+    };
+    let mut parts = without_version.split('/');
+    let scope = parts.next().unwrap_or("");
+    let name = parts.next().unwrap_or("");
+    if parts.next().is_some() {
+        return false;
+    }
+    if !scope.starts_with('@') || scope.len() <= 1 || name.is_empty() {
+        return false;
+    }
+    scope[1..]
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+        && name
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
 }
 
 fn linkhash_registry_url() -> String {
