@@ -93,10 +93,10 @@ Goal: make module resolution lockfile-driven across local + global `php_modules`
 - [ ] Commit: `chore(runtime): improve module resolution diagnostics`
 
 ## Task 9: ADWA/Process-Model Validation (No Magic)
-- [ ] Verify command execution path is binary/module-based only.
-- [ ] Verify runtime resolver is the same path used by ADWA-launched commands.
-- [ ] Add one integration test proving `ls`/`deka db` path uses runtime resolution.
-- [ ] Run tests.
+- [x] Verify command execution path is binary/module-based only.
+- [x] Verify runtime resolver is the same path used by ADWA-launched commands.
+- [x] Add one integration test proving `ls`/`deka db` path uses runtime resolution.
+- [x] Run tests.
 - [ ] Commit: `test(adwa): validate process-model command resolution via runtime`
 
 ## Task 10: Docs + Agent Notes
