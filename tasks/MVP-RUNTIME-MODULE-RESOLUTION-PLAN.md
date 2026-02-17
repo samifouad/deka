@@ -83,13 +83,13 @@ Goal: make module resolution lockfile-driven across local + global `php_modules`
 - [ ] Commit: `feat(cli): align install output with runtime lock contract`
 
 ## Task 8: Error UX and Diagnostics
-- [ ] Standardize resolver errors using deka-validation style where applicable.
-- [ ] Include:
+- [x] Standardize resolver errors using deka-validation style where applicable.
+- [x] Include:
   - import location
   - attempted roots
   - lock status
   - next-step remediation
-- [ ] Run tests.
+- [x] Run tests.
 - [ ] Commit: `chore(runtime): improve module resolution diagnostics`
 
 ## Task 9: ADWA/Process-Model Validation (No Magic)

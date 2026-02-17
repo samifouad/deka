@@ -630,15 +630,16 @@ fn resolve_import_target(
     }
 
     if base_dirs.is_empty() {
+        let lock_status = describe_lock_status(current_file_path);
         return Err(module_error(
             1,
             1,
             raw.len().max(1),
             format!(
-                "Missing php_modules for import '{}' in {}.",
+                "Missing php_modules for import '{}' in {} ({lock_status}).",
                 raw, current_file_path
             ),
-            "Create php_modules/ or run `deka init`.",
+            "Create php_modules/, ensure deka.lock is present, or set PHPX_MODULE_ROOT to a root that contains deka.lock.",
         ));
     }
 
@@ -689,18 +690,31 @@ fn resolve_import_target(
         }
     }
 
+    let attempted_roots = base_dirs
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let lock_status = describe_lock_status(current_file_path);
     Err(module_error(
         1,
         1,
         raw.len().max(1),
         format!(
-            "Missing phpx module '{}' (imported from {}).",
-            raw, current_file_path
+            "Missing phpx module '{}' (imported from {}). Attempted roots: {}. {}",
+            raw,
+            current_file_path,
+            if attempted_roots.is_empty() {
+                "<none>"
+            } else {
+                attempted_roots.as_str()
+            },
+            lock_status
         ),
         available_modules
             .and_then(|modules| format_available_modules(modules, "Available modules: "))
             .as_deref()
-            .unwrap_or("Ensure the module exists in php_modules/."),
+            .unwrap_or("Ensure the module exists in php_modules and is listed in deka.lock."),
     ))
 }
 
@@ -717,15 +731,16 @@ fn resolve_wasm_target(
 ) -> Result<ResolvedWasmTarget, ValidationError> {
     let raw = raw.trim();
     let modules_root = modules_root.ok_or_else(|| {
+        let lock_status = describe_lock_status(current_file_path);
         wasm_error(
             1,
             1,
             raw.len().max(1),
             format!(
-                "Wasm import requires php_modules/ (missing for {}).",
-                current_file_path
+                "Wasm import requires php_modules/ (missing for {}, {}).",
+                current_file_path, lock_status
             ),
-            "Create php_modules/ or run `deka init`.",
+            "Create php_modules/, ensure deka.lock is present, or set PHPX_MODULE_ROOT to a root with deka.lock.",
         )
     })?;
 
@@ -958,6 +973,32 @@ fn format_available_modules(modules: &HashSet<String>, prefix: &str) -> Option<S
     list.sort();
     let preview: Vec<String> = list.into_iter().take(12).collect();
     Some(format!("{}{}", prefix, preview.join(", ")))
+}
+
+fn describe_lock_status(current_file_path: &str) -> String {
+    let path = Path::new(current_file_path);
+    let dir = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."))
+    };
+    let local = find_project_root(&dir)
+        .map(|root| format!("local lock: {}", root.join("deka.lock").display()))
+        .unwrap_or_else(|| "local lock: not found".to_string());
+    let global = match std::env::var("PHPX_MODULE_ROOT") {
+        Ok(root) if !root.trim().is_empty() => {
+            let lock = PathBuf::from(root.trim()).join("deka.lock");
+            if lock.exists() {
+                format!("global lock: {}", lock.display())
+            } else {
+                format!("global lock: missing at {}", lock.display())
+            }
+        }
+        _ => "global lock: PHPX_MODULE_ROOT unset".to_string(),
+    };
+    format!("{local}; {global}")
 }
 
 fn module_error(
