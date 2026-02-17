@@ -2296,12 +2296,17 @@ function resolveImportTarget(specifier, currentFilePath, modulesRoot) {
 
     const baseDir = isRelative ? globalThis.path.dirname(currentFilePath) : projectRoot;
     const basePath = globalThis.path.resolve(baseDir, aliasPath);
-    const candidates = raw.endsWith('.phpx')
-        ? [basePath]
-        : [
-            basePath + '.phpx',
-            globalThis.path.join(basePath, 'index.phpx')
-        ];
+    let candidates = [];
+    if (raw.endsWith('.phpx')) {
+        candidates = [basePath];
+    } else {
+        const fileCandidate = basePath + '.phpx';
+        const indexCandidate = globalThis.path.join(basePath, 'index.phpx');
+        if (globalThis.fs.existsSync(fileCandidate) && globalThis.fs.existsSync(indexCandidate)) {
+            throw new Error(`Ambiguous phpx import '${raw}' from ${currentFilePath}: both '${fileCandidate}' and '${indexCandidate}' exist. Use an explicit .phpx path.`);
+        }
+        candidates = [fileCandidate, indexCandidate];
+    }
     for (const candidate of candidates){
         if (!globalThis.fs.existsSync(candidate)) continue;
         if (isProjectAlias) {

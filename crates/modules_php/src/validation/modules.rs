@@ -649,8 +649,24 @@ fn resolve_import_target(
         if raw.ends_with(".phpx") {
             candidates.push(base_path.clone());
         } else {
-            candidates.push(base_path.with_extension("phpx"));
-            candidates.push(base_path.join("index.phpx"));
+            let file_candidate = base_path.with_extension("phpx");
+            let index_candidate = base_path.join("index.phpx");
+            if file_candidate.exists() && index_candidate.exists() {
+                return Err(module_error(
+                    1,
+                    1,
+                    raw.len().max(1),
+                    format!(
+                        "Ambiguous phpx import '{}' (both '{}' and '{}' exist).",
+                        raw,
+                        file_candidate.display(),
+                        index_candidate.display()
+                    ),
+                    "Disambiguate the import by using an explicit path ending in .phpx.",
+                ));
+            }
+            candidates.push(file_candidate);
+            candidates.push(index_candidate);
         }
     }
     if !is_relative && !is_project_alias {
@@ -1190,6 +1206,45 @@ mod tests {
                 .iter()
                 .any(|err| err.help_text.contains("Ensure the module exists in php_modules") || err.help_text.contains("Available modules:")),
             "expected actionable help text, got: {:?}",
+            errors
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn reports_ambiguous_shorthand_vs_index_module() {
+        let root = make_temp_project("ambiguous_module");
+        let entry = root.join("main.phpx");
+        fs::write(&entry, "import { foo } from 'ui/card'\n").expect("write entry");
+        fs::create_dir_all(root.join("php_modules/ui/card")).expect("mkdir ui/card");
+        fs::write(
+            root.join("php_modules/ui/card.phpx"),
+            "export function foo() { return 1 }\n",
+        )
+        .expect("write card.phpx");
+        fs::write(
+            root.join("php_modules/ui/card/index.phpx"),
+            "export function foo() { return 2 }\n",
+        )
+        .expect("write card/index.phpx");
+
+        let errors = validate_module_resolution(
+            &fs::read_to_string(&entry).expect("read entry"),
+            entry.to_string_lossy().as_ref(),
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|err| err.message.contains("Ambiguous phpx import 'ui/card'")),
+            "expected ambiguous import error, got: {:?}",
+            errors
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|err| err.help_text.contains("explicit path ending in .phpx")),
+            "expected remediation hint, got: {:?}",
             errors
         );
 

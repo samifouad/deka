@@ -62,16 +62,16 @@ Goal: make module resolution lockfile-driven across local + global `php_modules`
   - `Foo` -> `Foo.phpx`
   - `Foo` -> `Foo/index.phpx`
   - [x] Apply same rules for local aliases (`@/...`) and package paths.
-  - [ ] Add tests covering ambiguous/invalid cases.
+  - [x] Add tests covering ambiguous/invalid cases.
   - [x] Run tests.
-- [ ] Commit: `fix(runtime): unify php module shorthand/index resolution`
+- [x] Commit: `fix(runtime): unify php module shorthand/index resolution`
 
   ## Task 6: Cache Correctness
   - [x] Include lock hash/version in compiled cache key.
   - [x] Invalidate on lock change or module hash change.
-  - [ ] Add regression tests for stale cache prevention.
+  - [x] Add regression tests for stale cache prevention.
   - [x] Run tests.
-- [ ] Commit: `fix(runtime): key module cache by lock identity`
+- [x] Commit: `fix(runtime): key module cache by lock identity`
 
 ## Task 7: Installer + Runtime Contract
 - [x] Ensure installer writes lock entries with tier + integrity metadata.
@@ -80,7 +80,7 @@ Goal: make module resolution lockfile-driven across local + global `php_modules`
   - global `PHPX_MODULE_ROOT/php_modules`
 - [x] Add cross-check tests with runtime loader.
 - [x] Run tests.
-- [ ] Commit: `feat(cli): align install output with runtime lock contract`
+- [x] Commit: `feat(cli): align install output with runtime lock contract`
 
 ## Task 8: Error UX and Diagnostics
 - [x] Standardize resolver errors using deka-validation style where applicable.
@@ -90,28 +90,28 @@ Goal: make module resolution lockfile-driven across local + global `php_modules`
   - lock status
   - next-step remediation
 - [x] Run tests.
-- [ ] Commit: `chore(runtime): improve module resolution diagnostics`
+- [x] Commit: `chore(runtime): improve module resolution diagnostics`
 
 ## Task 9: ADWA/Process-Model Validation (No Magic)
 - [x] Verify command execution path is binary/module-based only.
 - [x] Verify runtime resolver is the same path used by ADWA-launched commands.
 - [x] Add one integration test proving `ls`/`deka db` path uses runtime resolution.
 - [x] Run tests.
-- [ ] Commit: `test(adwa): validate process-model command resolution via runtime`
+- [x] Commit: `test(adwa): validate process-model command resolution via runtime`
 
 ## Task 10: Docs + Agent Notes
-- [ ] Update AGENTS.md:
+- [x] Update AGENTS.md:
   - local/global module behavior
   - `PHPX_MODULE_ROOT` usage
   - lockfile as source of truth
   - test+commit requirement per task
-- [ ] Update runtime/docs pages for module resolution contract.
-- [ ] Run doc checks if available.
+- [x] Update runtime/docs pages for module resolution contract.
+- [x] Run doc checks if available.
 - [ ] Commit: `docs: document php module resolution contract for MVP`
 
 ## Definition of Done
-- [ ] All tasks checked.
-- [ ] All relevant tests passing.
+- [x] All tasks checked.
+- [x] All relevant tests passing.
 - [ ] One commit per task.
-- [ ] No legacy root env behavior.
-- [ ] Deterministic lock-driven local/global resolution confirmed.
+- [x] No legacy root env behavior.
+- [x] Deterministic lock-driven local/global resolution confirmed.
