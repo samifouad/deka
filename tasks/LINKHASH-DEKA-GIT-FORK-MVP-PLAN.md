@@ -15,7 +15,7 @@ Goal: fork `deka-git` into Linkhash and customize it as the canonical Git/packag
 - [x] 3. Add SSH public key storage + key management API
 - [x] 4. Migrate repo ownership paths from network/address to username/repo
 - [x] 5. Remove deploy/JWT coupling from Git push path
-- [ ] 6. Add package metadata/artifact endpoints for installer consumption
+- [x] 6. Add package metadata/artifact endpoints for installer consumption
 - [ ] 7. Wire Deka installer default remote to Linkhash and run test download
 - [ ] 8. End-to-end runbook + docs for push + install flow
 
@@ -39,6 +39,17 @@ Goal: fork `deka-git` into Linkhash and customize it as the canonical Git/packag
   - Added SSH key schema + APIs (`GET/POST/DELETE /api/user/ssh-keys`) with ed25519 validation + SHA256 fingerprinting.
   - Migrated repo storage semantics from `{network}/{address}/{repo}` to `{owner}/{repo}`.
   - Removed deploy trigger coupling from push path.
+  - Validation:
+    - `cargo check` (pass)
+    - `cargo test` (pass)
+- 2026-02-17 Task 6 complete in fork commit `62d3951`
+  - Added package release table + indexes in DB migrations.
+  - Added authenticated publish endpoint: `POST /api/packages/publish`.
+  - Added public metadata + download endpoints:
+    - `GET /api/packages/:name`
+    - `GET /api/packages/:name/:version`
+    - `GET /api/packages/:name/:version/download`
+  - Download endpoint builds tarballs from git refs using `git archive`.
   - Validation:
     - `cargo check` (pass)
     - `cargo test` (pass)
