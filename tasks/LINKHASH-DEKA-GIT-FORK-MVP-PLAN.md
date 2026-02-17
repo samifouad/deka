@@ -17,7 +17,7 @@ Goal: fork `deka-git` into Linkhash and customize it as the canonical Git/packag
 - [x] 5. Remove deploy/JWT coupling from Git push path
 - [x] 6. Add package metadata/artifact endpoints for installer consumption
 - [x] 7. Wire Deka installer default remote to Linkhash and run test download
-- [ ] 8. End-to-end runbook + docs for push + install flow
+- [x] 8. End-to-end runbook + docs for push + install flow
 
 ## Execution Rules
 - One commit per completed task in `linkhash/rust/deka-git` (and in `mvp` for tracker/docs changes).
@@ -62,3 +62,6 @@ Goal: fork `deka-git` into Linkhash and customize it as the canonical Git/packag
     - published `stdlib/core@0.1.0`
     - ran `deka install --ecosystem php --spec stdlib/core@0.1.0`
     - verified files in `php_modules/stdlib/core/*` and lock entry in `deka.lock`.
+- 2026-02-17 Task 8 complete in commits `41243ff` (fork) + pending `mvp`
+  - Updated fork README with current auth model, API contract, and publish/install sequence.
+  - Added `docs/phpx/linkhash-package-runbook.md` with exact end-to-end commands.
