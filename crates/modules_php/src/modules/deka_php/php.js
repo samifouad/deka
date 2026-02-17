@@ -296,6 +296,7 @@ globalThis.path = {
 };
 let phpActiveRoots = [];
 let phpModulesRoot = '';
+let phpResolutionState = null;
 function normalizeHostPath(value) {
     const raw = String(value || '').replace(/\\/g, '/');
     return globalThis.path.resolve(op_php_cwd(), raw);
@@ -330,33 +331,123 @@ function findLockRoot(startDir) {
     }
     return '';
 }
-function resolveProjectRoot(entryPath) {
-    const envRoot = globalThis.process?.env?.PHPX_MODULE_ROOT;
-    if (envRoot) {
-        const normalized = normalizeHostPath(envRoot);
-        const lockPath = globalThis.path.resolve(normalized, 'deka.lock');
-        if (!globalThis.fs.existsSync(lockPath)) {
-            throw new Error(`PHPX_MODULE_ROOT set but deka.lock not found at ${lockPath}`);
-        }
-        return normalized;
+function normalizeModuleId(raw) {
+    const spec = String(raw || '').replace(/\\/g, '/').replace(/^\/+/, '');
+    if (!spec) return '';
+    if (spec.endsWith('/index.phpx')) return spec.slice(0, -'/index.phpx'.length);
+    if (spec.endsWith('.phpx')) return spec.slice(0, -'.phpx'.length);
+    if (spec.endsWith('/index')) return spec.slice(0, -'/index'.length);
+    return spec;
+}
+function lockCacheModules(lock) {
+    return lock && lock.php && lock.php.cache && lock.php.cache.modules
+        ? lock.php.cache.modules
+        : {};
+}
+function parseLockFile(lockPath) {
+    const raw = globalThis.fs.readFileSync(lockPath, 'utf8');
+    let lock = null;
+    try {
+        lock = JSON.parse(raw);
+    } catch (err) {
+        throw new Error(`Invalid deka.lock at ${lockPath}: ${err.message || err}`);
     }
+    if (!lock || typeof lock !== 'object') {
+        throw new Error(`Invalid deka.lock at ${lockPath}: expected JSON object.`);
+    }
+    if (!lock.lockfileVersion) lock.lockfileVersion = 1;
+    if (!lock.node) lock.node = {
+        packages: {}
+    };
+    if (!lock.php) lock.php = {
+        packages: {}
+    };
+    if (!lock.php.packages) lock.php.packages = {};
+    if (!lock.php.cache) lock.php.cache = {
+        version: PHPX_CACHE_VERSION,
+        compiler: PHPX_COMPILER_ID,
+        modules: {}
+    };
+    if (!lock.php.cache.modules) lock.php.cache.modules = {};
+    return {
+        lock,
+        lockHash: hashSource(raw),
+        lockVersion: lock.lockfileVersion
+    };
+}
+function buildResolutionState(entryPath) {
     const cwd = normalizeHostPath(op_php_cwd());
-    if (entryPath) {
-        const entryAbs = normalizeHostPath(entryPath);
-        const entryDir = globalThis.path.dirname(entryAbs);
-        const fromEntry = findLockRoot(entryDir);
-        if (fromEntry) return fromEntry;
+    const entryAbs = entryPath ? normalizeHostPath(entryPath) : '';
+    const entryDir = entryAbs ? globalThis.path.dirname(entryAbs) : '';
+    const localRoot = entryDir ? findLockRoot(entryDir) || findLockRoot(cwd) : findLockRoot(cwd);
+    const envRootRaw = globalThis.process?.env?.PHPX_MODULE_ROOT;
+    let globalRoot = '';
+    if (envRootRaw && String(envRootRaw).trim()) {
+        globalRoot = normalizeHostPath(envRootRaw);
+        const globalLockPath = globalThis.path.resolve(globalRoot, 'deka.lock');
+        if (!globalThis.fs.existsSync(globalLockPath)) {
+            throw new Error(`PHPX_MODULE_ROOT is set but deka.lock was not found at ${globalLockPath}.`);
+        }
     }
-    const fromCwd = findLockRoot(cwd);
-    if (fromCwd) return fromCwd;
-    return '';
+    const projectRoot = localRoot || globalRoot || '';
+    const tiers = [];
+    if (localRoot) {
+        tiers.push({
+            tier: 'local',
+            root: localRoot
+        });
+    }
+    if (globalRoot && globalRoot !== localRoot) {
+        tiers.push({
+            tier: 'global',
+            root: globalRoot
+        });
+    }
+    if (!localRoot && globalRoot) {
+        tiers.push({
+            tier: 'global',
+            root: globalRoot
+        });
+    }
+    const uniqueTiers = [];
+    const seen = new Set();
+    for (const tier of tiers){
+        const key = `${tier.tier}:${tier.root}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const lockPath = globalThis.path.resolve(tier.root, 'deka.lock');
+        if (!globalThis.fs.existsSync(lockPath)) {
+            if (tier.tier === 'local') {
+                throw new Error(`Local project mode requires deka.lock at ${lockPath}.`);
+            }
+            throw new Error(`Global module root requires deka.lock at ${lockPath}.`);
+        }
+        const parsed = parseLockFile(lockPath);
+        uniqueTiers.push({
+            tier: tier.tier,
+            root: tier.root,
+            modulesRoot: globalThis.path.resolve(tier.root, 'php_modules'),
+            lockPath,
+            lock: parsed.lock,
+            lockHash: parsed.lockHash,
+            lockVersion: parsed.lockVersion
+        });
+    }
+    return {
+        entryPath: entryAbs,
+        entryDir,
+        cwd,
+        projectRoot,
+        tiers: uniqueTiers
+    };
+}
+function resolveProjectRoot(entryPath) {
+    const state = buildResolutionState(entryPath);
+    return state.projectRoot;
 }
 function getPhpModulesRoots(entryPath) {
-    const root = resolveProjectRoot(entryPath);
-    if (!root) return [];
-    return uniqueValues([
-        globalThis.path.resolve(root, 'php_modules')
-    ]);
+    const state = buildResolutionState(entryPath);
+    return uniqueValues(state.tiers.map((tier)=>tier.modulesRoot));
 }
 function resolvePhpModulesRoot(entryPath) {
     const roots = getPhpModulesRoots(entryPath);
@@ -375,8 +466,10 @@ function setPhpActiveRoots(entryPath) {
     const cwd = op_php_cwd();
     const entryAbs = normalizeHostPath(entryPath);
     const entryDir = globalThis.path.dirname(entryAbs);
-    const projectRoot = resolveProjectRoot(entryPath);
-    const modulesRoots = getPhpModulesRoots(entryPath);
+    const state = buildResolutionState(entryPath);
+    phpResolutionState = state;
+    const projectRoot = state.projectRoot;
+    const modulesRoots = state.tiers.map((tier)=>tier.modulesRoot);
     phpModulesRoot = resolvePhpModulesRoot(entryPath);
     phpActiveRoots = uniqueValues([
         entryDir,
@@ -389,11 +482,12 @@ function setPhpActiveRoots(entryPath) {
     }
 }
 function getDekaEntryPath(entryPath) {
-    const root = resolveProjectRoot(entryPath);
-    if (!root) return '';
-    const candidate = globalThis.path.resolve(root, 'php_modules', 'deka.php');
-    if (globalThis.fs.existsSync(candidate)) {
-        return candidate;
+    const state = phpResolutionState || buildResolutionState(entryPath);
+    for (const tier of state.tiers){
+        const candidate = globalThis.path.resolve(tier.modulesRoot, 'deka.php');
+        if (globalThis.fs.existsSync(candidate)) {
+            return candidate;
+        }
     }
     return '';
 }
@@ -2135,47 +2229,95 @@ function buildExportWrappers(moduleId, moduleNamespace, exports, typeInfo) {
         exportTargets
     };
 }
+function isPathInsideRoot(filePath, rootPath) {
+    const normalizedFile = normalizeHostPath(filePath);
+    const normalizedRoot = normalizeHostPath(rootPath);
+    if (normalizedFile === normalizedRoot) return true;
+    const prefix = normalizedRoot.endsWith('/') ? normalizedRoot : normalizedRoot + '/';
+    return normalizedFile.startsWith(prefix);
+}
+function lockStatusSummary(state, moduleId) {
+    if (!state || !Array.isArray(state.tiers) || state.tiers.length === 0) {
+        return 'lock status: no active lock roots';
+    }
+    const bits = [];
+    for (const tier of state.tiers){
+        const has = !!lockCacheModules(tier.lock)[moduleId];
+        bits.push(`${tier.tier}:${has ? 'entry' : 'miss'} (${tier.lockPath})`);
+    }
+    return `lock status: ${bits.join(', ')}`;
+}
+function validateLockedModuleEntry(tier, moduleId, raw, currentFilePath) {
+    const entry = lockCacheModules(tier.lock)[moduleId];
+    if (!entry) return null;
+    const srcRel = String(entry.src || '').replace(/\\/g, '/');
+    if (!srcRel) {
+        throw new Error(`Lock entry for module '${moduleId}' is missing 'src' in ${tier.lockPath}. Run \`deka install\` to repair the lock.`);
+    }
+    const expectedPath = globalThis.path.resolve(tier.root, srcRel);
+    if (!isPathInsideRoot(expectedPath, tier.modulesRoot)) {
+        throw new Error(`Lock entry for '${moduleId}' points outside ${tier.modulesRoot}: ${expectedPath}. Reinstall modules to fix deka.lock.`);
+    }
+    if (!globalThis.fs.existsSync(expectedPath)) {
+        throw new Error(`Missing module '${raw}' from ${tier.tier} tier. Lock expects ${expectedPath}. Reinstall modules to match ${tier.lockPath}.`);
+    }
+    const expectedHash = String(entry.hash || '');
+    if (expectedHash.startsWith('sha256:')) {
+        const source = globalThis.fs.readFileSync(expectedPath, 'utf8');
+        const actualHash = `sha256:${hashSource(source)}`;
+        if (actualHash !== expectedHash) {
+            throw new Error(`Integrity mismatch for module '${moduleId}' at ${expectedPath}. Expected ${expectedHash}, got ${actualHash}. Reinstall modules or regenerate deka.lock.`);
+        }
+    }
+    return {
+        filePath: expectedPath,
+        moduleId
+    };
+}
 function resolveImportTarget(specifier, currentFilePath, modulesRoot) {
     const raw = String(specifier);
     const isRelative = raw.startsWith('.');
     const isProjectAlias = raw.startsWith('@/');
-    const projectRoot = modulesRoot ? globalThis.path.dirname(modulesRoot) : '';
+    const state = phpResolutionState || buildResolutionState(currentFilePath);
+    const projectRoot = state.projectRoot || (modulesRoot ? globalThis.path.dirname(modulesRoot) : '');
     const aliasPath = isProjectAlias ? raw.slice(2) : raw;
-    const baseDir = isRelative ? globalThis.path.dirname(currentFilePath) : isProjectAlias ? projectRoot : modulesRoot;
-    const basePath = globalThis.path.resolve(baseDir, aliasPath);
-    const candidates = [];
-    if (raw.endsWith('.phpx')) {
-        candidates.push(basePath);
-    } else {
-        candidates.push(basePath + '.phpx');
-        candidates.push(globalThis.path.join(basePath, 'index.phpx'));
-    }
+
     if (!isRelative && !isProjectAlias) {
-        candidates.push(globalThis.path.resolve(modulesRoot, raw + '.phpx'));
-        candidates.push(globalThis.path.resolve(modulesRoot, raw, 'index.phpx'));
-    }
-    for (const candidate of candidates){
-        if (globalThis.fs.existsSync(candidate)) {
-            let moduleId = raw;
-            if (isProjectAlias) {
-                const rel = globalThis.path.relative(projectRoot, candidate).replace(/\\/g, '/');
-                moduleId = `@/${moduleIdFromRel(rel)}`;
-            } else {
-                const rel = globalThis.path.relative(modulesRoot, candidate).replace(/\\/g, '/');
-                if (rel && !rel.startsWith('..')) {
-                    moduleId = moduleIdFromRel(rel);
-                } else if (projectRoot) {
-                    const projectRel = globalThis.path.relative(projectRoot, candidate).replace(/\\/g, '/');
-                    moduleId = `@/${moduleIdFromRel(projectRel)}`;
-                } else {
-                    moduleId = moduleIdFromRel(rel);
-                }
+        const moduleId = normalizeModuleId(raw);
+        const attemptedRoots = state.tiers.map((tier)=>`${tier.tier}:${tier.modulesRoot}`).join(', ');
+        for (const tier of state.tiers){
+            const resolved = validateLockedModuleEntry(tier, moduleId, raw, currentFilePath);
+            if (resolved) {
+                return resolved;
             }
+        }
+        throw new Error(`Missing phpx module '${raw}' (imported from ${currentFilePath}). Attempted roots: ${attemptedRoots || 'none'}. ${lockStatusSummary(state, moduleId)}`);
+    }
+
+    const baseDir = isRelative ? globalThis.path.dirname(currentFilePath) : projectRoot;
+    const basePath = globalThis.path.resolve(baseDir, aliasPath);
+    const candidates = raw.endsWith('.phpx')
+        ? [basePath]
+        : [
+            basePath + '.phpx',
+            globalThis.path.join(basePath, 'index.phpx')
+        ];
+    for (const candidate of candidates){
+        if (!globalThis.fs.existsSync(candidate)) continue;
+        if (isProjectAlias) {
+            const rel = globalThis.path.relative(projectRoot, candidate).replace(/\\/g, '/');
             return {
                 filePath: candidate,
-                moduleId
+                moduleId: `@/${moduleIdFromRel(rel)}`
             };
         }
+        const rel = modulesRoot
+            ? globalThis.path.relative(modulesRoot, candidate).replace(/\\/g, '/')
+            : '';
+        return {
+            filePath: candidate,
+            moduleId: rel && !rel.startsWith('..') ? moduleIdFromRel(rel) : moduleIdFromRel(raw)
+        };
     }
     throw new Error(`Missing phpx module '${raw}' (imported from ${currentFilePath}).`);
 }
@@ -2505,32 +2647,11 @@ function readDekaLock(entryPath) {
     if (!lockPath || !globalThis.fs.existsSync(lockPath)) {
         throw new Error("Missing deka.lock. Run `deka init` or set PHPX_MODULE_ROOT.");
     }
-    const raw = globalThis.fs.readFileSync(lockPath, 'utf8');
-    let lock = null;
-    try {
-        lock = JSON.parse(raw);
-    } catch (err) {
-        throw new Error(`Invalid deka.lock: ${err.message || err}`);
-    }
-    if (!lock || typeof lock !== 'object') {
-        throw new Error('Invalid deka.lock: expected JSON object.');
-    }
-    if (!lock.lockfileVersion) lock.lockfileVersion = 1;
-    if (!lock.node) lock.node = {
-        packages: {}
-    };
-    if (!lock.php) lock.php = {
-        packages: {}
-    };
-    if (!lock.php.packages) lock.php.packages = {};
-    if (!lock.php.cache) lock.php.cache = {
-        version: PHPX_CACHE_VERSION,
-        compiler: PHPX_COMPILER_ID,
-        modules: {}
-    };
-    if (!lock.php.cache.modules) lock.php.cache.modules = {};
+    const parsed = parseLockFile(lockPath);
     return {
-        lock,
+        lock: parsed.lock,
+        lockHash: parsed.lockHash,
+        lockVersion: parsed.lockVersion,
         lockPath,
         projectRoot: resolveProjectRoot(entryPath)
     };
@@ -2557,6 +2678,7 @@ function buildLazyModuleRegistry(modules, entryPath) {
     const lockInfo = readDekaLock(entryPath);
     const lock = lockInfo.lock;
     const projectRoot = lockInfo.projectRoot;
+    const lockIdentity = `${lockInfo.lockVersion}:${lockInfo.lockHash}`;
     const cacheRoot = resolveModuleCacheRoot(entryPath);
     ensureDir(cacheRoot);
     let lockDirty = false;
@@ -2576,18 +2698,19 @@ function buildLazyModuleRegistry(modules, entryPath) {
         const srcRel = globalThis.path.relative(projectRoot, module.filePath).replace(/\\/g, '/');
         const cacheEntry = lock.php.cache.modules[module.moduleId];
         const desiredHash = `sha256:${module.sourceHash}`;
-        const needsWrite = !cacheEntry || cacheEntry.hash !== desiredHash || cacheEntry.compiler !== PHPX_COMPILER_ID || !globalThis.fs.existsSync(cachePath);
+        const needsWrite = !cacheEntry || cacheEntry.hash !== desiredHash || cacheEntry.compiler !== PHPX_COMPILER_ID || cacheEntry.lockIdentity !== lockIdentity || !globalThis.fs.existsSync(cachePath);
         if (needsWrite) {
             ensureDirForFile(cachePath);
             globalThis.fs.writeFileSync(cachePath, module.code, 'utf8');
             lockDirty = true;
         }
-        if (!cacheEntry || cacheEntry.hash !== desiredHash || cacheEntry.compiler !== PHPX_COMPILER_ID || cacheEntry.cache !== cacheRel || cacheEntry.src !== srcRel) {
+        if (!cacheEntry || cacheEntry.hash !== desiredHash || cacheEntry.compiler !== PHPX_COMPILER_ID || cacheEntry.cache !== cacheRel || cacheEntry.src !== srcRel || cacheEntry.lockIdentity !== lockIdentity) {
             lock.php.cache.modules[module.moduleId] = {
                 src: srcRel,
                 hash: desiredHash,
                 cache: cacheRel,
                 compiler: PHPX_COMPILER_ID,
+                lockIdentity,
                 deps,
                 exports: module.exports || []
             };
@@ -2683,16 +2806,28 @@ function collectPhpxFiles(root) {
     }
     return out;
 }
-function collectModulePathMap(modulesRoot) {
-    const files = collectPhpxFiles(modulesRoot);
+function collectModulePathMap(entryPath) {
+    const state = phpResolutionState || buildResolutionState(entryPath);
     const map = new Map();
-    for (const filePath of files){
-        const rel = globalThis.path.relative(modulesRoot, filePath).replace(/\\/g, '/');
-        const moduleId = moduleIdFromRel(rel);
-        if (map.has(moduleId)) {
-            throw new Error(`Duplicate phpx module id '${moduleId}'.`);
+    for (const tier of state.tiers){
+        const entries = lockCacheModules(tier.lock);
+        const keys = Object.keys(entries);
+        for (const moduleId of keys){
+            if (map.has(moduleId)) continue;
+            const entry = entries[moduleId];
+            const srcRel = String(entry && entry.src ? entry.src : '').replace(/\\/g, '/');
+            if (!srcRel) continue;
+            const filePath = globalThis.path.resolve(tier.root, srcRel);
+            if (!isPathInsideRoot(filePath, tier.modulesRoot)) continue;
+            if (!globalThis.fs.existsSync(filePath)) {
+                throw new Error(`Missing module '${moduleId}' listed in ${tier.lockPath} at ${filePath}. Reinstall modules to repair lock drift.`);
+            }
+            map.set(moduleId, {
+                filePath,
+                modulesRoot: tier.modulesRoot,
+                tier: tier.tier
+            });
         }
-        map.set(moduleId, filePath);
     }
     return map;
 }
@@ -2756,25 +2891,26 @@ function resolveStdlibModuleIds(entryPath) {
             .map((entry)=>String(entry).trim())
             .filter(Boolean);
         if (patterns.length > 0) {
-            const modulePathMap = collectModulePathMap(modulesRoot);
+            const modulePathMap = collectModulePathMap(entryPath);
             return selectStdlibModuleIds(modulePathMap, patterns);
         }
     }
     const patterns = readStdlibModuleList(entryPath);
     if (patterns.length === 0) return [];
-    const modulePathMap = collectModulePathMap(modulesRoot);
+    const modulePathMap = collectModulePathMap(entryPath);
     return selectStdlibModuleIds(modulePathMap, patterns);
 }
 function compilePhpxModules(entryPath, rootModuleIds = null) {
-    const modulesRoot = resolvePhpModulesRoot(entryPath);
-    if (!modulesRoot) {
+    const state = phpResolutionState || buildResolutionState(entryPath);
+    if (!state.tiers.length) {
         return {
             source: '',
             modules: new Map()
         };
     }
+    const primaryModulesRoot = state.tiers[0].modulesRoot;
     if (rootModuleIds && rootModuleIds.length > 0) {
-        const modulePathMap = collectModulePathMap(modulesRoot);
+        const modulePathMap = collectModulePathMap(entryPath);
         const modules = new Map();
         const queue = [
             ...rootModuleIds
@@ -2782,9 +2918,15 @@ function compilePhpxModules(entryPath, rootModuleIds = null) {
         while(queue.length > 0){
             const moduleId = queue.pop();
             if (modules.has(moduleId)) continue;
-            let filePath = modulePathMap.get(moduleId);
+            let filePath = '';
+            let moduleRoot = primaryModulesRoot;
+            const mapping = modulePathMap.get(moduleId);
+            if (mapping) {
+                filePath = mapping.filePath;
+                moduleRoot = mapping.modulesRoot;
+            }
             if (!filePath && moduleId.startsWith('@/')) {
-                const projectRoot = globalThis.path.dirname(modulesRoot);
+                const projectRoot = state.projectRoot;
                 const spec = moduleId.slice(2);
                 const fileCandidate = globalThis.path.resolve(projectRoot, spec + '.phpx');
                 const indexCandidate = globalThis.path.resolve(projectRoot, spec, 'index.phpx');
@@ -2797,7 +2939,7 @@ function compilePhpxModules(entryPath, rootModuleIds = null) {
             if (!filePath) {
                 throw new Error(`Missing phpx module '${moduleId}'.`);
             }
-            const parsed = parsePhpxModule(filePath, modulesRoot);
+            const parsed = parsePhpxModule(filePath, moduleRoot);
             modules.set(moduleId, parsed);
             for (const spec of parsed.imports){
                 if (spec.kind === 'wasm') continue;
@@ -2816,10 +2958,10 @@ function compilePhpxModules(entryPath, rootModuleIds = null) {
             modules
         };
     }
-    const files = collectPhpxFiles(modulesRoot);
     const modules = new Map();
-    for (const filePath of files){
-        const parsed = parsePhpxModule(filePath, modulesRoot);
+    const modulePathMap = collectModulePathMap(entryPath);
+    for (const mapping of modulePathMap.values()){
+        const parsed = parsePhpxModule(mapping.filePath, mapping.modulesRoot);
         if (modules.has(parsed.moduleId)) {
             throw new Error(`Duplicate phpx module id '${parsed.moduleId}'.`);
         }

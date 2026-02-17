@@ -457,21 +457,6 @@ fn is_template_module(source: &str) -> bool {
 }
 
 pub(crate) fn resolve_modules_root(file_path: &str) -> Option<PathBuf> {
-    if let Ok(root) = std::env::var("PHPX_MODULE_ROOT") {
-        let root = PathBuf::from(root);
-        let candidate = root.join("php_modules");
-        if candidate.exists() {
-            return Some(candidate);
-        }
-        if root
-            .file_name()
-            .is_some_and(|name| name == "php_modules")
-            && root.exists()
-        {
-            return Some(root);
-        }
-    }
-
     let path = Path::new(file_path);
     let dir = if path.is_dir() {
         path.to_path_buf()
@@ -484,6 +469,26 @@ pub(crate) fn resolve_modules_root(file_path: &str) -> Option<PathBuf> {
             return Some(candidate);
         }
     }
+
+    if let Ok(root) = std::env::var("PHPX_MODULE_ROOT") {
+        let root = PathBuf::from(root);
+        if root.join("deka.lock").exists() {
+            let candidate = root.join("php_modules");
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+        if root
+            .file_name()
+            .is_some_and(|name| name == "php_modules")
+            && root.exists()
+            && root.parent().is_some_and(|parent| parent.join("deka.lock").exists())
+        {
+            return Some(root);
+        }
+        return None;
+    }
+
     for ancestor in dir.ancestors() {
         if ancestor
             .file_name()
@@ -995,7 +1000,7 @@ fn wasm_error(
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_module_resolution, validate_target_capabilities};
+    use super::{resolve_modules_root, validate_module_resolution, validate_target_capabilities};
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1009,6 +1014,86 @@ mod tests {
         fs::create_dir_all(root.join("php_modules")).expect("create php_modules");
         fs::write(root.join("deka.lock"), "{}").expect("write lockfile");
         root
+    }
+
+    fn make_temp_modules_root(name: &str, with_lock: bool) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("deka_modules_env_{name}_{nanos}"));
+        fs::create_dir_all(root.join("php_modules")).expect("create php_modules");
+        if with_lock {
+            fs::write(root.join("deka.lock"), "{}").expect("write lockfile");
+        }
+        root
+    }
+
+    #[test]
+    fn resolve_modules_root_prefers_local_project_over_phpx_module_root() {
+        let local = make_temp_project("local_precedence");
+        let global = make_temp_modules_root("global_precedence", true);
+        let entry = local.join("app").join("main.phpx");
+        fs::create_dir_all(entry.parent().expect("entry parent")).expect("mkdir app");
+        fs::write(&entry, "import { foo } from 'a'\n").expect("write entry");
+
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::set_var("PHPX_MODULE_ROOT", &global);
+        }
+        let resolved = resolve_modules_root(entry.to_string_lossy().as_ref()).expect("resolve modules root");
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::remove_var("PHPX_MODULE_ROOT");
+        }
+
+        assert_eq!(resolved, local.join("php_modules"));
+        let _ = fs::remove_dir_all(local);
+        let _ = fs::remove_dir_all(global);
+    }
+
+    #[test]
+    fn resolve_modules_root_supports_global_only_mode() {
+        let global = make_temp_modules_root("global_only", true);
+        let outside = std::env::temp_dir().join("deka_no_local_project").join("entry.phpx");
+        fs::create_dir_all(outside.parent().expect("outside parent")).expect("mkdir outside");
+        fs::write(&outside, "import { foo } from 'a'\n").expect("write outside entry");
+
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::set_var("PHPX_MODULE_ROOT", &global);
+        }
+        let resolved = resolve_modules_root(outside.to_string_lossy().as_ref()).expect("resolve modules root");
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::remove_var("PHPX_MODULE_ROOT");
+        }
+
+        assert_eq!(resolved, global.join("php_modules"));
+        let _ = fs::remove_dir_all(global);
+        let _ = fs::remove_file(outside);
+    }
+
+    #[test]
+    fn global_only_mode_requires_global_lockfile() {
+        let global = make_temp_modules_root("global_missing_lock", false);
+        let outside = std::env::temp_dir().join("deka_missing_lock_project").join("entry.phpx");
+        fs::create_dir_all(outside.parent().expect("outside parent")).expect("mkdir outside");
+        fs::write(&outside, "import { foo } from 'a'\n").expect("write outside entry");
+
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::set_var("PHPX_MODULE_ROOT", &global);
+        }
+        let resolved = resolve_modules_root(outside.to_string_lossy().as_ref());
+        // SAFETY: test process controls env mutations in this isolated test.
+        unsafe {
+            std::env::remove_var("PHPX_MODULE_ROOT");
+        }
+
+        assert!(resolved.is_none(), "expected no modules root without global lock");
+        let _ = fs::remove_dir_all(global);
+        let _ = fs::remove_file(outside);
     }
 
     #[test]
@@ -1036,6 +1121,34 @@ mod tests {
                 .iter()
                 .any(|err| err.message.contains("Cyclic phpx import detected:")),
             "expected plain cycle error, got: {:?}",
+            errors
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn reports_missing_module_with_actionable_message() {
+        let root = make_temp_project("missing_module");
+        let entry = root.join("main.phpx");
+        fs::write(&entry, "import { foo } from 'does_not_exist'\n").expect("write entry");
+
+        let errors = validate_module_resolution(
+            &fs::read_to_string(&entry).expect("read entry"),
+            entry.to_string_lossy().as_ref(),
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|err| err.message.contains("Missing phpx module 'does_not_exist'")),
+            "expected missing module error, got: {:?}",
+            errors
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|err| err.help_text.contains("Ensure the module exists in php_modules") || err.help_text.contains("Available modules:")),
+            "expected actionable help text, got: {:?}",
             errors
         );
 
