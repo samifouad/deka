@@ -1,6 +1,8 @@
 use anyhow::{Context as AnyhowContext, Result, bail};
-use core::{CommandSpec, Context, ParamSpec, Registry};
+use core::{CommandSpec, Context, FlagSpec, ParamSpec, Registry};
 use serde_json::json;
+use std::io::{self, Write};
+use std::process::Command;
 use stdio;
 
 use crate::cli::auth_store;
@@ -48,6 +50,11 @@ pub fn register(registry: &mut Registry) {
         name: "--description",
         description: "package description",
     });
+    registry.add_flag(FlagSpec {
+        name: "--yes",
+        aliases: &["-y"],
+        description: "auto-apply publish guard-rail fixes",
+    });
 }
 
 pub fn cmd(context: &Context) {
@@ -72,27 +79,21 @@ fn build_request(context: &Context) -> Result<PublishRequest> {
     let params = &context.args.params;
     let profile = auth_store::load().ok().flatten();
 
-    let name = params
-        .get("--name")
-        .map(String::as_str)
-        .context("missing --name")?;
-    validate_scoped_package_name(name)?;
+    let mut name = params.get("--name").cloned().context("missing --name")?;
+    validate_scoped_package_name(&name)?;
 
-    let version = params
+    let mut version = params
         .get("--pkg-version")
         .or_else(|| params.get("--version"))
-        .map(String::as_str)
+        .cloned()
         .context("missing --pkg-version")?;
 
-    let repo = params
-        .get("--repo")
-        .map(String::as_str)
-        .context("missing --repo")?;
+    let mut repo = params.get("--repo").cloned().context("missing --repo")?;
 
-    let git_ref = params
+    let mut git_ref = params
         .get("--git-ref")
-        .map(String::as_str)
-        .unwrap_or("HEAD");
+        .cloned()
+        .unwrap_or_else(|| "HEAD".to_string());
 
     let token = params
         .get("--token")
@@ -113,14 +114,91 @@ fn build_request(context: &Context) -> Result<PublishRequest> {
         .cloned()
         .unwrap_or_else(|| "Published with deka publish".to_string());
 
+    let auto_apply =
+        context.args.flags.contains_key("--yes") || context.args.flags.contains_key("-y");
+    let local_manifest = load_local_deka_manifest();
+    let mut planned_fixes: Vec<String> = Vec::new();
+    let mut tag_to_create: Option<String> = None;
+
+    if let Some(manifest) = local_manifest.as_ref() {
+        if manifest.name != name {
+            planned_fixes.push(format!(
+                "align --name from `{}` to deka.json name `{}`",
+                name, manifest.name
+            ));
+            name = manifest.name.clone();
+        }
+        if manifest.version != version {
+            planned_fixes.push(format!(
+                "align --pkg-version from `{}` to deka.json version `{}`",
+                version, manifest.version
+            ));
+            version = manifest.version.clone();
+        }
+    }
+
+    let expected_repo = package_basename_from_scoped(&name)?;
+    if repo != expected_repo {
+        planned_fixes.push(format!(
+            "align --repo from `{}` to package repo name `{}`",
+            repo, expected_repo
+        ));
+        repo = expected_repo;
+    }
+
+    let expected_tag = format!("v{}", version);
+    if !local_git_ref_exists(&format!("refs/tags/{}^{{commit}}", expected_tag)) {
+        planned_fixes.push(format!(
+            "create missing git tag `{}` for version {}",
+            expected_tag, version
+        ));
+        tag_to_create = Some(expected_tag.clone());
+    }
+    if git_ref != expected_tag {
+        planned_fixes.push(format!(
+            "align --git-ref from `{}` to `{}`",
+            git_ref, expected_tag
+        ));
+        git_ref = expected_tag.clone();
+    }
+
+    if !planned_fixes.is_empty() {
+        stdio::warn_simple("publish guard rails detected fixable mismatches:");
+        for fix in &planned_fixes {
+            stdio::warn_simple(&format!("  - {}", fix));
+        }
+
+        let apply = if auto_apply {
+            true
+        } else {
+            prompt_yes_no("Apply these fixes now? [Y/n]: ", true).unwrap_or(false)
+        };
+
+        if apply {
+            if let Some(tag) = tag_to_create.as_ref() {
+                create_local_git_tag(tag)?;
+                stdio::log("publish", &format!("created local tag {}", tag));
+            }
+        } else {
+            stdio::warn_simple(
+                "continuing without auto-fixes; publish may be rejected by registry guard rails",
+            );
+        }
+    }
+
+    validate_scoped_package_name(&name)?;
+
     let endpoint = format!("{}/api/packages/publish", registry.trim_end_matches('/'));
-    let payload = json!({
+    let mut payload = json!({
         "name": name,
         "version": version,
         "repo": repo,
         "git_ref": git_ref,
         "description": description,
     });
+    if let Some(manifest) = local_manifest {
+        payload["manifest"] = manifest.raw;
+    }
 
     Ok(PublishRequest {
         endpoint,
@@ -301,4 +379,83 @@ fn validate_scoped_package_name(name: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn package_basename_from_scoped(name: &str) -> Result<String> {
+    validate_scoped_package_name(name)?;
+    let mut parts = name.split('/');
+    let _scope = parts.next().unwrap_or_default();
+    let pkg = parts.next().unwrap_or_default();
+    Ok(pkg.to_string())
+}
+
+#[derive(Clone)]
+struct LocalManifest {
+    name: String,
+    version: String,
+    raw: serde_json::Value,
+}
+
+fn load_local_deka_manifest() -> Option<LocalManifest> {
+    let cwd = std::env::current_dir().ok()?;
+    let raw = std::fs::read_to_string(cwd.join("deka.json")).ok()?;
+    let json = serde_json::from_str::<serde_json::Value>(&raw).ok()?;
+    let name = json.get("name")?.as_str()?.trim().to_string();
+    let version = json.get("version")?.as_str()?.trim().to_string();
+    if name.is_empty() || version.is_empty() {
+        return None;
+    }
+    Some(LocalManifest {
+        name,
+        version,
+        raw: json,
+    })
+}
+
+fn local_git_ref_exists(reference: &str) -> bool {
+    let output = Command::new("git")
+        .arg("rev-parse")
+        .arg("--verify")
+        .arg(reference)
+        .output();
+    match output {
+        Ok(out) => out.status.success(),
+        Err(_) => false,
+    }
+}
+
+fn create_local_git_tag(tag: &str) -> Result<()> {
+    let status = Command::new("git")
+        .arg("tag")
+        .arg(tag)
+        .status()
+        .with_context(|| format!("failed to run `git tag {}`", tag))?;
+    if !status.success() {
+        bail!(
+            "failed to create tag `{}`. create it manually with `git tag {}`",
+            tag,
+            tag
+        );
+    }
+    Ok(())
+}
+
+fn prompt_yes_no(prompt: &str, default_yes: bool) -> Option<bool> {
+    print!("{}", prompt);
+    let _ = io::stdout().flush();
+    let mut buf = String::new();
+    if io::stdin().read_line(&mut buf).is_err() {
+        return None;
+    }
+    let trimmed = buf.trim().to_ascii_lowercase();
+    if trimmed.is_empty() {
+        return Some(default_yes);
+    }
+    if trimmed == "y" || trimmed == "yes" {
+        return Some(true);
+    }
+    if trimmed == "n" || trimmed == "no" {
+        return Some(false);
+    }
+    Some(default_yes)
 }
