@@ -1,7 +1,7 @@
 use core::Registry;
-use wasm_cli as wasm_cmd;
 #[cfg(target_arch = "wasm32")]
 use serde::{Deserialize, Serialize};
+use wasm_cli as wasm_cmd;
 
 pub mod cli;
 
@@ -24,6 +24,7 @@ pub fn build_registry() -> Registry {
         cli::lsp::register(&mut registry);
         cli::pkg::register(&mut registry);
         cli::publish::register(&mut registry);
+        cli::release::register(&mut registry);
         cli::run::register(&mut registry);
         cli::serve::register(&mut registry);
         cli::self_cmd::register(&mut registry);
@@ -73,18 +74,27 @@ fn run_for_wasm(args: Vec<String>) -> WasmRunOutput {
             let output = stdio::end_capture();
             return WasmRunOutput { code: 0, output };
         }
-        if cmd.flags.contains_key("--help") || cmd.flags.contains_key("-H") || cmd.flags.contains_key("help") {
+        if cmd.flags.contains_key("--help")
+            || cmd.flags.contains_key("-H")
+            || cmd.flags.contains_key("help")
+        {
             cli::help(&registry);
             let output = stdio::end_capture();
             return WasmRunOutput { code: 0, output };
         }
-        if cmd.flags.contains_key("--version") || cmd.flags.contains_key("-V") || cmd.flags.contains_key("version") {
+        if cmd.flags.contains_key("--version")
+            || cmd.flags.contains_key("-V")
+            || cmd.flags.contains_key("version")
+        {
             let verbose = cmd.flags.contains_key("--verbose");
             cli::version(verbose);
             let output = stdio::end_capture();
             return WasmRunOutput { code: 0, output };
         }
-        if cmd.flags.contains_key("--update") || cmd.flags.contains_key("-U") || cmd.flags.contains_key("update") {
+        if cmd.flags.contains_key("--update")
+            || cmd.flags.contains_key("-U")
+            || cmd.flags.contains_key("update")
+        {
             cli::update();
             let output = stdio::end_capture();
             return WasmRunOutput { code: 0, output };
@@ -94,24 +104,22 @@ fn run_for_wasm(args: Vec<String>) -> WasmRunOutput {
     let env = core::EnvContext::load();
     let handler = match core::HandlerContext::from_env(cmd) {
         Ok(handler) => handler,
-        Err(_) => {
-            match core::resolve_handler_path(".") {
-                Ok(resolved) => {
-                    let static_config = core::StaticServeConfig::load(&resolved.directory);
-                    core::HandlerContext {
-                        input: ".".to_string(),
-                        resolved,
-                        static_config,
-                        serve_config_path: None,
-                    }
-                }
-                Err(message) => {
-                    cli::error(Some(message.as_str()));
-                    let output = stdio::end_capture();
-                    return WasmRunOutput { code: 1, output };
+        Err(_) => match core::resolve_handler_path(".") {
+            Ok(resolved) => {
+                let static_config = core::StaticServeConfig::load(&resolved.directory);
+                core::HandlerContext {
+                    input: ".".to_string(),
+                    resolved,
+                    static_config,
+                    serve_config_path: None,
                 }
             }
-        }
+            Err(message) => {
+                cli::error(Some(message.as_str()));
+                let output = stdio::end_capture();
+                return WasmRunOutput { code: 1, output };
+            }
+        },
     };
 
     let context = core::Context {
@@ -184,9 +192,8 @@ pub extern "C" fn deka_wasm_free(ptr: u32, size: u32) {
 pub extern "C" fn deka_wasm_run_json(ptr: u32, len: u32) -> u64 {
     let input_bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, len as usize) };
     let input_str = std::str::from_utf8(input_bytes).unwrap_or("{\"args\":[]}");
-    let input: WasmRunInput = serde_json::from_str(input_str).unwrap_or(WasmRunInput {
-        args: Vec::new(),
-    });
+    let input: WasmRunInput =
+        serde_json::from_str(input_str).unwrap_or(WasmRunInput { args: Vec::new() });
 
     let output = run_for_wasm(input.args);
     let output_bytes = serde_json::to_vec(&output).unwrap_or_else(|_| {

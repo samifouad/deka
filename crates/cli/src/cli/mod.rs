@@ -26,6 +26,8 @@ pub mod pkg;
 #[cfg(feature = "native")]
 pub mod publish;
 #[cfg(feature = "native")]
+pub mod release;
+#[cfg(feature = "native")]
 pub mod run;
 #[cfg(feature = "native")]
 pub mod self_cmd;

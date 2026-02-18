@@ -5,7 +5,7 @@ const COMMAND: CommandSpec = CommandSpec {
     category: "package",
     summary: "package operations",
     aliases: &[],
-    subcommands: &[INSTALL_SUBCOMMAND, PUBLISH_SUBCOMMAND],
+    subcommands: &[INSTALL_SUBCOMMAND, PUBLISH_SUBCOMMAND, RELEASE_SUBCOMMAND],
     handler: cmd,
 };
 
@@ -23,10 +23,17 @@ const PUBLISH_SUBCOMMAND: SubcommandSpec = SubcommandSpec {
     handler: crate::cli::publish::cmd,
 };
 
+const RELEASE_SUBCOMMAND: SubcommandSpec = SubcommandSpec {
+    name: "release",
+    summary: "bump, tag, push, and publish package",
+    aliases: &[],
+    handler: crate::cli::release::cmd,
+};
+
 pub fn register(registry: &mut Registry) {
     registry.add_command(COMMAND);
 }
 
 fn cmd(_context: &Context) {
-    stdio::log("pkg", "available subcommands: install, publish");
+    stdio::log("pkg", "available subcommands: install, publish, release");
 }
