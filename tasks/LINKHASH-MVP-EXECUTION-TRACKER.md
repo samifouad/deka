@@ -29,15 +29,15 @@ Ship four MVP blocks for Linkhash with commit-per-item execution.
 - [x] Commit: `feat(linkhash): add mvp issues and pull requests`
 
 ## Item 4: Adwa Integration
-- [ ] Add preview URL resolver (`/@user/repo/ref`) -> resolved commit.
-- [ ] Add Preview button in primary UI and Adwa launch flow.
-- [ ] Add Fork flow (copy repo to user account + repo naming).
-- [ ] Add post-fork instructions + one-click open in Adwa editor.
-- [ ] Add audit events, tests, and docs.
-- [ ] Commit: `feat(linkhash): add adwa preview and fork integration`
+- [x] Add preview URL resolver (`/@user/repo/ref`) -> resolved commit.
+- [x] Add Preview button in primary UI and Adwa launch flow.
+- [x] Add Fork flow (copy repo to user account + repo naming).
+- [x] Add post-fork instructions + one-click open in Adwa editor.
+- [x] Add audit events, tests, and docs.
+- [x] Commit: `feat(linkhash): add adwa preview and fork integration`
 
 ## Global Done Criteria
-- [ ] All 4 items completed.
-- [ ] Commit per item landed.
-- [ ] APIs and UI are version-aware where required.
-- [ ] Error messages are actionable for AI-agent workflows.
+- [x] All 4 items completed.
+- [x] Commit per item landed.
+- [x] APIs and UI are version-aware where required.
+- [x] Error messages are actionable for AI-agent workflows.

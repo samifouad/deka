@@ -144,6 +144,8 @@ SSR routes:
 
 - `/playground` package inspector (resolve version + inspect install/artifact metadata)
 - `/package/{org}/{name}` package detail page
+- `/@{owner}/{repo}/{ref}` preview resolver page (maps ref to commit for Adwa preview)
+- `/fork/result` post-fork page with clone instructions + editor links
 - `/org/{handle}` organization profile page
 
 Package detail docs:
@@ -153,6 +155,8 @@ Package detail docs:
 - Package pages use `tree`/`blob` APIs for file explorer + source preview when available.
 - Package pages now render issue/PR list/detail/create/comment panels against `linkhash-git` repo APIs.
 - Set `LINKHASH_GIT_TOKEN` (or `LINKHASH_GIT_API_TOKEN`) so Linkhash can call authenticated repo APIs.
+- Package pages include `Preview HEAD in Adwa` and fork controls.
+- Set `LINKHASH_ADWA_BASE_URL` (default `http://localhost:8600`) for Adwa preview/editor links.
 
 Role model:
 

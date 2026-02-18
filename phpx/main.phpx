@@ -1675,6 +1675,57 @@ function createRemoteRepoPullComment($org, $name, $number, $body) {
   ])
 }
 
+function fetchRepoRefResolution($owner, $repo, $ref = 'HEAD') {
+  $org = normalizeHandleName($owner)
+  $name = normalizePackageName($repo)
+  $targetRef = trim('' . $ref)
+  if ($targetRef === '') {
+    $targetRef = 'HEAD'
+  }
+  if ($org === '' || $name === '') {
+    return [ 'ok' => false, 'error' => 'invalid preview target' ]
+  }
+  return fetchRemoteGitJson('GET', '/api/public/repos/' . rawurlencode($org) . '/' . rawurlencode($name) . '/resolve?ref=' . rawurlencode($targetRef))
+}
+
+function createRemoteRepoFork($sourceOwner, $sourceRepo, $targetRepo) {
+  $owner = normalizeHandleName($sourceOwner)
+  $repo = normalizePackageName($sourceRepo)
+  $target = normalizePackageName($targetRepo)
+  if ($owner === '' || $repo === '' || $target === '') {
+    return [ 'ok' => false, 'error' => 'invalid fork target' ]
+  }
+  return fetchRemoteGitJson('POST', '/api/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/fork', [
+    'target_repo' => $target
+  ])
+}
+
+function adwaBaseUrl() {
+  $base = trim('' . envValue('LINKHASH_ADWA_BASE_URL', 'http://localhost:8600'))
+  if ($base === '') {
+    return 'http://localhost:8600'
+  }
+  return rtrim($base, '/')
+}
+
+function adwaPreviewUrl($owner, $repo, $commit) {
+  return adwaBaseUrl()
+    . '/open?mode=preview&owner=' . rawurlencode(normalizeHandleName($owner))
+    . '&repo=' . rawurlencode(normalizePackageName($repo))
+    . '&commit=' . rawurlencode(trim('' . $commit))
+}
+
+function adwaEditUrl($owner, $repo, $commit = '') {
+  $url = adwaBaseUrl()
+    . '/open?mode=edit&owner=' . rawurlencode(normalizeHandleName($owner))
+    . '&repo=' . rawurlencode(normalizePackageName($repo))
+  $commitId = trim('' . $commit)
+  if ($commitId !== '') {
+    $url = $url . '&commit=' . rawurlencode($commitId)
+  }
+  return $url
+}
+
 function oauthConfig() {
   $clientId = '' . envValue('LINKHASH_OAUTH_CLIENT_ID', 'linkhash-dev')
   $clientSecret = '' . envValue('LINKHASH_OAUTH_CLIENT_SECRET', '')
@@ -4733,6 +4784,25 @@ function parseAliasPackagePath($path) {
   ]
 }
 
+function parsePreviewRepoPath($path) {
+  $raw = '' . $path
+  if (!strStartsWith($raw, '/@')) {
+    return null
+  }
+  $trimmed = trim($raw, '/')
+  $parts = explode('/', $trimmed)
+  if (count($parts) < 3) {
+    return null
+  }
+  $owner = normalizeHandleName(substr($parts[0], 1))
+  $repo = normalizePackageName($parts[1])
+  $ref = trim('' . $parts[2])
+  if ($owner === '' || $repo === '' || $ref === '') {
+    return null
+  }
+  return [ 'owner' => $owner, 'repo' => $repo, 'ref' => $ref ]
+}
+
 function findVersionInRows($versions, $targetVersion) {
   if (!is_array($versions)) {
     return null
@@ -4900,6 +4970,55 @@ function apiRepoPullCommentCreate() {
       repoActionRedirect($org, $name, 'pull_comment_created', 'Pull request comment created.', 'pull', $number)
     } else {
       repoActionRedirect($org, $name, 'pull_comment_failed', '' . rowValue($res, 'error', 'Pull request comment failed'), 'pull', $number)
+    }
+    return
+  }
+  header('Content-Type: application/json')
+  echo jsonReply($res)
+}
+
+function apiRepoFork() {
+  $method = requireMethod('POST')
+  if (!$method['ok']) {
+    header('Content-Type: application/json')
+    echo jsonReply($method)
+    return
+  }
+  $data = requestData()
+  $sourceOwner = '' . rowValue($data, 'source_owner', rowValue($data, 'org', ''))
+  $sourceRepo = '' . rowValue($data, 'source_repo', rowValue($data, 'name', ''))
+  $targetRepo = '' . rowValue($data, 'target_repo', ($sourceRepo === '' ? '' : ($sourceRepo . '-fork')))
+  $res = createRemoteRepoFork($sourceOwner, $sourceRepo, $targetRepo)
+  if (wantsHtmlResponse()) {
+    if (rowValue($res, 'ok', false)) {
+      $payload = rowValue($res, 'value', [])
+      $targetOwner = '' . rowValue($payload, 'targetOwner', $sourceOwner)
+      $targetName = '' . rowValue($payload, 'targetRepo', $targetRepo)
+      $commit = '' . rowValue($payload, 'commit', '')
+      auditEvent(
+        'repo.fork',
+        [ 'ok' => true, 'kind' => 'service-token' ],
+        'ok',
+        'repo',
+        '@' . $targetOwner . '/' . $targetName,
+        [ 'sourceOwner' => $sourceOwner, 'sourceRepo' => $sourceRepo, 'targetRepo' => $targetName, 'commit' => $commit ]
+      )
+      $url = '/fork/result?source_owner=' . rawurlencode($sourceOwner)
+        . '&source_repo=' . rawurlencode($sourceRepo)
+        . '&target_owner=' . rawurlencode($targetOwner)
+        . '&target_repo=' . rawurlencode($targetName)
+        . '&commit=' . rawurlencode($commit)
+      redirectTo($url)
+    } else {
+      auditEvent(
+        'repo.fork',
+        [ 'ok' => false, 'kind' => 'service-token' ],
+        'error',
+        'repo',
+        '@' . $sourceOwner . '/' . $sourceRepo,
+        [ 'targetRepo' => $targetRepo, 'error' => rowValue($res, 'error', 'fork failed') ]
+      )
+      repoActionRedirect($sourceOwner, $sourceRepo, 'fork_failed', '' . rowValue($res, 'error', 'fork failed'))
     }
     return
   }
@@ -5090,6 +5209,8 @@ function PackageDetailPage($props) {
   $repoAction = '' . rowValue($props, 'repoAction', '')
   $repoMessage = '' . rowValue($props, 'repoMessage', '')
   $packageCoord = '@' . rowValue($props, 'org', '') . '/' . rowValue($pkg, 'name', '')
+  $previewRoute = '/@' . rowValue($props, 'org', '') . '/' . rowValue($pkg, 'name', '') . '/HEAD'
+  $forkDefaultRepo = '' . rowValue($pkg, 'name', '') . '-fork'
   $readmeText = versionReadmeText($activeVersion, $packageCoord, $activeVersionName)
   $items = []
   foreach ($versions as $v) {
@@ -5206,6 +5327,22 @@ function PackageDetailPage($props) {
         <span class="rounded-md bg-gray-100 px-2 py-1">{'downloads: ' . rowValue($pkg, 'downloadCount', 0)}</span>
         <span class="rounded-md bg-gray-100 px-2 py-1">{'visibility: ' . rowValue($pkg, 'visibility', 'public')}</span>
       </div>
+      <section class="mt-6 rounded-xl border border-gray-200 p-4">
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-lg font-semibold text-gray-900">Preview + Fork</h3>
+          <span class="rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600">{'Adwa base: ' . adwaBaseUrl()}</span>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <a class="rounded bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href={$previewRoute}>Preview HEAD in Adwa</a>
+        </div>
+        <form class="mt-3 grid gap-2 md:grid-cols-[1fr_auto]" method="POST" action="/api/repo/fork">
+          <input type="hidden" name="source_owner" value={rowValue($props, 'org', '')} />
+          <input type="hidden" name="source_repo" value={rowValue($pkg, 'name', '')} />
+          <input class="rounded border border-gray-300 px-3 py-2 text-sm" type="text" name="target_repo" value={$forkDefaultRepo} />
+          <button class="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700" type="submit">Fork to my account</button>
+        </form>
+        <p class="mt-2 text-xs text-gray-500">Fork/create actions require `LINKHASH_GIT_TOKEN` configured on Linkhash server.</p>
+      </section>
       <div class="mt-6">
         <h3 class="text-lg font-semibold text-gray-900">Versions</h3>
         <ul class="mt-3 grid gap-3">
@@ -5324,6 +5461,64 @@ function PackageDetailPage($props) {
         </div>
         <pre class="mt-3 max-h-[520px] overflow-auto rounded-lg bg-gray-50 p-4 text-xs leading-6 text-gray-700 whitespace-pre-wrap">{'' . $readmeText}</pre>
       </section>
+    </section>
+  </Layout>
+}
+
+function PreviewRoutePage($props) {
+  $owner = '' . rowValue($props, 'owner', '')
+  $repo = '' . rowValue($props, 'repo', '')
+  $ref = '' . rowValue($props, 'ref', 'HEAD')
+  $ok = rowValue($props, 'ok', false)
+  $error = '' . rowValue($props, 'error', '')
+  $commit = '' . rowValue($props, 'commit', '')
+  $shortCommit = '' . rowValue($props, 'shortCommit', '')
+  $previewUrl = adwaPreviewUrl($owner, $repo, $commit)
+  $editUrl = adwaEditUrl($owner, $repo, $commit)
+
+  return <Layout>
+    <section class="rounded-2xl bg-white p-8 shadow-sm">
+      <div class="text-sm font-semibold uppercase tracking-wide text-blue-600">Preview</div>
+      <h1 class="mt-2 text-2xl font-bold text-gray-900">{'@' . $owner . '/' . $repo . ' @ ' . $ref}</h1>
+      {!$ok ? <div class="mt-4 rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{'Resolve failed: ' . ($error === '' ? 'unknown error' : $error)}</div> : null}
+      {$ok ? <div class="mt-4 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{'Resolved commit: ' . ($shortCommit === '' ? $commit : $shortCommit)}</div> : null}
+      {$ok ? <div class="mt-4 flex flex-wrap gap-2">
+        <a class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href={$previewUrl}>Open preview in Adwa</a>
+        <a class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" href={$editUrl}>Open editor in Adwa</a>
+      </div> : null}
+      <div class="mt-4 text-xs text-gray-500">
+        {'Preview URL: linkha.sh/@' . $owner . '/' . $repo . '/' . ($ref === '' ? 'HEAD' : $ref)}
+      </div>
+    </section>
+  </Layout>
+}
+
+function ForkResultPage($props) {
+  $sourceOwner = '' . rowValue($props, 'sourceOwner', '')
+  $sourceRepo = '' . rowValue($props, 'sourceRepo', '')
+  $targetOwner = '' . rowValue($props, 'targetOwner', '')
+  $targetRepo = '' . rowValue($props, 'targetRepo', '')
+  $commit = '' . rowValue($props, 'commit', '')
+  $short = strlen($commit) > 12 ? substr($commit, 0, 12) : $commit
+  $cloneUrl = 'http://localhost:8508/' . $targetOwner . '/' . $targetRepo . '.git'
+  $previewUrl = '/@' . $targetOwner . '/' . $targetRepo . '/HEAD'
+  $adwaUrl = adwaEditUrl($targetOwner, $targetRepo, $commit)
+
+  return <Layout>
+    <section class="rounded-2xl bg-white p-8 shadow-sm">
+      <div class="text-sm font-semibold uppercase tracking-wide text-blue-600">Fork Complete</div>
+      <h1 class="mt-2 text-2xl font-bold text-gray-900">{'@' . $targetOwner . '/' . $targetRepo}</h1>
+      <p class="mt-2 text-sm text-gray-600">{'Forked from @' . $sourceOwner . '/' . $sourceRepo}</p>
+      {$short !== '' ? <div class="mt-3 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">{'HEAD commit: ' . $short}</div> : null}
+      <div class="mt-4 grid gap-2 text-sm text-gray-700">
+        <div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 font-mono">{'git clone ' . $cloneUrl}</div>
+        <div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 font-mono">{'cd ' . $targetRepo . ' && git remote add upstream http://localhost:8508/' . $sourceOwner . '/' . $sourceRepo . '.git'}</div>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <a class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href={$previewUrl}>Preview fork</a>
+        <a class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" href={$adwaUrl}>Open in Adwa editor</a>
+        <a class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" href={'/package/' . $targetOwner . '/' . $targetRepo}>Open package page</a>
+      </div>
     </section>
   </Layout>
 }
@@ -5819,6 +6014,11 @@ if ($path === '/api/repo/pulls/comment') {
   return
 }
 
+if ($path === '/api/repo/fork') {
+  apiRepoFork()
+  return
+}
+
 if (strpos($path, '/api/artifacts/') === 0) {
   $canonical = substr($path, strlen('/api/artifacts/'))
   apiArtifactDownload($canonical)
@@ -5877,24 +6077,51 @@ if (strpos($path, '/package/') === 0) {
   $detail = fetchPackageDetail($org, $pkg, $auth)
   $node = <PackageDetailPage ok={$detail['ok']} org={rowValue($detail, 'org', '')} package={rowValue($detail, 'package', [])} versions={rowValue($detail, 'versions', [])} docsSymbols={rowValue($detail, 'docsSymbols', [])} docsError={rowValue($detail, 'docsError', '')} treeEntries={rowValue($detail, 'treeEntries', [])} treeError={rowValue($detail, 'treeError', '')} selectedFile={rowValue($detail, 'selectedFile', '')} selectedFileContent={rowValue($detail, 'selectedFileContent', '')} selectedFileError={rowValue($detail, 'selectedFileError', '')} error={rowValue($detail, 'error', '')} />
 } else if (strStartsWith($path, '/@')) {
-  $alias = parseAliasPackagePath($path)
-  if ($alias === null) {
-    $node = <PackageDetailPage ok={false} org={''} package={[]} versions={[]} docsSymbols={[]} docsError={''} treeEntries={[]} treeError={''} selectedFile={''} selectedFileContent={''} selectedFileError={''} error={'invalid package route'} />
-  } else {
-    $auth = authWithScope(1)
-    $detail = fetchPackageDetail($alias['org'], $alias['name'], $auth)
-    if ($detail['ok'] && ('' . $alias['version']) !== '') {
-      $picked = findVersionInRows(rowValue($detail, 'versions', []), $alias['version'])
-      if ($picked === null) {
-        $detail = [ 'ok' => false, 'error' => 'version not found' ]
-      } else {
-        $pkgDetail = rowValue($detail, 'package', [])
-        $pkgDetail['latestVersion'] = '' . $alias['version']
-        $detail['package'] = $pkgDetail
-        $detail['versions'] = [$picked]
-      }
+  $preview = parsePreviewRepoPath($path)
+  if ($preview !== null) {
+    $resolved = fetchRepoRefResolution(rowValue($preview, 'owner', ''), rowValue($preview, 'repo', ''), rowValue($preview, 'ref', 'HEAD'))
+    if (rowValue($resolved, 'ok', false)) {
+      $value = rowValue($resolved, 'value', [])
+      auditEvent(
+        'repo.preview.resolve',
+        [ 'ok' => true, 'kind' => 'anonymous' ],
+        'ok',
+        'repo',
+        '@' . rowValue($preview, 'owner', '') . '/' . rowValue($preview, 'repo', ''),
+        [ 'requestedRef' => rowValue($preview, 'ref', ''), 'commit' => rowValue($value, 'commit', '') ]
+      )
+      $node = <PreviewRoutePage ok={true} owner={rowValue($preview, 'owner', '')} repo={rowValue($preview, 'repo', '')} ref={rowValue($preview, 'ref', '')} commit={rowValue($value, 'commit', '')} shortCommit={rowValue($value, 'shortCommit', '')} />
+    } else {
+      auditEvent(
+        'repo.preview.resolve',
+        [ 'ok' => false, 'kind' => 'anonymous' ],
+        'error',
+        'repo',
+        '@' . rowValue($preview, 'owner', '') . '/' . rowValue($preview, 'repo', ''),
+        [ 'requestedRef' => rowValue($preview, 'ref', ''), 'error' => rowValue($resolved, 'error', 'resolve failed') ]
+      )
+      $node = <PreviewRoutePage ok={false} owner={rowValue($preview, 'owner', '')} repo={rowValue($preview, 'repo', '')} ref={rowValue($preview, 'ref', '')} error={rowValue($resolved, 'error', 'resolve failed')} />
     }
-    $node = <PackageDetailPage ok={rowValue($detail, 'ok', false)} org={rowValue($detail, 'org', '')} package={rowValue($detail, 'package', [])} versions={rowValue($detail, 'versions', [])} docsSymbols={rowValue($detail, 'docsSymbols', [])} docsError={rowValue($detail, 'docsError', '')} treeEntries={rowValue($detail, 'treeEntries', [])} treeError={rowValue($detail, 'treeError', '')} selectedFile={rowValue($detail, 'selectedFile', '')} selectedFileContent={rowValue($detail, 'selectedFileContent', '')} selectedFileError={rowValue($detail, 'selectedFileError', '')} error={rowValue($detail, 'error', '')} />
+  } else {
+    $alias = parseAliasPackagePath($path)
+    if ($alias === null) {
+      $node = <PackageDetailPage ok={false} org={''} package={[]} versions={[]} docsSymbols={[]} docsError={''} treeEntries={[]} treeError={''} selectedFile={''} selectedFileContent={''} selectedFileError={''} error={'invalid package route'} />
+    } else {
+      $auth = authWithScope(1)
+      $detail = fetchPackageDetail($alias['org'], $alias['name'], $auth)
+      if ($detail['ok'] && ('' . $alias['version']) !== '') {
+        $picked = findVersionInRows(rowValue($detail, 'versions', []), $alias['version'])
+        if ($picked === null) {
+          $detail = [ 'ok' => false, 'error' => 'version not found' ]
+        } else {
+          $pkgDetail = rowValue($detail, 'package', [])
+          $pkgDetail['latestVersion'] = '' . $alias['version']
+          $detail['package'] = $pkgDetail
+          $detail['versions'] = [$picked]
+        }
+      }
+      $node = <PackageDetailPage ok={rowValue($detail, 'ok', false)} org={rowValue($detail, 'org', '')} package={rowValue($detail, 'package', [])} versions={rowValue($detail, 'versions', [])} docsSymbols={rowValue($detail, 'docsSymbols', [])} docsError={rowValue($detail, 'docsError', '')} treeEntries={rowValue($detail, 'treeEntries', [])} treeError={rowValue($detail, 'treeError', '')} selectedFile={rowValue($detail, 'selectedFile', '')} selectedFileContent={rowValue($detail, 'selectedFileContent', '')} selectedFileError={rowValue($detail, 'selectedFileError', '')} error={rowValue($detail, 'error', '')} />
+    }
   }
 } else if (strStartsWith($path, '/lh_')) {
   $cid = substr($path, 1)
@@ -5979,6 +6206,14 @@ if (strpos($path, '/package/') === 0) {
     }
   }
   $node = <PlaygroundPage org={$org} name={$pkg} version={$requestedVersion} error={$error} resolved={$resolved} install={$install} artifactUrl={$artifactUrl} versions={$versions} />
+} else if ($path === '/fork/result') {
+  $node = <ForkResultPage
+    sourceOwner={'' . queryValue('source_owner', '')}
+    sourceRepo={'' . queryValue('source_repo', '')}
+    targetOwner={'' . queryValue('target_owner', '')}
+    targetRepo={'' . queryValue('target_repo', '')}
+    commit={'' . queryValue('commit', '')}
+  />
 } else if ($path === '/account') {
   $auth = authWithScope(1)
   if (!$auth['ok']) {
