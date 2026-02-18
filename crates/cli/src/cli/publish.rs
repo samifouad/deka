@@ -178,6 +178,44 @@ async fn run_publish(request: PublishRequest) -> Result<()> {
                 stdio::log("publish", &format!("reason: {}", reason));
             }
         }
+        if let Some(issues) = preflight.get("issues").and_then(|v| v.as_array()) {
+            for issue in issues {
+                let code = issue
+                    .get("code")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("API_ISSUE");
+                let symbol = issue
+                    .get("symbol")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("<unknown>");
+                let message = issue
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("api issue");
+                let old_source = issue
+                    .get("old_source")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("-");
+                let new_source = issue
+                    .get("new_source")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("-");
+                stdio::warn_simple(&format!(
+                    "{} {}: {} (old: {}, new: {})",
+                    code, symbol, message, old_source, new_source
+                ));
+            }
+        }
+        let allowed = preflight
+            .get("allowed")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        if !allowed {
+            bail!(
+                "publish blocked by semver gate: requested version is below required minimum {}",
+                minimum
+            );
+        }
     }
 
     let response = client
