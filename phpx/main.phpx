@@ -3,6 +3,7 @@ import { jsx, jsxs } from 'component/core'
 import { renderPartialJson, isPartialRequest, Link, Hydration } from 'component/dom'
 import { json_encode as encodeJson } from 'encoding/json'
 import { PreviewRouteSection, ForkResultSection } from '@/src/pages/repo_flows'
+import { buildAdwaBaseUrl, buildAdwaPreviewUrl, buildAdwaEditUrl } from '@/src/services/adwa'
 import { stats } from 'db'
 import { query as pgQuery, exec as pgExec } from 'db/postgres'
 import { connect as sqliteConnect, query as sqliteQuery, query_one as sqliteQueryOne, exec as sqliteExec, close as sqliteClose } from 'db/sqlite'
@@ -1702,29 +1703,15 @@ function createRemoteRepoFork($sourceOwner, $sourceRepo, $targetRepo) {
 }
 
 function adwaBaseUrl() {
-  $base = trim('' . envValue('LINKHASH_ADWA_BASE_URL', 'http://localhost:8600'))
-  if ($base === '') {
-    return 'http://localhost:8600'
-  }
-  return rtrim($base, '/')
+  return buildAdwaBaseUrl(envValue('LINKHASH_ADWA_BASE_URL', 'http://localhost:8600'))
 }
 
 function adwaPreviewUrl($owner, $repo, $commit) {
-  return adwaBaseUrl()
-    . '/open?mode=preview&owner=' . rawurlencode(normalizeHandleName($owner))
-    . '&repo=' . rawurlencode(normalizePackageName($repo))
-    . '&commit=' . rawurlencode(trim('' . $commit))
+  return buildAdwaPreviewUrl(adwaBaseUrl(), normalizeHandleName($owner), normalizePackageName($repo), $commit)
 }
 
 function adwaEditUrl($owner, $repo, $commit = '') {
-  $url = adwaBaseUrl()
-    . '/open?mode=edit&owner=' . rawurlencode(normalizeHandleName($owner))
-    . '&repo=' . rawurlencode(normalizePackageName($repo))
-  $commitId = trim('' . $commit)
-  if ($commitId !== '') {
-    $url = $url . '&commit=' . rawurlencode($commitId)
-  }
-  return $url
+  return buildAdwaEditUrl(adwaBaseUrl(), normalizeHandleName($owner), normalizePackageName($repo), $commit)
 }
 
 function oauthConfig() {
