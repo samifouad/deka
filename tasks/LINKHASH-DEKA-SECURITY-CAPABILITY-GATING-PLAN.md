@@ -133,65 +133,65 @@ At package preflight/publish:
 ## Execution Plan
 
 ### Task 1: Policy & Schema
-- [ ] Define canonical runtime operation-to-capability matrix as single source of truth.
-- [ ] Add `unknown` bucket for unmapped operations and test for duplicate op ids.
+- [x] Define canonical runtime operation-to-capability matrix as single source of truth.
+- [x] Add `unknown` bucket for unmapped operations and test for duplicate op ids.
 - [ ] Commit: `feat(security): add canonical operation capability matrix`
 
 ### Task 2: Policy & Schema
-- [ ] Define `deka.security` schema + parser in CLI/runtime shared code.
-- [ ] Add validation + diagnostics for invalid policy entries.
+- [x] Define `deka.security` schema + parser in CLI/runtime shared code.
+- [x] Add validation + diagnostics for invalid policy entries.
 - [ ] Commit: `feat(security): add deka.security policy schema and parser`
 
 ### Task 3: CLI Flags
-- [ ] Add allow/deny security flags to `deka run`, `deka dev`, `deka serve`, and relevant test flows.
-- [ ] Implement precedence merge (config + flags + defaults).
-- [ ] Add `--no-prompt` plumbing.
+- [x] Add allow/deny security flags to `deka run`, `deka dev`, `deka serve`, and relevant test flows.
+- [x] Implement precedence merge (config + flags + defaults).
+- [x] Add `--no-prompt` plumbing.
 - [ ] Commit: `feat(cli): add capability allow/deny flags and policy merge`
 
 ### Task 4: Runtime Capability Gates
-- [ ] Add centralized capability gate checks in runtime op boundaries (fs/net/env/db/run/dynamic).
-- [ ] Return structured security errors with code + target + source location.
+- [x] Add centralized capability gate checks in runtime op boundaries (fs/net/env/db/run/dynamic).
+- [x] Return structured security errors with code + target + source location.
 - [ ] Commit: `feat(runtime): enforce capability gates at operation boundaries`
 
 ### Task 5: Subprocess Hardening
-- [ ] Deny subprocess spawn by default.
-- [ ] Implement executable allowlist matching for `--allow-run=<list>`.
-- [ ] Add warning/error path for broad `--allow-run`.
+- [x] Deny subprocess spawn by default.
+- [x] Implement executable allowlist matching for `--allow-run=<list>`.
+- [x] Add warning/error path for broad `--allow-run`.
 - [ ] Commit: `feat(runtime): enforce subprocess allowlist and escalation warnings`
 
 ### Task 6: Dynamic Execution Gate
-- [ ] Block dynamic execution by default.
-- [ ] Add explicit `dynamic` capability enable path.
-- [ ] Add tests for denied and allowed paths.
+- [x] Block dynamic execution by default.
+- [x] Add explicit `dynamic` capability enable path.
+- [x] Add tests for denied and allowed paths.
 - [ ] Commit: `feat(runtime): gate dynamic execution behind explicit capability`
 
 ### Task 7: Prompt + Non-TTY Behavior
-- [ ] Implement interactive prompt flow for undecided requests.
-- [ ] Disable prompt on non-TTY or `--no-prompt`.
-- [ ] Add deterministic deny behavior with remediation text.
+- [x] Implement interactive prompt flow for undecided requests.
+- [x] Disable prompt on non-TTY or `--no-prompt`.
+- [x] Add deterministic deny behavior with remediation text.
 - [ ] Commit: `feat(security): add prompt workflow and non-tty deny mode`
 
 ### Task 8: Package Preflight Integration
-- [ ] Add static capability extraction at publish preflight.
-- [ ] Enforce declaration for `run` and `dynamic`.
-- [ ] Store capability metadata in release records.
+- [x] Add static capability extraction at publish preflight.
+- [x] Enforce declaration for `run` and `dynamic`.
+- [x] Store capability metadata in release records.
 - [ ] Commit: `feat(linkhash): enforce capability declarations at publish preflight`
 
 ### Task 9: Install-Time Policy Check
-- [ ] Validate package declared capabilities against project policy during `deka add/install`.
-- [ ] Block denied capabilities unless user overrides explicitly.
+- [x] Validate package declared capabilities against project policy during `deka add/install`.
+- [x] Block denied capabilities unless user overrides explicitly.
 - [ ] Commit: `feat(pm): enforce project security policy during install`
 
 ### Task 10: Tests
-- [ ] Add fixtures for each capability group and deny-precedence cases.
-- [ ] Add subprocess and dynamic-exec regression tests.
-- [ ] Add CLI integration tests for config+flag merge behavior.
+- [x] Add fixtures for each capability group and deny-precedence cases.
+- [x] Add subprocess and dynamic-exec regression tests.
+- [x] Add CLI integration tests for config+flag merge behavior.
 - [ ] Commit: `test(security): add capability gating coverage`
 
 ### Task 11: Docs
-- [ ] Document `deka.security` schema and examples.
-- [ ] Document subprocess escalation model and recommended `--allow-run=<list>` usage.
-- [ ] Document dynamic execution default deny.
+- [x] Document `deka.security` schema and examples.
+- [x] Document subprocess escalation model and recommended `--allow-run=<list>` usage.
+- [x] Document dynamic execution default deny.
 - [ ] Commit: `docs(security): document capability gating model and run/dynamic risks`
 
 ## Definition of Done
