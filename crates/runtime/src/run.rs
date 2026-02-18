@@ -1,6 +1,9 @@
 use std::path::Path as FsPath;
 use std::sync::Arc;
 
+use crate::env::init_env;
+use crate::extensions::extensions_for_mode;
+use crate::security::resolve_security_policy;
 use core::Context;
 use engine::{RuntimeEngine, config as runtime_config, set_engine};
 use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
@@ -15,8 +18,6 @@ use runtime_core::modules::ensure_phpx_module_root_env_with;
 use runtime_core::php_pipeline::build_run_handler_code;
 use runtime_core::process::parse_exit_code;
 use runtime_core::validation::validate_phpx_handler_with;
-use crate::env::init_env;
-use crate::extensions::extensions_for_mode;
 
 pub fn run(context: &Context) {
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -33,6 +34,21 @@ pub fn run(context: &Context) {
 async fn run_async(context: &Context) -> Result<(), String> {
     init_env();
     let platform = ServerPlatform::default();
+    let resolved_security = resolve_security_policy(context)?;
+    for warning in resolved_security.warnings {
+        eprintln!("[security] warning: {}", warning);
+    }
+    let _ = platform
+        .env()
+        .set("DEKA_SECURITY_POLICY", &resolved_security.policy_json);
+    let _ = platform.env().set(
+        "DEKA_SECURITY_NO_PROMPT",
+        if resolved_security.prompt_enabled {
+            "0"
+        } else {
+            "1"
+        },
+    );
     let env_get = |key: &str| platform.env().get(key);
     let mut env_set = |key: &str, value: &str| {
         let _ = platform.env().set(key, value);
@@ -50,11 +66,10 @@ async fn run_async(context: &Context) -> Result<(), String> {
     };
     set_handler_path_with(&handler_path, &env_get, &mut env_set);
 
-    let normalized = normalize_handler_path_with(
-        &handler_path,
-        &|| platform.fs().cwd().ok(),
-        &|path| platform.fs().canonicalize(path).ok(),
-    );
+    let normalized =
+        normalize_handler_path_with(&handler_path, &|| platform.fs().cwd().ok(), &|path| {
+            platform.fs().canonicalize(path).ok()
+        });
     if is_html_entry(&normalized) {
         return Err(format!(
             "Run mode does not support HTML entrypoints: {}",
@@ -124,14 +139,14 @@ async fn run_async(context: &Context) -> Result<(), String> {
         .execute(
             handler_key,
             RequestData {
-            handler_code,
-            request_value,
-            request_parts: None,
-            mode: execution_mode,
-        },
-    )
-    .await
-    .map_err(|err| format!("Run failed: {}", err))?;
+                handler_code,
+                request_value,
+                request_parts: None,
+                mode: execution_mode,
+            },
+        )
+        .await
+        .map_err(|err| format!("Run failed: {}", err))?;
 
     if !response.success {
         if let Some(error) = response.error {

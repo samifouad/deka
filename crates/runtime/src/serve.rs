@@ -1,10 +1,11 @@
 use std::path::Path as FsPath;
 use std::sync::Arc;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
-use std::{sync::{Mutex, OnceLock}};
 
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
+use crate::security::resolve_security_policy;
 use core::Context;
 use engine::{RuntimeEngine, RuntimeState, config as runtime_config, set_engine};
 use modules_php::validation::{format_validation_error, modules::validate_module_resolution};
@@ -38,6 +39,21 @@ pub fn serve(context: &Context) {
 async fn serve_async(context: &Context) -> Result<(), String> {
     init_env();
     let platform = ServerPlatform::default();
+    let resolved_security = resolve_security_policy(context)?;
+    for warning in resolved_security.warnings {
+        stdio_log::warn_simple(&format!("[security] {}", warning));
+    }
+    let _ = platform
+        .env()
+        .set("DEKA_SECURITY_POLICY", &resolved_security.policy_json);
+    let _ = platform.env().set(
+        "DEKA_SECURITY_NO_PROMPT",
+        if resolved_security.prompt_enabled {
+            "0"
+        } else {
+            "1"
+        },
+    );
     let env_get = |key: &str| platform.env().get(key);
 
     let dev_mode = dev_enabled(context);
@@ -117,10 +133,7 @@ async fn serve_async(context: &Context) -> Result<(), String> {
             .unwrap_or(&handler_path),
     );
 
-    let handler_code = build_handler_code(
-        &handler_path,
-        &resolved,
-    );
+    let handler_code = build_handler_code(&handler_path, &resolved);
 
     let perf_request_value = serde_json::json!({
         "url": "http://localhost/",
@@ -143,7 +156,10 @@ async fn serve_async(context: &Context) -> Result<(), String> {
     serve_listeners(state, &serve_options, perf_mode, server_pool_workers).await
 }
 
-fn apply_cli_serve_overrides(context: &Context, serve_options: &mut pool::validation::ServeOptions) {
+fn apply_cli_serve_overrides(
+    context: &Context,
+    serve_options: &mut pool::validation::ServeOptions,
+) {
     if let Some(port) = context.args.params.get("--port") {
         if let Ok(value) = port.parse::<u16>() {
             serve_options.port = Some(value);
@@ -174,13 +190,9 @@ fn watch_enabled(context: &Context) -> bool {
 }
 
 fn dev_enabled(context: &Context) -> bool {
-    flag_or_env_truthy_with(
-        &context.args.flags,
-        "--dev",
-        None,
-        "DEKA_DEV",
-        &|key| std::env::var(key).ok(),
-    )
+    flag_or_env_truthy_with(&context.args.flags, "--dev", None, "DEKA_DEV", &|key| {
+        std::env::var(key).ok()
+    })
 }
 
 fn perf_mode_enabled() -> bool {
@@ -266,10 +278,7 @@ fn configure_pools(
     (server_pool_config, user_pool_config)
 }
 
-fn build_handler_code(
-    handler_path: &str,
-    resolved: &runtime_config::ResolvedHandler,
-) -> String {
+fn build_handler_code(handler_path: &str, resolved: &runtime_config::ResolvedHandler) -> String {
     match resolved.mode {
         runtime_config::ServeMode::Php => build_serve_handler_code(handler_path),
         runtime_config::ServeMode::Static => {
@@ -650,7 +659,11 @@ fn now_millis() -> u64 {
         .as_millis() as u64
 }
 
-fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>, dev_mode: bool) -> Result<(), String> {
+fn start_watch(
+    handler_path: &str,
+    engine: Arc<RuntimeEngine>,
+    dev_mode: bool,
+) -> Result<(), String> {
     let path = FsPath::new(handler_path);
     let watch_root = path.parent().unwrap_or_else(|| FsPath::new("."));
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<notify::Result<notify::Event>>();
@@ -673,15 +686,23 @@ fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>, dev_mode: bool) -
         while let Some(event) = rx.recv().await {
             match event {
                 Ok(event) => {
+                    let mut changed: Vec<String> = Vec::new();
+                    for path in &event.paths {
+                        if should_ignore_watch_path(path) {
+                            continue;
+                        }
+                        let normalized = path.to_string_lossy().replace('\\', "/");
+                        if !changed.iter().any(|existing| existing == &normalized) {
+                            changed.push(normalized);
+                        }
+                    }
+                    if changed.is_empty() {
+                        continue;
+                    }
+
                     if dev_mode {
-                        let mut changed = Vec::new();
-                        for path in &event.paths {
-                            changed.push(path.to_string_lossy().to_string());
-                        }
-                        if !changed.is_empty() {
-                            stdio_log::log("hmr", &format!("changed {}", changed.join(", ")));
-                            transport::notify_hmr_changed(&changed);
-                        }
+                        stdio_log::log("hmr", &format!("changed {}", changed.join(", ")));
+                        transport::notify_hmr_changed(&changed);
                     }
                     tokio::time::sleep(Duration::from_millis(5)).await;
                     let evicted = engine.pool().evict_all().await;
@@ -697,6 +718,32 @@ fn start_watch(handler_path: &str, engine: Arc<RuntimeEngine>, dev_mode: bool) -
     });
 
     Ok(())
+}
+
+fn should_ignore_watch_path(path: &FsPath) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    if normalized.is_empty() {
+        return true;
+    }
+
+    if normalized.ends_with("/deka.lock") {
+        return true;
+    }
+
+    // Generated/transient paths that should not trigger HMR loops.
+    for needle in [
+        "/.cache/",
+        "/php_modules/.cache/",
+        "/node_modules/.cache/",
+        "/target/",
+        "/.git/",
+    ] {
+        if normalized.contains(needle) {
+            return true;
+        }
+    }
+
+    false
 }
 
 #[cfg(test)]

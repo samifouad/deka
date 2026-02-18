@@ -1,5 +1,5 @@
-use serde_json::Value;
-use std::collections::BTreeSet;
+use serde_json::{Map, Value, json};
+use std::collections::{BTreeSet, HashMap};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuleList {
@@ -84,6 +84,135 @@ impl PolicyParseOutcome {
             .iter()
             .any(|diag| matches!(diag.level, PolicyDiagnosticLevel::Error))
     }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SecurityCliOverrides {
+    pub allow_all: bool,
+    pub allow_read: bool,
+    pub allow_write: bool,
+    pub allow_net: bool,
+    pub allow_env: bool,
+    pub allow_run: bool,
+    pub allow_db: bool,
+    pub allow_dynamic: bool,
+    pub allow_wasm: bool,
+    pub deny_read: bool,
+    pub deny_write: bool,
+    pub deny_net: bool,
+    pub deny_env: bool,
+    pub deny_run: bool,
+    pub deny_db: bool,
+    pub deny_dynamic: bool,
+    pub deny_wasm: bool,
+    pub no_prompt: bool,
+}
+
+impl SecurityCliOverrides {
+    pub fn from_flags(flags: &HashMap<String, bool>) -> Self {
+        Self {
+            allow_all: flag_set(flags, "--allow-all"),
+            allow_read: flag_set(flags, "--allow-read"),
+            allow_write: flag_set(flags, "--allow-write"),
+            allow_net: flag_set(flags, "--allow-net"),
+            allow_env: flag_set(flags, "--allow-env"),
+            allow_run: flag_set(flags, "--allow-run"),
+            allow_db: flag_set(flags, "--allow-db"),
+            allow_dynamic: flag_set(flags, "--allow-dynamic"),
+            allow_wasm: flag_set(flags, "--allow-wasm"),
+            deny_read: flag_set(flags, "--deny-read"),
+            deny_write: flag_set(flags, "--deny-write"),
+            deny_net: flag_set(flags, "--deny-net"),
+            deny_env: flag_set(flags, "--deny-env"),
+            deny_run: flag_set(flags, "--deny-run"),
+            deny_db: flag_set(flags, "--deny-db"),
+            deny_dynamic: flag_set(flags, "--deny-dynamic"),
+            deny_wasm: flag_set(flags, "--deny-wasm"),
+            no_prompt: flag_set(flags, "--no-prompt"),
+        }
+    }
+}
+
+pub fn merge_policy_with_cli(
+    mut base: SecurityPolicy,
+    cli: &SecurityCliOverrides,
+) -> SecurityPolicy {
+    if cli.allow_all {
+        base.allow.read = RuleList::All;
+        base.allow.write = RuleList::All;
+        base.allow.net = RuleList::All;
+        base.allow.env = RuleList::All;
+        base.allow.run = RuleList::All;
+        base.allow.db = RuleList::All;
+        base.allow.wasm = RuleList::All;
+        base.allow.dynamic = true;
+    }
+
+    if cli.allow_read {
+        base.allow.read = RuleList::All;
+    }
+    if cli.allow_write {
+        base.allow.write = RuleList::All;
+    }
+    if cli.allow_net {
+        base.allow.net = RuleList::All;
+    }
+    if cli.allow_env {
+        base.allow.env = RuleList::All;
+    }
+    if cli.allow_run {
+        base.allow.run = RuleList::All;
+    }
+    if cli.allow_db {
+        base.allow.db = RuleList::All;
+    }
+    if cli.allow_wasm {
+        base.allow.wasm = RuleList::All;
+    }
+    if cli.allow_dynamic {
+        base.allow.dynamic = true;
+    }
+
+    if cli.deny_read {
+        base.deny.read = RuleList::All;
+    }
+    if cli.deny_write {
+        base.deny.write = RuleList::All;
+    }
+    if cli.deny_net {
+        base.deny.net = RuleList::All;
+    }
+    if cli.deny_env {
+        base.deny.env = RuleList::All;
+    }
+    if cli.deny_run {
+        base.deny.run = RuleList::All;
+    }
+    if cli.deny_db {
+        base.deny.db = RuleList::All;
+    }
+    if cli.deny_wasm {
+        base.deny.wasm = RuleList::All;
+    }
+    if cli.deny_dynamic {
+        base.deny.dynamic = true;
+    }
+
+    if cli.no_prompt {
+        base.prompt = false;
+    }
+
+    base
+}
+
+pub fn policy_to_json(policy: &SecurityPolicy) -> Value {
+    json!({
+        "deka.security": {
+            "allow": scope_to_json(&policy.allow),
+            "deny": scope_to_json(&policy.deny),
+            "prompt": policy.prompt
+        }
+    })
 }
 
 pub fn parse_deka_security_policy(root: &Value) -> PolicyParseOutcome {
@@ -297,9 +426,39 @@ fn diag(
     }
 }
 
+fn flag_set(flags: &HashMap<String, bool>, name: &str) -> bool {
+    flags.get(name).copied().unwrap_or(false)
+}
+
+fn scope_to_json(scope: &SecurityScope) -> Value {
+    let mut out = Map::new();
+    out.insert("read".to_string(), rule_list_to_json(&scope.read));
+    out.insert("write".to_string(), rule_list_to_json(&scope.write));
+    out.insert("net".to_string(), rule_list_to_json(&scope.net));
+    out.insert("env".to_string(), rule_list_to_json(&scope.env));
+    out.insert("run".to_string(), rule_list_to_json(&scope.run));
+    out.insert("db".to_string(), rule_list_to_json(&scope.db));
+    out.insert("wasm".to_string(), rule_list_to_json(&scope.wasm));
+    out.insert("dynamic".to_string(), Value::Bool(scope.dynamic));
+    Value::Object(out)
+}
+
+fn rule_list_to_json(rule: &RuleList) -> Value {
+    match rule {
+        RuleList::None => Value::Bool(false),
+        RuleList::All => Value::Bool(true),
+        RuleList::List(items) => {
+            Value::Array(items.iter().map(|v| Value::String(v.clone())).collect())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{PolicyDiagnosticLevel, RuleList, parse_deka_security_policy};
+    use super::{
+        PolicyDiagnosticLevel, RuleList, SecurityCliOverrides, merge_policy_with_cli,
+        parse_deka_security_policy, policy_to_json,
+    };
 
     #[test]
     fn default_policy_when_key_missing() {
@@ -376,6 +535,51 @@ mod tests {
                 .iter()
                 .any(|d| d.level == PolicyDiagnosticLevel::Error
                     && d.code == "SECURITY_POLICY_INVALID_PROMPT")
+        );
+    }
+
+    #[test]
+    fn merges_cli_flags_over_policy() {
+        let doc = serde_json::json!({
+            "deka.security": {
+                "allow": { "read": ["./src"] },
+                "deny": { "net": ["169.254.169.254"] },
+                "prompt": true
+            }
+        });
+        let parsed = parse_deka_security_policy(&doc);
+        let merged = merge_policy_with_cli(
+            parsed.policy,
+            &SecurityCliOverrides {
+                allow_net: true,
+                deny_run: true,
+                no_prompt: true,
+                ..SecurityCliOverrides::default()
+            },
+        );
+        assert_eq!(merged.allow.net, RuleList::All);
+        assert_eq!(merged.deny.run, RuleList::All);
+        assert!(!merged.prompt);
+    }
+
+    #[test]
+    fn converts_policy_to_json_shape() {
+        let parsed = parse_deka_security_policy(&serde_json::json!({
+            "deka.security": {
+                "allow": { "wasm": true, "dynamic": false },
+                "deny": { "dynamic": true }
+            }
+        }));
+        let out = policy_to_json(&parsed.policy);
+        assert_eq!(
+            out.pointer("/deka.security/allow/wasm")
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            out.pointer("/deka.security/deny/dynamic")
+                .and_then(|v| v.as_bool()),
+            Some(true)
         );
     }
 }

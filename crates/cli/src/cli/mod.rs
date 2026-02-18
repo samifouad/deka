@@ -4,8 +4,6 @@ use core::{Context, FlagSpec, ParamSpec, ParseError, ParseErrorKind, Registry};
 use stdio::{ascii, error as stdio_error, raw};
 
 // define & export cli's submodules
-pub mod init;
-pub mod user;
 #[cfg(feature = "native")]
 pub mod auth;
 #[cfg(feature = "native")]
@@ -18,6 +16,7 @@ pub mod compile;
 pub mod db;
 #[cfg(target_arch = "wasm32")]
 pub mod db_wasm;
+pub mod init;
 #[cfg(feature = "native")]
 pub mod install;
 #[cfg(feature = "native")]
@@ -34,6 +33,7 @@ pub mod self_cmd;
 pub mod serve;
 #[cfg(feature = "native")]
 pub mod test;
+pub mod user;
 
 pub fn register_global_flags(registry: &mut Registry) {
     registry.add_flag(FlagSpec {
@@ -60,6 +60,96 @@ pub fn register_global_flags(registry: &mut Registry) {
         name: "--debug",
         aliases: &["-d", "debug"],
         description: "enable debug logging",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--allow-read",
+        aliases: &[],
+        description: "allow filesystem reads",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--allow-write",
+        aliases: &[],
+        description: "allow filesystem writes",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--allow-net",
+        aliases: &[],
+        description: "allow network access",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--allow-env",
+        aliases: &[],
+        description: "allow environment variable access",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--allow-run",
+        aliases: &[],
+        description: "allow subprocess execution",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--allow-db",
+        aliases: &[],
+        description: "allow database operations",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--allow-dynamic",
+        aliases: &[],
+        description: "allow dynamic code execution",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--allow-wasm",
+        aliases: &[],
+        description: "allow wasm module load and execution",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--allow-all",
+        aliases: &[],
+        description: "allow all security capabilities",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--deny-read",
+        aliases: &[],
+        description: "deny filesystem reads",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--deny-write",
+        aliases: &[],
+        description: "deny filesystem writes",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--deny-net",
+        aliases: &[],
+        description: "deny network access",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--deny-env",
+        aliases: &[],
+        description: "deny environment variable access",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--deny-run",
+        aliases: &[],
+        description: "deny subprocess execution",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--deny-db",
+        aliases: &[],
+        description: "deny database operations",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--deny-dynamic",
+        aliases: &[],
+        description: "deny dynamic code execution",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--deny-wasm",
+        aliases: &[],
+        description: "deny wasm module load and execution",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--no-prompt",
+        aliases: &[],
+        description: "disable interactive security prompts",
     });
 }
 
@@ -224,42 +314,42 @@ pub fn execute(registry: &Registry) {
 
     #[cfg(feature = "native")]
     {
-    // Check for embedded VFS (compiled binary mode)
-    // When a binary is compiled with VFS, it should automatically start in the appropriate mode
-    if runtime::has_embedded_vfs() && !has_user_args {
-        let context = match Context::from_env(registry) {
-            Ok(context) => context,
-            Err(_) => {
-                // For compiled binaries, create a minimal context
-                let args = core::Args {
-                    flags: std::collections::HashMap::new(),
-                    params: std::collections::HashMap::new(),
-                    commands: Vec::new(),
-                    positionals: Vec::new(),
-                };
-                let env = core::EnvContext::load();
-                let handler = match core::HandlerContext::from_env(&args) {
-                    Ok(h) => h,
-                    Err(_) => {
-                        // Use current directory as handler
-                        let resolved = core::resolve_handler_path(".").unwrap();
-                        let static_config = core::StaticServeConfig::load(&resolved.directory);
-                        core::HandlerContext {
-                            input: ".".to_string(),
-                            resolved,
-                            static_config,
-                            serve_config_path: None,
+        // Check for embedded VFS (compiled binary mode)
+        // When a binary is compiled with VFS, it should automatically start in the appropriate mode
+        if runtime::has_embedded_vfs() && !has_user_args {
+            let context = match Context::from_env(registry) {
+                Ok(context) => context,
+                Err(_) => {
+                    // For compiled binaries, create a minimal context
+                    let args = core::Args {
+                        flags: std::collections::HashMap::new(),
+                        params: std::collections::HashMap::new(),
+                        commands: Vec::new(),
+                        positionals: Vec::new(),
+                    };
+                    let env = core::EnvContext::load();
+                    let handler = match core::HandlerContext::from_env(&args) {
+                        Ok(h) => h,
+                        Err(_) => {
+                            // Use current directory as handler
+                            let resolved = core::resolve_handler_path(".").unwrap();
+                            let static_config = core::StaticServeConfig::load(&resolved.directory);
+                            core::HandlerContext {
+                                input: ".".to_string(),
+                                resolved,
+                                static_config,
+                                serve_config_path: None,
+                            }
                         }
-                    }
-                };
-                Context { args, env, handler }
-            }
-        };
+                    };
+                    Context { args, env, handler }
+                }
+            };
 
-        // Automatically serve (which will detect desktop vs server mode from VFS)
-        runtime::serve(&context);
-        return;
-    }
+            // Automatically serve (which will detect desktop vs server mode from VFS)
+            runtime::serve(&context);
+            return;
+        }
     }
 
     let context = match Context::from_env(registry) {

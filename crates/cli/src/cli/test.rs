@@ -90,7 +90,7 @@ fn run_tests(context: &Context) -> Result<(), String> {
         stdio::log("test", &format!("[deka:{}]", rel));
     }
 
-    let mut child = spawn_runtime(&handler_path, &port)?;
+    let mut child = spawn_runtime(context, &handler_path, &port)?;
     let mut ok = true;
     let mut response_body = String::new();
 
@@ -746,13 +746,19 @@ fn create_temp_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-fn spawn_runtime(handler_path: &Path, port: &str) -> Result<std::process::Child, String> {
+fn spawn_runtime(
+    context: &Context,
+    handler_path: &Path,
+    port: &str,
+) -> Result<std::process::Child, String> {
     let exe =
         std::env::current_exe().map_err(|err| format!("failed to resolve executable: {}", err))?;
     let exe_string = exe.to_string_lossy().to_string();
+    let security_flags = security_flags_from_context(context);
     let mut cmd = Command::new(exe);
     cmd.arg("serve")
         .arg(handler_path)
+        .args(&security_flags)
         .env("HANDLER_PATH", handler_path)
         .env("PORT", port)
         .env("DEKA_BIN", exe_string)
@@ -760,6 +766,34 @@ fn spawn_runtime(handler_path: &Path, port: &str) -> Result<std::process::Child,
         .stderr(Stdio::inherit());
     cmd.spawn()
         .map_err(|err| format!("failed to start test runtime: {}", err))
+}
+
+fn security_flags_from_context(context: &Context) -> Vec<String> {
+    const SECURITY_FLAGS: &[&str] = &[
+        "--allow-read",
+        "--allow-write",
+        "--allow-net",
+        "--allow-env",
+        "--allow-run",
+        "--allow-db",
+        "--allow-dynamic",
+        "--allow-wasm",
+        "--allow-all",
+        "--deny-read",
+        "--deny-write",
+        "--deny-net",
+        "--deny-env",
+        "--deny-run",
+        "--deny-db",
+        "--deny-dynamic",
+        "--deny-wasm",
+        "--no-prompt",
+    ];
+    SECURITY_FLAGS
+        .iter()
+        .filter(|name| context.args.flags.get(**name).copied().unwrap_or(false))
+        .map(|name| (*name).to_string())
+        .collect()
 }
 
 fn stop_child(child: &mut std::process::Child) {
