@@ -7,12 +7,12 @@ Owner: codex
 Ship four MVP blocks for Linkhash with commit-per-item execution.
 
 ## Item 1: Doccomments + Versioned Docs Pipeline
-- [ ] Parse PHPX doccomments/signatures/examples at publish time.
-- [ ] Persist docs snapshot by package+version.
-- [ ] Add docs API endpoints for package/version/symbol.
-- [ ] Render docs in Linkhash package UI (version switch aware).
-- [ ] Add tests and docs.
-- [ ] Commit: `feat(linkhash): add versioned doccomments docs pipeline`
+- [x] Parse PHPX doccomments/signatures/examples at publish time.
+- [x] Persist docs snapshot by package+version.
+- [x] Add docs API endpoints for package/version/symbol.
+- [x] Render docs in Linkhash package UI (version switch aware).
+- [x] Add tests and docs.
+- [x] Commit: `feat(linkhash): add versioned doccomments docs pipeline`
 
 ## Item 2: GitHub-Style File Explorer
 - [ ] Add tree/blob APIs (ref/version aware).
