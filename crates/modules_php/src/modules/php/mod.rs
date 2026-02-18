@@ -1798,9 +1798,7 @@ fn enforce_scope(
 }
 
 fn security_enforcement_enabled() -> bool {
-    std::env::var("DEKA_SECURITY_ENFORCE")
-        .map(|v| v == "1")
-        .unwrap_or(false)
+    true
 }
 
 fn prompt_enabled() -> bool {

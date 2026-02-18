@@ -54,14 +54,7 @@ async fn serve_async(context: &Context) -> Result<(), String> {
             "1"
         },
     );
-    let _ = platform.env().set(
-        "DEKA_SECURITY_ENFORCE",
-        if resolved_security.enforce_enabled {
-            "1"
-        } else {
-            "0"
-        },
-    );
+    let _ = platform.env().set("DEKA_SECURITY_ENFORCE", "1");
     let env_get = |key: &str| platform.env().get(key);
 
     let dev_mode = dev_enabled(context);

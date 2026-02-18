@@ -179,12 +179,6 @@ fn enforce_subprocess_policy(
     }
 
     let overrides = SecurityCliOverrides::from_flags(&context.args.flags);
-    let enforce_enabled =
-        project_json.get("deka.security").is_some() || has_security_overrides(&overrides);
-    if !enforce_enabled {
-        return Ok(());
-    }
-
     let merged = merge_policy_with_cli(parsed.policy, &overrides);
     let program = extract_program_name(script);
 
@@ -209,27 +203,6 @@ fn enforce_subprocess_policy(
     }
 
     Ok(())
-}
-
-fn has_security_overrides(overrides: &SecurityCliOverrides) -> bool {
-    overrides.allow_all
-        || overrides.allow_read
-        || overrides.allow_write
-        || overrides.allow_net
-        || overrides.allow_env
-        || overrides.allow_run
-        || overrides.allow_db
-        || overrides.allow_dynamic
-        || overrides.allow_wasm
-        || overrides.deny_read
-        || overrides.deny_write
-        || overrides.deny_net
-        || overrides.deny_env
-        || overrides.deny_run
-        || overrides.deny_db
-        || overrides.deny_dynamic
-        || overrides.deny_wasm
-        || overrides.no_prompt
 }
 
 fn extract_program_name(script: &str) -> Option<String> {

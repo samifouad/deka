@@ -2,6 +2,8 @@
 
 `deka` supports a Deno-inspired capability model for runtime guard rails.
 
+Security enforcement is always on by default in MVP. If no explicit allow policy or allow flags are provided, sensitive operations are denied.
+
 ## Config Key
 
 Project policy lives in `deka.json` under `deka.security`:
@@ -68,7 +70,7 @@ Prompt control:
 
 ## Precedence
 
-1. defaults
+1. defaults (deny)
 2. `deka.security` config
 3. CLI allow flags
 4. CLI deny flags
