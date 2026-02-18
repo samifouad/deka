@@ -178,6 +178,21 @@ async fn run_publish(request: PublishRequest) -> Result<()> {
                 stdio::log("publish", &format!("reason: {}", reason));
             }
         }
+        if let Some(caps) = preflight.get("capabilities") {
+            if let Some(detected) = caps.get("detected").and_then(|v| v.as_array()) {
+                for cap in detected.iter().filter_map(|v| v.as_str()) {
+                    stdio::log("publish", &format!("capability detected: {}", cap));
+                }
+            }
+            if let Some(missing) = caps.get("missing").and_then(|v| v.as_array()) {
+                for cap in missing.iter().filter_map(|v| v.as_str()) {
+                    stdio::warn_simple(&format!(
+                        "missing capability declaration in manifest: {}",
+                        cap
+                    ));
+                }
+            }
+        }
         if let Some(issues) = preflight.get("issues").and_then(|v| v.as_array()) {
             for issue in issues {
                 let code = issue
