@@ -1,6 +1,10 @@
 use core::{CommandSpec, Context, FlagSpec, Registry};
+use runtime_core::security_policy::{
+    RuleList, SecurityCliOverrides, merge_policy_with_cli, parse_deka_security_policy,
+};
 use serde_json::Value;
 use std::process::Command;
+use stdio;
 
 const COMMAND: CommandSpec = CommandSpec {
     name: "run",
@@ -31,7 +35,10 @@ fn requested_script_name<'a>(context: &'a Context) -> Option<&'a str> {
     requested_script_name_from_args(&context.args.positionals, &context.args.commands)
 }
 
-fn requested_script_name_from_args<'a>(positionals: &'a [String], commands: &'a [String]) -> Option<&'a str> {
+fn requested_script_name_from_args<'a>(
+    positionals: &'a [String],
+    commands: &'a [String],
+) -> Option<&'a str> {
     if let Some(first) = positionals.first() {
         return Some(first.as_str());
     }
@@ -46,7 +53,12 @@ fn try_run_deka_script(context: &Context) -> Option<i32> {
     if first.contains('/') || first.contains('\\') || first.starts_with('.') {
         return None;
     }
-    let script = resolve_deka_script(first)?;
+    let project_json = load_deka_json()?;
+    let script = resolve_deka_script_from_json(first, &project_json)?;
+    if let Err(err) = enforce_subprocess_policy(context, &project_json, &script) {
+        stdio::error("run", &err);
+        return Some(1);
+    }
     let extra_args = if context.args.positionals.len() > 1 {
         &context.args.positionals[1..]
     } else {
@@ -56,12 +68,11 @@ fn try_run_deka_script(context: &Context) -> Option<i32> {
     run_shell_command(&command).or(Some(1))
 }
 
-fn resolve_deka_script(name: &str) -> Option<String> {
+fn load_deka_json() -> Option<Value> {
     let cwd = std::env::current_dir().ok()?;
     let path = cwd.join("deka.json");
     let content = std::fs::read_to_string(path).ok()?;
-    let json: Value = serde_json::from_str(&content).ok()?;
-    resolve_deka_script_from_json(name, &json)
+    serde_json::from_str(&content).ok()
 }
 
 fn resolve_deka_script_from_json(name: &str, json: &Value) -> Option<String> {
@@ -115,7 +126,9 @@ fn compose_script_command(script: &str, extra_args: &[String]) -> String {
     if extra_args.is_empty() {
         return script.to_string();
     }
-    let mut cmd = String::with_capacity(script.len() + 1 + extra_args.iter().map(|s| s.len() + 1).sum::<usize>());
+    let mut cmd = String::with_capacity(
+        script.len() + 1 + extra_args.iter().map(|s| s.len() + 1).sum::<usize>(),
+    );
     cmd.push_str(script);
     for arg in extra_args {
         cmd.push(' ');
@@ -141,6 +154,109 @@ fn run_shell_command(command: &str) -> Option<i32> {
             .ok()?
     };
     Some(status.code().unwrap_or(1))
+}
+
+fn enforce_subprocess_policy(
+    context: &Context,
+    project_json: &Value,
+    script: &str,
+) -> Result<(), String> {
+    let parsed = parse_deka_security_policy(project_json);
+    if parsed.has_errors() {
+        let mut lines = Vec::new();
+        for diag in parsed.diagnostics {
+            if matches!(
+                diag.level,
+                runtime_core::security_policy::PolicyDiagnosticLevel::Error
+            ) {
+                lines.push(format!("{} at {}: {}", diag.code, diag.path, diag.message));
+            }
+        }
+        return Err(format!(
+            "invalid deka.security policy:\n{}",
+            lines.join("\n")
+        ));
+    }
+
+    let overrides = SecurityCliOverrides::from_flags(&context.args.flags);
+    let enforce_enabled =
+        project_json.get("deka.security").is_some() || has_security_overrides(&overrides);
+    if !enforce_enabled {
+        return Ok(());
+    }
+
+    let merged = merge_policy_with_cli(parsed.policy, &overrides);
+    let program = extract_program_name(script);
+
+    if rule_denies(&merged.deny.run, program.as_deref()) {
+        return Err(format!(
+            "SECURITY_CAPABILITY_DENIED: subprocess `{}` denied by run policy",
+            program.unwrap_or_else(|| "<unknown>".to_string())
+        ));
+    }
+
+    if !rule_allows(&merged.allow.run, program.as_deref()) {
+        return Err(format!(
+            "SECURITY_CAPABILITY_DENIED: subprocess `{}` is not allowed. Use `--allow-run` or add deka.security.allow.run.",
+            program.unwrap_or_else(|| "<unknown>".to_string())
+        ));
+    }
+
+    if matches!(merged.allow.run, RuleList::All) {
+        stdio::warn_simple(
+            "SECURITY_RUN_PRIVILEGE_ESCALATION_RISK: broad --allow-run grants subprocesses host-level access; prefer allowlist entries in deka.security.allow.run",
+        );
+    }
+
+    Ok(())
+}
+
+fn has_security_overrides(overrides: &SecurityCliOverrides) -> bool {
+    overrides.allow_all
+        || overrides.allow_read
+        || overrides.allow_write
+        || overrides.allow_net
+        || overrides.allow_env
+        || overrides.allow_run
+        || overrides.allow_db
+        || overrides.allow_dynamic
+        || overrides.allow_wasm
+        || overrides.deny_read
+        || overrides.deny_write
+        || overrides.deny_net
+        || overrides.deny_env
+        || overrides.deny_run
+        || overrides.deny_db
+        || overrides.deny_dynamic
+        || overrides.deny_wasm
+        || overrides.no_prompt
+}
+
+fn extract_program_name(script: &str) -> Option<String> {
+    script
+        .split_whitespace()
+        .next()
+        .map(|value| value.trim_matches('"').trim_matches('\'').to_string())
+}
+
+fn rule_allows(rule: &RuleList, target: Option<&str>) -> bool {
+    match rule {
+        RuleList::None => false,
+        RuleList::All => true,
+        RuleList::List(items) => target
+            .map(|name| items.iter().any(|item| item == name))
+            .unwrap_or(false),
+    }
+}
+
+fn rule_denies(rule: &RuleList, target: Option<&str>) -> bool {
+    match rule {
+        RuleList::None => false,
+        RuleList::All => true,
+        RuleList::List(items) => target
+            .map(|name| items.iter().any(|item| item == name))
+            .unwrap_or(false),
+    }
 }
 
 #[cfg(test)]
@@ -200,13 +316,19 @@ mod tests {
     fn requested_script_prefers_positionals() {
         let positionals = vec!["dev".to_string()];
         let commands = vec!["run".to_string(), "build".to_string()];
-        assert_eq!(requested_script_name_from_args(&positionals, &commands), Some("dev"));
+        assert_eq!(
+            requested_script_name_from_args(&positionals, &commands),
+            Some("dev")
+        );
     }
 
     #[test]
     fn requested_script_falls_back_to_second_command_token() {
         let positionals: Vec<String> = vec![];
         let commands = vec!["run".to_string(), "build".to_string()];
-        assert_eq!(requested_script_name_from_args(&positionals, &commands), Some("build"));
+        assert_eq!(
+            requested_script_name_from_args(&positionals, &commands),
+            Some("build")
+        );
     }
 }

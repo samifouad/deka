@@ -20,6 +20,7 @@ native = [
 
 [dependencies]
 runtime = { path = "../runtime", optional = true }
+runtime_core = { path = "../runtime_core" }
 compile = { path = "../compile", optional = true }
 core = { path ="../core" }
 stdio = { path = "../stdio" }
