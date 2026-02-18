@@ -2,6 +2,7 @@
 import { jsx, jsxs } from 'component/core'
 import { renderPartialJson, isPartialRequest, Link, Hydration } from 'component/dom'
 import { json_encode as encodeJson } from 'encoding/json'
+import { PreviewRouteSection, ForkResultSection } from '@/src/pages/repo_flows'
 import { stats } from 'db'
 import { query as pgQuery, exec as pgExec } from 'db/postgres'
 import { connect as sqliteConnect, query as sqliteQuery, query_one as sqliteQueryOne, exec as sqliteExec, close as sqliteClose } from 'db/sqlite'
@@ -5465,64 +5466,6 @@ function PackageDetailPage($props) {
   </Layout>
 }
 
-function PreviewRoutePage($props) {
-  $owner = '' . rowValue($props, 'owner', '')
-  $repo = '' . rowValue($props, 'repo', '')
-  $ref = '' . rowValue($props, 'ref', 'HEAD')
-  $ok = rowValue($props, 'ok', false)
-  $error = '' . rowValue($props, 'error', '')
-  $commit = '' . rowValue($props, 'commit', '')
-  $shortCommit = '' . rowValue($props, 'shortCommit', '')
-  $previewUrl = adwaPreviewUrl($owner, $repo, $commit)
-  $editUrl = adwaEditUrl($owner, $repo, $commit)
-
-  return <Layout>
-    <section class="rounded-2xl bg-white p-8 shadow-sm">
-      <div class="text-sm font-semibold uppercase tracking-wide text-blue-600">Preview</div>
-      <h1 class="mt-2 text-2xl font-bold text-gray-900">{'@' . $owner . '/' . $repo . ' @ ' . $ref}</h1>
-      {!$ok ? <div class="mt-4 rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{'Resolve failed: ' . ($error === '' ? 'unknown error' : $error)}</div> : null}
-      {$ok ? <div class="mt-4 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{'Resolved commit: ' . ($shortCommit === '' ? $commit : $shortCommit)}</div> : null}
-      {$ok ? <div class="mt-4 flex flex-wrap gap-2">
-        <a class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href={$previewUrl}>Open preview in Adwa</a>
-        <a class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" href={$editUrl}>Open editor in Adwa</a>
-      </div> : null}
-      <div class="mt-4 text-xs text-gray-500">
-        {'Preview URL: linkha.sh/@' . $owner . '/' . $repo . '/' . ($ref === '' ? 'HEAD' : $ref)}
-      </div>
-    </section>
-  </Layout>
-}
-
-function ForkResultPage($props) {
-  $sourceOwner = '' . rowValue($props, 'sourceOwner', '')
-  $sourceRepo = '' . rowValue($props, 'sourceRepo', '')
-  $targetOwner = '' . rowValue($props, 'targetOwner', '')
-  $targetRepo = '' . rowValue($props, 'targetRepo', '')
-  $commit = '' . rowValue($props, 'commit', '')
-  $short = strlen($commit) > 12 ? substr($commit, 0, 12) : $commit
-  $cloneUrl = 'http://localhost:8508/' . $targetOwner . '/' . $targetRepo . '.git'
-  $previewUrl = '/@' . $targetOwner . '/' . $targetRepo . '/HEAD'
-  $adwaUrl = adwaEditUrl($targetOwner, $targetRepo, $commit)
-
-  return <Layout>
-    <section class="rounded-2xl bg-white p-8 shadow-sm">
-      <div class="text-sm font-semibold uppercase tracking-wide text-blue-600">Fork Complete</div>
-      <h1 class="mt-2 text-2xl font-bold text-gray-900">{'@' . $targetOwner . '/' . $targetRepo}</h1>
-      <p class="mt-2 text-sm text-gray-600">{'Forked from @' . $sourceOwner . '/' . $sourceRepo}</p>
-      {$short !== '' ? <div class="mt-3 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">{'HEAD commit: ' . $short}</div> : null}
-      <div class="mt-4 grid gap-2 text-sm text-gray-700">
-        <div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 font-mono">{'git clone ' . $cloneUrl}</div>
-        <div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 font-mono">{'cd ' . $targetRepo . ' && git remote add upstream http://localhost:8508/' . $sourceOwner . '/' . $sourceRepo . '.git'}</div>
-      </div>
-      <div class="mt-4 flex flex-wrap gap-2">
-        <a class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href={$previewUrl}>Preview fork</a>
-        <a class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" href={$adwaUrl}>Open in Adwa editor</a>
-        <a class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" href={'/package/' . $targetOwner . '/' . $targetRepo}>Open package page</a>
-      </div>
-    </section>
-  </Layout>
-}
-
 function OrgProfilePage($props) {
   if (!$props->ok) {
     return <Layout>
@@ -6082,25 +6025,37 @@ if (strpos($path, '/package/') === 0) {
     $resolved = fetchRepoRefResolution(rowValue($preview, 'owner', ''), rowValue($preview, 'repo', ''), rowValue($preview, 'ref', 'HEAD'))
     if (rowValue($resolved, 'ok', false)) {
       $value = rowValue($resolved, 'value', [])
+      $owner = rowValue($preview, 'owner', '')
+      $repo = rowValue($preview, 'repo', '')
+      $ref = rowValue($preview, 'ref', '')
+      $commit = '' . rowValue($value, 'commit', '')
+      $shortCommit = '' . rowValue($value, 'shortCommit', (strlen($commit) > 12 ? substr($commit, 0, 12) : $commit))
       auditEvent(
         'repo.preview.resolve',
         [ 'ok' => true, 'kind' => 'anonymous' ],
         'ok',
         'repo',
-        '@' . rowValue($preview, 'owner', '') . '/' . rowValue($preview, 'repo', ''),
-        [ 'requestedRef' => rowValue($preview, 'ref', ''), 'commit' => rowValue($value, 'commit', '') ]
+        '@' . $owner . '/' . $repo,
+        [ 'requestedRef' => $ref, 'commit' => $commit ]
       )
-      $node = <PreviewRoutePage ok={true} owner={rowValue($preview, 'owner', '')} repo={rowValue($preview, 'repo', '')} ref={rowValue($preview, 'ref', '')} commit={rowValue($value, 'commit', '')} shortCommit={rowValue($value, 'shortCommit', '')} />
+      $node = <Layout>
+        <PreviewRouteSection ok={true} owner={$owner} repo={$repo} ref={$ref} shortCommit={$shortCommit} previewUrl={adwaPreviewUrl($owner, $repo, $commit)} editUrl={adwaEditUrl($owner, $repo, $commit)} />
+      </Layout>
     } else {
+      $owner = rowValue($preview, 'owner', '')
+      $repo = rowValue($preview, 'repo', '')
+      $ref = rowValue($preview, 'ref', '')
       auditEvent(
         'repo.preview.resolve',
         [ 'ok' => false, 'kind' => 'anonymous' ],
         'error',
         'repo',
-        '@' . rowValue($preview, 'owner', '') . '/' . rowValue($preview, 'repo', ''),
-        [ 'requestedRef' => rowValue($preview, 'ref', ''), 'error' => rowValue($resolved, 'error', 'resolve failed') ]
+        '@' . $owner . '/' . $repo,
+        [ 'requestedRef' => $ref, 'error' => rowValue($resolved, 'error', 'resolve failed') ]
       )
-      $node = <PreviewRoutePage ok={false} owner={rowValue($preview, 'owner', '')} repo={rowValue($preview, 'repo', '')} ref={rowValue($preview, 'ref', '')} error={rowValue($resolved, 'error', 'resolve failed')} />
+      $node = <Layout>
+        <PreviewRouteSection ok={false} owner={$owner} repo={$repo} ref={$ref} error={rowValue($resolved, 'error', 'resolve failed')} />
+      </Layout>
     }
   } else {
     $alias = parseAliasPackagePath($path)
@@ -6207,13 +6162,27 @@ if (strpos($path, '/package/') === 0) {
   }
   $node = <PlaygroundPage org={$org} name={$pkg} version={$requestedVersion} error={$error} resolved={$resolved} install={$install} artifactUrl={$artifactUrl} versions={$versions} />
 } else if ($path === '/fork/result') {
-  $node = <ForkResultPage
-    sourceOwner={'' . queryValue('source_owner', '')}
-    sourceRepo={'' . queryValue('source_repo', '')}
-    targetOwner={'' . queryValue('target_owner', '')}
-    targetRepo={'' . queryValue('target_repo', '')}
-    commit={'' . queryValue('commit', '')}
-  />
+  $sourceOwner = '' . queryValue('source_owner', '')
+  $sourceRepo = '' . queryValue('source_repo', '')
+  $targetOwner = '' . queryValue('target_owner', '')
+  $targetRepo = '' . queryValue('target_repo', '')
+  $commit = '' . queryValue('commit', '')
+  $short = strlen($commit) > 12 ? substr($commit, 0, 12) : $commit
+  $cloneUrl = 'http://localhost:8508/' . $targetOwner . '/' . $targetRepo . '.git'
+  $node = <Layout>
+    <ForkResultSection
+      sourceOwner={$sourceOwner}
+      sourceRepo={$sourceRepo}
+      targetOwner={$targetOwner}
+      targetRepo={$targetRepo}
+      shortCommit={$short}
+      cloneCommand={'git clone ' . $cloneUrl}
+      upstreamCommand={'cd ' . $targetRepo . ' && git remote add upstream http://localhost:8508/' . $sourceOwner . '/' . $sourceRepo . '.git'}
+      previewUrl={'/@' . $targetOwner . '/' . $targetRepo . '/HEAD'}
+      editUrl={adwaEditUrl($targetOwner, $targetRepo, $commit)}
+      packageUrl={'/package/' . $targetOwner . '/' . $targetRepo}
+    />
+  </Layout>
 } else if ($path === '/account') {
   $auth = authWithScope(1)
   if (!$auth['ok']) {
