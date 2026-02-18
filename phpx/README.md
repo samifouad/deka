@@ -146,6 +146,7 @@ Package detail docs:
 
 - Package pages now show version-aware API docs symbols when `linkhash-git` docs APIs are reachable.
 - Configure the backend URL with `LINKHASH_GIT_API_URL` (default `http://localhost:8508`).
+- Package pages use `tree`/`blob` APIs for file explorer + source preview when available.
 
 Role model:
 

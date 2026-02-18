@@ -15,11 +15,11 @@ Ship four MVP blocks for Linkhash with commit-per-item execution.
 - [x] Commit: `feat(linkhash): add versioned doccomments docs pipeline`
 
 ## Item 2: GitHub-Style File Explorer
-- [ ] Add tree/blob APIs (ref/version aware).
-- [ ] Build PHPX repo browser UI with file tree + code viewer + README default.
-- [ ] Add package/repo page links into explorer.
-- [ ] Add tests and docs.
-- [ ] Commit: `feat(linkhash): add github-style file explorer`
+- [x] Add tree/blob APIs (ref/version aware).
+- [x] Build PHPX repo browser UI with file tree + code viewer + README default.
+- [x] Add package/repo page links into explorer.
+- [x] Add tests and docs.
+- [x] Commit: `feat(linkhash): add github-style file explorer`
 
 ## Item 3: Issues + PRs (MVP)
 - [ ] Add schema and APIs for issues/comments/state.
