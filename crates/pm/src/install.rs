@@ -9,6 +9,7 @@ use crate::{
     spec::{Ecosystem, parse_hinted_spec, parse_package_spec},
 };
 use anyhow::{Context, Result, bail};
+use runtime_core::security_policy::{RuleList, SecurityPolicy, parse_deka_security_policy};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::{
@@ -19,7 +20,7 @@ use std::{
     sync::Arc,
     time::Instant,
 };
-use tokio::{task::JoinSet, sync::Semaphore};
+use tokio::{sync::Semaphore, task::JoinSet};
 
 pub async fn run_install(payload: InstallPayload) -> Result<()> {
     let mut specs = payload.specs.clone();
@@ -104,7 +105,11 @@ pub async fn run_install(payload: InstallPayload) -> Result<()> {
         match res {
             Ok((_spec, _optional, Ok(result))) => {
                 // Copy package to final location (spawn in parallel)
-                let destination = ctx.determine_install_path(&result.name, &result.version, result.lock_key.as_deref());
+                let destination = ctx.determine_install_path(
+                    &result.name,
+                    &result.version,
+                    result.lock_key.as_deref(),
+                );
                 if let Some(dest) = destination {
                     let cache_dir = result.cache_dir.clone();
                     let name = result.name.clone();
@@ -119,12 +124,7 @@ pub async fn run_install(payload: InstallPayload) -> Result<()> {
                         copy_package(&cache_dir, &dest_clone)?;
                         let descriptor = format!("{}@{}", name, version);
                         lock::update_lock_entry(
-                            "node",
-                            &name,
-                            descriptor,
-                            resolved,
-                            metadata,
-                            integrity,
+                            "node", &name, descriptor, resolved, metadata, integrity,
                         )?;
                         Ok(())
                     });
@@ -134,17 +134,32 @@ pub async fn run_install(payload: InstallPayload) -> Result<()> {
 
                 // Enqueue dependencies
                 for dep in result.dependencies {
-                    ctx.enqueue(dep.spec.clone(), Some(dep.descriptor.clone()), false, Some(dep.lock_key.clone()));
+                    ctx.enqueue(
+                        dep.spec.clone(),
+                        Some(dep.descriptor.clone()),
+                        false,
+                        Some(dep.lock_key.clone()),
+                    );
                 }
                 for opt in result.optional_dependencies {
                     if ctx.should_install_optional(&opt.lock_key, &opt.spec) {
-                        ctx.enqueue(opt.spec.clone(), Some(opt.descriptor.clone()), true, Some(opt.lock_key));
+                        ctx.enqueue(
+                            opt.spec.clone(),
+                            Some(opt.descriptor.clone()),
+                            true,
+                            Some(opt.lock_key),
+                        );
                     }
                 }
                 for peer in result.optional_peers {
                     if let Some(lock) = bun_lock.as_deref() {
                         if lock.get(&peer.lock_key).is_some() {
-                            ctx.enqueue(peer.spec.clone(), Some(peer.descriptor.clone()), true, Some(peer.lock_key));
+                            ctx.enqueue(
+                                peer.spec.clone(),
+                                Some(peer.descriptor.clone()),
+                                true,
+                                Some(peer.lock_key),
+                            );
                         }
                     }
                 }
@@ -184,7 +199,9 @@ pub async fn run_install(payload: InstallPayload) -> Result<()> {
 
             join_set.spawn(async move {
                 let _permit = sem_c.acquire().await.unwrap();
-                let result = install_node_package(&cache_c, lock_c.as_deref(), &spec_c, key_c.as_deref()).await;
+                let result =
+                    install_node_package(&cache_c, lock_c.as_deref(), &spec_c, key_c.as_deref())
+                        .await;
                 (spec_c, opt, result)
             });
         }
@@ -194,7 +211,11 @@ pub async fn run_install(payload: InstallPayload) -> Result<()> {
     while let Some(res) = join_set.join_next().await {
         match res {
             Ok((_spec, _optional, Ok(result))) => {
-                let destination = ctx.determine_install_path(&result.name, &result.version, result.lock_key.as_deref());
+                let destination = ctx.determine_install_path(
+                    &result.name,
+                    &result.version,
+                    result.lock_key.as_deref(),
+                );
                 if let Some(dest) = destination {
                     let cache_dir = result.cache_dir.clone();
                     let name = result.name.clone();
@@ -206,7 +227,9 @@ pub async fn run_install(payload: InstallPayload) -> Result<()> {
                     copy_tasks.spawn_blocking(move || -> Result<()> {
                         copy_package(&cache_dir, &dest)?;
                         let descriptor = format!("{}@{}", name, version);
-                        lock::update_lock_entry("node", &name, descriptor, resolved, metadata, integrity)?;
+                        lock::update_lock_entry(
+                            "node", &name, descriptor, resolved, metadata, integrity,
+                        )?;
                         Ok(())
                     });
 
@@ -229,7 +252,7 @@ pub async fn run_install(payload: InstallPayload) -> Result<()> {
     // Wait for all copy operations to complete
     while let Some(res) = copy_tasks.join_next().await {
         match res {
-            Ok(Ok(_)) => {},
+            Ok(Ok(_)) => {}
             Ok(Err(e)) => return Err(e),
             Err(e) => return Err(anyhow::anyhow!("copy task join error: {}", e)),
         }
@@ -254,6 +277,7 @@ struct PhpPackageRelease {
     git_ref: String,
     description: Option<String>,
     manifest: Option<Value>,
+    capability_metadata: Option<Value>,
 }
 
 async fn run_php_install(specs: Vec<String>, quiet: bool) -> Result<()> {
@@ -264,6 +288,7 @@ async fn run_php_install(specs: Vec<String>, quiet: bool) -> Result<()> {
     let cache = CachePaths::new()?;
     cache.ensure()?;
     let registry = linkhash_registry_url();
+    let project_policy = load_project_security_policy()?;
     let start = Instant::now();
     let mut installed_count = 0usize;
 
@@ -277,12 +302,8 @@ async fn run_php_install(specs: Vec<String>, quiet: bool) -> Result<()> {
         };
 
         let release = fetch_php_release(&registry, &name, &version).await?;
-        let tarball_url = format!(
-            "{}/api/packages/{}/{}/download",
-            registry.trim_end_matches('/'),
-            urlencoding::encode(&name),
-            urlencoding::encode(&version)
-        );
+        enforce_release_policy(&release, &project_policy)?;
+        let tarball_url = package_download_url(&registry, &name, &version)?;
         let bytes = download_tarball(&tarball_url).await?;
         let integrity = compute_sha512(&bytes);
 
@@ -320,13 +341,107 @@ async fn run_php_install(specs: Vec<String>, quiet: bool) -> Result<()> {
     Ok(())
 }
 
+fn load_project_security_policy() -> Result<SecurityPolicy> {
+    let cwd = std::env::current_dir().context("failed to resolve current directory")?;
+    let path = cwd.join("deka.json");
+    if !path.is_file() {
+        return Ok(SecurityPolicy::default());
+    }
+    let raw =
+        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
+    let json: Value = serde_json::from_str(&raw)
+        .with_context(|| format!("invalid JSON in {}", path.display()))?;
+    let parsed = parse_deka_security_policy(&json);
+    if parsed.has_errors() {
+        let details = parsed
+            .diagnostics
+            .into_iter()
+            .filter(|d| {
+                matches!(
+                    d.level,
+                    runtime_core::security_policy::PolicyDiagnosticLevel::Error
+                )
+            })
+            .map(|d| format!("{} at {}: {}", d.code, d.path, d.message))
+            .collect::<Vec<_>>()
+            .join("\n");
+        bail!("invalid deka.security policy:\n{}", details);
+    }
+    Ok(parsed.policy)
+}
+
+fn enforce_release_policy(release: &PhpPackageRelease, policy: &SecurityPolicy) -> Result<()> {
+    let capabilities = extract_release_capabilities(release);
+    if capabilities.iter().any(|cap| cap == "run") && !matches!(policy.deny.run, RuleList::None) {
+        bail!(
+            "install blocked by deka.security: package {}@{} requires `run` capability",
+            release.package_name,
+            release.version
+        );
+    }
+    if capabilities.iter().any(|cap| cap == "dynamic") && policy.deny.dynamic {
+        bail!(
+            "install blocked by deka.security: package {}@{} requires `dynamic` capability",
+            release.package_name,
+            release.version
+        );
+    }
+    Ok(())
+}
+
+fn extract_release_capabilities(release: &PhpPackageRelease) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Some(meta) = &release.capability_metadata {
+        if let Some(detected) = meta.get("detected").and_then(|v| v.as_array()) {
+            for cap in detected.iter().filter_map(|v| v.as_str()) {
+                if !out.iter().any(|existing| existing == cap) {
+                    out.push(cap.to_string());
+                }
+            }
+        }
+    }
+    if let Some(manifest) = &release.manifest {
+        let allow = manifest
+            .get("deka.security")
+            .and_then(|v| v.get("allow"))
+            .cloned()
+            .unwrap_or(Value::Null);
+        if allow
+            .get("dynamic")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+            && !out.iter().any(|existing| existing == "dynamic")
+        {
+            out.push("dynamic".to_string());
+        }
+        let run_enabled = allow
+            .get("run")
+            .map(|run| match run {
+                Value::Bool(v) => *v,
+                Value::String(s) => !s.trim().is_empty(),
+                Value::Array(arr) => arr
+                    .iter()
+                    .any(|item| item.as_str().map(|s| !s.trim().is_empty()).unwrap_or(false)),
+                _ => false,
+            })
+            .unwrap_or(false);
+        if run_enabled && !out.iter().any(|existing| existing == "run") {
+            out.push("run".to_string());
+        }
+    }
+    out
+}
+
 fn normalize_php_spec(spec: &str) -> Result<String> {
     let trimmed = spec.trim();
     if trimmed.starts_with('@') {
         if is_valid_scoped_name(trimmed) {
             return Ok(trimmed.to_string());
         }
-        bail!("invalid php package `{}` (expected @scope/name[@version])", trimmed);
+        bail!(
+            "invalid php package `{}` (expected @scope/name[@version])",
+            trimmed
+        );
     }
     match trimmed {
         "json" | "jwt" => Ok(format!("@deka/{}", trimmed)),
@@ -368,18 +483,17 @@ fn linkhash_registry_url() -> String {
 }
 
 async fn fetch_php_latest(registry: &str, name: &str) -> Result<String> {
-    let encoded_name = urlencoding::encode(name);
-    let url = format!(
-        "{}/api/packages/{}",
-        registry.trim_end_matches('/'),
-        encoded_name
-    );
+    let url = package_summary_url(registry, name)?;
 
     let response = reqwest::get(&url)
         .await
         .with_context(|| format!("failed to fetch package summary for {}", name))?;
     if !response.status().is_success() {
-        bail!("package summary request failed ({}): {}", response.status(), name);
+        bail!(
+            "package summary request failed ({}): {}",
+            response.status(),
+            name
+        );
     }
     let payload = response
         .json::<PhpPackageSummary>()
@@ -391,12 +505,7 @@ async fn fetch_php_latest(registry: &str, name: &str) -> Result<String> {
 }
 
 async fn fetch_php_release(registry: &str, name: &str, version: &str) -> Result<PhpPackageRelease> {
-    let url = format!(
-        "{}/api/packages/{}/{}",
-        registry.trim_end_matches('/'),
-        urlencoding::encode(name),
-        urlencoding::encode(version)
-    );
+    let url = package_release_url(registry, name, version)?;
     let response = reqwest::get(&url)
         .await
         .with_context(|| format!("failed to fetch package release {}@{}", name, version))?;
@@ -412,6 +521,51 @@ async fn fetch_php_release(registry: &str, name: &str, version: &str) -> Result<
         .json::<PhpPackageRelease>()
         .await
         .context("failed to parse package release")
+}
+
+fn package_summary_url(registry: &str, name: &str) -> Result<String> {
+    let (scope, pkg) = parse_scoped_package(name)?;
+    Ok(format!(
+        "{}/api/scoped-packages/{}/{}",
+        registry.trim_end_matches('/'),
+        urlencoding::encode(scope),
+        urlencoding::encode(pkg)
+    ))
+}
+
+fn package_release_url(registry: &str, name: &str, version: &str) -> Result<String> {
+    let (scope, pkg) = parse_scoped_package(name)?;
+    Ok(format!(
+        "{}/api/scoped-packages/{}/{}/{}",
+        registry.trim_end_matches('/'),
+        urlencoding::encode(scope),
+        urlencoding::encode(pkg),
+        urlencoding::encode(version)
+    ))
+}
+
+fn package_download_url(registry: &str, name: &str, version: &str) -> Result<String> {
+    let (scope, pkg) = parse_scoped_package(name)?;
+    Ok(format!(
+        "{}/api/scoped-packages/{}/{}/{}/download",
+        registry.trim_end_matches('/'),
+        urlencoding::encode(scope),
+        urlencoding::encode(pkg),
+        urlencoding::encode(version)
+    ))
+}
+
+fn parse_scoped_package(name: &str) -> Result<(&str, &str)> {
+    if !name.starts_with('@') {
+        bail!("invalid package name `{}`: expected @scope/name", name);
+    }
+    let mut parts = name.splitn(3, '/');
+    let scope = parts.next().unwrap_or("");
+    let pkg = parts.next().unwrap_or("");
+    if scope.is_empty() || pkg.is_empty() || parts.next().is_some() {
+        bail!("invalid package name `{}`: expected @scope/name", name);
+    }
+    Ok((scope, pkg))
 }
 
 fn php_modules_path_for(package_name: &str) -> Result<PathBuf> {
