@@ -43,6 +43,7 @@ async fn serve_async(context: &Context) -> Result<(), String> {
     for warning in resolved_security.warnings {
         stdio_log::warn_simple(&format!("[security] {}", warning));
     }
+    stdio_log::log("security", &resolved_security.summary);
     let _ = platform
         .env()
         .set("DEKA_SECURITY_POLICY", &resolved_security.policy_json);

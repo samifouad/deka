@@ -1,11 +1,13 @@
 use core::Context;
 use runtime_core::security_policy::{
-    SecurityCliOverrides, merge_policy_with_cli, parse_deka_security_policy, policy_to_json,
+    RuleList, SecurityCliOverrides, merge_policy_with_cli, parse_deka_security_policy,
+    policy_to_json,
 };
 
 pub struct ResolvedSecurityPolicy {
     pub policy_json: String,
     pub prompt_enabled: bool,
+    pub summary: String,
     pub warnings: Vec<String>,
 }
 
@@ -53,10 +55,35 @@ pub fn resolve_security_policy(context: &Context) -> Result<ResolvedSecurityPoli
     let merged = merge_policy_with_cli(parsed.policy, &overrides);
     let policy_json = serde_json::to_string(&policy_to_json(&merged))
         .map_err(|err| format!("failed to serialize security policy: {}", err))?;
+    let summary = format!(
+        "default-deny; allow(run={}, dynamic={}, wasm={}) deny(run={}, dynamic={}, net={}) prompt={}",
+        summarize_rule(&merged.allow.run),
+        merged.allow.dynamic,
+        summarize_rule(&merged.allow.wasm),
+        summarize_rule(&merged.deny.run),
+        merged.deny.dynamic,
+        summarize_rule(&merged.deny.net),
+        merged.prompt
+    );
 
     Ok(ResolvedSecurityPolicy {
         policy_json,
         prompt_enabled: merged.prompt,
+        summary,
         warnings,
     })
+}
+
+fn summarize_rule(rule: &RuleList) -> String {
+    match rule {
+        RuleList::None => "none".to_string(),
+        RuleList::All => "all".to_string(),
+        RuleList::List(items) => {
+            if items.len() <= 3 {
+                items.join(",")
+            } else {
+                format!("{} items", items.len())
+            }
+        }
+    }
 }

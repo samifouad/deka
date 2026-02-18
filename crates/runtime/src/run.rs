@@ -38,6 +38,7 @@ async fn run_async(context: &Context) -> Result<(), String> {
     for warning in resolved_security.warnings {
         eprintln!("[security] warning: {}", warning);
     }
+    eprintln!("[security] {}", resolved_security.summary);
     let _ = platform
         .env()
         .set("DEKA_SECURITY_POLICY", &resolved_security.policy_json);
