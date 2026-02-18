@@ -16,7 +16,7 @@ use rusqlite::types::ValueRef as SqliteValueRef;
 use rusqlite::{Connection as SqliteConnection, params_from_iter as sqlite_params_from_iter};
 use std::collections::{HashMap, HashSet};
 use std::fs::{File as StdFile, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{IsTerminal, Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -1779,14 +1779,17 @@ fn enforce_scope(
     }
     if rule_denies(deny_rule, target) {
         return Err(core_err(format!(
-            "SECURITY_CAPABILITY_DENIED: capability={} target={} denied by policy",
+            "SECURITY_POLICY_DENY_PRECEDENCE: capability={} target={} denied by policy",
             capability,
             target.unwrap_or("*")
         )));
     }
     if !rule_allows(allow_rule, target) {
+        if prompt_enabled() && prompt_grant(capability, target)? {
+            return Ok(());
+        }
         return Err(core_err(format!(
-            "SECURITY_CAPABILITY_DENIED: capability={} target={} not allowed",
+            "SECURITY_CAPABILITY_DENIED: capability={} target={} not allowed (re-run with explicit allow flag or configure deka.security)",
             capability,
             target.unwrap_or("*")
         )));
@@ -1798,6 +1801,59 @@ fn security_enforcement_enabled() -> bool {
     std::env::var("DEKA_SECURITY_ENFORCE")
         .map(|v| v == "1")
         .unwrap_or(false)
+}
+
+fn prompt_enabled() -> bool {
+    if std::env::var("DEKA_SECURITY_NO_PROMPT")
+        .map(|v| v == "1")
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    std::io::stdin().is_terminal() && std::io::stderr().is_terminal()
+}
+
+fn prompt_grants() -> &'static Mutex<HashSet<String>> {
+    static PROMPT_GRANTS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    PROMPT_GRANTS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn prompt_grant(
+    capability: &str,
+    target: Option<&str>,
+) -> Result<bool, deno_core::error::CoreError> {
+    let key = format!("{}::{}", capability, target.unwrap_or("*"));
+    {
+        let grants = prompt_grants()
+            .lock()
+            .map_err(|_| core_err("security prompt lock poisoned"))?;
+        if grants.contains(&key) {
+            return Ok(true);
+        }
+    }
+
+    let prompt = format!(
+        "[security] allow {} on {} for this process? [y/N]: ",
+        capability,
+        target.unwrap_or("*")
+    );
+    eprint!("{}", prompt);
+    let _ = std::io::stderr().flush();
+
+    let mut line = String::new();
+    match std::io::stdin().read_line(&mut line) {
+        Ok(_) => {
+            let accepted = matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes");
+            if accepted {
+                let mut grants = prompt_grants()
+                    .lock()
+                    .map_err(|_| core_err("security prompt lock poisoned"))?;
+                grants.insert(key);
+            }
+            Ok(accepted)
+        }
+        Err(err) => Err(core_err(format!("security prompt failed: {}", err))),
+    }
 }
 
 fn enforce_read(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
