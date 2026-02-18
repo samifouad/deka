@@ -49,6 +49,14 @@ async fn run_async(context: &Context) -> Result<(), String> {
             "1"
         },
     );
+    let _ = platform.env().set(
+        "DEKA_SECURITY_ENFORCE",
+        if resolved_security.enforce_enabled {
+            "1"
+        } else {
+            "0"
+        },
+    );
     let env_get = |key: &str| platform.env().get(key);
     let mut env_set = |key: &str, value: &str| {
         let _ = platform.env().set(key, value);

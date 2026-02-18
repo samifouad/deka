@@ -11,6 +11,7 @@ use php_rs::parser::lexer::token::Token;
 use php_rs::parser::parser::{Parser, ParserMode, detect_parser_mode};
 use postgres::{Client, NoTls, types::ToSql};
 use prost::Message as ProstMessage;
+use runtime_core::security_policy::{RuleList, SecurityPolicy, parse_deka_security_policy};
 use rusqlite::types::ValueRef as SqliteValueRef;
 use rusqlite::{Connection as SqliteConnection, params_from_iter as sqlite_params_from_iter};
 use std::collections::{HashMap, HashSet};
@@ -1016,7 +1017,11 @@ fn op_php_parse_phpx_types(
     let lexer = Lexer::new(source_bytes);
     let path = std::path::Path::new(&file_path);
     let mut mode = detect_parser_mode(source_bytes, Some(path));
-    if path.to_string_lossy().replace('\\', "/").contains("/php_modules/") {
+    if path
+        .to_string_lossy()
+        .replace('\\', "/")
+        .contains("/php_modules/")
+    {
         mode = ParserMode::PhpxInternal;
     }
     let mut parser = Parser::new_with_mode(lexer, &arena, mode);
@@ -1080,12 +1085,14 @@ fn op_php_parse_phpx_types(
 #[op2]
 #[buffer]
 fn op_php_get_wasm() -> Vec<u8> {
+    let _ = enforce_wasm(Some("php_rs.wasm"));
     PHP_WASM_BYTES.to_vec()
 }
 
 #[op2]
 #[buffer]
 fn op_php_read_file_sync(#[string] path: String) -> Result<Vec<u8>, deno_core::error::CoreError> {
+    enforce_read(Some(&path))?;
     std::fs::read(&path).map_err(|e| {
         deno_core::error::CoreError::from(std::io::Error::new(
             e.kind(),
@@ -1099,6 +1106,7 @@ fn op_php_write_file_sync(
     #[string] path: String,
     #[buffer] data: &[u8],
 ) -> Result<(), deno_core::error::CoreError> {
+    enforce_write(Some(&path))?;
     std::fs::write(&path, data).map_err(|e| {
         deno_core::error::CoreError::from(std::io::Error::new(
             e.kind(),
@@ -1109,6 +1117,7 @@ fn op_php_write_file_sync(
 
 #[op2(fast)]
 fn op_php_mkdirs(#[string] path: String) -> Result<(), deno_core::error::CoreError> {
+    enforce_write(Some(&path))?;
     std::fs::create_dir_all(&path).map_err(|e| {
         deno_core::error::CoreError::from(std::io::Error::new(
             e.kind(),
@@ -1146,6 +1155,9 @@ fn op_php_random_bytes(#[number] len: i64) -> Vec<u8> {
 #[op2]
 #[serde]
 fn op_php_read_env() -> HashMap<String, String> {
+    if enforce_env(None).is_err() {
+        return HashMap::new();
+    }
     let mut merged = HashMap::new();
     for (key, value) in std::env::vars() {
         merged.insert(key, value);
@@ -1719,6 +1731,105 @@ fn core_err(msg: impl Into<String>) -> deno_core::error::CoreError {
     deno_core::error::CoreError::from(std::io::Error::other(msg.into()))
 }
 
+fn security_policy_from_env() -> SecurityPolicy {
+    let raw = match std::env::var("DEKA_SECURITY_POLICY") {
+        Ok(v) => v,
+        Err(_) => return SecurityPolicy::default(),
+    };
+    let json = match serde_json::from_str::<serde_json::Value>(&raw) {
+        Ok(v) => v,
+        Err(_) => return SecurityPolicy::default(),
+    };
+    let parsed = parse_deka_security_policy(&json);
+    if parsed.has_errors() {
+        SecurityPolicy::default()
+    } else {
+        parsed.policy
+    }
+}
+
+fn rule_allows(rule: &RuleList, target: Option<&str>) -> bool {
+    match rule {
+        RuleList::None => false,
+        RuleList::All => true,
+        RuleList::List(items) => target
+            .map(|t| items.iter().any(|item| item == t))
+            .unwrap_or(false),
+    }
+}
+
+fn rule_denies(rule: &RuleList, target: Option<&str>) -> bool {
+    match rule {
+        RuleList::None => false,
+        RuleList::All => true,
+        RuleList::List(items) => target
+            .map(|t| items.iter().any(|item| item == t))
+            .unwrap_or(false),
+    }
+}
+
+fn enforce_scope(
+    capability: &str,
+    allow_rule: &RuleList,
+    deny_rule: &RuleList,
+    target: Option<&str>,
+) -> Result<(), deno_core::error::CoreError> {
+    if !security_enforcement_enabled() {
+        return Ok(());
+    }
+    if rule_denies(deny_rule, target) {
+        return Err(core_err(format!(
+            "SECURITY_CAPABILITY_DENIED: capability={} target={} denied by policy",
+            capability,
+            target.unwrap_or("*")
+        )));
+    }
+    if !rule_allows(allow_rule, target) {
+        return Err(core_err(format!(
+            "SECURITY_CAPABILITY_DENIED: capability={} target={} not allowed",
+            capability,
+            target.unwrap_or("*")
+        )));
+    }
+    Ok(())
+}
+
+fn security_enforcement_enabled() -> bool {
+    std::env::var("DEKA_SECURITY_ENFORCE")
+        .map(|v| v == "1")
+        .unwrap_or(false)
+}
+
+fn enforce_read(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
+    let policy = security_policy_from_env();
+    enforce_scope("read", &policy.allow.read, &policy.deny.read, target)
+}
+
+fn enforce_write(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
+    let policy = security_policy_from_env();
+    enforce_scope("write", &policy.allow.write, &policy.deny.write, target)
+}
+
+fn enforce_net(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
+    let policy = security_policy_from_env();
+    enforce_scope("net", &policy.allow.net, &policy.deny.net, target)
+}
+
+fn enforce_env(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
+    let policy = security_policy_from_env();
+    enforce_scope("env", &policy.allow.env, &policy.deny.env, target)
+}
+
+fn enforce_db(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
+    let policy = security_policy_from_env();
+    enforce_scope("db", &policy.allow.db, &policy.deny.db, target)
+}
+
+fn enforce_wasm(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
+    let policy = security_policy_from_env();
+    enforce_scope("wasm", &policy.allow.wasm, &policy.deny.wasm, target)
+}
+
 fn db_json_to_proto_value(value: &serde_json::Value) -> proto::bridge_v1::Value {
     use proto::bridge_v1::value::Kind;
     let kind = match value {
@@ -2209,6 +2320,8 @@ fn db_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
     let req = proto::bridge_v1::DbRequest::decode(request)
         .map_err(|e| core_err(format!("db proto decode failed: {}", e)))?;
     let (action, payload, kind) = db_proto_request_to_action_payload(&req)?;
+    let db_target = payload.get("driver").and_then(|v| v.as_str()).or(Some("*"));
+    enforce_db(db_target)?;
     let response_json = db_call_impl(action, payload)?;
     let response = db_json_response_to_proto(&response_json, kind);
     let out = response.encode_to_vec();
@@ -2683,6 +2796,8 @@ fn net_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::Core
     let req = proto::bridge_v1::NetRequest::decode(request)
         .map_err(|e| core_err(format!("net proto decode failed: {}", e)))?;
     let (action, payload, kind) = net_proto_request_to_action_payload(&req)?;
+    let net_target = payload.get("host").and_then(|v| v.as_str()).or(Some("*"));
+    enforce_net(net_target)?;
     let response_json = net_call_impl(action, payload)?;
     let response = net_json_response_to_proto(&response_json, kind);
     let out = response.encode_to_vec();
@@ -3175,6 +3290,25 @@ fn fs_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
     let req = proto::bridge_v1::FsRequest::decode(request)
         .map_err(|e| core_err(format!("fs proto decode failed: {}", e)))?;
     let (action, payload, kind) = fs_proto_request_to_action_payload(&req)?;
+    let fs_target = payload.get("path").and_then(|v| v.as_str()).or(Some("*"));
+    match action.as_str() {
+        "read" | "read_file" => enforce_read(fs_target)?,
+        "write" | "write_file" => enforce_write(fs_target)?,
+        "open" => {
+            let mode = payload.get("mode").and_then(|v| v.as_str()).unwrap_or("r");
+            if mode.contains('w')
+                || mode.contains('a')
+                || mode.contains('x')
+                || mode.contains('c')
+                || mode.contains('+')
+            {
+                enforce_write(fs_target)?;
+            } else {
+                enforce_read(fs_target)?;
+            }
+        }
+        _ => {}
+    }
     let response_json = fs_call_impl(action, payload)?;
     let response = fs_json_response_to_proto(&response_json, kind);
     let out = response.encode_to_vec();
@@ -3238,6 +3372,7 @@ fn op_php_bridge_proto_stats() -> Result<serde_json::Value, deno_core::error::Co
 #[op2]
 #[string]
 fn op_php_cwd() -> Result<String, deno_core::error::CoreError> {
+    enforce_read(None)?;
     std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .map_err(|e| deno_core::error::CoreError::from(e))
@@ -3245,12 +3380,17 @@ fn op_php_cwd() -> Result<String, deno_core::error::CoreError> {
 
 #[op2(fast)]
 fn op_php_file_exists(#[string] path: String) -> bool {
+    if enforce_read(Some(&path)).is_err() {
+        return false;
+    }
     std::path::Path::new(&path).exists()
 }
 
 #[op2]
 #[string]
 fn op_php_path_resolve(#[string] base: String, #[string] path: String) -> String {
+    let _ = enforce_read(Some(&base));
+    let _ = enforce_read(Some(&path));
     if let Some(stripped) = path.strip_prefix("@/") {
         let root = std::env::var("PHPX_MODULE_ROOT")
             .ok()
@@ -3286,6 +3426,7 @@ fn op_php_path_resolve(#[string] base: String, #[string] path: String) -> String
 fn op_php_read_dir(
     #[string] path: String,
 ) -> Result<Vec<PhpDirEntry>, deno_core::error::CoreError> {
+    enforce_read(Some(&path))?;
     let entries = std::fs::read_dir(&path).map_err(|e| {
         deno_core::error::CoreError::from(std::io::Error::new(
             e.kind(),
@@ -3322,6 +3463,8 @@ fn op_php_parse_wit(
     #[string] path: String,
     #[string] world: String,
 ) -> Result<WitSchema, deno_core::error::CoreError> {
+    enforce_wasm(Some(&path))?;
+    enforce_read(Some(&path))?;
     let mut resolve = Resolve::default();
     let (package_id, _) = resolve.push_path(&path).map_err(|err| {
         deno_core::error::CoreError::from(std::io::Error::new(
@@ -3597,8 +3740,8 @@ mod tests {
 
         assert_eq!(json_query.get("rows"), proto_json.get("rows"));
 
-        let json_stats = db_call_impl("stats".to_string(), serde_json::json!({}))
-            .expect("json stats failed");
+        let json_stats =
+            db_call_impl("stats".to_string(), serde_json::json!({})).expect("json stats failed");
         assert_ok(&json_stats);
         assert!(
             json_stats
@@ -3624,8 +3767,8 @@ mod tests {
 
         let proto_stats_req = db_action_payload_to_proto_request("stats", &serde_json::json!({}))
             .expect("proto stats request build failed");
-        let proto_stats_resp = db_call_proto_impl(&proto_stats_req.encode_to_vec())
-            .expect("proto stats failed");
+        let proto_stats_resp =
+            db_call_proto_impl(&proto_stats_req.encode_to_vec()).expect("proto stats failed");
         let proto_stats_decoded = proto::bridge_v1::DbResponse::decode(proto_stats_resp.as_slice())
             .expect("decode stats failed");
         let proto_stats_json = db_proto_response_to_json(&proto_stats_decoded);
