@@ -131,6 +131,55 @@ fn build_request(context: &Context) -> Result<PublishRequest> {
 
 async fn run_publish(request: PublishRequest) -> Result<()> {
     let client = reqwest::Client::new();
+    let preflight_endpoint = request
+        .endpoint
+        .replace("/api/packages/publish", "/api/packages/preflight");
+    let preflight_response = client
+        .post(&preflight_endpoint)
+        .bearer_auth(&request.token)
+        .json(&request.payload)
+        .send()
+        .await
+        .with_context(|| format!("failed to send preflight request to {}", preflight_endpoint))?;
+
+    let preflight_status = preflight_response.status();
+    let preflight_payload: serde_json::Value = preflight_response
+        .json()
+        .await
+        .context("failed to parse preflight response json")?;
+    if !preflight_status.is_success() {
+        let err_msg = preflight_payload
+            .get("error")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| preflight_payload.to_string());
+        bail!(
+            "publish preflight failed ({}): {}",
+            preflight_status,
+            err_msg
+        );
+    }
+
+    if let Some(preflight) = preflight_payload.get("preflight") {
+        let required = preflight
+            .get("required_bump")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let minimum = preflight
+            .get("minimum_allowed_version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        stdio::log(
+            "publish",
+            &format!("preflight: required bump={}, minimum={}", required, minimum),
+        );
+        if let Some(reasons) = preflight.get("reasons").and_then(|v| v.as_array()) {
+            for reason in reasons.iter().filter_map(|v| v.as_str()) {
+                stdio::log("publish", &format!("reason: {}", reason));
+            }
+        }
+    }
+
     let response = client
         .post(&request.endpoint)
         .bearer_auth(request.token)
