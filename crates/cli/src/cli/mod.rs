@@ -93,6 +93,14 @@ pub fn register_global_params(registry: &mut Registry) {
         description: "linkhash auth token",
     });
     registry.add_param(ParamSpec {
+        name: "--email",
+        description: "account email",
+    });
+    registry.add_param(ParamSpec {
+        name: "--password",
+        description: "account password",
+    });
+    registry.add_param(ParamSpec {
         name: "--registry-url",
         description: "linkhash registry base URL",
     });
