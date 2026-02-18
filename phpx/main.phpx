@@ -714,11 +714,17 @@ function TopPackages($props) {
     $description = rowValue($pkg, 'description', 'No description yet')
     $downloads = rowValue($pkg, 'downloadCount', 0)
     $latestVersion = rowValue($pkg, 'latestVersion', 'n/a')
+    $orgHandle = '' . rowValue($pkg, 'orgHandle', rowValue($pkg, 'org_handle', ''))
+    $packageHref = ($orgHandle !== '' && ('' . $name) !== '')
+      ? ('/package/' . rawurlencode($orgHandle) . '/' . rawurlencode('' . $name))
+      : ''
 
     $cards[] = <article class="rounded-xl border border-gray-200 p-4">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <div class="text-base font-semibold text-gray-900">{$name}</div>
+          {$packageHref !== ''
+            ? <a class="text-base font-semibold text-blue-700 hover:text-blue-900" href={$packageHref}>{$name}</a>
+            : <div class="text-base font-semibold text-gray-900">{$name}</div>}
           <div class="mt-1 text-sm text-gray-600">{$description}</div>
         </div>
         <div class="rounded-md bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">{(string) $downloads . ' downloads'}</div>
@@ -755,9 +761,15 @@ function FeaturedPackages($props) {
     $pkg = $packages[$i]
     $name = rowValue($pkg, 'name', '')
     $desc = rowValue($pkg, 'description', '')
+    $orgHandle = '' . rowValue($pkg, 'orgHandle', rowValue($pkg, 'org_handle', ''))
+    $packageHref = ($orgHandle !== '' && ('' . $name) !== '')
+      ? ('/package/' . rawurlencode($orgHandle) . '/' . rawurlencode('' . $name))
+      : ''
     $cards[] = <article class="rounded-xl border border-blue-100 bg-blue-50 p-4">
       <div class="text-sm font-semibold text-blue-700">{'Featured #' . ($i + 1)}</div>
-      <div class="mt-1 text-lg font-bold text-gray-900">{$name}</div>
+      {$packageHref !== ''
+        ? <a class="mt-1 block text-lg font-bold text-blue-800 hover:text-blue-900" href={$packageHref}>{$name}</a>
+        : <div class="mt-1 text-lg font-bold text-gray-900">{$name}</div>}
       <p class="mt-2 text-sm text-gray-700">{$desc}</p>
     </article>
   }
