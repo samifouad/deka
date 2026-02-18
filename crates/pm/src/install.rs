@@ -580,6 +580,91 @@ fn php_modules_path_for(package_name: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::{PhpPackageRelease, enforce_release_policy, extract_release_capabilities};
+    use runtime_core::security_policy::{RuleList, SecurityPolicy, SecurityScope};
+    use serde_json::json;
+
+    fn sample_release(
+        manifest: Option<serde_json::Value>,
+        capability_metadata: Option<serde_json::Value>,
+    ) -> PhpPackageRelease {
+        PhpPackageRelease {
+            package_name: "@scope/pkg".to_string(),
+            version: "1.0.0".to_string(),
+            owner: "scope".to_string(),
+            repo: "pkg".to_string(),
+            git_ref: "HEAD".to_string(),
+            description: None,
+            manifest,
+            capability_metadata,
+        }
+    }
+
+    #[test]
+    fn extracts_capabilities_from_metadata_and_manifest() {
+        let release = sample_release(
+            Some(json!({
+                "deka.security": {
+                    "allow": {
+                        "dynamic": true,
+                        "run": ["git"]
+                    }
+                }
+            })),
+            Some(json!({
+                "detected": ["run"]
+            })),
+        );
+        let caps = extract_release_capabilities(&release);
+        assert!(caps.iter().any(|c| c == "run"));
+        assert!(caps.iter().any(|c| c == "dynamic"));
+    }
+
+    #[test]
+    fn blocks_install_when_policy_denies_detected_capability() {
+        let release = sample_release(
+            None,
+            Some(json!({
+                "detected": ["dynamic"]
+            })),
+        );
+        let policy = SecurityPolicy {
+            allow: SecurityScope::default(),
+            deny: SecurityScope {
+                dynamic: true,
+                ..SecurityScope::default()
+            },
+            prompt: true,
+        };
+        let result = enforce_release_policy(&release, &policy);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn allows_install_when_policy_has_no_denies() {
+        let release = sample_release(
+            Some(json!({
+                "deka.security": {
+                    "allow": { "run": ["git"] }
+                }
+            })),
+            None,
+        );
+        let policy = SecurityPolicy {
+            allow: SecurityScope::default(),
+            deny: SecurityScope {
+                run: RuleList::None,
+                ..SecurityScope::default()
+            },
+            prompt: true,
+        };
+        let result = enforce_release_policy(&release, &policy);
+        assert!(result.is_ok());
+    }
+}
+
 pub fn run_probe(path: &PathBuf) -> Result<()> {
     let canonical = fs::canonicalize(path).context("failed to resolve probe path")?;
     emit_probe(&canonical)?;

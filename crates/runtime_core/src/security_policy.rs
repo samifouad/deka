@@ -582,4 +582,18 @@ mod tests {
             Some(true)
         );
     }
+
+    #[test]
+    fn cli_deny_overrides_allow_all() {
+        let merged = merge_policy_with_cli(
+            super::SecurityPolicy::default(),
+            &SecurityCliOverrides {
+                allow_all: true,
+                deny_net: true,
+                ..SecurityCliOverrides::default()
+            },
+        );
+        assert!(matches!(merged.allow.net, RuleList::All));
+        assert!(matches!(merged.deny.net, RuleList::All));
+    }
 }
