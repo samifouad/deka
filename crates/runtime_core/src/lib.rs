@@ -4,4 +4,5 @@ pub mod modules;
 pub mod php_pipeline;
 pub mod process;
 pub mod security;
+pub mod security_policy;
 pub mod validation;
