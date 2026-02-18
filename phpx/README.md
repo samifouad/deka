@@ -127,6 +127,10 @@ Endpoints:
 - `POST /api/publish` publishes a package version + artifact bytes (MVP uses inline base64 bytes)
 - `GET /api/install?org=...&name=...&version=latest|x.y.z` resolves install metadata + download URL
 - `GET /api/artifacts/:canonicalId` downloads artifact bytes (private packages require org access)
+- `POST /api/repo/issues/create` creates an issue for the backing repo
+- `POST /api/repo/issues/comment` comments on an issue
+- `POST /api/repo/pulls/create` creates a pull request for the backing repo
+- `POST /api/repo/pulls/comment` comments on a pull request
 
 Logging:
 
@@ -147,6 +151,8 @@ Package detail docs:
 - Package pages now show version-aware API docs symbols when `linkhash-git` docs APIs are reachable.
 - Configure the backend URL with `LINKHASH_GIT_API_URL` (default `http://localhost:8508`).
 - Package pages use `tree`/`blob` APIs for file explorer + source preview when available.
+- Package pages now render issue/PR list/detail/create/comment panels against `linkhash-git` repo APIs.
+- Set `LINKHASH_GIT_TOKEN` (or `LINKHASH_GIT_API_TOKEN`) so Linkhash can call authenticated repo APIs.
 
 Role model:
 

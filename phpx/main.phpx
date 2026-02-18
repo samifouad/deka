@@ -1536,6 +1536,145 @@ function fetchRemoteReleaseBlob($org, $name, $version, $path) {
   return [ 'ok' => true, 'value' => $decoded->value ]
 }
 
+function linkhashGitAuthToken() {
+  $token = trim('' . envValue('LINKHASH_GIT_TOKEN', ''))
+  if ($token !== '') {
+    return $token
+  }
+  return trim('' . envValue('LINKHASH_GIT_API_TOKEN', ''))
+}
+
+function linkhashGitAuthHeaders($extra = []) {
+  $headers = is_array($extra) ? $extra : []
+  $headers['Accept'] = 'application/json'
+  $token = linkhashGitAuthToken()
+  if ($token !== '') {
+    $headers['Authorization'] = 'Bearer ' . $token
+  }
+  return $headers
+}
+
+function fetchRemoteGitJson($method, $path, $payload = null) {
+  $url = linkhashGitApiBase() . $path
+  $body = ''
+  $headers = linkhashGitAuthHeaders([])
+  if ($payload !== null) {
+    $encoded = encodeJson(normalizeJsonValue($payload))
+    if (!is_string($encoded)) {
+      return [ 'ok' => false, 'error' => 'json encode failed' ]
+    }
+    $body = $encoded
+    $headers['Content-Type'] = 'application/json'
+  }
+  $res = httpRequestRaw($method, $url, $headers, $body)
+  if (!is_array($res) || !rowValue($res, 'ok', false)) {
+    return [ 'ok' => false, 'error' => 'request failed' ]
+  }
+  $status = (int) rowValue($res, 'status', 0)
+  $decoded = json_decode_result(rowValue($res, 'body', '{}'), true)
+  if (!result_is_ok($decoded) || !is_array($decoded->value)) {
+    return [ 'ok' => false, 'error' => 'invalid response payload', 'status' => $status ]
+  }
+  if ($status < 200 || $status >= 300) {
+    return [ 'ok' => false, 'error' => '' . rowValue($decoded->value, 'error', 'request rejected'), 'status' => $status, 'payload' => $decoded->value ]
+  }
+  return [ 'ok' => true, 'value' => $decoded->value, 'status' => $status ]
+}
+
+function fetchRemoteRepoIssues($org, $name, $state = 'open') {
+  $scope = normalizeHandleName($org)
+  $pkg = normalizePackageName($name)
+  if ($scope === '' || $pkg === '') {
+    return [ 'ok' => false, 'error' => 'invalid issues target' ]
+  }
+  return fetchRemoteGitJson('GET', '/api/repos/' . rawurlencode($scope) . '/' . rawurlencode($pkg) . '/issues?state=' . rawurlencode($state))
+}
+
+function fetchRemoteRepoIssueDetail($org, $name, $number) {
+  $scope = normalizeHandleName($org)
+  $pkg = normalizePackageName($name)
+  $n = (int) $number
+  if ($scope === '' || $pkg === '' || $n <= 0) {
+    return [ 'ok' => false, 'error' => 'invalid issue target' ]
+  }
+  return fetchRemoteGitJson('GET', '/api/repos/' . rawurlencode($scope) . '/' . rawurlencode($pkg) . '/issues/' . $n)
+}
+
+function createRemoteRepoIssue($org, $name, $title, $body = '') {
+  $scope = normalizeHandleName($org)
+  $pkg = normalizePackageName($name)
+  $t = trim('' . $title)
+  if ($scope === '' || $pkg === '' || $t === '') {
+    return [ 'ok' => false, 'error' => 'org, package, and title are required' ]
+  }
+  return fetchRemoteGitJson('POST', '/api/repos/' . rawurlencode($scope) . '/' . rawurlencode($pkg) . '/issues', [
+    'title' => $t,
+    'body' => trim('' . $body)
+  ])
+}
+
+function createRemoteRepoIssueComment($org, $name, $number, $body) {
+  $scope = normalizeHandleName($org)
+  $pkg = normalizePackageName($name)
+  $n = (int) $number
+  $text = trim('' . $body)
+  if ($scope === '' || $pkg === '' || $n <= 0 || $text === '') {
+    return [ 'ok' => false, 'error' => 'org, package, issue, and comment body are required' ]
+  }
+  return fetchRemoteGitJson('POST', '/api/repos/' . rawurlencode($scope) . '/' . rawurlencode($pkg) . '/issues/' . $n . '/comments', [
+    'body' => $text
+  ])
+}
+
+function fetchRemoteRepoPulls($org, $name, $state = 'open') {
+  $scope = normalizeHandleName($org)
+  $pkg = normalizePackageName($name)
+  if ($scope === '' || $pkg === '') {
+    return [ 'ok' => false, 'error' => 'invalid pull target' ]
+  }
+  return fetchRemoteGitJson('GET', '/api/repos/' . rawurlencode($scope) . '/' . rawurlencode($pkg) . '/pulls?state=' . rawurlencode($state))
+}
+
+function fetchRemoteRepoPullDetail($org, $name, $number) {
+  $scope = normalizeHandleName($org)
+  $pkg = normalizePackageName($name)
+  $n = (int) $number
+  if ($scope === '' || $pkg === '' || $n <= 0) {
+    return [ 'ok' => false, 'error' => 'invalid pull target' ]
+  }
+  return fetchRemoteGitJson('GET', '/api/repos/' . rawurlencode($scope) . '/' . rawurlencode($pkg) . '/pulls/' . $n)
+}
+
+function createRemoteRepoPull($org, $name, $title, $sourceRef, $targetRef, $body = '') {
+  $scope = normalizeHandleName($org)
+  $pkg = normalizePackageName($name)
+  $t = trim('' . $title)
+  $src = trim('' . $sourceRef)
+  $dst = trim('' . $targetRef)
+  if ($scope === '' || $pkg === '' || $t === '' || $src === '' || $dst === '') {
+    return [ 'ok' => false, 'error' => 'org, package, title, source_ref, and target_ref are required' ]
+  }
+  return fetchRemoteGitJson('POST', '/api/repos/' . rawurlencode($scope) . '/' . rawurlencode($pkg) . '/pulls', [
+    'title' => $t,
+    'body' => trim('' . $body),
+    'source_ref' => $src,
+    'target_ref' => $dst
+  ])
+}
+
+function createRemoteRepoPullComment($org, $name, $number, $body) {
+  $scope = normalizeHandleName($org)
+  $pkg = normalizePackageName($name)
+  $n = (int) $number
+  $text = trim('' . $body)
+  if ($scope === '' || $pkg === '' || $n <= 0 || $text === '') {
+    return [ 'ok' => false, 'error' => 'org, package, pull, and comment body are required' ]
+  }
+  return fetchRemoteGitJson('POST', '/api/repos/' . rawurlencode($scope) . '/' . rawurlencode($pkg) . '/pulls/' . $n . '/comments', [
+    'body' => $text
+  ])
+}
+
 function oauthConfig() {
   $clientId = '' . envValue('LINKHASH_OAUTH_CLIENT_ID', 'linkhash-dev')
   $clientSecret = '' . envValue('LINKHASH_OAUTH_CLIENT_SECRET', '')
@@ -4307,6 +4446,18 @@ function fetchPackageDetail($orgHandle, $name, $auth) {
   $selectedFile = trim('' . queryValue('file', ''))
   $selectedFileContent = ''
   $selectedFileError = ''
+  $issues = []
+  $issuesError = ''
+  $activeIssueNumber = (int) queryValue('issue', 0)
+  $activeIssue = null
+  $activeIssueComments = []
+  $activeIssueError = ''
+  $pulls = []
+  $pullsError = ''
+  $activePullNumber = (int) queryValue('pull', 0)
+  $activePull = null
+  $activePullComments = []
+  $activePullError = ''
   if ($activeVersion !== '') {
     $docs = fetchRemoteReleaseDocs($org, $pkgName, $activeVersion)
     if (rowValue($docs, 'ok', false)) {
@@ -4333,6 +4484,38 @@ function fetchPackageDetail($orgHandle, $name, $auth) {
       $treeError = '' . rowValue($tree, 'error', '')
     }
   }
+
+  $issueList = fetchRemoteRepoIssues($org, $pkgName, 'open')
+  if (rowValue($issueList, 'ok', false)) {
+    $issues = rowValue(rowValue($issueList, 'value', []), 'issues', [])
+  } else {
+    $issuesError = '' . rowValue($issueList, 'error', '')
+  }
+  if ($activeIssueNumber > 0) {
+    $issueDetail = fetchRemoteRepoIssueDetail($org, $pkgName, $activeIssueNumber)
+    if (rowValue($issueDetail, 'ok', false)) {
+      $activeIssue = rowValue(rowValue($issueDetail, 'value', []), 'issue', null)
+      $activeIssueComments = rowValue(rowValue($issueDetail, 'value', []), 'comments', [])
+    } else {
+      $activeIssueError = '' . rowValue($issueDetail, 'error', '')
+    }
+  }
+
+  $pullList = fetchRemoteRepoPulls($org, $pkgName, 'open')
+  if (rowValue($pullList, 'ok', false)) {
+    $pulls = rowValue(rowValue($pullList, 'value', []), 'pulls', [])
+  } else {
+    $pullsError = '' . rowValue($pullList, 'error', '')
+  }
+  if ($activePullNumber > 0) {
+    $pullDetail = fetchRemoteRepoPullDetail($org, $pkgName, $activePullNumber)
+    if (rowValue($pullDetail, 'ok', false)) {
+      $activePull = rowValue(rowValue($pullDetail, 'value', []), 'pull', null)
+      $activePullComments = rowValue(rowValue($pullDetail, 'value', []), 'comments', [])
+    } else {
+      $activePullError = '' . rowValue($pullDetail, 'error', '')
+    }
+  }
   dbClose($db)
 
   return [
@@ -4353,7 +4536,19 @@ function fetchPackageDetail($orgHandle, $name, $auth) {
     'treeError' => $treeError,
     'selectedFile' => $selectedFile,
     'selectedFileContent' => $selectedFileContent,
-    'selectedFileError' => $selectedFileError
+    'selectedFileError' => $selectedFileError,
+    'issues' => $issues,
+    'issuesError' => $issuesError,
+    'activeIssue' => $activeIssue,
+    'activeIssueComments' => $activeIssueComments,
+    'activeIssueError' => $activeIssueError,
+    'pulls' => $pulls,
+    'pullsError' => $pullsError,
+    'activePull' => $activePull,
+    'activePullComments' => $activePullComments,
+    'activePullError' => $activePullError,
+    'repoAction' => '' . queryValue('repo_action', ''),
+    'repoMessage' => '' . queryValue('repo_message', '')
   ]
 }
 
@@ -4593,6 +4788,125 @@ function fetchCanonicalTarget($canonicalId, $auth) {
   return [ 'ok' => true, 'target' => $target ]
 }
 
+function packageRoutePath($org, $name) {
+  return '/package/' . rawurlencode(normalizeHandleName($org)) . '/' . rawurlencode(normalizePackageName($name))
+}
+
+function repoActionRedirect($org, $name, $action, $message = '', $numberKey = '', $number = 0) {
+  $target = packageRoutePath($org, $name) . '?repo_action=' . rawurlencode('' . $action)
+  if (trim('' . $message) !== '') {
+    $target = $target . '&repo_message=' . rawurlencode('' . $message)
+  }
+  if ($numberKey !== '' && (int) $number > 0) {
+    $target = $target . '&' . rawurlencode($numberKey) . '=' . ((string) ((int) $number))
+  }
+  redirectTo($target)
+}
+
+function apiRepoIssueCreate() {
+  $method = requireMethod('POST')
+  if (!$method['ok']) {
+    header('Content-Type: application/json')
+    echo jsonReply($method)
+    return
+  }
+  $data = requestData()
+  $org = '' . rowValue($data, 'org', '')
+  $name = '' . rowValue($data, 'name', '')
+  $title = '' . rowValue($data, 'title', '')
+  $body = '' . rowValue($data, 'body', '')
+  $res = createRemoteRepoIssue($org, $name, $title, $body)
+  if (wantsHtmlResponse()) {
+    if (rowValue($res, 'ok', false)) {
+      $issue = rowValue(rowValue($res, 'value', []), 'issue', [])
+      repoActionRedirect($org, $name, 'issue_created', 'Issue created.', 'issue', (int) rowValue($issue, 'number', 0))
+    } else {
+      repoActionRedirect($org, $name, 'issue_failed', '' . rowValue($res, 'error', 'Issue create failed'))
+    }
+    return
+  }
+  header('Content-Type: application/json')
+  echo jsonReply($res)
+}
+
+function apiRepoIssueCommentCreate() {
+  $method = requireMethod('POST')
+  if (!$method['ok']) {
+    header('Content-Type: application/json')
+    echo jsonReply($method)
+    return
+  }
+  $data = requestData()
+  $org = '' . rowValue($data, 'org', '')
+  $name = '' . rowValue($data, 'name', '')
+  $number = (int) rowValue($data, 'number', 0)
+  $body = '' . rowValue($data, 'body', '')
+  $res = createRemoteRepoIssueComment($org, $name, $number, $body)
+  if (wantsHtmlResponse()) {
+    if (rowValue($res, 'ok', false)) {
+      repoActionRedirect($org, $name, 'issue_comment_created', 'Issue comment created.', 'issue', $number)
+    } else {
+      repoActionRedirect($org, $name, 'issue_comment_failed', '' . rowValue($res, 'error', 'Issue comment failed'), 'issue', $number)
+    }
+    return
+  }
+  header('Content-Type: application/json')
+  echo jsonReply($res)
+}
+
+function apiRepoPullCreate() {
+  $method = requireMethod('POST')
+  if (!$method['ok']) {
+    header('Content-Type: application/json')
+    echo jsonReply($method)
+    return
+  }
+  $data = requestData()
+  $org = '' . rowValue($data, 'org', '')
+  $name = '' . rowValue($data, 'name', '')
+  $title = '' . rowValue($data, 'title', '')
+  $sourceRef = '' . rowValue($data, 'source_ref', '')
+  $targetRef = '' . rowValue($data, 'target_ref', '')
+  $body = '' . rowValue($data, 'body', '')
+  $res = createRemoteRepoPull($org, $name, $title, $sourceRef, $targetRef, $body)
+  if (wantsHtmlResponse()) {
+    if (rowValue($res, 'ok', false)) {
+      $pull = rowValue(rowValue($res, 'value', []), 'pull', [])
+      repoActionRedirect($org, $name, 'pull_created', 'Pull request created.', 'pull', (int) rowValue($pull, 'number', 0))
+    } else {
+      repoActionRedirect($org, $name, 'pull_failed', '' . rowValue($res, 'error', 'Pull create failed'))
+    }
+    return
+  }
+  header('Content-Type: application/json')
+  echo jsonReply($res)
+}
+
+function apiRepoPullCommentCreate() {
+  $method = requireMethod('POST')
+  if (!$method['ok']) {
+    header('Content-Type: application/json')
+    echo jsonReply($method)
+    return
+  }
+  $data = requestData()
+  $org = '' . rowValue($data, 'org', '')
+  $name = '' . rowValue($data, 'name', '')
+  $number = (int) rowValue($data, 'number', 0)
+  $body = '' . rowValue($data, 'body', '')
+  $res = createRemoteRepoPullComment($org, $name, $number, $body)
+  if (wantsHtmlResponse()) {
+    if (rowValue($res, 'ok', false)) {
+      repoActionRedirect($org, $name, 'pull_comment_created', 'Pull request comment created.', 'pull', $number)
+    } else {
+      repoActionRedirect($org, $name, 'pull_comment_failed', '' . rowValue($res, 'error', 'Pull request comment failed'), 'pull', $number)
+    }
+    return
+  }
+  header('Content-Type: application/json')
+  echo jsonReply($res)
+}
+
 function apiPackageDetail() {
   header('Content-Type: application/json')
   header('X-Powered-By: linkha.sh')
@@ -4763,6 +5077,18 @@ function PackageDetailPage($props) {
   $capabilities = extractVersionCapabilities($activeVersion)
   $docsSymbols = rowValue($props, 'docsSymbols', [])
   $docsError = '' . rowValue($props, 'docsError', '')
+  $issues = rowValue($props, 'issues', [])
+  $issuesError = '' . rowValue($props, 'issuesError', '')
+  $activeIssue = rowValue($props, 'activeIssue', null)
+  $activeIssueComments = rowValue($props, 'activeIssueComments', [])
+  $activeIssueError = '' . rowValue($props, 'activeIssueError', '')
+  $pulls = rowValue($props, 'pulls', [])
+  $pullsError = '' . rowValue($props, 'pullsError', '')
+  $activePull = rowValue($props, 'activePull', null)
+  $activePullComments = rowValue($props, 'activePullComments', [])
+  $activePullError = '' . rowValue($props, 'activePullError', '')
+  $repoAction = '' . rowValue($props, 'repoAction', '')
+  $repoMessage = '' . rowValue($props, 'repoMessage', '')
   $packageCoord = '@' . rowValue($props, 'org', '') . '/' . rowValue($pkg, 'name', '')
   $readmeText = versionReadmeText($activeVersion, $packageCoord, $activeVersionName)
   $items = []
@@ -4829,6 +5155,46 @@ function PackageDetailPage($props) {
     </li>
   }
   $hasMoreDocs = is_array($docsSymbols) && count($docsSymbols) > $docLimit
+  $issueRows = []
+  if (is_array($issues)) {
+    foreach ($issues as $item) {
+      $number = (int) rowValue($item, 'number', 0)
+      $href = $packagePath . '?issue=' . (string) $number
+      $issueRows[] = <li class="rounded border border-gray-200 bg-gray-50 px-3 py-2">
+        <a class="text-sm font-semibold text-blue-700 hover:text-blue-900" href={$href}>{'#' . (string) $number . ' ' . rowValue($item, 'title', '')}</a>
+        <div class="mt-1 text-xs text-gray-500">{'by ' . rowValue($item, 'author', '') . ' • ' . rowValue($item, 'state', 'open')}</div>
+      </li>
+    }
+  }
+  $pullRows = []
+  if (is_array($pulls)) {
+    foreach ($pulls as $item) {
+      $number = (int) rowValue($item, 'number', 0)
+      $href = $packagePath . '?pull=' . (string) $number
+      $pullRows[] = <li class="rounded border border-gray-200 bg-gray-50 px-3 py-2">
+        <a class="text-sm font-semibold text-blue-700 hover:text-blue-900" href={$href}>{'#' . (string) $number . ' ' . rowValue($item, 'title', '')}</a>
+        <div class="mt-1 text-xs text-gray-500">{'by ' . rowValue($item, 'author', '') . ' • ' . rowValue($item, 'state', 'open') . ' • ' . rowValue($item, 'source_ref', rowValue($item, 'sourceRef', '?')) . ' -> ' . rowValue($item, 'target_ref', rowValue($item, 'targetRef', '?'))}</div>
+      </li>
+    }
+  }
+  $issueCommentRows = []
+  if (is_array($activeIssueComments)) {
+    foreach ($activeIssueComments as $comment) {
+      $issueCommentRows[] = <li class="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+        <div class="font-semibold text-gray-800">{rowValue($comment, 'author', '')}</div>
+        <div class="mt-1 whitespace-pre-wrap">{rowValue($comment, 'body', '')}</div>
+      </li>
+    }
+  }
+  $pullCommentRows = []
+  if (is_array($activePullComments)) {
+    foreach ($activePullComments as $comment) {
+      $pullCommentRows[] = <li class="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+        <div class="font-semibold text-gray-800">{rowValue($comment, 'author', '')}</div>
+        <div class="mt-1 whitespace-pre-wrap">{rowValue($comment, 'body', '')}</div>
+      </li>
+    }
+  }
 
   return <Layout>
     <section class="rounded-2xl bg-white p-8 shadow-sm">
@@ -4884,6 +5250,72 @@ function PackageDetailPage($props) {
           {$docRows}
         </ul>
         {$hasMoreDocs ? <div class="mt-2 text-xs text-gray-500">{'showing first ' . (string) $docLimit . ' docs entries'}</div> : null}
+      </section>
+      {$repoAction !== '' ? <div class={'mt-6 rounded border px-3 py-2 text-xs ' . ((strpos($repoAction, 'failed') !== false) ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700')}>
+        {$repoMessage === '' ? $repoAction : $repoMessage}
+      </div> : null}
+      <section class="mt-6 grid gap-6 lg:grid-cols-2">
+        <div class="rounded-xl border border-gray-200 p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-lg font-semibold text-gray-900">Issues</h3>
+            <span class="rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600">{is_array($issues) ? ((string) count($issues) . ' open') : '0 open'}</span>
+          </div>
+          {$issuesError !== '' ? <div class="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{'Issues source: ' . $issuesError . '. Set LINKHASH_GIT_TOKEN to enable issue APIs.'}</div> : null}
+          <ul class="mt-3 grid gap-2">{$issueRows}</ul>
+          <form class="mt-4 grid gap-2" method="POST" action="/api/repo/issues/create">
+            <input type="hidden" name="org" value={rowValue($props, 'org', '')} />
+            <input type="hidden" name="name" value={rowValue($pkg, 'name', '')} />
+            <input class="rounded border border-gray-300 px-3 py-2 text-sm" type="text" name="title" placeholder="Issue title" />
+            <textarea class="min-h-[90px] rounded border border-gray-300 px-3 py-2 text-sm" name="body" placeholder="Describe the issue"></textarea>
+            <button class="rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700" type="submit">Create issue</button>
+          </form>
+          {$activeIssueError !== '' ? <div class="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{'Issue detail: ' . $activeIssueError}</div> : null}
+          {$activeIssue !== null ? <div class="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div class="text-sm font-semibold text-gray-900">{'#' . rowValue($activeIssue, 'number', 0) . ' ' . rowValue($activeIssue, 'title', '')}</div>
+            <div class="mt-1 text-xs text-gray-600 whitespace-pre-wrap">{rowValue($activeIssue, 'body', '')}</div>
+            <div class="mt-3 text-xs font-semibold text-gray-700">Comments</div>
+            <ul class="mt-2 grid gap-2">{$issueCommentRows}</ul>
+            <form class="mt-3 grid gap-2" method="POST" action="/api/repo/issues/comment">
+              <input type="hidden" name="org" value={rowValue($props, 'org', '')} />
+              <input type="hidden" name="name" value={rowValue($pkg, 'name', '')} />
+              <input type="hidden" name="number" value={rowValue($activeIssue, 'number', 0)} />
+              <textarea class="min-h-[80px] rounded border border-gray-300 px-3 py-2 text-sm" name="body" placeholder="Add comment"></textarea>
+              <button class="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100" type="submit">Comment on issue</button>
+            </form>
+          </div> : null}
+        </div>
+        <div class="rounded-xl border border-gray-200 p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-lg font-semibold text-gray-900">Pull Requests</h3>
+            <span class="rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600">{is_array($pulls) ? ((string) count($pulls) . ' open') : '0 open'}</span>
+          </div>
+          {$pullsError !== '' ? <div class="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{'Pulls source: ' . $pullsError . '. Set LINKHASH_GIT_TOKEN to enable pull APIs.'}</div> : null}
+          <ul class="mt-3 grid gap-2">{$pullRows}</ul>
+          <form class="mt-4 grid gap-2" method="POST" action="/api/repo/pulls/create">
+            <input type="hidden" name="org" value={rowValue($props, 'org', '')} />
+            <input type="hidden" name="name" value={rowValue($pkg, 'name', '')} />
+            <input class="rounded border border-gray-300 px-3 py-2 text-sm" type="text" name="title" placeholder="Pull request title" />
+            <input class="rounded border border-gray-300 px-3 py-2 text-sm" type="text" name="source_ref" placeholder="source ref (feature/my-change)" />
+            <input class="rounded border border-gray-300 px-3 py-2 text-sm" type="text" name="target_ref" value="main" />
+            <textarea class="min-h-[90px] rounded border border-gray-300 px-3 py-2 text-sm" name="body" placeholder="Describe the change"></textarea>
+            <button class="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700" type="submit">Create pull request</button>
+          </form>
+          {$activePullError !== '' ? <div class="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{'Pull detail: ' . $activePullError}</div> : null}
+          {$activePull !== null ? <div class="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div class="text-sm font-semibold text-gray-900">{'#' . rowValue($activePull, 'number', 0) . ' ' . rowValue($activePull, 'title', '')}</div>
+            <div class="mt-1 text-xs text-gray-600">{rowValue($activePull, 'source_ref', rowValue($activePull, 'sourceRef', '?')) . ' -> ' . rowValue($activePull, 'target_ref', rowValue($activePull, 'targetRef', '?'))}</div>
+            <div class="mt-1 text-xs text-gray-600 whitespace-pre-wrap">{rowValue($activePull, 'body', '')}</div>
+            <div class="mt-3 text-xs font-semibold text-gray-700">Comments</div>
+            <ul class="mt-2 grid gap-2">{$pullCommentRows}</ul>
+            <form class="mt-3 grid gap-2" method="POST" action="/api/repo/pulls/comment">
+              <input type="hidden" name="org" value={rowValue($props, 'org', '')} />
+              <input type="hidden" name="name" value={rowValue($pkg, 'name', '')} />
+              <input type="hidden" name="number" value={rowValue($activePull, 'number', 0)} />
+              <textarea class="min-h-[80px] rounded border border-gray-300 px-3 py-2 text-sm" name="body" placeholder="Add comment"></textarea>
+              <button class="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100" type="submit">Comment on pull request</button>
+            </form>
+          </div> : null}
+        </div>
       </section>
       <section class="mt-6 rounded-xl border border-gray-200 p-4">
         <div class="flex items-center justify-between gap-3">
@@ -5364,6 +5796,26 @@ if ($path === '/api/publish') {
 
 if ($path === '/api/install') {
   apiInstallPackage()
+  return
+}
+
+if ($path === '/api/repo/issues/create') {
+  apiRepoIssueCreate()
+  return
+}
+
+if ($path === '/api/repo/issues/comment') {
+  apiRepoIssueCommentCreate()
+  return
+}
+
+if ($path === '/api/repo/pulls/create') {
+  apiRepoPullCreate()
+  return
+}
+
+if ($path === '/api/repo/pulls/comment') {
+  apiRepoPullCommentCreate()
   return
 }
 

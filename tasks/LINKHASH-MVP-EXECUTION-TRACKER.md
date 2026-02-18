@@ -22,11 +22,11 @@ Ship four MVP blocks for Linkhash with commit-per-item execution.
 - [x] Commit: `feat(linkhash): add github-style file explorer`
 
 ## Item 3: Issues + PRs (MVP)
-- [ ] Add schema and APIs for issues/comments/state.
-- [ ] Add schema and APIs for PR basics (source/target refs, state, comments).
-- [ ] Build minimal PHPX UI for list/detail/create flows.
-- [ ] Add tests and docs.
-- [ ] Commit: `feat(linkhash): add mvp issues and pull requests`
+- [x] Add schema and APIs for issues/comments/state.
+- [x] Add schema and APIs for PR basics (source/target refs, state, comments).
+- [x] Build minimal PHPX UI for list/detail/create flows.
+- [x] Add tests and docs.
+- [x] Commit: `feat(linkhash): add mvp issues and pull requests`
 
 ## Item 4: Adwa Integration
 - [ ] Add preview URL resolver (`/@user/repo/ref`) -> resolved commit.
