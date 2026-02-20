@@ -1,6 +1,19 @@
 use core::{CommandSpec, Context, Registry};
+use deno_task_shell::ExecutableCommand;
+use deno_task_shell::KillSignal;
+use deno_task_shell::ShellCommand;
+use deno_task_shell::ShellPipeWriter;
+use deno_task_shell::ShellState;
+use deno_task_shell::execute_with_pipes;
+use deno_task_shell::parser::parse;
+use deno_task_shell::pipe;
 use serde_json::Value;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::ffi::OsString;
+use std::path::Path;
+use std::path::PathBuf;
+use std::rc::Rc;
 use stdio::{raw, warn_simple};
 
 const COMMAND: CommandSpec = CommandSpec {
@@ -17,8 +30,13 @@ pub fn register(registry: &mut Registry) {
 }
 
 pub fn cmd(context: &Context) {
-    let Some(json) = load_deka_json() else {
-        stdio::error("task", "deka.json not found in current directory");
+    let cwd = std::env::current_dir().ok();
+    let Some(cwd) = cwd else {
+        stdio::error("task", "failed to resolve current directory");
+        return;
+    };
+    let Some((project_root, json)) = load_deka_json(&cwd) else {
+        stdio::error("task", "deka.json not found (searched parent directories)");
         return;
     };
 
@@ -40,10 +58,10 @@ pub fn cmd(context: &Context) {
         return;
     }
 
-    stdio::error(
-        "task",
-        "task execution is not implemented yet (see tasks/DEKA-TASK-RUNNER.md Task 2)",
-    );
+    let task = tasks.get(task_name).expect("task exists");
+    if let Err(message) = run_task(task_name, task, &project_root, &cwd) {
+        stdio::error("task", &message);
+    }
 }
 
 fn requested_task_name<'a>(context: &'a Context) -> Option<&'a str> {
@@ -63,11 +81,17 @@ struct TaskDef {
     dependencies: Vec<String>,
 }
 
-fn load_deka_json() -> Option<Value> {
-    let cwd = std::env::current_dir().ok()?;
-    let path = cwd.join("deka.json");
-    let content = std::fs::read_to_string(path).ok()?;
-    serde_json::from_str(&content).ok()
+fn load_deka_json(start: &Path) -> Option<(PathBuf, Value)> {
+    for dir in start.ancestors() {
+        let path = dir.join("deka.json");
+        if !path.is_file() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&path).ok()?;
+        let json = serde_json::from_str(&content).ok()?;
+        return Some((dir.to_path_buf(), json));
+    }
+    None
 }
 
 fn extract_tasks(json: &Value) -> (BTreeMap<String, TaskDef>, bool) {
@@ -174,5 +198,66 @@ fn print_task_list(tasks: &BTreeMap<String, TaskDef>) {
             line.push_str(&task.command);
         }
         raw(&line);
+    }
+}
+
+fn run_task(
+    name: &str,
+    task: &TaskDef,
+    project_root: &Path,
+    init_cwd: &Path,
+) -> Result<(), String> {
+    if task.command.trim().is_empty() {
+        return Err(format!("task `{}` has empty command", name));
+    }
+    if !task.dependencies.is_empty() {
+        return Err(format!(
+            "task `{}` has dependencies which are not supported yet",
+            name
+        ));
+    }
+
+    let list = parse(&task.command).map_err(|err| err.to_string())?;
+    let mut env_vars = HashMap::new();
+    for (key, value) in std::env::vars_os() {
+        env_vars.insert(key, value);
+    }
+    env_vars.insert(OsString::from("INIT_CWD"), OsString::from(init_cwd));
+
+    let deka_exe = std::env::current_exe()
+        .map_err(|err| format!("failed to resolve deka executable: {}", err))?;
+    let mut custom_commands: HashMap<String, Rc<dyn ShellCommand>> = HashMap::new();
+    custom_commands.insert(
+        "deka".to_string(),
+        Rc::new(ExecutableCommand::new("deka".to_string(), deka_exe)),
+    );
+
+    let kill_signal = KillSignal::default();
+    let (stdin, stdin_writer) = pipe();
+    drop(stdin_writer);
+    let stdout = ShellPipeWriter::stdout();
+    let stderr = ShellPipeWriter::stderr();
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|err| format!("failed to start task runtime: {}", err))?;
+    let exit_code = runtime.block_on(async move {
+        let local = tokio::task::LocalSet::new();
+        let state = ShellState::new(
+            env_vars,
+            project_root.to_path_buf(),
+            custom_commands,
+            kill_signal,
+        );
+        local
+            .run_until(execute_with_pipes(list, state, stdin, stdout, stderr))
+            .await
+    });
+
+    if exit_code == 0 {
+        Ok(())
+    } else {
+        Err(format!("task `{}` failed with exit code {}", name, exit_code))
     }
 }

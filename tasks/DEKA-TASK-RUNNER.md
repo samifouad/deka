@@ -11,11 +11,11 @@ Goal: Implement `deka task` using Deno's cross-platform task shell, with clear s
   - Verification: `cargo build --release -p cli`
   - Commit: `feat(cli): add task command skeleton and schema`
 
-- [ ] Task 2: Task execution engine
+- [x] Task 2: Task execution engine
   - Integrate `deno_task_shell` in CLI
   - Implement task runner (CWD = `deka.json` dir, `INIT_CWD` set)
   - Map `deka` to current executable for tasks
-  - Verification: (define)
+  - Verification: `cargo build --release -p cli`
   - Commit: `feat(cli): run tasks with deno_task_shell`
 
 - [ ] Task 3: CLI routing + UX
