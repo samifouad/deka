@@ -15,6 +15,10 @@ use std::ffi::OsString;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Condvar;
+use std::sync::Mutex;
+use std::thread;
 use stdio::{raw, warn_simple};
 
 const COMMAND: CommandSpec = CommandSpec {
@@ -262,8 +266,9 @@ fn run_tasks(
     project_root: &Path,
     init_cwd: &Path,
 ) -> Result<(), String> {
+    let runner = TaskRunner::new(tasks, project_root, init_cwd);
     if tasks.contains_key(name) {
-        return run_task_with_deps(name, tasks, project_root, init_cwd, &mut Vec::new());
+        return runner.run(name, Vec::new());
     }
 
     let is_pattern = name.contains('*') || name.contains('?') || name.contains('[');
@@ -280,32 +285,113 @@ fn run_tasks(
     if matches.is_empty() {
         return Err(format!("no tasks matched `{}`", name));
     }
+    let mut handles = Vec::new();
     for task_name in matches {
-        run_task_with_deps(&task_name, tasks, project_root, init_cwd, &mut Vec::new())?;
+        let runner = runner.clone();
+        handles.push(thread::spawn(move || runner.run(&task_name, Vec::new())));
+    }
+    for handle in handles {
+        match handle.join() {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => return Err(err),
+            Err(_) => return Err("task thread panicked".to_string()),
+        }
     }
     Ok(())
 }
 
-fn run_task_with_deps(
-    name: &str,
-    tasks: &BTreeMap<String, TaskDef>,
-    project_root: &Path,
-    init_cwd: &Path,
-    stack: &mut Vec<String>,
-) -> Result<(), String> {
-    if stack.iter().any(|item| item == name) {
-        stack.push(name.to_string());
-        return Err(format!("task dependency cycle: {}", stack.join(" -> ")));
+#[derive(Clone)]
+struct TaskRunner {
+    tasks: Arc<BTreeMap<String, TaskDef>>,
+    project_root: PathBuf,
+    init_cwd: PathBuf,
+    state: Arc<(Mutex<HashMap<String, TaskState>>, Condvar)>,
+}
+
+#[derive(Clone)]
+enum TaskState {
+    InProgress,
+    Done(Result<(), String>),
+}
+
+impl TaskRunner {
+    fn new(
+        tasks: &BTreeMap<String, TaskDef>,
+        project_root: &Path,
+        init_cwd: &Path,
+    ) -> Self {
+        Self {
+            tasks: Arc::new(tasks.clone()),
+            project_root: project_root.to_path_buf(),
+            init_cwd: init_cwd.to_path_buf(),
+            state: Arc::new((Mutex::new(HashMap::new()), Condvar::new())),
+        }
     }
-    let task = tasks
-        .get(name)
-        .ok_or_else(|| format!("unknown task `{}`", name))?;
-    stack.push(name.to_string());
-    for dep in &task.dependencies {
-        run_task_with_deps(dep, tasks, project_root, init_cwd, stack)?;
+
+    fn run(&self, name: &str, stack: Vec<String>) -> Result<(), String> {
+        if stack.iter().any(|item| item == name) {
+            let mut chain = stack;
+            chain.push(name.to_string());
+            return Err(format!("task dependency cycle: {}", chain.join(" -> ")));
+        }
+        let task = self
+            .tasks
+            .get(name)
+            .ok_or_else(|| format!("unknown task `{}`", name))?;
+
+        let (lock, cvar) = &*self.state;
+        let mut guard = lock.lock().map_err(|_| "task state poisoned".to_string())?;
+        loop {
+            match guard.get(name) {
+                Some(TaskState::Done(result)) => return result.clone(),
+                Some(TaskState::InProgress) => {
+                    guard = cvar
+                        .wait(guard)
+                        .map_err(|_| "task state poisoned".to_string())?;
+                }
+                None => {
+                    guard.insert(name.to_string(), TaskState::InProgress);
+                    break;
+                }
+            }
+        }
+        drop(guard);
+
+        let mut handles = Vec::new();
+        for dep in &task.dependencies {
+            let mut next_stack = stack.clone();
+            next_stack.push(name.to_string());
+            let runner = self.clone();
+            let dep_name = dep.clone();
+            handles.push(thread::spawn(move || runner.run(&dep_name, next_stack)));
+        }
+        for handle in handles {
+            match handle.join() {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => {
+                    self.finish(name, Err(err.clone()));
+                    return Err(err);
+                }
+                Err(_) => {
+                    let message = "task thread panicked".to_string();
+                    self.finish(name, Err(message.clone()));
+                    return Err(message);
+                }
+            }
+        }
+
+        let result = run_task(name, task, &self.project_root, &self.init_cwd);
+        self.finish(name, result.clone());
+        result
     }
-    stack.pop();
-    run_task(name, task, project_root, init_cwd)
+
+    fn finish(&self, name: &str, result: Result<(), String>) {
+        let (lock, cvar) = &*self.state;
+        if let Ok(mut guard) = lock.lock() {
+            guard.insert(name.to_string(), TaskState::Done(result));
+            cvar.notify_all();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -377,10 +463,45 @@ mod tests {
                 dependencies: vec!["prepare".to_string()],
             },
         );
-        run_task_with_deps("build", &tasks, project_root.path(), init_cwd, &mut Vec::new())
+        run_tasks("build", &tasks, project_root.path(), init_cwd)
             .expect("task should succeed");
         assert!(project_root.path().join("ready.txt").is_file());
         assert!(project_root.path().join("build.txt").is_file());
+    }
+
+    #[test]
+    fn dependencies_run_once_across_parallel_tasks() {
+        let project_root = tempdir().unwrap();
+        let init_cwd = project_root.path();
+        let mut tasks = BTreeMap::new();
+        tasks.insert(
+            "prep".to_string(),
+            TaskDef {
+                command: "echo ready >> log.txt".to_string(),
+                description: None,
+                dependencies: Vec::new(),
+            },
+        );
+        tasks.insert(
+            "build-a".to_string(),
+            TaskDef {
+                command: "echo a > a.txt".to_string(),
+                description: None,
+                dependencies: vec!["prep".to_string()],
+            },
+        );
+        tasks.insert(
+            "build-b".to_string(),
+            TaskDef {
+                command: "echo b > b.txt".to_string(),
+                description: None,
+                dependencies: vec!["prep".to_string()],
+            },
+        );
+        run_tasks("build-*", &tasks, project_root.path(), init_cwd)
+            .expect("tasks should succeed");
+        let log = fs::read_to_string(project_root.path().join("log.txt")).unwrap();
+        assert_eq!(log.lines().count(), 1);
     }
 
     #[test]

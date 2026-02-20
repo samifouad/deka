@@ -36,3 +36,15 @@ Goal: Implement `deka task` using Deno's cross-platform task shell, with clear s
   - Update docs for `deka task` and policy separation
   - Verification: `cargo test -p cli --release`
   - Commit: `docs/test: task runner behavior`
+
+- [x] Task 6: Parallel dependency execution
+  - Run task dependencies concurrently
+  - Deduplicate dependency execution across task runs
+  - Verification: `cargo test -p cli --release`
+  - Commit: `feat(cli): run task dependencies in parallel`
+
+- [ ] Task 7: Task listing output
+  - Add `deka task --list` and `deka task --json`
+  - Document task listing usage
+  - Verification: `cargo test -p cli --release`
+  - Commit: `feat(cli): add task listing output`
