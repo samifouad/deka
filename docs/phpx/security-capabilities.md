@@ -6,11 +6,11 @@ Security enforcement is always on by default in MVP. If no explicit allow policy
 
 ## Config Key
 
-Project policy lives in `deka.json` under `deka.security`:
+Project policy lives in `deka.json` under `security`:
 
 ```json
 {
-  "deka.security": {
+  "security": {
     "allow": {
       "read": ["./src"],
       "write": ["./.cache"],
@@ -71,7 +71,7 @@ Prompt control:
 ## Precedence
 
 1. defaults (deny)
-2. `deka.security` config
+2. `security` config
 3. CLI allow flags
 4. CLI deny flags
 
@@ -83,13 +83,31 @@ Prompt control:
 - `--no-prompt` disables prompts and forces deterministic deny.
 - Non-TTY execution is treated as non-interactive deny.
 
+## Path Rules (read/write/wasm)
+
+- `read`, `write`, and `wasm` entries are treated as path prefixes.
+- If you allow `./src`, any read under `./src/**` is allowed.
+- Relative paths are resolved from the current working directory.
+
+## Dev Defaults (`--dev`)
+
+When running in dev mode (`deka serve --dev`), Deka applies safe defaults
+to reduce prompt noise:
+
+- `read`: project root (prefix)
+- `write`: `./.cache`, `./php_modules/.cache`
+- `wasm`: all
+- `env`: all
+
+Explicit `deny` rules still take precedence.
+
 ## Subprocesses (`run`) and Privilege Escalation
 
 Subprocess execution can bypass most in-process sandbox assumptions.
 
 - `run` is blocked unless explicitly allowed by policy or CLI flag.
 - Broad `--allow-run` emits a warning because child processes run with host privileges.
-- Prefer allowlisting executables in `deka.security.allow.run` for safer operation.
+- Prefer allowlisting executables in `security.allow.run` for safer operation.
 
 ## Dynamic Execution
 
@@ -101,4 +119,4 @@ Dynamic execution is treated as high risk and should remain disabled unless requ
 ## Registry + Install Guard Rails
 
 - Linkhash publish preflight detects `run` and `dynamic` usage and requires explicit declaration.
-- Install checks local `deka.security` policy and blocks packages that require denied capabilities.
+- Install checks local `security` policy and blocks packages that require denied capabilities.

@@ -21,7 +21,7 @@ Goal: reduce excessive runtime security prompts by introducing safe dev defaults
   - Verification: `cargo test -p cli --release`
   - Commit: `feat(security): apply dev defaults for serve`
 
-- [ ] Task 3: Docs
+- [x] Task 3: Docs
   - Document prefix behavior and dev defaults
   - Verification: `cargo test -p cli --release`
   - Commit: `docs(security): clarify dev defaults and path rules`
