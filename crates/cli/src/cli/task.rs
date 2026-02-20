@@ -7,6 +7,7 @@ use deno_task_shell::ShellState;
 use deno_task_shell::execute_with_pipes;
 use deno_task_shell::parser::parse;
 use deno_task_shell::pipe;
+use glob::Pattern;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -52,15 +53,9 @@ pub fn cmd(context: &Context) {
     }
 
     let task_name = task_name.unwrap();
-    if !tasks.contains_key(task_name) {
-        stdio::error("task", &format!("unknown task `{}`", task_name));
-        print_task_list(&tasks);
-        return;
-    }
-
-    let task = tasks.get(task_name).expect("task exists");
-    if let Err(message) = run_task(task_name, task, &project_root, &cwd) {
+    if let Err(message) = run_tasks(task_name, &tasks, &project_root, &cwd) {
         stdio::error("task", &message);
+        print_task_list(&tasks);
     }
 }
 
@@ -95,24 +90,30 @@ fn load_deka_json(start: &Path) -> Option<(PathBuf, Value)> {
 }
 
 fn extract_tasks(json: &Value) -> (BTreeMap<String, TaskDef>, bool) {
-    let tasks = json
-        .get("tasks")
-        .and_then(|value| value.as_object());
-    let (source, used_scripts) = if tasks.is_some() {
-        (tasks, false)
-    } else {
-        (
-            json.get("scripts").and_then(|value| value.as_object()),
-            true,
-        )
-    };
+    let tasks = json.get("tasks").and_then(|value| value.as_object());
+    let scripts = json.get("scripts").and_then(|value| value.as_object());
+    let used_scripts = scripts.is_some();
 
     let mut out = BTreeMap::new();
-    let Some(source) = source else {
-        return (out, used_scripts);
-    };
+    if let Some(tasks) = tasks {
+        ingest_task_map(&mut out, tasks, true);
+    }
+    if let Some(scripts) = scripts {
+        ingest_task_map(&mut out, scripts, false);
+    }
 
+    (out, used_scripts)
+}
+
+fn ingest_task_map(
+    out: &mut BTreeMap<String, TaskDef>,
+    source: &serde_json::Map<String, Value>,
+    allow_overwrite: bool,
+) {
     for (name, value) in source {
+        if !allow_overwrite && out.contains_key(name) {
+            continue;
+        }
         if let Some(command) = value.as_str() {
             out.insert(
                 name.to_string(),
@@ -169,8 +170,6 @@ fn extract_tasks(json: &Value) -> (BTreeMap<String, TaskDef>, bool) {
             },
         );
     }
-
-    (out, used_scripts)
 }
 
 fn print_task_list(tasks: &BTreeMap<String, TaskDef>) {
@@ -209,12 +208,6 @@ fn run_task(
 ) -> Result<(), String> {
     if task.command.trim().is_empty() {
         return Err(format!("task `{}` has empty command", name));
-    }
-    if !task.dependencies.is_empty() {
-        return Err(format!(
-            "task `{}` has dependencies which are not supported yet",
-            name
-        ));
     }
 
     let list = parse(&task.command).map_err(|err| err.to_string())?;
@@ -260,4 +253,56 @@ fn run_task(
     } else {
         Err(format!("task `{}` failed with exit code {}", name, exit_code))
     }
+}
+
+fn run_tasks(
+    name: &str,
+    tasks: &BTreeMap<String, TaskDef>,
+    project_root: &Path,
+    init_cwd: &Path,
+) -> Result<(), String> {
+    if tasks.contains_key(name) {
+        return run_task_with_deps(name, tasks, project_root, init_cwd, &mut Vec::new());
+    }
+
+    let is_pattern = name.contains('*') || name.contains('?') || name.contains('[');
+    if !is_pattern {
+        return Err(format!("unknown task `{}`", name));
+    }
+
+    let pattern = Pattern::new(name).map_err(|err| err.to_string())?;
+    let matches = tasks
+        .keys()
+        .filter(|task_name| pattern.matches(task_name))
+        .cloned()
+        .collect::<Vec<_>>();
+    if matches.is_empty() {
+        return Err(format!("no tasks matched `{}`", name));
+    }
+    for task_name in matches {
+        run_task_with_deps(&task_name, tasks, project_root, init_cwd, &mut Vec::new())?;
+    }
+    Ok(())
+}
+
+fn run_task_with_deps(
+    name: &str,
+    tasks: &BTreeMap<String, TaskDef>,
+    project_root: &Path,
+    init_cwd: &Path,
+    stack: &mut Vec<String>,
+) -> Result<(), String> {
+    if stack.iter().any(|item| item == name) {
+        stack.push(name.to_string());
+        return Err(format!("task dependency cycle: {}", stack.join(" -> ")));
+    }
+    let task = tasks
+        .get(name)
+        .ok_or_else(|| format!("unknown task `{}`", name))?;
+    stack.push(name.to_string());
+    for dep in &task.dependencies {
+        run_task_with_deps(dep, tasks, project_root, init_cwd, stack)?;
+    }
+    stack.pop();
+    run_task(name, task, project_root, init_cwd)
 }

@@ -498,6 +498,7 @@ dependencies = [
  "compile",
  "core",
  "deno_task_shell",
+ "glob",
  "introspect",
  "modules_php",
  "php-rs",

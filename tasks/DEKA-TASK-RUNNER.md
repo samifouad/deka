@@ -18,10 +18,10 @@ Goal: Implement `deka task` using Deno's cross-platform task shell, with clear s
   - Verification: `cargo build --release -p cli`
   - Commit: `feat(cli): run tasks with deno_task_shell`
 
-- [ ] Task 3: CLI routing + UX
+- [x] Task 3: CLI routing + UX
   - Decide behavior for `deka run <name>` (route to tasks or hint)
   - Implement wildcard task matching + dependencies (if supported)
-  - Verification: (define)
+  - Verification: `cargo build --release -p cli`
   - Commit: `feat(cli): task routing and wildcard support`
 
 - [ ] Task 4: Security semantics

@@ -54,6 +54,16 @@ fn try_run_deka_script(context: &Context) -> Option<i32> {
         return None;
     }
     let project_json = load_deka_json()?;
+    if has_task_named(&project_json, first) {
+        stdio::error(
+            "run",
+            &format!(
+                "task `{}` is defined in deka.json; use `deka task {}`",
+                first, first
+            ),
+        );
+        return Some(1);
+    }
     let script = resolve_deka_script_from_json(first, &project_json)?;
     if let Err(err) = enforce_subprocess_policy(context, &project_json, &script) {
         stdio::error("run", &err);
@@ -86,6 +96,13 @@ fn resolve_deka_script_from_json(name: &str, json: &Value) -> Option<String> {
     }
 
     default_project_script(name, json)
+}
+
+fn has_task_named(json: &Value, name: &str) -> bool {
+    json.get("tasks")
+        .and_then(|v| v.as_object())
+        .map(|obj| obj.contains_key(name))
+        .unwrap_or(false)
 }
 
 fn default_project_script(name: &str, json: &Value) -> Option<String> {
@@ -123,13 +140,14 @@ fn default_project_script(name: &str, json: &Value) -> Option<String> {
 }
 
 fn compose_script_command(script: &str, extra_args: &[String]) -> String {
+    let script = normalize_deka_script_binary(script);
     if extra_args.is_empty() {
-        return script.to_string();
+        return script;
     }
     let mut cmd = String::with_capacity(
         script.len() + 1 + extra_args.iter().map(|s| s.len() + 1).sum::<usize>(),
     );
-    cmd.push_str(script);
+    cmd.push_str(&script);
     for arg in extra_args {
         cmd.push(' ');
         if arg.contains(char::is_whitespace) || arg.contains('"') || arg.contains('\'') {
@@ -142,6 +160,39 @@ fn compose_script_command(script: &str, extra_args: &[String]) -> String {
         }
     }
     cmd
+}
+
+fn normalize_deka_script_binary(script: &str) -> String {
+    let Some(program) = extract_program_name(script) else {
+        return script.to_string();
+    };
+    if program != "deka" {
+        return script.to_string();
+    }
+    let exe = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.to_str().map(|value| value.to_string()));
+    let Some(exe) = exe else {
+        return script.to_string();
+    };
+    let trimmed = script.trim_start();
+    let mut parts = trimmed.splitn(2, char::is_whitespace);
+    let _ = parts.next();
+    let rest = parts.next().unwrap_or("").trim_start();
+    let exe = quote_if_needed(&exe);
+    if rest.is_empty() {
+        exe
+    } else {
+        format!("{} {}", exe, rest)
+    }
+}
+
+fn quote_if_needed(value: &str) -> String {
+    if value.contains(char::is_whitespace) || value.contains('"') || value.contains('\'') {
+        let escaped = value.replace('"', "\\\"");
+        return format!("\"{}\"", escaped);
+    }
+    value.to_string()
 }
 
 fn run_shell_command(command: &str) -> Option<i32> {
@@ -173,7 +224,7 @@ fn enforce_subprocess_policy(
             }
         }
         return Err(format!(
-            "invalid deka.security policy:\n{}",
+            "invalid security policy:\n{}",
             lines.join("\n")
         ));
     }
@@ -191,14 +242,14 @@ fn enforce_subprocess_policy(
 
     if !rule_allows(&merged.allow.run, program.as_deref()) {
         return Err(format!(
-            "SECURITY_CAPABILITY_DENIED: subprocess `{}` is not allowed. Use `--allow-run` or add deka.security.allow.run.",
+            "SECURITY_CAPABILITY_DENIED: subprocess `{}` is not allowed. Use `--allow-run` or add security.allow.run.",
             program.unwrap_or_else(|| "<unknown>".to_string())
         ));
     }
 
     if matches!(merged.allow.run, RuleList::All) {
         stdio::warn_simple(
-            "SECURITY_RUN_PRIVILEGE_ESCALATION_RISK: broad --allow-run grants subprocesses host-level access; prefer allowlist entries in deka.security.allow.run",
+            "SECURITY_RUN_PRIVILEGE_ESCALATION_RISK: broad --allow-run grants subprocesses host-level access; prefer allowlist entries in security.allow.run",
         );
     }
 
