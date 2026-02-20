@@ -58,7 +58,7 @@ fn try_run_deka_script(context: &Context) -> Option<i32> {
         stdio::error(
             "run",
             &format!(
-                "task `{}` is defined in deka.json; use `deka task {}`",
+                "task `{}` is defined in deka.json; use `deka task {}` (tasks run in the CLI shell, not the runtime permission gate)",
                 first, first
             ),
         );

@@ -24,11 +24,11 @@ Goal: Implement `deka task` using Deno's cross-platform task shell, with clear s
   - Verification: `cargo build --release -p cli`
   - Commit: `feat(cli): task routing and wildcard support`
 
-- [ ] Task 4: Security semantics
+- [x] Task 4: Security semantics
   - Ensure task runner doesn’t use runtime `run` gates
   - Keep runtime `run` gating for user code
   - Add explicit boundary messaging in errors/help
-  - Verification: (define)
+  - Verification: `cargo build --release -p cli`
   - Commit: `feat(security): separate task runner from runtime run-gate`
 
 - [ ] Task 5: Tests + docs

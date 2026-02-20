@@ -178,6 +178,7 @@ fn print_task_list(tasks: &BTreeMap<String, TaskDef>) {
         return;
     }
 
+    raw("Note: tasks run in the CLI shell and are not subject to runtime permission gates.");
     raw("Tasks:");
     for (name, task) in tasks {
         let mut line = String::new();
