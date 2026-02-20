@@ -220,6 +220,14 @@ fn print_task_list(tasks: &BTreeMap<String, TaskDef>) {
 }
 
 fn print_task_json(tasks: &BTreeMap<String, TaskDef>) {
+    let json = tasks_to_json(tasks);
+    match serde_json::to_string_pretty(&json) {
+        Ok(text) => raw(&text),
+        Err(err) => stdio::error("task", &format!("failed to format tasks: {}", err)),
+    }
+}
+
+fn tasks_to_json(tasks: &BTreeMap<String, TaskDef>) -> Value {
     let mut out = serde_json::Map::new();
     for (name, task) in tasks {
         let mut obj = serde_json::Map::new();
@@ -241,11 +249,7 @@ fn print_task_json(tasks: &BTreeMap<String, TaskDef>) {
         }
         out.insert(name.clone(), Value::Object(obj));
     }
-    let json = Value::Object(out);
-    match serde_json::to_string_pretty(&json) {
-        Ok(text) => raw(&text),
-        Err(err) => stdio::error("task", &format!("failed to format tasks: {}", err)),
-    }
+    Value::Object(out)
 }
 
 fn run_task(
@@ -400,13 +404,14 @@ impl TaskRunner {
         }
         drop(guard);
 
+        let mut deps = task.dependencies.clone();
+        deps.sort();
         let mut handles = Vec::new();
-        for dep in &task.dependencies {
+        for dep in deps {
             let mut next_stack = stack.clone();
             next_stack.push(name.to_string());
             let runner = self.clone();
-            let dep_name = dep.clone();
-            handles.push(thread::spawn(move || runner.run(&dep_name, next_stack)));
+            handles.push(thread::spawn(move || runner.run(&dep, next_stack)));
         }
         for handle in handles {
             match handle.join() {
@@ -572,5 +577,69 @@ mod tests {
             .expect("tasks should succeed");
         assert!(project_root.path().join("a.txt").is_file());
         assert!(project_root.path().join("b.txt").is_file());
+    }
+
+    #[test]
+    fn json_output_includes_details() {
+        let mut tasks = BTreeMap::new();
+        tasks.insert(
+            "build".to_string(),
+            TaskDef {
+                command: "deka build".to_string(),
+                description: Some("Build the app".to_string()),
+                dependencies: vec!["prep".to_string()],
+            },
+        );
+        let json = tasks_to_json(&tasks);
+        let build = json.pointer("/build").expect("build task");
+        assert_eq!(
+            build.get("command").and_then(|v| v.as_str()),
+            Some("deka build")
+        );
+        assert_eq!(
+            build.get("description").and_then(|v| v.as_str()),
+            Some("Build the app")
+        );
+        let deps = build
+            .get("dependencies")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(deps.len(), 1);
+        assert_eq!(deps[0].as_str(), Some("prep"));
+    }
+
+    #[test]
+    fn dependency_failure_order_is_deterministic() {
+        let project_root = tempdir().unwrap();
+        let init_cwd = project_root.path();
+        let mut tasks = BTreeMap::new();
+        tasks.insert(
+            "a".to_string(),
+            TaskDef {
+                command: "false".to_string(),
+                description: None,
+                dependencies: Vec::new(),
+            },
+        );
+        tasks.insert(
+            "b".to_string(),
+            TaskDef {
+                command: "false".to_string(),
+                description: None,
+                dependencies: Vec::new(),
+            },
+        );
+        tasks.insert(
+            "root".to_string(),
+            TaskDef {
+                command: "true".to_string(),
+                description: None,
+                dependencies: vec!["b".to_string(), "a".to_string()],
+            },
+        );
+        let err = run_tasks("root", &tasks, project_root.path(), init_cwd)
+            .expect_err("should fail");
+        assert!(err.contains("task `a` failed"));
     }
 }

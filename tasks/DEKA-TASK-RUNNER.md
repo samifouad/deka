@@ -48,3 +48,9 @@ Goal: Implement `deka task` using Deno's cross-platform task shell, with clear s
   - Document task listing usage
   - Verification: `cargo test -p cli --release`
   - Commit: `feat(cli): add task listing output`
+
+- [x] Task 8: Deterministic ordering + json tests
+  - Ensure deterministic dependency ordering for parallel runs
+  - Add json task listing tests
+  - Verification: `cargo test -p cli --release`
+  - Commit: `test(cli): deterministic task ordering and json output`
