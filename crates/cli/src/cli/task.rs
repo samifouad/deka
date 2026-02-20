@@ -307,3 +307,106 @@ fn run_task_with_deps(
     stack.pop();
     run_task(name, task, project_root, init_cwd)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn merges_tasks_and_scripts_with_task_precedence() {
+        let doc = json!({
+            "tasks": {
+                "dev": "echo task"
+            },
+            "scripts": {
+                "dev": "echo script",
+                "build": "echo build"
+            }
+        });
+        let (tasks, used_scripts) = extract_tasks(&doc);
+        assert!(used_scripts);
+        assert_eq!(tasks.get("dev").unwrap().command, "echo task");
+        assert_eq!(tasks.get("build").unwrap().command, "echo build");
+    }
+
+    #[test]
+    fn runs_task_with_init_cwd() {
+        let project_root = tempdir().unwrap();
+        let init_cwd = tempdir().unwrap();
+        let task = TaskDef {
+            command: "echo $INIT_CWD > init.txt".to_string(),
+            description: None,
+            dependencies: Vec::new(),
+        };
+        run_task(
+            "init",
+            &task,
+            project_root.path(),
+            init_cwd.path(),
+        )
+        .expect("task should succeed");
+        let contents =
+            fs::read_to_string(project_root.path().join("init.txt")).unwrap();
+        assert_eq!(
+            contents.trim(),
+            init_cwd.path().to_string_lossy().as_ref()
+        );
+    }
+
+    #[test]
+    fn runs_dependencies_before_task() {
+        let project_root = tempdir().unwrap();
+        let init_cwd = project_root.path();
+        let mut tasks = BTreeMap::new();
+        tasks.insert(
+            "prepare".to_string(),
+            TaskDef {
+                command: "echo ready > ready.txt".to_string(),
+                description: None,
+                dependencies: Vec::new(),
+            },
+        );
+        tasks.insert(
+            "build".to_string(),
+            TaskDef {
+                command: "echo build > build.txt".to_string(),
+                description: None,
+                dependencies: vec!["prepare".to_string()],
+            },
+        );
+        run_task_with_deps("build", &tasks, project_root.path(), init_cwd, &mut Vec::new())
+            .expect("task should succeed");
+        assert!(project_root.path().join("ready.txt").is_file());
+        assert!(project_root.path().join("build.txt").is_file());
+    }
+
+    #[test]
+    fn runs_wildcard_tasks() {
+        let project_root = tempdir().unwrap();
+        let init_cwd = project_root.path();
+        let mut tasks = BTreeMap::new();
+        tasks.insert(
+            "lint-a".to_string(),
+            TaskDef {
+                command: "echo a > a.txt".to_string(),
+                description: None,
+                dependencies: Vec::new(),
+            },
+        );
+        tasks.insert(
+            "lint-b".to_string(),
+            TaskDef {
+                command: "echo b > b.txt".to_string(),
+                description: None,
+                dependencies: Vec::new(),
+            },
+        );
+        run_tasks("lint-*", &tasks, project_root.path(), init_cwd)
+            .expect("tasks should succeed");
+        assert!(project_root.path().join("a.txt").is_file());
+        assert!(project_root.path().join("b.txt").is_file());
+    }
+}

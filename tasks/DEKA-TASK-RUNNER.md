@@ -31,8 +31,8 @@ Goal: Implement `deka task` using Deno's cross-platform task shell, with clear s
   - Verification: `cargo build --release -p cli`
   - Commit: `feat(security): separate task runner from runtime run-gate`
 
-- [ ] Task 5: Tests + docs
+- [x] Task 5: Tests + docs
   - Add task runner tests (glob, built-ins, deps, INIT_CWD)
   - Update docs for `deka task` and policy separation
-  - Verification: (define)
+  - Verification: `cargo test -p cli --release`
   - Commit: `docs/test: task runner behavior`

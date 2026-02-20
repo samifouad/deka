@@ -17,6 +17,24 @@ deka serve --dev
 
 You can also run your project script if wired through `deka.json`.
 
+Prefer `deka task dev` with a `tasks` entry in `deka.json`:
+
+```json
+{
+  "tasks": {
+    "dev": "deka serve --dev"
+  }
+}
+```
+
+Then run:
+
+```bash
+deka task dev
+```
+
+Note: tasks run in the CLI shell and are not subject to runtime permission gates.
+
 ## What HMR updates
 
 - template markup updates
@@ -59,4 +77,3 @@ If you see full-page reloads instead of HMR:
 2. confirm `<Hydration />` exists where client nav/runtime is needed
 3. check websocket endpoint health (`/_deka/hmr`)
 4. hard refresh once after bundler/runtime changes
-
