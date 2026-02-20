@@ -11,7 +11,7 @@ Goal: reduce excessive runtime security prompts by introducing safe dev defaults
   - Verification: `cargo test -p cli --release`
   - Commit: `feat(security): path-prefix rules for read/write/wasm`
 
-- [ ] Task 2: Dev-mode defaults
+- [x] Task 2: Dev-mode defaults
   - On `--dev`, auto-allow:
     - read: project root (prefix)
     - write: `./.cache`, `./php_modules/.cache`

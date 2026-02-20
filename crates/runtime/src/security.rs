@@ -34,7 +34,7 @@ pub fn resolve_security_policy(context: &Context) -> Result<ResolvedSecurityPoli
             }
         }
         return Err(format!(
-            "invalid deka.security policy:\n{}",
+            "invalid security policy:\n{}",
             lines.join("\n")
         ));
     }
@@ -52,7 +52,11 @@ pub fn resolve_security_policy(context: &Context) -> Result<ResolvedSecurityPoli
         .collect::<Vec<_>>();
 
     let overrides = SecurityCliOverrides::from_flags(&context.args.flags);
-    let merged = merge_policy_with_cli(parsed.policy, &overrides);
+    let mut policy = parsed.policy;
+    if context.args.flags.contains_key("--dev") {
+        apply_dev_defaults(&mut policy, &context.handler.resolved.directory);
+    }
+    let merged = merge_policy_with_cli(policy, &overrides);
     let policy_json = serde_json::to_string(&policy_to_json(&merged))
         .map_err(|err| format!("failed to serialize security policy: {}", err))?;
     let summary = format!(
@@ -72,6 +76,29 @@ pub fn resolve_security_policy(context: &Context) -> Result<ResolvedSecurityPoli
         summary,
         warnings,
     })
+}
+
+fn apply_dev_defaults(policy: &mut runtime_core::security_policy::SecurityPolicy, root: &std::path::Path) {
+    if matches!(policy.allow.read, RuleList::None) {
+        policy.allow.read = RuleList::List(vec![root.to_string_lossy().to_string()]);
+    }
+    if matches!(policy.allow.write, RuleList::None) {
+        let cache_dirs = vec![
+            root.join(".cache"),
+            root.join("php_modules").join(".cache"),
+        ];
+        let entries = cache_dirs
+            .into_iter()
+            .map(|path| path.to_string_lossy().to_string())
+            .collect();
+        policy.allow.write = RuleList::List(entries);
+    }
+    if matches!(policy.allow.wasm, RuleList::None) {
+        policy.allow.wasm = RuleList::All;
+    }
+    if matches!(policy.allow.env, RuleList::None) {
+        policy.allow.env = RuleList::All;
+    }
 }
 
 fn summarize_rule(rule: &RuleList) -> String {
