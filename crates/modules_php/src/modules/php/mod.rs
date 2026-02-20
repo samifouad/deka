@@ -1748,23 +1748,102 @@ fn security_policy_from_env() -> SecurityPolicy {
     }
 }
 
-fn rule_allows(rule: &RuleList, target: Option<&str>) -> bool {
+fn rule_allows(capability: &str, rule: &RuleList, target: Option<&str>) -> bool {
     match rule {
         RuleList::None => false,
         RuleList::All => true,
-        RuleList::List(items) => target
-            .map(|t| items.iter().any(|item| item == t))
-            .unwrap_or(false),
+        RuleList::List(items) => match target {
+            Some(target) => items.iter().any(|item| match_rule_item(capability, item, target)),
+            None => false,
+        },
     }
 }
 
-fn rule_denies(rule: &RuleList, target: Option<&str>) -> bool {
+fn rule_denies(capability: &str, rule: &RuleList, target: Option<&str>) -> bool {
     match rule {
         RuleList::None => false,
         RuleList::All => true,
-        RuleList::List(items) => target
-            .map(|t| items.iter().any(|item| item == t))
-            .unwrap_or(false),
+        RuleList::List(items) => match target {
+            Some(target) => items.iter().any(|item| match_rule_item(capability, item, target)),
+            None => false,
+        },
+    }
+}
+
+fn match_rule_item(capability: &str, rule_item: &str, target: &str) -> bool {
+    if rule_item == "*" {
+        return true;
+    }
+    if matches!(capability, "read" | "write" | "wasm") {
+        return path_matches(rule_item, target);
+    }
+    rule_item == target
+}
+
+fn path_matches(rule_item: &str, target: &str) -> bool {
+    let target_path = normalize_path(target);
+    let rule_path = normalize_path(rule_item);
+    target_path.starts_with(&rule_path)
+}
+
+fn normalize_path(value: &str) -> std::path::PathBuf {
+    let path = std::path::Path::new(value);
+    let resolved = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .join(path)
+    };
+    std::fs::canonicalize(&resolved).unwrap_or(resolved)
+}
+
+#[cfg(test)]
+mod security_rule_tests {
+    use super::{RuleList, match_rule_item, rule_allows, rule_denies};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir() -> PathBuf {
+        let mut dir = std::env::temp_dir();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        dir.push(format!("deka-security-test-{}", stamp));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn read_allows_prefix_path() {
+        let root = temp_dir();
+        let subdir = root.join("src");
+        fs::create_dir_all(&subdir).unwrap();
+        let file = subdir.join("main.phpx");
+        fs::write(&file, "ok").unwrap();
+        let rule = RuleList::List(vec![root.to_string_lossy().to_string()]);
+        let target = file.to_string_lossy().to_string();
+        assert!(rule_allows("read", &rule, Some(&target)));
+    }
+
+    #[test]
+    fn write_denies_prefix_path() {
+        let root = temp_dir();
+        let subdir = root.join("php_modules/.cache");
+        fs::create_dir_all(&subdir).unwrap();
+        let file = subdir.join("out.php");
+        fs::write(&file, "x").unwrap();
+        let rule = RuleList::List(vec![subdir.to_string_lossy().to_string()]);
+        let target = file.to_string_lossy().to_string();
+        assert!(rule_denies("write", &rule, Some(&target)));
+    }
+
+    #[test]
+    fn non_path_capability_requires_exact_match() {
+        assert!(match_rule_item("env", "DATABASE_URL", "DATABASE_URL"));
+        assert!(!match_rule_item("env", "DATABASE_URL", "PATH"));
     }
 }
 
@@ -1777,19 +1856,19 @@ fn enforce_scope(
     if !security_enforcement_enabled() {
         return Ok(());
     }
-    if rule_denies(deny_rule, target) {
+    if rule_denies(capability, deny_rule, target) {
         return Err(core_err(format!(
             "SECURITY_POLICY_DENY_PRECEDENCE: capability={} target={} denied by policy",
             capability,
             target.unwrap_or("*")
         )));
     }
-    if !rule_allows(allow_rule, target) {
+    if !rule_allows(capability, allow_rule, target) {
         if prompt_enabled() && prompt_grant(capability, target)? {
             return Ok(());
         }
         return Err(core_err(format!(
-            "SECURITY_CAPABILITY_DENIED: capability={} target={} not allowed (re-run with explicit allow flag or configure deka.security)",
+            "SECURITY_CAPABILITY_DENIED: capability={} target={} not allowed (re-run with explicit allow flag or configure security)",
             capability,
             target.unwrap_or("*")
         )));
