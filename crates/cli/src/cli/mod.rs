@@ -34,6 +34,8 @@ pub mod self_cmd;
 #[cfg(feature = "native")]
 pub mod serve;
 #[cfg(feature = "native")]
+pub mod task;
+#[cfg(feature = "native")]
 pub mod test;
 pub mod user;
 

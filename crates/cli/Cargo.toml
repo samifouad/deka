@@ -38,6 +38,7 @@ phpx_lsp = { path = "../phpx_lsp", optional = true }
 modules_php = { path = "../modules_php", optional = true }
 bumpalo = "3.12"
 rusqlite = { version = "0.32", optional = true }
+deno_task_shell = "0.29.0"
 
 [dev-dependencies]
 tempfile = "3.23.0"
