@@ -1,4 +1,4 @@
-use core::{CommandSpec, Context, Registry};
+use core::{CommandSpec, Context, FlagSpec, Registry};
 use deno_task_shell::ExecutableCommand;
 use deno_task_shell::KillSignal;
 use deno_task_shell::ShellCommand;
@@ -32,6 +32,16 @@ const COMMAND: CommandSpec = CommandSpec {
 
 pub fn register(registry: &mut Registry) {
     registry.add_command(COMMAND);
+    registry.add_flag(FlagSpec {
+        name: "--list",
+        aliases: &[],
+        description: "list tasks",
+    });
+    registry.add_flag(FlagSpec {
+        name: "--json",
+        aliases: &[],
+        description: "output tasks as json",
+    });
 }
 
 pub fn cmd(context: &Context) {
@@ -51,7 +61,11 @@ pub fn cmd(context: &Context) {
     }
 
     let task_name = requested_task_name(context);
-    if task_name.is_none() {
+    if context.args.flags.contains_key("--json") {
+        print_task_json(&tasks);
+        return;
+    }
+    if task_name.is_none() || context.args.flags.contains_key("--list") {
         print_task_list(&tasks);
         return;
     }
@@ -202,6 +216,35 @@ fn print_task_list(tasks: &BTreeMap<String, TaskDef>) {
             line.push_str(&task.command);
         }
         raw(&line);
+    }
+}
+
+fn print_task_json(tasks: &BTreeMap<String, TaskDef>) {
+    let mut out = serde_json::Map::new();
+    for (name, task) in tasks {
+        let mut obj = serde_json::Map::new();
+        obj.insert("command".to_string(), Value::String(task.command.clone()));
+        if let Some(desc) = &task.description {
+            obj.insert("description".to_string(), Value::String(desc.clone()));
+        }
+        if !task.dependencies.is_empty() {
+            obj.insert(
+                "dependencies".to_string(),
+                Value::Array(
+                    task
+                        .dependencies
+                        .iter()
+                        .map(|dep| Value::String(dep.clone()))
+                        .collect(),
+                ),
+            );
+        }
+        out.insert(name.clone(), Value::Object(obj));
+    }
+    let json = Value::Object(out);
+    match serde_json::to_string_pretty(&json) {
+        Ok(text) => raw(&text),
+        Err(err) => stdio::error("task", &format!("failed to format tasks: {}", err)),
     }
 }
 
