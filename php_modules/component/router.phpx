@@ -26,7 +26,7 @@ export function generate_manifest($root = '.') {
     $layouts = [];
     $apis = [];
 
-    scan_app_dir($app_dir, [], $pages, $layouts, $apis);
+    scan_app_dir($root, $app_dir, [], $pages, $layouts, $apis);
 
     $manifest = {
         ok: true,
@@ -50,6 +50,10 @@ export function generate_manifest($root = '.') {
 ///   <ReturnType type="mixed" />
 /// </Function>
 export function load_manifest($root = '.') {
+    static $manifest_cache = null;
+    if (is_array($manifest_cache) || is_object($manifest_cache)) {
+        return $manifest_cache;
+    }
     $root = normalize_root($root);
     $cache_dir = join_path($root, 'php_modules/.cache');
     $manifest_path = join_path($cache_dir, 'app-manifest.json');
@@ -59,10 +63,15 @@ export function load_manifest($root = '.') {
         $raw = is_array($raw) ? '' : '' . $raw;
         $decoded = json_decode('' . $raw, true);
         if (is_array($decoded) || is_object($decoded)) {
+            $manifest_cache = $decoded;
             return $decoded;
         }
     }
-    return generate_manifest($root);
+    $generated = generate_manifest($root);
+    if (is_array($generated) || is_object($generated)) {
+        $manifest_cache = $generated;
+    }
+    return $generated;
 }
 
 /// docid: phpx/component/resolve_path()
@@ -88,11 +97,14 @@ export function resolve_path($path, $root = '.') {
         return { ok: false, error: 'not found' };
     }
     $matched_layouts = match_layouts($layouts, $url_segments);
+    $matched_layout_modules = match_layout_module_ids($layouts, $url_segments);
     return {
         ok: true,
         file: $match.file,
+        module_id: $match.module_id,
         params: $match.params,
         layouts: $matched_layouts,
+        layout_modules: $matched_layout_modules,
     };
 }
 
@@ -102,7 +114,7 @@ function manifest_get($manifest, $key) {
     return null;
 }
 
-function scan_app_dir($dir, $segments, &$pages, &$layouts, &$apis) {
+function scan_app_dir($root, $dir, $segments, &$pages, &$layouts, &$apis) {
     $entries_res = readDirSync($dir);
     if (!result_is_ok($entries_res)) return;
     $entries = $entries_res->value;
@@ -114,7 +126,7 @@ function scan_app_dir($dir, $segments, &$pages, &$layouts, &$apis) {
             continue;
         }
         if (entry_is_dir($entry)) {
-            scan_app_dir(join_path($dir, $name), array_merge($segments, [$name]), $pages, $layouts, $apis);
+            scan_app_dir($root, join_path($dir, $name), array_merge($segments, [$name]), $pages, $layouts, $apis);
             continue;
         }
         if (!entry_is_file($entry)) continue;
@@ -133,8 +145,11 @@ function scan_app_dir($dir, $segments, &$pages, &$layouts, &$apis) {
             $kind = 'page';
         }
 
+        $file_path = join_path($dir, $name);
+        $module_id = module_id_for_file($root, $file_path);
         $route = {
-            file: join_path($dir, $name),
+            file: $file_path,
+            module_id: $module_id,
             segments: $route_segments,
             tokens: route_segments_to_tokens($route_segments),
         };
@@ -198,6 +213,7 @@ function match_routes($routes, $url_segments) {
             $best_score = $score;
             $best = {
                 file: route_field($route, 'file'),
+                module_id: route_field($route, 'module_id'),
                 params: $params,
                 tokens: $tokens,
             };
@@ -214,6 +230,21 @@ function match_layouts($layouts, $url_segments) {
         $params = match_route_tokens($tokens, array_slice($url_segments, 0, count($tokens)));
         if ($params === false) continue;
         $matched[] = route_field($layout, 'file');
+    }
+    return $matched;
+}
+
+function match_layout_module_ids($layouts, $url_segments) {
+    if (!is_array($layouts)) return [];
+    $matched = [];
+    foreach ($layouts as $layout) {
+        $tokens = route_tokens($layout);
+        $params = match_route_tokens($tokens, array_slice($url_segments, 0, count($tokens)));
+        if ($params === false) continue;
+        $module_id = route_field($layout, 'module_id');
+        if ($module_id !== null && $module_id !== '') {
+            $matched[] = $module_id;
+        }
     }
     return $matched;
 }
@@ -312,6 +343,38 @@ function join_path($a, $b) {
     return $a . '/' . $b;
 }
 
+function path_relative($base, $path) {
+    $base = rtrim('' . $base, '/');
+    $path = '' . $path;
+    if ($base === '') return $path;
+    if ($path === $base) return '';
+    $prefix = $base . '/';
+    if (starts_with($path, $prefix)) {
+        return substr($path, strlen($prefix));
+    }
+    return $path;
+}
+
+function module_id_for_file($root, $file_path) {
+    $rel = path_relative(normalize_root($root), $file_path);
+    if ($rel === '') return null;
+    if (!ends_with($rel, '.phpx')) return null;
+    $module_id = module_id_from_rel($rel);
+    if ($module_id === '') return null;
+    return '@/' . $module_id;
+}
+
+function module_id_from_rel($rel) {
+    $rel = '' . $rel;
+    if (ends_with($rel, '/index.phpx')) {
+        return substr($rel, 0, strlen($rel) - strlen('/index.phpx'));
+    }
+    if (ends_with($rel, '.phpx')) {
+        return substr($rel, 0, strlen($rel) - strlen('.phpx'));
+    }
+    return $rel;
+}
+
 function strip_ext($name) {
     if (ends_with($name, '.phpx')) return substr($name, 0, strlen($name) - 5);
     if (ends_with($name, '.php')) return substr($name, 0, strlen($name) - 4);
@@ -323,6 +386,13 @@ function ends_with($value, $suffix) {
     $suffix = '' . $suffix;
     if ($suffix === '') return true;
     return substr($value, -strlen($suffix)) === $suffix;
+}
+
+function starts_with($value, $prefix) {
+    $value = '' . $value;
+    $prefix = '' . $prefix;
+    if ($prefix === '') return true;
+    return substr($value, 0, strlen($prefix)) === $prefix;
 }
 
 function entry_name($entry) {

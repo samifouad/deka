@@ -2846,6 +2846,17 @@ function collectPhpxFiles(root) {
     }
     return out;
 }
+const __phpxAppModuleCache = new Map();
+function getAppModuleIds(entryPath) {
+    const projectRoot = resolveProjectRoot(entryPath);
+    if (!projectRoot) return [];
+    if (__phpxAppModuleCache.has(projectRoot)) {
+        return __phpxAppModuleCache.get(projectRoot);
+    }
+    const moduleIds = collectAppModuleIds(entryPath);
+    __phpxAppModuleCache.set(projectRoot, moduleIds);
+    return moduleIds;
+}
 function collectModulePathMap(entryPath) {
     const state = phpResolutionState || buildResolutionState(entryPath);
     const map = new Map();
@@ -2870,6 +2881,22 @@ function collectModulePathMap(entryPath) {
         }
     }
     return map;
+}
+
+function collectAppModuleIds(entryPath) {
+    const state = phpResolutionState || buildResolutionState(entryPath);
+    const projectRoot = state.projectRoot;
+    if (!projectRoot) return [];
+    const appRoot = globalThis.path.resolve(projectRoot, 'app');
+    if (!globalThis.fs.existsSync(appRoot)) return [];
+    const files = collectPhpxFiles(appRoot);
+    const out = [];
+    for (const filePath of files){
+        const rel = globalThis.path.relative(projectRoot, filePath).replace(/\\/g, '/');
+        const moduleId = `@/${moduleIdFromRel(rel)}`;
+        out.push(moduleId);
+    }
+    return out;
 }
 function resolveStdlibListPath(modulesRoot) {
     if (!modulesRoot) return '';
@@ -3285,13 +3312,15 @@ function buildModulePrelude(entryPath) {
         throw new Error("Missing php_modules/deka.php. Run `deka init` to create a project.");
     }
     const stdlibModules = isPhpxEntry ? [] : resolveStdlibModuleIds(entryPath);
+    const appModuleIds = isPhpxEntry ? getAppModuleIds(entryPath) : [];
     const phpxImports = importsInfo.imports.filter((spec)=>spec.kind !== 'wasm');
     const wasmImports = importsInfo.imports.filter((spec)=>spec.kind === 'wasm');
     let moduleBuild = null;
     if (importsInfo.imports.length > 0) {
         const roots = Array.from(new Set([
             ...stdlibModules,
-            ...phpxImports.map((spec)=>spec.from)
+            ...phpxImports.map((spec)=>spec.from),
+            ...appModuleIds
         ]));
         moduleBuild = roots.length > 0
             ? compilePhpxModules(entryPath, roots)
@@ -3300,8 +3329,12 @@ function buildModulePrelude(entryPath) {
                 modules: new Map()
             };
     } else {
-        moduleBuild = stdlibModules.length > 0
-            ? compilePhpxModules(entryPath, stdlibModules)
+        const roots = [
+            ...stdlibModules,
+            ...appModuleIds
+        ];
+        moduleBuild = roots.length > 0
+            ? compilePhpxModules(entryPath, Array.from(new Set(roots)))
             : {
                 source: '',
                 modules: new Map()

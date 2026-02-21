@@ -25,6 +25,7 @@ Notes:
 - Added `component/router.phpx` with `generate_manifest()` scaffold.
 - Added `fs.readDirSync` + `fs.mkdirSync` via fs bridge so router can scan `app/` and write `php_modules/.cache/app-manifest.json`.
 - Added `load_manifest()` + `resolve_path()` + token matching helpers (parity with runtime router).
+- Manifest now includes `module_id` for `.phpx` routes and caches in memory per process.
 
 ## Task 3: Userland Serve Entry
 - [~] Update `deka init` template to generate `app/main.phpx` that calls the router.
@@ -33,6 +34,7 @@ Notes:
 
 Notes:
 - `deka init` now scaffolds `app/page.phpx` and `app/layout.phpx` plus `component/router.phpx`.
+- Runtime prelude now preloads app module IDs once per process (respects security gates).
 
 ## Task 4: Runtime De‑Magic (Phase 1)
 - [ ] Gate the old runtime router with a warning.
