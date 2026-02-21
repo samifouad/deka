@@ -386,6 +386,16 @@ fn parse_rule_list(
             ));
             return RuleList::None;
         }
+        if path.contains(".allow.") {
+            if let Some(message) = weak_allow_warning(path, item) {
+                diagnostics.push(diag(
+                    PolicyDiagnosticLevel::Warning,
+                    "SECURITY_POLICY_WEAK_ALLOW",
+                    path,
+                    &message,
+                ));
+            }
+        }
         return RuleList::List(vec![item.to_string()]);
     }
 
@@ -410,6 +420,16 @@ fn parse_rule_list(
                     "Rule list entries must not be empty",
                 ));
                 continue;
+            }
+            if path.contains(".allow.") {
+                if let Some(message) = weak_allow_warning(path, trimmed) {
+                    diagnostics.push(diag(
+                        PolicyDiagnosticLevel::Warning,
+                        "SECURITY_POLICY_WEAK_ALLOW",
+                        &format!("{}[{}]", path, idx),
+                        &message,
+                    ));
+                }
             }
             set.insert(trimmed.to_string());
         }
@@ -451,6 +471,66 @@ fn broad_allow_hint(path: &str) -> Option<String> {
         return Some("Prefer explicit modules like \"php_rs.wasm\".".to_string());
     }
     None
+}
+
+fn weak_allow_warning(path: &str, item: &str) -> Option<String> {
+    let capability = capability_from_path(path)?;
+    if !is_broad_allow_item(capability, item) {
+        return None;
+    }
+    let hint = match capability {
+        "read" => "Prefer explicit folders like \"./src\" or \"./php_modules\".",
+        "write" => "Prefer explicit folders like \"./php_modules/.cache\".",
+        "net" => "Prefer explicit hosts like \"localhost:5432\".",
+        "env" => "Prefer explicit vars like \"DATABASE_URL\".",
+        "run" => "Prefer explicit binaries like \"git\" or \"deka\".",
+        "db" => "Prefer explicit drivers like \"postgres\" or \"sqlite\".",
+        "wasm" => "Prefer explicit modules like \"php_rs.wasm\".",
+        _ => return None,
+    };
+    Some(format!("Rule item \"{}\" is very broad. {}", item, hint))
+}
+
+fn capability_from_path(path: &str) -> Option<&'static str> {
+    if path.ends_with(".read") {
+        return Some("read");
+    }
+    if path.ends_with(".write") {
+        return Some("write");
+    }
+    if path.ends_with(".net") {
+        return Some("net");
+    }
+    if path.ends_with(".env") {
+        return Some("env");
+    }
+    if path.ends_with(".run") {
+        return Some("run");
+    }
+    if path.ends_with(".db") {
+        return Some("db");
+    }
+    if path.ends_with(".wasm") {
+        return Some("wasm");
+    }
+    None
+}
+
+fn is_broad_allow_item(capability: &str, item: &str) -> bool {
+    let normalized = item.trim();
+    if normalized == "*" {
+        return true;
+    }
+    match capability {
+        "read" | "write" => {
+            normalized == "/"
+                || normalized == "."
+                || normalized == "./"
+                || normalized == "/*"
+                || normalized == "./*"
+        }
+        _ => false,
+    }
 }
 
 fn diag(
@@ -636,5 +716,26 @@ mod tests {
         );
         assert!(matches!(merged.allow.net, RuleList::All));
         assert!(matches!(merged.deny.net, RuleList::All));
+    }
+
+    #[test]
+    fn warns_on_broad_allow_rules() {
+        let parsed = parse_deka_security_policy(&serde_json::json!({
+            "security": {
+                "allow": {
+                    "read": true,
+                    "net": ["*"],
+                    "write": ["./"]
+                }
+            }
+        }));
+        assert!(
+            parsed.diagnostics.iter().any(|d| d.level == PolicyDiagnosticLevel::Warning
+                && d.code == "SECURITY_POLICY_BROAD_ALLOW")
+        );
+        assert!(
+            parsed.diagnostics.iter().any(|d| d.level == PolicyDiagnosticLevel::Warning
+                && d.code == "SECURITY_POLICY_WEAK_ALLOW")
+        );
     }
 }

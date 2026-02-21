@@ -2032,11 +2032,16 @@ fn enforce_scope(
         if prompt_enabled() && prompt_grant(capability, target)? {
             return Ok(());
         }
-        return Err(core_err(format!(
+        let mut message = format!(
             "SECURITY_CAPABILITY_DENIED: capability={} target={} not allowed (re-run with explicit allow flag or configure security)",
             capability,
             target.unwrap_or("*")
-        )));
+        );
+        if let Some(hint) = config_hint_for_request(capability, target) {
+            message.push_str(" Hint: ");
+            message.push_str(&hint);
+        }
+        return Err(core_err(message));
     }
     Ok(())
 }
@@ -2074,6 +2079,9 @@ fn prompt_grant(
         }
     }
 
+    if let Some(hint) = config_hint_for_request(capability, target) {
+        eprintln!("[security] hint: {}", hint);
+    }
     let prompt = format!(
         "[security] allow {} on {} for this process? [y/N]: ",
         capability,
@@ -2095,6 +2103,141 @@ fn prompt_grant(
             Ok(accepted)
         }
         Err(err) => Err(core_err(format!("security prompt failed: {}", err))),
+    }
+}
+
+fn config_hint_for_request(capability: &str, target: Option<&str>) -> Option<String> {
+    let target = target?.trim();
+    if target.is_empty() {
+        return None;
+    }
+    let project_kind = project_kind();
+    let suggestion = match capability {
+        "read" => suggest_read_rule(target, project_kind),
+        "write" => suggest_write_rule(target, project_kind),
+        "net" => Some(format!("security.allow.net = [\"{}\"]", target)),
+        "env" => Some(format!("security.allow.env = [\"{}\"]", target)),
+        "run" => Some(format!("security.allow.run = [\"{}\"]", target)),
+        "db" => Some(format!("security.allow.db = [\"{}\"]", target)),
+        "wasm" => Some(format!("security.allow.wasm = [\"{}\"]", target)),
+        _ => None,
+    }?;
+
+    let note = if is_common_target(target, project_kind, capability) {
+        " (common for this project type)"
+    } else {
+        ""
+    };
+    Some(format!("add to deka.json: {}{}", suggestion, note))
+}
+
+fn suggest_read_rule(target: &str, project_kind: ProjectKind) -> Option<String> {
+    let root = project_root()?;
+    let path = std::path::Path::new(target);
+    let rel = path.strip_prefix(&root).ok().unwrap_or(path);
+    let rel_str = rel.to_string_lossy();
+    if rel_str.starts_with("php_modules/.cache") {
+        return Some("security.allow.read = [\"./php_modules/.cache\"]".to_string());
+    }
+    if rel_str.starts_with("php_modules/") {
+        return Some("security.allow.read = [\"./php_modules\"]".to_string());
+    }
+    if rel_str.starts_with("src/") {
+        return Some("security.allow.read = [\"./src\"]".to_string());
+    }
+    if rel_str == "deka.lock" {
+        return Some("security.allow.read = [\"./deka.lock\"]".to_string());
+    }
+    if let Some(prefix) = rel.components().next().and_then(|c| c.as_os_str().to_str()) {
+        return Some(format!("security.allow.read = [\"./{}\"]", prefix));
+    }
+    default_example("read", project_kind)
+}
+
+fn suggest_write_rule(target: &str, project_kind: ProjectKind) -> Option<String> {
+    let root = project_root()?;
+    let path = std::path::Path::new(target);
+    let rel = path.strip_prefix(&root).ok().unwrap_or(path);
+    let rel_str = rel.to_string_lossy();
+    if rel_str.starts_with("php_modules/.cache") {
+        return Some("security.allow.write = [\"./php_modules/.cache\"]".to_string());
+    }
+    if rel_str.starts_with(".cache/") {
+        return Some("security.allow.write = [\"./.cache\"]".to_string());
+    }
+    if rel_str == "deka.lock" {
+        return Some("security.allow.write = [\"./deka.lock\"]".to_string());
+    }
+    if let Some(prefix) = rel.components().next().and_then(|c| c.as_os_str().to_str()) {
+        return Some(format!("security.allow.write = [\"./{}\"]", prefix));
+    }
+    default_example("write", project_kind)
+}
+
+fn project_root() -> Option<std::path::PathBuf> {
+    if let Ok(root) = std::env::var("PHPX_MODULE_ROOT") {
+        if !root.trim().is_empty() {
+            return Some(std::path::PathBuf::from(root));
+        }
+    }
+    if let Ok(handler) = std::env::var("HANDLER_PATH") {
+        let path = std::path::PathBuf::from(handler);
+        if path.is_file() {
+            if let Some(parent) = path.parent() {
+                return Some(parent.to_path_buf());
+            }
+        } else if let Some(parent) = path.parent() {
+            return Some(parent.to_path_buf());
+        }
+    }
+    std::env::current_dir().ok()
+}
+
+#[derive(Copy, Clone)]
+enum ProjectKind {
+    Php,
+    Js,
+    Other,
+}
+
+fn project_kind() -> ProjectKind {
+    if std::env::var("PHPX_MODULE_ROOT").is_ok() {
+        return ProjectKind::Php;
+    }
+    if let Ok(handler) = std::env::var("HANDLER_PATH") {
+        if handler.ends_with(".phpx") || handler.ends_with(".php") {
+            return ProjectKind::Php;
+        }
+        if handler.ends_with(".ts")
+            || handler.ends_with(".tsx")
+            || handler.ends_with(".js")
+            || handler.ends_with(".jsx")
+        {
+            return ProjectKind::Js;
+        }
+    }
+    ProjectKind::Other
+}
+
+fn default_example(capability: &str, project_kind: ProjectKind) -> Option<String> {
+    let example = match (project_kind, capability) {
+        (ProjectKind::Php, "read") => "security.allow.read = [\"./php_modules\"]",
+        (ProjectKind::Php, "write") => "security.allow.write = [\"./php_modules/.cache\"]",
+        (ProjectKind::Js, "read") => "security.allow.read = [\"./src\"]",
+        (ProjectKind::Js, "write") => "security.allow.write = [\"./.cache\"]",
+        _ => return None,
+    };
+    Some(example.to_string())
+}
+
+fn is_common_target(target: &str, project_kind: ProjectKind, capability: &str) -> bool {
+    let target = target.replace('\\', "/");
+    match (project_kind, capability) {
+        (ProjectKind::Php, "read") => target.contains("/php_modules/") || target.ends_with("/deka.lock"),
+        (ProjectKind::Php, "write") => target.contains("/php_modules/.cache/") || target.ends_with("/deka.lock"),
+        (ProjectKind::Js, "read") => target.contains("/src/") || target.ends_with(".ts") || target.ends_with(".js"),
+        (ProjectKind::Js, "write") => target.contains("/.cache/") || target.ends_with(".cache"),
+        _ => false,
     }
 }
 

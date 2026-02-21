@@ -3,6 +3,7 @@ use runtime_core::security_policy::{
     RuleList, SecurityCliOverrides, merge_policy_with_cli, parse_deka_security_policy,
     policy_to_json,
 };
+use core::ServeMode;
 
 pub struct ResolvedSecurityPolicy {
     pub policy_json: String,
@@ -39,6 +40,7 @@ pub fn resolve_security_policy(context: &Context) -> Result<ResolvedSecurityPoli
         ));
     }
 
+    let project_kind = ProjectKind::from_mode(&context.handler.resolved.mode);
     let warnings = parsed
         .diagnostics
         .iter()
@@ -48,7 +50,7 @@ pub fn resolve_security_policy(context: &Context) -> Result<ResolvedSecurityPoli
                 runtime_core::security_policy::PolicyDiagnosticLevel::Warning
             )
         })
-        .map(|diag| format!("{} at {}: {}", diag.code, diag.path, diag.message))
+        .map(|diag| format_warning(diag, project_kind))
         .collect::<Vec<_>>();
 
     let overrides = SecurityCliOverrides::from_flags(&context.args.flags);
@@ -113,4 +115,83 @@ fn summarize_rule(rule: &RuleList) -> String {
             }
         }
     }
+}
+
+#[derive(Copy, Clone)]
+enum ProjectKind {
+    Php,
+    Js,
+    Other,
+}
+
+impl ProjectKind {
+    fn from_mode(mode: &ServeMode) -> Self {
+        match mode {
+            ServeMode::Php => Self::Php,
+            ServeMode::Js => Self::Js,
+            ServeMode::Static => Self::Other,
+        }
+    }
+}
+
+fn format_warning(
+    diag: &runtime_core::security_policy::PolicyDiagnostic,
+    project_kind: ProjectKind,
+) -> String {
+    let mut message = format!("{} at {}: {}", diag.code, diag.path, diag.message);
+    if matches!(
+        diag.code,
+        "SECURITY_POLICY_BROAD_ALLOW" | "SECURITY_POLICY_WEAK_ALLOW"
+    ) {
+        if let Some(example) = example_for_warning(diag.path.as_str(), project_kind) {
+            message.push(' ');
+            message.push_str(&example);
+        }
+    }
+    message
+}
+
+fn example_for_warning(path: &str, project_kind: ProjectKind) -> Option<String> {
+    let capability = if path.ends_with(".read") {
+        "read"
+    } else if path.ends_with(".write") {
+        "write"
+    } else if path.ends_with(".net") {
+        "net"
+    } else if path.ends_with(".env") {
+        "env"
+    } else if path.ends_with(".run") {
+        "run"
+    } else if path.ends_with(".db") {
+        "db"
+    } else if path.ends_with(".wasm") {
+        "wasm"
+    } else {
+        return None;
+    };
+
+    let example = match (project_kind, capability) {
+        (ProjectKind::Php, "read") => "security.allow.read = [\"./php_modules\"]",
+        (ProjectKind::Php, "write") => "security.allow.write = [\"./php_modules/.cache\"]",
+        (ProjectKind::Php, "wasm") => "security.allow.wasm = [\"php_rs.wasm\"]",
+        (ProjectKind::Php, "net") => "security.allow.net = [\"localhost:5432\"]",
+        (ProjectKind::Php, "env") => "security.allow.env = [\"DATABASE_URL\"]",
+        (ProjectKind::Php, "run") => "security.allow.run = [\"git\"]",
+        (ProjectKind::Php, "db") => "security.allow.db = [\"postgres\"]",
+        (ProjectKind::Js, "read") => "security.allow.read = [\"./src\"]",
+        (ProjectKind::Js, "write") => "security.allow.write = [\"./.cache\"]",
+        (ProjectKind::Js, "wasm") => "security.allow.wasm = [\"module.wasm\"]",
+        (ProjectKind::Js, "net") => "security.allow.net = [\"localhost:3000\"]",
+        (ProjectKind::Js, "env") => "security.allow.env = [\"API_KEY\"]",
+        (ProjectKind::Js, "run") => "security.allow.run = [\"git\"]",
+        (ProjectKind::Js, "db") => "security.allow.db = [\"postgres\"]",
+        _ => return None,
+    };
+
+    let label = match project_kind {
+        ProjectKind::Php => "Example (phpx):",
+        ProjectKind::Js => "Example (js):",
+        ProjectKind::Other => "Example:",
+    };
+    Some(format!("{} {}", label, example))
 }
