@@ -172,14 +172,29 @@ function withPrivileged(label, fn) {
         op_php_set_privileged(0, label || '');
     }
 }
+function formatPrivilegedLabel(label, path) {
+    if (!label || !path) {
+        return label || '';
+    }
+    try {
+        const cwd = op_php_cwd();
+        const rel = globalThis.path.relative(cwd, path).replace(/\\/g, '/');
+        return `${label}:${rel}`;
+    } catch (_err) {
+        return label;
+    }
+}
 function privilegedReadFileSync(path, encoding, label) {
-    return withPrivileged(label, ()=>globalThis.fs.readFileSync(path, encoding));
+    const fullLabel = formatPrivilegedLabel(label, path);
+    return withPrivileged(fullLabel, ()=>globalThis.fs.readFileSync(path, encoding));
 }
 function privilegedWriteFileSync(path, data, encoding, label) {
-    return withPrivileged(label, ()=>globalThis.fs.writeFileSync(path, data, encoding));
+    const fullLabel = formatPrivilegedLabel(label, path);
+    return withPrivileged(fullLabel, ()=>globalThis.fs.writeFileSync(path, data, encoding));
 }
 function privilegedMkdirSync(path, options, label) {
-    return withPrivileged(label, ()=>globalThis.fs.mkdirSync(path, options));
+    const fullLabel = formatPrivilegedLabel(label, path);
+    return withPrivileged(fullLabel, ()=>globalThis.fs.mkdirSync(path, options));
 }
 if (globalThis.__dekaPhpLogEnabled === undefined) {
     const debug = globalThis.process?.env?.DEKA_DEBUG;
