@@ -25,11 +25,6 @@ use tokio::{sync::Semaphore, task::JoinSet};
 
 pub async fn run_install(payload: InstallPayload) -> Result<()> {
     if payload.rehash {
-        if let Some(ecosystem) = payload.ecosystem.as_deref() {
-            if Ecosystem::from_str(ecosystem).unwrap_or(Ecosystem::Node) != Ecosystem::Php {
-                bail!("rehash only supports PHP packages");
-            }
-        }
         rehash_php_packages(&payload).await?;
         return Ok(());
     }

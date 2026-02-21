@@ -131,4 +131,4 @@ For third-party PHP packages, Deka verifies that the on-disk package contents ma
 - On `deka run` / `deka serve`, Deka recomputes both and refuses to run if they differ.
 - This check applies to scoped packages (for example `@scope/name`, including `@user/*`). Local project modules (`@/`) and stdlib modules are not enforced.
 
-If a package hash is missing or mismatched, Deka exits with an integrity error. Reinstall the package or run `deka install --rehash --ecosystem php` to regenerate the lock entry.
+If a package hash is missing or mismatched, Deka exits with an integrity error. Reinstall the package or run `deka install --rehash` to regenerate the lock entry.

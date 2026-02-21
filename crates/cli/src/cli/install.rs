@@ -138,10 +138,6 @@ fn build_payload(context: &Context) -> Result<InstallPayload> {
         payload.specs = resolved_specs;
     }
 
-    if payload.rehash && payload.ecosystem.is_none() {
-        payload.ecosystem = Some("php".to_string());
-    }
-
     apply_flags(&mut payload, context);
     Ok(payload)
 }
