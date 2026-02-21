@@ -21,6 +21,7 @@ use prost::Message as ProstMessage;
 use runtime_core::security_policy::{RuleList, SecurityPolicy, parse_deka_security_policy};
 use rusqlite::types::ValueRef as SqliteValueRef;
 use rusqlite::{Connection as SqliteConnection, params_from_iter as sqlite_params_from_iter};
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::fs::{File as StdFile, OpenOptions};
 use std::io::{IsTerminal, Read, Write};
@@ -1292,6 +1293,11 @@ fn op_php_mkdirs(#[string] path: String) -> Result<(), deno_core::error::CoreErr
     })
 }
 
+#[op2(fast)]
+fn op_php_set_privileged(#[number] enabled: i64) {
+    set_security_privileged(enabled != 0);
+}
+
 #[op2]
 #[string]
 fn op_php_sha256(#[string] data: String) -> String {
@@ -1964,9 +1970,46 @@ fn normalize_path(value: &str) -> std::path::PathBuf {
     std::fs::canonicalize(&resolved).unwrap_or(resolved)
 }
 
+thread_local! {
+    static SECURITY_PRIVILEGED: Cell<bool> = Cell::new(false);
+}
+
+fn set_security_privileged(enabled: bool) {
+    SECURITY_PRIVILEGED.with(|flag| flag.set(enabled));
+}
+
+fn security_privileged_enabled() -> bool {
+    SECURITY_PRIVILEGED.with(|flag| flag.get())
+}
+
+fn is_internal_security_target(target: &str) -> bool {
+    let mut normalized = target.replace('\\', "/");
+    if normalized.ends_with('/') {
+        normalized = normalized.trim_end_matches('/').to_string();
+    }
+    if normalized == "deka.lock" || normalized.ends_with("/deka.lock") {
+        return true;
+    }
+    if normalized == "php_modules/.cache"
+        || normalized.starts_with("php_modules/.cache/")
+        || normalized.contains("/php_modules/.cache/")
+        || normalized.ends_with("/php_modules/.cache")
+    {
+        return true;
+    }
+    if normalized == ".cache"
+        || normalized.starts_with(".cache/")
+        || normalized.contains("/.cache/")
+        || normalized.ends_with("/.cache")
+    {
+        return true;
+    }
+    false
+}
+
 #[cfg(test)]
 mod security_rule_tests {
-    use super::{RuleList, match_rule_item, rule_allows, rule_denies};
+    use super::{RuleList, is_internal_security_target, match_rule_item, rule_allows, rule_denies};
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -2010,6 +2053,17 @@ mod security_rule_tests {
     fn non_path_capability_requires_exact_match() {
         assert!(match_rule_item("env", "DATABASE_URL", "DATABASE_URL"));
         assert!(!match_rule_item("env", "DATABASE_URL", "PATH"));
+    }
+
+    #[test]
+    fn internal_security_targets_match_expected_paths() {
+        assert!(is_internal_security_target("deka.lock"));
+        assert!(is_internal_security_target("/tmp/project/deka.lock"));
+        assert!(is_internal_security_target("php_modules/.cache/phpx/foo.php"));
+        assert!(is_internal_security_target("/tmp/project/php_modules/.cache"));
+        assert!(is_internal_security_target(".cache/phpx/foo.php"));
+        assert!(is_internal_security_target("/tmp/project/.cache"));
+        assert!(!is_internal_security_target("/tmp/project/app/index.phpx"));
     }
 }
 
@@ -2415,11 +2469,25 @@ fn rule_items_for_path(target: &str, _project_kind: ProjectKind, is_read: bool) 
 
 fn enforce_read(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
     let policy = security_policy_from_env();
+    if security_privileged_enabled() {
+        if let Some(target) = target {
+            if is_internal_security_target(target) {
+                return Ok(());
+            }
+        }
+    }
     enforce_scope("read", &policy.allow.read, &policy.deny.read, target)
 }
 
 fn enforce_write(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
     let policy = security_policy_from_env();
+    if security_privileged_enabled() {
+        if let Some(target) = target {
+            if is_internal_security_target(target) {
+                return Ok(());
+            }
+        }
+    }
     enforce_scope("write", &policy.allow.write, &policy.deny.write, target)
 }
 
@@ -4170,6 +4238,7 @@ deno_core::extension!(
         op_php_read_file_sync,
         op_php_write_file_sync,
         op_php_mkdirs,
+        op_php_set_privileged,
         op_php_sha256,
         op_php_random_bytes,
         op_php_read_env,
