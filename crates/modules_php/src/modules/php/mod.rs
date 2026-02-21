@@ -2618,7 +2618,7 @@ fn db_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
     let req = proto::bridge_v1::DbRequest::decode(request)
         .map_err(|e| core_err(format!("db proto decode failed: {}", e)))?;
     let (action, payload, kind) = db_proto_request_to_action_payload(&req)?;
-    let db_target = db_target_from_payload(&payload);
+    let db_target = db_target_from_payload(&action, &payload);
     let target = db_target.as_deref().unwrap_or("*");
     enforce_db(Some(target))?;
     let response_json = db_call_impl(action, payload)?;
@@ -2633,7 +2633,10 @@ fn db_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
     Ok(out)
 }
 
-fn db_target_from_payload(payload: &serde_json::Value) -> Option<String> {
+fn db_target_from_payload(action: &str, payload: &serde_json::Value) -> Option<String> {
+    if action == "stats" {
+        return Some("stats".to_string());
+    }
     let obj = payload.as_object()?;
     if let Some(driver) = obj.get("driver").and_then(|v| v.as_str()) {
         let trimmed = driver.trim();
