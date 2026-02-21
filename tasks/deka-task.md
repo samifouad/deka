@@ -16,3 +16,4 @@ Switch Linkhash PHPX registry/auth/query paths to the ORM client, align schema, 
 - Commit per task.
 - Use Postgres via Docker.
 - `linkhash-git` must be running during E2E.
+- Runtime checks + dev login verified locally (postgres OK). `authIssueSession` still returns a warning about parameter serialization.

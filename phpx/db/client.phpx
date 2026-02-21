@@ -24,16 +24,30 @@ return '' . $model['name']
 return null
 }
 
+function to_snake_case($name: mixed) {
+$out = ''
+$len = strlen($name)
+for ($i = 0; $i < $len; $i = $i + 1) {
+$ch = $name[$i]
+$is_upper = ($ch >= 'A' && $ch <= 'Z')
+if ($is_upper && $i > 0) {
+$prev = $name[$i - 1]
+$prev_lower = ($prev >= 'a' && $prev <= 'z') || ($prev >= '0' && $prev <= '9')
+if ($prev_lower) {
+$out = $out . '_'
+}
+}
+$out = $out . strtolower($ch)
+}
+return $out
+}
+
 function model_table($model: mixed) {
 $name = model_name($model)
 if ($name === null || $name === '') {
 return null
 }
-$table = preg_replace('/([a-z0-9])([A-Z])/', '$1_$2', $name)
-if ($table === null) {
-$table = $name
-}
-$table = strtolower($table)
+$table = to_snake_case($name)
 if (substr($table, -1) !== 's') {
 $table = $table . 's'
 }

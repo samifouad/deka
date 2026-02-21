@@ -1,7 +1,7 @@
 import { connect as db_connect, close as db_close } from 'db/postgres'
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { createClient } from '@/db'
-import { Meta } from '@/db/meta'
+import { selectMany, selectOne, insertOne, updateWhere, deleteWhere, loadRelation, transaction, eq, ilike, isNull, andWhere, orWhere, asc, desc, limit, offset } from '@/db'
+import { meta } from '@/db/meta'
 
 struct Database {
   $config: mixed
@@ -23,6 +23,39 @@ function orm($db: Database) {
   return $db->client
 }
 
+function makeClient($handle) {
+  $m = meta()
+  return { handle: (int) $handle, meta: $m, models: $m.models }
+}
+
+function clientSelectMany($client, $model, $where = null, $order = null, $limit = null, $offset = null, $includes = null) {
+  return selectMany($client.handle, $client.meta, $model, $where, $order, $limit, $offset, $includes)
+}
+
+function clientSelectOne($client, $model, $where = null, $includes = null) {
+  return selectOne($client.handle, $client.meta, $model, $where, $includes)
+}
+
+function clientInsertOne($client, $model, $row, $returning = false) {
+  return insertOne($client.handle, $model, $row, $returning)
+}
+
+function clientUpdateWhere($client, $model, $where, $values, $returning = false) {
+  return updateWhere($client.handle, $model, $where, $values, $returning)
+}
+
+function clientDeleteWhere($client, $model, $where, $returning = false) {
+  return deleteWhere($client.handle, $model, $where, $returning)
+}
+
+function clientLoadRelation($client, $model, $row, $field) {
+  return loadRelation($client.handle, $client.meta, $model, $row, $field)
+}
+
+function clientTransaction($client, $fn) {
+  return transaction($client.handle, $fn)
+}
+
 export function connect($config) {
   $res = db_connect($config)
 
@@ -33,7 +66,7 @@ export function connect($config) {
   return result_ok(Database {
     $config: $config,
     $handle: $res->value,
-    $client: createClient(Meta, $res->value)
+    $client: makeClient($res->value)
   })
 }
 
@@ -43,7 +76,7 @@ export function close($db: Database) {
 
 export function ping($db: Database) {
   $client = orm($db)
-  $res = $client->selectMany($client->models->LhOrg, null, null, $client->limit(1))
+  $res = clientSelectMany($client, $client.models.LhOrg, null, null, limit(1))
   if (!result_is_ok($res)) {
     return $res
   }
@@ -54,9 +87,9 @@ export function findOrganizations($db: Database, $query: string): array {
   $client = orm($db)
   $term = trim('' . $query)
   if ($term === '') {
-    $res = $client->selectMany($client->models->LhOrg, null, $client->asc('handle'), $client->limit(20))
+    $res = clientSelectMany($client, $client.models.LhOrg, null, asc('handle'), limit(20))
   } else {
-    $res = $client->selectMany($client->models->LhOrg, $client->ilike('handle', '%' . $term . '%'), $client->asc('handle'), $client->limit(20))
+    $res = clientSelectMany($client, $client.models.LhOrg, ilike('handle', '%' . $term . '%'), asc('handle'), limit(20))
   }
   if (!result_is_ok($res)) {
     return []
@@ -66,7 +99,7 @@ export function findOrganizations($db: Database, $query: string): array {
 
 export function getOrganizationByHandle($db: Database, $handle: string) {
   $client = orm($db)
-  $res = $client->selectOne($client->models->LhOrg, $client->ilike('handle', '' . $handle))
+  $res = clientSelectOne($client, $client.models.LhOrg, ilike('handle', '' . $handle))
   if (!result_is_ok($res)) {
     return result_err($res->error)
   }
@@ -75,7 +108,7 @@ export function getOrganizationByHandle($db: Database, $handle: string) {
 
 export function createOrganization($db: Database, $org) {
   $client = orm($db)
-  $ins = $client->insertOne($client->models->LhOrg, {
+  $ins = clientInsertOne($client, $client.models.LhOrg, {
     handle: '' . $org['handle'],
     visibility: '' . ($org['visibility'] ?? 'public'),
     created_at: gmdate('c'),
@@ -90,17 +123,17 @@ export function createOrganization($db: Database, $org) {
 export function findPackages($db: Database, $query: string): array {
   $client = orm($db)
   $term = trim('' . $query)
-  $where = $client->eq('visibility', 'public')
+  $where = eq('visibility', 'public')
   if ($term !== '') {
-    $where = $client->andWhere(
+    $where = andWhere(
       $where,
-      $client->orWhere(
-        $client->ilike('name', '%' . $term . '%'),
-        $client->ilike('description', '%' . $term . '%')
+      orWhere(
+        ilike('name', '%' . $term . '%'),
+        ilike('description', '%' . $term . '%')
       )
     )
   }
-  $res = $client->selectMany($client->models->Package, $where, $client->desc('download_count'), $client->limit(20))
+  $res = clientSelectMany($client, $client.models.Package, $where, desc('download_count'), limit(20))
   if (!result_is_ok($res)) {
     return []
   }
@@ -109,16 +142,16 @@ export function findPackages($db: Database, $query: string): array {
 
 export function getPackage($db: Database, $org: string, $name: string) {
   $client = orm($db)
-  $orgRes = $client->selectOne($client->models->LhOrg, $client->ilike('handle', '' . $org))
+  $orgRes = clientSelectOne($client, $client.models.LhOrg, ilike('handle', '' . $org))
   if (!result_is_ok($orgRes)) {
     return result_err($orgRes->error)
   }
   $orgId = (int) ($orgRes->value['id'] ?? 0)
-  $pkg = $client->selectOne(
-    $client->models->Package,
-    $client->andWhere(
-      $client->eq('org_id', $orgId),
-      $client->ilike('name', '' . $name)
+  $pkg = clientSelectOne($client, 
+    $client.models.Package,
+    andWhere(
+      eq('org_id', $orgId),
+      ilike('name', '' . $name)
     )
   )
   if (!result_is_ok($pkg)) {
@@ -129,8 +162,8 @@ export function getPackage($db: Database, $org: string, $name: string) {
 
 export function createPackage($db: Database, $pkg) {
   $client = orm($db)
-  $ins = $client->insertOne(
-    $client->models->Package,
+  $ins = clientInsertOne($client, 
+    $client.models.Package,
     {
       org_id: (int) $pkg['orgId'],
       name: '' . $pkg['name'],
@@ -152,10 +185,10 @@ export function createPackage($db: Database, $pkg) {
 
 export function getPackageVersions($db: Database, $packageId: int): array {
   $client = orm($db)
-  $res = $client->selectMany(
-    $client->models->PackageVersion,
-    $client->eq('package_id', (int) $packageId),
-    $client->desc('published_at')
+  $res = clientSelectMany($client, 
+    $client.models.PackageVersion,
+    eq('package_id', (int) $packageId),
+    desc('published_at')
   )
   if (!result_is_ok($res)) {
     return []
@@ -165,11 +198,11 @@ export function getPackageVersions($db: Database, $packageId: int): array {
 
 export function getPackageVersion($db: Database, $packageId: int, $version: string) {
   $client = orm($db)
-  $res = $client->selectOne(
-    $client->models->PackageVersion,
-    $client->andWhere(
-      $client->eq('package_id', (int) $packageId),
-      $client->eq('version', '' . $version)
+  $res = clientSelectOne($client, 
+    $client.models.PackageVersion,
+    andWhere(
+      eq('package_id', (int) $packageId),
+      eq('version', '' . $version)
     )
   )
   if (!result_is_ok($res)) {
@@ -180,8 +213,8 @@ export function getPackageVersion($db: Database, $packageId: int, $version: stri
 
 export function createPackageVersion($db: Database, $version) {
   $client = orm($db)
-  $ins = $client->insertOne(
-    $client->models->PackageVersion,
+  $ins = clientInsertOne($client, 
+    $client.models.PackageVersion,
     {
       package_id: (int) $version['packageId'],
       version: '' . $version['version'],
@@ -214,8 +247,8 @@ export function createPackageVersion($db: Database, $version) {
 
 export function recordDownload($db: Database, $download) {
   $client = orm($db)
-  $res = $client->insertOne(
-    $client->models->Download,
+  $res = clientInsertOne($client, 
+    $client.models.Download,
     {
       package_id: (int) $download['packageId'],
       version_id: (int) $download['versionId'],
@@ -233,11 +266,11 @@ export function recordDownload($db: Database, $download) {
 
 export function upsertUserByDid($db: Database, $did: string, $handle: string, $displayName = null, $avatarUrl = null) {
   $client = orm($db)
-  $existing = $client->selectOne($client->models->LhUser, $client->eq('did', '' . $did))
+  $existing = clientSelectOne($client, $client.models.LhUser, eq('did', '' . $did))
   if (result_is_ok($existing)) {
-    $update = $client->updateWhere(
-      $client->models->LhUser,
-      $client->eq('id', (int) rowValue($existing->value, 'id', 0)),
+    $update = clientUpdateWhere($client, 
+      $client.models.LhUser,
+      eq('id', (int) rowValue($existing->value, 'id', 0)),
       {
         handle: '' . $handle,
         display_name: '' . ($displayName ?? ''),
@@ -251,8 +284,8 @@ export function upsertUserByDid($db: Database, $did: string, $handle: string, $d
     }
     return result_ok($existing->value)
   }
-  $ins = $client->insertOne(
-    $client->models->LhUser,
+  $ins = clientInsertOne($client, 
+    $client.models.LhUser,
     {
       did: '' . $did,
       handle: '' . $handle,
@@ -269,8 +302,8 @@ export function upsertUserByDid($db: Database, $did: string, $handle: string, $d
 
 export function createSession($db: Database, $userId: int, $sessionTokenHash: string, $expiresAt: string, $ipAddress = null, $userAgent = null) {
   $client = orm($db)
-  $res = $client->insertOne(
-    $client->models->LhSession,
+  $res = clientInsertOne($client, 
+    $client.models.LhSession,
     {
       user_id: (int) $userId,
       session_token_hash: '' . $sessionTokenHash,
@@ -291,8 +324,8 @@ export function createSession($db: Database, $userId: int, $sessionTokenHash: st
 
 export function createApiToken($db: Database, $userId: int, $tokenPrefix: string, $tokenHash: string, $scopeMask: int, $label = null, $expiresAt = null) {
   $client = orm($db)
-  $res = $client->insertOne(
-    $client->models->LhApiToken,
+  $res = clientInsertOne($client, 
+    $client.models.LhApiToken,
     {
       user_id: (int) $userId,
       token_prefix: '' . $tokenPrefix,
@@ -312,7 +345,7 @@ export function createApiToken($db: Database, $userId: int, $tokenPrefix: string
 
 export function getPopularPackages($db: Database, $limit: int = 10): array {
   $client = orm($db)
-  $res = $client->selectMany($client->models->Package, null, $client->desc('download_count'), $client->limit((int) $limit))
+  $res = clientSelectMany($client, $client.models.Package, null, desc('download_count'), limit((int) $limit))
   if (!result_is_ok($res)) {
     return []
   }

@@ -4,7 +4,8 @@
 * Changes will be overwritten.
 */
 
-export const Meta = {
+export function meta() {
+    return {
     models: {
         RuntimeProbeLog: {
             name: 'RuntimeProbeLog',
@@ -195,5 +196,6 @@ export const Meta = {
             },
             relations: []
         },
+    }
     }
 }
