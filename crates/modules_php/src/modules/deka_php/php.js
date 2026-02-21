@@ -5240,7 +5240,7 @@ function buildAppRouteManifest(appDir) {
                 continue;
             }
             const fileName = String(entry.name || '');
-            if (!(fileName.endsWith('.phpx') || fileName.endsWith('.php'))) continue;
+            if (!fileName.endsWith('.phpx')) continue;
             const noExt = fileName.replace(/\.(phpx|php)$/i, '');
             let kind = 'page';
             let routeSegments = relSegments.slice();
@@ -5298,7 +5298,7 @@ function buildApiRouteManifest(apiDir) {
                 continue;
             }
             const fileName = String(entry.name || '');
-            if (!(fileName.endsWith('.phpx') || fileName.endsWith('.php'))) continue;
+            if (!fileName.endsWith('.phpx')) continue;
             const noExt = fileName.replace(/\.(phpx|php)$/i, '');
             const method = noExt.toUpperCase();
             const isHttpVerb = [

@@ -1,9 +1,6 @@
 use std::path::Path;
 
-pub fn handler_input_with<Get>(
-    positionals: &[String],
-    env_get: &Get,
-) -> (String, Vec<String>)
+pub fn handler_input_with<Get>(positionals: &[String], env_get: &Get) -> (String, Vec<String>)
 where
     Get: Fn(&str) -> Option<String>,
 {
@@ -21,11 +18,9 @@ where
 }
 
 pub fn normalize_handler_path(path: &str) -> String {
-    normalize_handler_path_with(
-        path,
-        &|| std::env::current_dir().ok(),
-        &|p| p.canonicalize().ok(),
-    )
+    normalize_handler_path_with(path, &|| std::env::current_dir().ok(), &|p| {
+        p.canonicalize().ok()
+    })
 }
 
 pub fn normalize_handler_path_with<Cwd, Canonicalize>(
@@ -54,7 +49,7 @@ where
 
 pub fn is_php_entry(path: &str) -> bool {
     let lowered = path.to_ascii_lowercase();
-    lowered.ends_with(".php") || lowered.ends_with(".phpx")
+    lowered.ends_with(".phpx")
 }
 
 pub fn is_html_entry(path: &str) -> bool {
@@ -91,7 +86,6 @@ mod tests {
 
     #[test]
     fn php_and_html_detection() {
-        assert!(is_php_entry("index.php"));
         assert!(is_php_entry("index.PHPX"));
         assert!(!is_php_entry("index.html"));
         assert!(is_html_entry("index.html"));

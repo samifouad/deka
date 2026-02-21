@@ -81,7 +81,7 @@ async fn run_async(context: &Context) -> Result<(), String> {
 
     if !is_php_entry(&normalized) {
         return Err(format!(
-            "Run mode in reboot MVP only supports .php and .phpx entrypoints: {}",
+            "Run mode in reboot MVP only supports .phpx entrypoints: {}",
             normalized
         ));
     }

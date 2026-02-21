@@ -1,5 +1,6 @@
 import { json_encode, json_decode } from 'encoding/json';
 import { readDirSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { renderToString, renderPartialResponse, isPartialRequest } from 'component/dom';
 import { result_is_ok } from 'core/result';
 import { now_ms } from 'time';
 
@@ -27,6 +28,7 @@ export function generate_manifest($root = '.') {
     $apis = [];
 
     scan_app_dir($root, $app_dir, [], $pages, $layouts, $apis);
+    sort_routes($pages, $layouts, $apis);
 
     $manifest = {
         ok: true,
@@ -72,6 +74,110 @@ export function load_manifest($root = '.') {
         $manifest_cache = $generated;
     }
     return $generated;
+}
+
+/// docid: phpx/component/route_manifest()
+/// <Function name="route_manifest">
+///   <Description>Return the cached app route manifest (generates if missing).</Description>
+///   <Parameter name="$root" type="string" required="false" />
+///   <ReturnType type="mixed" />
+/// </Function>
+export function route_manifest($root = '.') {
+    return load_manifest($root);
+}
+
+/// docid: phpx/component/resolve()
+/// <Function name="resolve">
+///   <Description>Resolve a request or path against the app manifest.</Description>
+///   <Parameter name="$request" type="mixed" required="false" />
+///   <Parameter name="$root" type="string" required="false" />
+///   <Parameter name="$opts" type="mixed" required="false" />
+///   <ReturnType type="mixed" />
+/// </Function>
+export function resolve($request = false, $root = '.', $opts = false) {
+    $path = request_path($request);
+    return resolve_path($path, $root);
+}
+
+/// docid: phpx/component/Router()
+/// <Function name="Router">
+///   <Description>Render the matching app page with its layouts.</Description>
+///   <Parameter name="$props" type="mixed" required="false" />
+///   <ReturnType type="mixed" />
+/// </Function>
+export function Router($props = false) {
+    $root = '.';
+    $path = '';
+    $not_found = null;
+
+    if (is_array($props)) {
+        if (array_key_exists('root', $props)) $root = '' . $props['root'];
+        if (array_key_exists('path', $props)) $path = '' . $props['path'];
+        if (array_key_exists('notFound', $props)) $not_found = $props['notFound'];
+    } else if (is_object($props)) {
+        if (isset($props.root)) $root = '' . $props.root;
+        if (isset($props.path)) $path = '' . $props.path;
+        if (isset($props.notFound)) $not_found = $props.notFound;
+    }
+
+    if ($path === '') {
+        $path = request_path(false);
+    }
+
+    $resolved = resolve_path($path, $root);
+    if (!is_array($resolved) && !is_object($resolved)) {
+        return default_not_found($not_found);
+    }
+    if (!route_field($resolved, 'ok')) {
+        return default_not_found($not_found);
+    }
+
+    $params = route_field($resolved, 'params');
+    if (!is_array($params)) $params = [];
+    apply_route_params($params);
+
+    $page_module_id = route_field($resolved, 'module_id');
+    $page_exports = load_module_exports($page_module_id);
+    if ($page_exports === false) {
+        return router_error("Missing page module export for " . $page_module_id);
+    }
+    $Page = export_field($page_exports, 'Page');
+    if (!is_callable($Page)) {
+        return router_error("Missing export 'Page' in " . $page_module_id);
+    }
+
+    $route_props = {
+        params: $params,
+        path: $path,
+    };
+
+    $node = $Page($route_props);
+
+    $layout_modules = route_field($resolved, 'layout_modules');
+    if (is_array($layout_modules)) {
+        for ($i = count($layout_modules) - 1; $i >= 0; $i--) {
+            $layout_module_id = $layout_modules[$i];
+            $layout_exports = load_module_exports($layout_module_id);
+            if ($layout_exports === false) {
+                return router_error("Missing layout module export for " . $layout_module_id);
+            }
+            $Layout = export_field($layout_exports, 'Layout');
+            if (!is_callable($Layout)) {
+                return router_error("Missing export 'Layout' in " . $layout_module_id);
+            }
+            $node = $Layout({
+                children: $node,
+                params: $params,
+                path: $path,
+            });
+        }
+    }
+
+    if (isPartialRequest()) {
+        return renderPartialResponse($node);
+    }
+
+    return renderToString($node);
 }
 
 /// docid: phpx/component/resolve_path()
@@ -130,7 +236,7 @@ function scan_app_dir($root, $dir, $segments, &$pages, &$layouts, &$apis) {
             continue;
         }
         if (!entry_is_file($entry)) continue;
-        if (!ends_with($name, '.phpx') && !ends_with($name, '.php')) continue;
+        if (!ends_with($name, '.phpx')) continue;
 
         $no_ext = strip_ext($name);
         $route_segments = $segments;
@@ -166,6 +272,40 @@ function scan_app_dir($root, $dir, $segments, &$pages, &$layouts, &$apis) {
 
 function is_api_route($segments) {
     return count($segments) > 0 && $segments[0] === 'api';
+}
+
+function sort_routes(&$pages, &$layouts, &$apis) {
+    if (is_array($pages)) {
+        usort($pages, function($a, $b) {
+            $a_tokens = route_tokens($a);
+            $b_tokens = route_tokens($b);
+            $a_score = route_specificity($a_tokens);
+            $b_score = route_specificity($b_tokens);
+            if ($a_score !== $b_score) return $a_score > $b_score ? -1 : 1;
+            $a_len = is_array($a_tokens) ? count($a_tokens) : 0;
+            $b_len = is_array($b_tokens) ? count($b_tokens) : 0;
+            if ($a_len !== $b_len) return $a_len > $b_len ? -1 : 1;
+            return 0;
+        });
+    }
+    if (is_array($layouts)) {
+        usort($layouts, function($a, $b) {
+            $a_len = is_array(route_tokens($a)) ? count(route_tokens($a)) : 0;
+            $b_len = is_array(route_tokens($b)) ? count(route_tokens($b)) : 0;
+            if ($a_len !== $b_len) return $a_len > $b_len ? 1 : -1;
+            return 0;
+        });
+    }
+    if (is_array($apis)) {
+        usort($apis, function($a, $b) {
+            $a_tokens = route_tokens($a);
+            $b_tokens = route_tokens($b);
+            $a_score = route_specificity($a_tokens);
+            $b_score = route_specificity($b_tokens);
+            if ($a_score !== $b_score) return $a_score > $b_score ? -1 : 1;
+            return 0;
+        });
+    }
 }
 
 function route_segments_to_tokens($segments) {
@@ -377,7 +517,6 @@ function module_id_from_rel($rel) {
 
 function strip_ext($name) {
     if (ends_with($name, '.phpx')) return substr($name, 0, strlen($name) - 5);
-    if (ends_with($name, '.php')) return substr($name, 0, strlen($name) - 4);
     return $name;
 }
 
@@ -399,6 +538,83 @@ function entry_name($entry) {
     if (is_array($entry) && array_key_exists('name', $entry)) return '' . $entry['name'];
     if (is_object($entry) && isset($entry->name)) return '' . $entry->name;
     return '';
+}
+
+function request_path($request) {
+    if (is_string($request)) {
+        return clean_path($request);
+    }
+    if (is_array($request)) {
+        if (array_key_exists('path', $request)) return clean_path($request['path']);
+        if (array_key_exists('pathname', $request)) return clean_path($request['pathname']);
+        if (array_key_exists('url', $request)) return clean_path($request['url']);
+    } else if (is_object($request)) {
+        if (isset($request.path)) return clean_path($request.path);
+        if (isset($request.pathname)) return clean_path($request.pathname);
+        if (isset($request.url)) return clean_path($request.url);
+    }
+    if (isset($_SERVER) && is_array($_SERVER)) {
+        if (isset($_SERVER['PATH_INFO'])) return clean_path($_SERVER['PATH_INFO']);
+        if (isset($_SERVER['REQUEST_URI'])) return clean_path($_SERVER['REQUEST_URI']);
+    }
+    return '/';
+}
+
+function clean_path($value) {
+    $path = '' . $value;
+    if ($path === '') return '/';
+    if (strpos($path, '?') !== false) {
+        $path = explode('?', $path, 2)[0];
+    }
+    if ($path === '') return '/';
+    return $path;
+}
+
+function apply_route_params($params) {
+    if (!is_array($params)) return;
+    if (!isset($_GET) || !is_array($_GET)) {
+        $_GET = [];
+    }
+    foreach ($params as $key => $value) {
+        if (!array_key_exists($key, $_GET)) {
+            $_GET[$key] = $value;
+        }
+    }
+}
+
+function load_module_exports($module_id) {
+    if (!is_string($module_id) || $module_id === '') {
+        return false;
+    }
+    if (!function_exists('phpx_import')) {
+        return false;
+    }
+    return phpx_import($module_id);
+}
+
+function export_field($exports, $name) {
+    if (is_array($exports) && array_key_exists($name, $exports)) return $exports[$name];
+    if (is_object($exports) && isset($exports->{$name})) return $exports->{$name};
+    return null;
+}
+
+function default_not_found($handler) {
+    if ($handler !== null && is_callable($handler)) {
+        return $handler();
+    }
+    if (function_exists('header')) {
+        header('HTTP/1.1 404 Not Found');
+        header('Content-Type: text/plain; charset=utf-8');
+    }
+    return 'Not Found';
+}
+
+function router_error($message) {
+    if (function_exists('header')) {
+        header('HTTP/1.1 500 Internal Server Error');
+        header('Content-Type: text/plain; charset=utf-8');
+    }
+    return 'Router error: ' . $message;
 }
 
 function entry_is_dir($entry) {
