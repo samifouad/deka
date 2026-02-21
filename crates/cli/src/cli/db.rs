@@ -8,6 +8,7 @@ use php_rs::parser::ast::{ClassKind, ClassMember, Name, Stmt, Type as AstType};
 use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
 use postgres::{Client, NoTls};
+use rusqlite::{Connection, params};
 use serde_json::json;
 use stdio::{error, log};
 
@@ -59,6 +60,87 @@ fn cmd(_context: &Context) {
         "db",
         "missing subcommand. use: deka db generate|migrate|info|flush",
     );
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DbEngine {
+    Postgres,
+    Sqlite,
+}
+
+#[derive(Debug, Clone)]
+struct DbRuntimeConfig {
+    engine: DbEngine,
+    location: String,
+}
+
+fn load_deka_json(cwd: &Path) -> Option<serde_json::Value> {
+    let path = cwd.join("deka.json");
+    let raw = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
+fn read_db_runtime_config(cwd: &Path) -> DbRuntimeConfig {
+    let json = load_deka_json(cwd);
+    let db = json
+        .as_ref()
+        .and_then(|v| v.get("db"))
+        .and_then(|v| v.as_object());
+
+    let engine_raw = db
+        .and_then(|obj| obj.get("engine"))
+        .and_then(|v| v.as_str())
+        .map(|v| v.trim().to_ascii_lowercase());
+    let location_raw = db
+        .and_then(|obj| obj.get("location"))
+        .and_then(|v| v.as_str())
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+
+    match engine_raw.as_deref() {
+        Some("sqlite") => {
+            let location =
+                location_raw.unwrap_or_else(|| cwd.join("deka.sqlite").display().to_string());
+            return DbRuntimeConfig {
+                engine: DbEngine::Sqlite,
+                location,
+            };
+        }
+        Some("postgres") | Some("pg") => {
+            let location = location_raw
+                .or_else(|| std::env::var("DATABASE_URL").ok())
+                .unwrap_or_else(postgres_connection_string);
+            return DbRuntimeConfig {
+                engine: DbEngine::Postgres,
+                location,
+            };
+        }
+        _ => {}
+    }
+
+    if let Some(location) = location_raw {
+        if location.ends_with(".sqlite") {
+            let resolved = if Path::new(&location).is_absolute() {
+                location
+            } else {
+                cwd.join(location).display().to_string()
+            };
+            return DbRuntimeConfig {
+                engine: DbEngine::Sqlite,
+                location: resolved,
+            };
+        }
+        return DbRuntimeConfig {
+            engine: DbEngine::Postgres,
+            location,
+        };
+    }
+
+    let location = std::env::var("DATABASE_URL").unwrap_or_else(|_| postgres_connection_string());
+    DbRuntimeConfig {
+        engine: DbEngine::Postgres,
+        location,
+    }
 }
 
 fn cmd_generate(context: &Context) {
@@ -144,50 +226,116 @@ fn cmd_migrate(_context: &Context) {
         return;
     }
 
-    let conn = postgres_connection_string();
-    let mut client = match Client::connect(&conn, NoTls) {
-        Ok(value) => value,
-        Err(err) => {
-            error(
-                "db migrate",
-                &format!("failed to connect to postgres: {}", err),
-            );
-            return;
-        }
-    };
-
-    if let Err(err) = ensure_migrations_table(&mut client) {
-        error(
-            "db migrate",
-            &format!("failed to ensure migration table: {}", err),
-        );
-        return;
-    }
-
-    let applied = match load_applied_migrations(&mut client) {
-        Ok(value) => value,
-        Err(err) => {
-            error(
-                "db migrate",
-                &format!("failed to read applied migrations: {}", err),
-            );
-            return;
-        }
-    };
-
-    match apply_migrations(&mut client, &migration_files, &applied, "db migrate") {
-        Ok((applied_now, skipped)) => {
-            if let Ok(latest_applied) = load_applied_migrations(&mut client) {
-                if let Err(err) = persist_migration_state(&db_dir, &latest_applied, applied_now, skipped) {
-                    error("db migrate", &format!("migration state write failed: {}", err));
+    let cfg = read_db_runtime_config(&cwd);
+    match cfg.engine {
+        DbEngine::Postgres => {
+            let mut client = match Client::connect(&cfg.location, NoTls) {
+                Ok(value) => value,
+                Err(err) => {
+                    error(
+                        "db migrate",
+                        &format!("failed to connect to postgres: {}", err),
+                    );
+                    return;
                 }
+            };
+
+            if let Err(err) = ensure_migrations_table(&mut client) {
+                error(
+                    "db migrate",
+                    &format!("failed to ensure migration table: {}", err),
+                );
+                return;
             }
-            log(
-                "db migrate",
-                &format!("done: applied={}, skipped={}", applied_now, skipped),
-            );
+
+            let applied = match load_applied_migrations(&mut client) {
+                Ok(value) => value,
+                Err(err) => {
+                    error(
+                        "db migrate",
+                        &format!("failed to read applied migrations: {}", err),
+                    );
+                    return;
+                }
+            };
+
+            match apply_migrations(&mut client, &migration_files, &applied, "db migrate") {
+                Ok((applied_now, skipped)) => {
+                    if let Ok(latest_applied) = load_applied_migrations(&mut client) {
+                        if let Err(err) =
+                            persist_migration_state(&db_dir, &latest_applied, applied_now, skipped)
+                        {
+                            error(
+                                "db migrate",
+                                &format!("migration state write failed: {}", err),
+                            );
+                        }
+                    }
+                    log(
+                        "db migrate",
+                        &format!(
+                            "done: engine=postgres applied={}, skipped={}",
+                            applied_now, skipped
+                        ),
+                    );
+                }
+                Err(message) => error("db migrate", &message),
+            }
         }
-        Err(message) => error("db migrate", &message),
+        DbEngine::Sqlite => {
+            let mut conn = match Connection::open(&cfg.location) {
+                Ok(value) => value,
+                Err(err) => {
+                    error(
+                        "db migrate",
+                        &format!("failed to open sqlite database {}: {}", cfg.location, err),
+                    );
+                    return;
+                }
+            };
+
+            if let Err(err) = ensure_migrations_table_sqlite(&mut conn) {
+                error(
+                    "db migrate",
+                    &format!("failed to ensure migration table: {}", err),
+                );
+                return;
+            }
+
+            let applied = match load_applied_migrations_sqlite(&conn) {
+                Ok(value) => value,
+                Err(err) => {
+                    error(
+                        "db migrate",
+                        &format!("failed to read applied migrations: {}", err),
+                    );
+                    return;
+                }
+            };
+
+            match apply_migrations_sqlite(&mut conn, &migration_files, &applied, "db migrate") {
+                Ok((applied_now, skipped)) => {
+                    if let Ok(latest_applied) = load_applied_migrations_sqlite(&conn) {
+                        if let Err(err) =
+                            persist_migration_state(&db_dir, &latest_applied, applied_now, skipped)
+                        {
+                            error(
+                                "db migrate",
+                                &format!("migration state write failed: {}", err),
+                            );
+                        }
+                    }
+                    log(
+                        "db migrate",
+                        &format!(
+                            "done: engine=sqlite applied={}, skipped={}",
+                            applied_now, skipped
+                        ),
+                    );
+                }
+                Err(message) => error("db migrate", &message),
+            }
+        }
     }
 }
 
@@ -247,18 +395,40 @@ fn cmd_info(_context: &Context) {
         0
     };
 
+    let cfg = read_db_runtime_config(&cwd);
+    let engine_name = match cfg.engine {
+        DbEngine::Postgres => "postgres",
+        DbEngine::Sqlite => "sqlite",
+    };
+
     log("db info", &format!("source: {}", source));
     log("db info", &format!("models: {}", model_count));
     log("db info", &format!("generated_at_unix: {}", generated_at));
+    log("db info", &format!("engine: {}", engine_name));
+    log("db info", &format!("location: {}", cfg.location));
     log("db info", &format!("migration_files: {}", migration_count));
 
     let mut applied_count = 0usize;
     let mut pending_count = migration_count;
-    if let Ok(mut client) = Client::connect(&postgres_connection_string(), NoTls) {
-        if ensure_migrations_table(&mut client).is_ok() {
-            if let Ok(applied) = load_applied_migrations(&mut client) {
-                applied_count = applied.len();
-                pending_count = migration_count.saturating_sub(applied_count);
+    match cfg.engine {
+        DbEngine::Postgres => {
+            if let Ok(mut client) = Client::connect(&cfg.location, NoTls) {
+                if ensure_migrations_table(&mut client).is_ok() {
+                    if let Ok(applied) = load_applied_migrations(&mut client) {
+                        applied_count = applied.len();
+                        pending_count = migration_count.saturating_sub(applied_count);
+                    }
+                }
+            }
+        }
+        DbEngine::Sqlite => {
+            if let Ok(mut conn) = Connection::open(&cfg.location) {
+                if ensure_migrations_table_sqlite(&mut conn).is_ok() {
+                    if let Ok(applied) = load_applied_migrations_sqlite(&conn) {
+                        applied_count = applied.len();
+                        pending_count = migration_count.saturating_sub(applied_count);
+                    }
+                }
             }
         }
     }
@@ -287,44 +457,89 @@ fn cmd_flush(_context: &Context) {
     };
     migration_files.sort();
 
-    let conn = postgres_connection_string();
-    let mut client = match Client::connect(&conn, NoTls) {
-        Ok(value) => value,
-        Err(err) => {
-            error(
-                "db flush",
-                &format!("failed to connect to postgres: {}", err),
-            );
-            return;
-        }
-    };
+    let cfg = read_db_runtime_config(&cwd);
+    match cfg.engine {
+        DbEngine::Postgres => {
+            let mut client = match Client::connect(&cfg.location, NoTls) {
+                Ok(value) => value,
+                Err(err) => {
+                    error(
+                        "db flush",
+                        &format!("failed to connect to postgres: {}", err),
+                    );
+                    return;
+                }
+            };
 
-    if let Err(err) =
-        client.batch_execute("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
-    {
-        error("db flush", &format!("failed to reset schema: {}", err));
-        return;
-    }
-    if let Err(err) = ensure_migrations_table(&mut client) {
-        error(
-            "db flush",
-            &format!("failed to initialize migration table: {}", err),
-        );
-        return;
-    }
+            if let Err(err) =
+                client.batch_execute("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
+            {
+                error("db flush", &format!("failed to reset schema: {}", err));
+                return;
+            }
+            if let Err(err) = ensure_migrations_table(&mut client) {
+                error(
+                    "db flush",
+                    &format!("failed to initialize migration table: {}", err),
+                );
+                return;
+            }
 
-    let none_applied = std::collections::HashSet::new();
-    match apply_migrations(&mut client, &migration_files, &none_applied, "db flush") {
-        Ok((applied_now, skipped)) => {
-            log(
-                "db flush",
-                &format!(
-                    "schema reset complete: applied={}, skipped={}",
-                    applied_now, skipped
-                ),
-            );
+            let none_applied = std::collections::HashSet::new();
+            match apply_migrations(&mut client, &migration_files, &none_applied, "db flush") {
+                Ok((applied_now, skipped)) => {
+                    log(
+                        "db flush",
+                        &format!(
+                            "schema reset complete: engine=postgres applied={}, skipped={}",
+                            applied_now, skipped
+                        ),
+                    );
+                }
+                Err(message) => error("db flush", &message),
+            }
         }
-        Err(message) => error("db flush", &message),
+        DbEngine::Sqlite => {
+            let mut conn = match Connection::open(&cfg.location) {
+                Ok(value) => value,
+                Err(err) => {
+                    error(
+                        "db flush",
+                        &format!("failed to open sqlite database {}: {}", cfg.location, err),
+                    );
+                    return;
+                }
+            };
+
+            if let Err(err) = reset_sqlite_schema(&conn) {
+                error(
+                    "db flush",
+                    &format!("failed to reset sqlite schema: {}", err),
+                );
+                return;
+            }
+            if let Err(err) = ensure_migrations_table_sqlite(&mut conn) {
+                error(
+                    "db flush",
+                    &format!("failed to initialize migration table: {}", err),
+                );
+                return;
+            }
+
+            let none_applied = std::collections::HashSet::new();
+            match apply_migrations_sqlite(&mut conn, &migration_files, &none_applied, "db flush") {
+                Ok((applied_now, skipped)) => {
+                    log(
+                        "db flush",
+                        &format!(
+                            "schema reset complete: engine=sqlite applied={}, skipped={}",
+                            applied_now, skipped
+                        ),
+                    );
+                }
+                Err(message) => error("db flush", &message),
+            }
+        }
     }
 }
 
@@ -641,16 +856,29 @@ function model_name($model) {{\n\
     }}\n\
     return null\n\
 }}\n\n\
+function to_snake_case($name) {{\n\
+    $out = ''\n\
+    $len = strlen($name)\n\
+    for ($i = 0; $i < $len; $i = $i + 1) {{\n\
+        $ch = $name[$i]\n\
+        $is_upper = ($ch >= 'A' && $ch <= 'Z')\n\
+        if ($is_upper && $i > 0) {{\n\
+            $prev = $name[$i - 1]\n\
+            $prev_lower = ($prev >= 'a' && $prev <= 'z') || ($prev >= '0' && $prev <= '9')\n\
+            if ($prev_lower) {{\n\
+                $out = $out . '_'\n\
+            }}\n\
+        }}\n\
+        $out = $out . strtolower($ch)\n\
+    }}\n\
+    return $out\n\
+}}\n\n\
 function model_table($model) {{\n\
     $name = model_name($model)\n\
     if ($name === null || $name === '') {{\n\
         return null\n\
     }}\n\
-    $table = preg_replace('/([a-z0-9])([A-Z])/', '$1_$2', $name)\n\
-    if ($table === null) {{\n\
-        $table = $name\n\
-    }}\n\
-    $table = strtolower($table)\n\
+    $table = to_snake_case($name)\n\
     if (substr($table, -1) !== 's') {{\n\
         $table = $table . 's'\n\
     }}\n\
@@ -1052,28 +1280,28 @@ export function createClient($meta, $handle = null) {{\n\
         handle: $handle,\n\
         models: {{\n{}        }},\n\
         withHandle: fn($nextHandle) => createClient($meta, $nextHandle),\n\
-        connect: connect,\n\
-        close: close,\n\
+        connect: fn($driver, $config) => connect($driver, $config),\n\
+        close: fn() => close($handle),\n\
         select: fn() => select($handle, $meta),\n\
         selectMany: fn($model, $where = null, $order = null, $limit = null, $offset = null, $includes = null) => selectMany($handle, $meta, $model, $where, $order, $limit, $offset, $includes),\n\
         selectOne: fn($model, $where = null, $includes = null) => selectOne($handle, $meta, $model, $where, $includes),\n\
         insert: fn($model) => insert($handle, $model),\n\
-        insertOne: insertOne,\n\
+        insertOne: fn($model, $row, $returning = false) => insertOne($handle, $model, $row, $returning),\n\
         update: fn($model) => update($handle, $model),\n\
-        updateWhere: updateWhere,\n\
+        updateWhere: fn($model, $where, $values, $returning = false) => updateWhere($handle, $model, $where, $values, $returning),\n\
         'delete': fn($model) => deleteQuery($handle, $model),\n\
-        deleteWhere: deleteWhere,\n\
+        deleteWhere: fn($model, $where, $returning = false) => deleteWhere($handle, $model, $where, $returning),\n\
         loadRelation: fn($model, $row, $field) => loadRelation($handle, $meta, $model, $row, $field),\n\
-        transaction: transaction,\n\
-        eq: eq,\n\
-        ilike: ilike,\n\
-        isNull: isNull,\n\
-        andWhere: andWhere,\n\
-        orWhere: orWhere,\n\
-        asc: asc,\n\
-        desc: desc,\n\
-        limit: limit,\n\
-        offset: offset\n\
+        transaction: fn($fn) => transaction($handle, $fn),\n\
+        eq: fn($column, $value) => eq($column, $value),\n\
+        ilike: fn($column, $value) => ilike($column, $value),\n\
+        isNull: fn($column) => isNull($column),\n\
+        andWhere: fn(...$parts) => andWhere(...$parts),\n\
+        orWhere: fn(...$parts) => orWhere(...$parts),\n\
+        asc: fn($column) => asc($column),\n\
+        desc: fn($column) => desc($column),\n\
+        limit: fn($value) => limit($value),\n\
+        offset: fn($value) => offset($value)\n\
     }}\n\
 }}\n",
         GENERATED_HEADER, model_map
@@ -1195,7 +1423,11 @@ fn annotate_param_list(params: &str) -> String {
             b']' => depth_bracket -= 1,
             b'<' => depth_angle += 1,
             b'>' => depth_angle -= 1,
-            b',' if depth_paren == 0 && depth_brace == 0 && depth_bracket == 0 && depth_angle == 0 => {
+            b',' if depth_paren == 0
+                && depth_brace == 0
+                && depth_bracket == 0
+                && depth_angle == 0 =>
+            {
                 parts.push(annotate_single_param(&params[start..i]));
                 start = i + 1;
             }
@@ -1249,7 +1481,7 @@ fn is_ident_char(ch: char) -> bool {
 fn render_meta_phpx(models: &[ModelDef]) -> String {
     let mut body = String::new();
     body.push_str(GENERATED_HEADER);
-    body.push_str("export const Meta = {\n    models: {\n");
+    body.push_str("export function meta() {\n    return {\n    models: {\n");
     for model in models {
         let table = to_table_name(&model.name);
         let relations = model
@@ -1301,7 +1533,7 @@ fn render_meta_phpx(models: &[ModelDef]) -> String {
         body.push_str(&format!("            relations: [{}]\n", relations));
         body.push_str("        },\n");
     }
-    body.push_str("    }\n}\n");
+    body.push_str("    }\n    }\n}\n");
     body
 }
 
@@ -1468,6 +1700,89 @@ fn apply_migrations(
     Ok((applied_now, skipped))
 }
 
+fn ensure_migrations_table_sqlite(conn: &mut Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS _deka_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )",
+    )
+}
+
+fn load_applied_migrations_sqlite(
+    conn: &Connection,
+) -> Result<std::collections::HashSet<String>, rusqlite::Error> {
+    let mut out = std::collections::HashSet::new();
+    let mut stmt = conn.prepare("SELECT version FROM _deka_migrations")?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    for version in rows {
+        out.insert(version?);
+    }
+    Ok(out)
+}
+
+fn apply_migrations_sqlite(
+    conn: &mut Connection,
+    migration_files: &[PathBuf],
+    already_applied: &std::collections::HashSet<String>,
+    log_scope: &str,
+) -> Result<(usize, usize), String> {
+    let mut applied_now = 0usize;
+    let mut skipped = 0usize;
+    for path in migration_files {
+        let version = path
+            .file_name()
+            .and_then(|v| v.to_str())
+            .unwrap_or("<unknown>")
+            .to_string();
+        if already_applied.contains(&version) {
+            skipped += 1;
+            continue;
+        }
+        let sql = fs::read_to_string(path)
+            .map_err(|err| format!("failed to read {}: {}", path.display(), err))?;
+        if sql.trim().is_empty() {
+            skipped += 1;
+            continue;
+        }
+
+        let tx = conn
+            .transaction()
+            .map_err(|err| format!("failed to begin transaction: {}", err))?;
+        if let Err(err) = tx.execute_batch(&sql) {
+            let _ = tx.rollback();
+            return Err(format!("migration {} failed: {}", version, err));
+        }
+        if let Err(err) = tx.execute(
+            "INSERT INTO _deka_migrations (version) VALUES (?1)",
+            params![version],
+        ) {
+            let _ = tx.rollback();
+            return Err(format!("failed to record migration {}: {}", version, err));
+        }
+        if let Err(err) = tx.commit() {
+            return Err(format!("failed to commit migration {}: {}", version, err));
+        }
+        applied_now += 1;
+        log(log_scope, &format!("applied {}", version));
+    }
+    Ok((applied_now, skipped))
+}
+
+fn reset_sqlite_schema(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+    )?;
+    let names = stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    for name in names {
+        let escaped = name.replace('"', "\"\"");
+        conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{}\"", escaped))?;
+    }
+    Ok(())
+}
+
 fn persist_migration_state(
     db_dir: &Path,
     applied_versions: &std::collections::HashSet<String>,
@@ -1497,7 +1812,10 @@ fn persist_migration_state(
     if let Some(obj) = state.as_object_mut() {
         obj.insert("migration_last_run_unix".to_string(), json!(now));
         obj.insert("migration_applied_total".to_string(), json!(versions.len()));
-        obj.insert("migration_last_applied_count".to_string(), json!(applied_now));
+        obj.insert(
+            "migration_last_applied_count".to_string(),
+            json!(applied_now),
+        );
         obj.insert("migration_last_skipped_count".to_string(), json!(skipped));
         obj.insert("migration_applied_versions".to_string(), json!(versions));
     }
@@ -1518,7 +1836,8 @@ fn render_init_migration(models: &[ModelDef]) -> String {
         out.push_str(&format!("CREATE TABLE IF NOT EXISTS \"{}\" (\n", table));
         let mut defs: Vec<String> = Vec::new();
         let mut index_defs: Vec<String> = Vec::new();
-        let mut fk_lookup: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut fk_lookup: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
         for field in &model.fields {
             if field.relation_spec().is_some() {
                 continue;
@@ -1830,23 +2149,31 @@ struct User {
         assert!(client.contains("export function loadRelation"));
         assert!(client.contains("function field_value"));
         assert!(client.contains("if ($expr === null)"));
-        assert!(client.contains("connect: connect"));
-        assert!(client
-            .contains("withHandle: fn($nextHandle: mixed) => createClient($meta, $nextHandle)"));
-        assert!(client.contains("transaction: transaction"));
+        assert!(
+            client.contains(
+                "connect: fn($driver: mixed, $config: mixed) => connect($driver, $config)"
+            )
+        );
+        assert!(
+            client
+                .contains("withHandle: fn($nextHandle: mixed) => createClient($meta, $nextHandle)")
+        );
+        assert!(client.contains("transaction: fn($fn: mixed) => transaction($handle, $fn)"));
         assert!(client.contains("selectMany: fn($model: mixed, $where: mixed = null, $order: mixed = null, $limit: mixed = null, $offset: mixed = null, $includes: mixed = null) => selectMany($handle, $meta, $model, $where, $order, $limit, $offset, $includes)"));
-        assert!(client.contains("insertOne: insertOne"));
+        assert!(client.contains("insertOne: fn($model: mixed, $row: mixed, $returning: mixed = false) => insertOne($handle, $model, $row, $returning)"));
         assert!(client.contains("select: fn() => select($handle, $meta)"));
         assert!(client.contains("insert: fn($model: mixed) => insert($handle, $model)"));
         assert!(client.contains("update: fn($model: mixed) => update($handle, $model)"));
         assert!(client.contains("'delete': fn($model: mixed) => deleteQuery($handle, $model)"));
         assert!(client.contains("loadRelation: fn($model: mixed, $row: mixed, $field: mixed) => loadRelation($handle, $meta, $model, $row, $field)"));
-        assert!(client.contains("ilike: ilike"));
-        assert!(client.contains("isNull: isNull"));
-        assert!(client.contains("asc: asc"));
-        assert!(client.contains("desc: desc"));
-        assert!(client.contains("limit: limit"));
-        assert!(client.contains("offset: offset"));
+        assert!(
+            client.contains("ilike: fn($column: mixed, $value: mixed) => ilike($column, $value)")
+        );
+        assert!(client.contains("isNull: fn($column: mixed) => isNull($column)"));
+        assert!(client.contains("asc: fn($column: mixed) => asc($column)"));
+        assert!(client.contains("desc: fn($column: mixed) => desc($column)"));
+        assert!(client.contains("limit: fn($value: mixed) => limit($value)"));
+        assert!(client.contains("offset: fn($value: mixed) => offset($value)"));
     }
 
     #[test]
@@ -1863,7 +2190,9 @@ struct User {
         assert!(client.contains("if ($kind === 'hasMany')"));
         assert!(client.contains("return selectMany($handle, $meta, $target, eq($fk, $row['id']), null, null, null, null)"));
         assert!(client.contains("if ($kind === 'belongsTo' || $kind === 'hasOne')"));
-        assert!(client.contains("return selectOne($handle, $meta, $target, eq('id', $row[$fk]), null)"));
+        assert!(
+            client.contains("return selectOne($handle, $meta, $target, eq('id', $row[$fk]), null)")
+        );
         assert!(client.contains("return result_err('unknown relation')"));
         assert!(client.contains("return result_err('unsupported relation kind')"));
     }
@@ -1969,8 +2298,7 @@ struct User {
         fs::write(&source_path, source).expect("write source");
         super::generate_db_artifacts(dir.path(), &source_path, &models).expect("generated");
 
-        let generated =
-            fs::read_to_string(dir.path().join("db/client.phpx")).expect("read client");
+        let generated = fs::read_to_string(dir.path().join("db/client.phpx")).expect("read client");
         let generated = mask_module_syntax_for_parser(&generated);
         let arena = bumpalo::Bump::new();
         let mut parser =
@@ -2075,7 +2403,9 @@ struct User {
         let value: serde_json::Value = serde_json::from_str(&raw).expect("json");
         assert_eq!(value.get("version").and_then(|v| v.as_i64()), Some(1));
         assert_eq!(
-            value.get("migration_applied_total").and_then(|v| v.as_u64()),
+            value
+                .get("migration_applied_total")
+                .and_then(|v| v.as_u64()),
             Some(2)
         );
         assert_eq!(
