@@ -60,7 +60,7 @@ export function DocsSidebar({ sections, isOpen }: DocsSidebarProps) {
                 aria-controls={`docs-section-${index}`}
               >
                 <span>{section.label}</span>
-                <span className={`transition-transform ${isSectionOpen ? 'rotate-90' : ''}`}>›</span>
+                <span className={`transition-transform transform ${isSectionOpen ? 'rotate-90' : 'rotate-0'}`}>›</span>
               </button>
               {isSectionOpen ? (
                 <ul id={`docs-section-${index}`} className="space-y-1">

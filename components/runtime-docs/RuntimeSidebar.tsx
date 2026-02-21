@@ -74,7 +74,7 @@ export function RuntimeSidebar({ isOpen, language, basePath, sections }: Runtime
               aria-controls={`runtime-section-${section.categorySlug}`}
             >
               <span>{section.category}</span>
-              <span className={`transition-transform ${isSectionOpen ? 'rotate-90' : ''}`}>›</span>
+              <span className={`transition-transform transform ${isSectionOpen ? 'rotate-90' : 'rotate-0'}`}>›</span>
             </button>
             {isSectionOpen ? (
               <ul id={`runtime-section-${section.categorySlug}`} className="space-y-1">
