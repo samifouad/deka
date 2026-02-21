@@ -101,6 +101,18 @@ to reduce prompt noise:
 
 Explicit `deny` rules still take precedence.
 
+## Internal Runtime Privileged Writes
+
+The PHPX runtime performs internal maintenance (module compilation cache + lock updates)
+while executing user code. These internal writes use a privileged context that bypasses
+user `security` prompts for specific internal paths only:
+
+- `deka.lock`
+- `php_modules/.cache/**`
+- `.cache/**`
+
+User code is still subject to normal `read`/`write` rules for all other paths.
+
 ## DB Targets
 
 The `db` capability accepts driver targets and a stats target:
