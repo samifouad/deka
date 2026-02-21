@@ -43,6 +43,18 @@ export function renderToString($node) {
     return __component_render_node($node);
 }
 
+/// docid: phpx/component/render()
+/// <Function name="render">
+///   <Description>Alias of `renderToString`.</Description>
+///   <Parameter name="$node" type="mixed" required="false">
+///     Parameter $node.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function render($node) {
+    return renderToString($node);
+}
+
 export async function renderToStringAsync($node): Promise<string> {
     __component_reset_node_id()
     __component_reset_island_id()

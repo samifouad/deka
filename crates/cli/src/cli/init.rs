@@ -74,6 +74,22 @@ pub fn cmd(context: &Context) {
         stdio_error("init", &err);
         return;
     }
+    if let Err(err) = ensure_file(
+        &target.join("app").join("page.phpx"),
+        default_app_page_phpx().to_string(),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+    if let Err(err) = ensure_file(
+        &target.join("app").join("layout.phpx"),
+        default_app_layout_phpx().to_string(),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
 
     if let Err(err) = std::fs::create_dir_all(target.join("public")) {
         stdio_error("init", &format!("failed to create public/: {}", err));
@@ -119,6 +135,14 @@ pub fn cmd(context: &Context) {
     if let Err(err) = ensure_file(
         &php_modules.join("component").join("dom.phpx"),
         load_module_template("component/dom.phpx").unwrap_or_else(default_component_dom_phpx),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+    if let Err(err) = ensure_file(
+        &php_modules.join("component").join("router.phpx"),
+        load_module_template("component/router.phpx").unwrap_or_else(default_component_router_phpx),
         &mut touched,
     ) {
         stdio_error("init", &err);
@@ -176,6 +200,7 @@ pub fn cmd(context: &Context) {
         &[
             ("component/core", "php_modules/component/core.phpx"),
             ("component/dom", "php_modules/component/dom.phpx"),
+            ("component/router", "php_modules/component/router.phpx"),
             ("encoding/json", "php_modules/encoding/json/index.phpx"),
             ("core/result", "php_modules/core/result.phpx"),
             ("core/byte", "php_modules/core/byte.phpx"),
@@ -326,7 +351,15 @@ fn default_deka_lock_json() -> String {
 }
 
 fn default_main_phpx() -> &'static str {
-    "---\n$title = \"Deka App\"\n---\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <title>{$title}</title>\n  </head>\n  <body>\n    <main>\n      <h1>{$title}</h1>\n      <p>Project initialized. Edit <code>app/main.phpx</code>.</p>\n    </main>\n  </body>\n</html>\n"
+    "---\n$title = \"Deka App\"\n---\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <title>{$title}</title>\n  </head>\n  <body>\n    <main>\n      <h1>{$title}</h1>\n      <p>Project initialized. Edit <code>app/page.phpx</code>.</p>\n    </main>\n  </body>\n</html>\n"
+}
+
+fn default_app_page_phpx() -> &'static str {
+    "export function Page() {\n    return <div>\n        <h1>Deka App</h1>\n        <p>Project initialized. Edit <code>app/page.phpx</code>.</p>\n    </div>;\n}\n"
+}
+
+fn default_app_layout_phpx() -> &'static str {
+    "export function Layout($props) {\n    return <html lang=\"en\">\n      <head>\n        <meta charset=\"utf-8\" />\n        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n        <title>Deka App</title>\n      </head>\n      <body>\n        <main>{$props.children}</main>\n      </body>\n    </html>;\n}\n"
 }
 
 fn default_public_index_html() -> &'static str {
@@ -427,6 +460,14 @@ fn default_component_dom_phpx() -> String {
 
 export function Hydration($props: object): mixed {
     return null;
+}
+"#
+        .to_string()
+}
+
+fn default_component_router_phpx() -> String {
+    r#"export function generate_manifest($root = '.') {
+    return { ok: false, error: 'router manifest unavailable' };
 }
 "#
         .to_string()
