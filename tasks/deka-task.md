@@ -7,7 +7,7 @@ Owner: codex
 Switch Linkhash PHPX registry/auth/query paths to the ORM client, align schema, and complete E2E integrity validation with linkhash-git.
 
 ## Tasks
-- [ ] Task 1: Align ORM models + migrations with `lh_*` schema (including integrity columns).
+- [x] Task 1: Align ORM models + migrations with `lh_*` schema (including integrity columns).
 - [ ] Task 2: Replace raw SQL in `phpx/main.phpx` + `phpx/db/Database.phpx` with ORM client.
 - [ ] Task 3: Update docs for ORM + integrity flow.
 - [ ] Task 4: Run migrations + tests, then E2E publish/install against linkhash-git.
