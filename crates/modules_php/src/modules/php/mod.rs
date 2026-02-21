@@ -5,11 +5,17 @@ use deno_core::op2;
 use mysql::prelude::Queryable;
 use mysql::{OptsBuilder, Params as MyParams, Pool as MyPool, Value as MyValue};
 use native_tls::{TlsConnector, TlsStream};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use php_rs::parser::ast::{ClassKind, ClassMember, Program, Stmt, Type as AstType};
 use php_rs::parser::lexer::Lexer;
 use php_rs::parser::lexer::token::Token;
 use php_rs::parser::parser::{Parser, ParserMode, detect_parser_mode};
-use postgres::{Client, NoTls, types::ToSql};
+use bytes::BytesMut;
+use postgres::{
+    types::{to_sql_checked, IsNull, ToSql, Type as PgType},
+    Client, NoTls,
+};
+use std::error::Error as StdError;
 use prost::Message as ProstMessage;
 use runtime_core::security_policy::{RuleList, SecurityPolicy, parse_deka_security_policy};
 use rusqlite::types::ValueRef as SqliteValueRef;
@@ -453,32 +459,191 @@ where
 
 fn json_to_pg_param(value: &serde_json::Value) -> Box<dyn ToSql + Sync> {
     match value {
-        serde_json::Value::Null => Box::new(None::<String>),
+        serde_json::Value::Null => Box::new(PgNullParam),
         serde_json::Value::Bool(v) => Box::new(*v),
-        serde_json::Value::Number(v) => {
-            if let Some(i) = v.as_i64() {
-                if (i32::MIN as i64..=i32::MAX as i64).contains(&i) {
-                    Box::new(i as i32)
-                } else {
-                    Box::new(i)
-                }
-            } else if let Some(u) = v.as_u64() {
-                if u <= i32::MAX as u64 {
-                    Box::new(u as i32)
-                } else if u <= i64::MAX as u64 {
-                    Box::new(u as i64)
-                } else {
-                    Box::new(u as f64)
-                }
-            } else if let Some(f) = v.as_f64() {
-                Box::new(f)
-            } else {
-                Box::new(v.to_string())
-            }
-        }
-        serde_json::Value::String(v) => Box::new(v.clone()),
+        serde_json::Value::Number(v) => Box::new(PgNumericParam::from_number(v)),
+        serde_json::Value::String(v) => Box::new(PgStringParam(v.clone())),
         serde_json::Value::Array(_) | serde_json::Value::Object(_) => Box::new(value.to_string()),
     }
+}
+
+#[derive(Debug)]
+enum PgNumericParam {
+    I64(i64),
+    U64(u64),
+    F64(f64),
+}
+
+impl PgNumericParam {
+    fn from_number(value: &serde_json::Number) -> Self {
+        if let Some(i) = value.as_i64() {
+            return PgNumericParam::I64(i);
+        }
+        if let Some(u) = value.as_u64() {
+            return PgNumericParam::U64(u);
+        }
+        PgNumericParam::F64(value.as_f64().unwrap_or(0.0))
+    }
+}
+
+impl ToSql for PgNumericParam {
+    fn to_sql(&self, ty: &PgType, out: &mut BytesMut) -> Result<IsNull, Box<dyn StdError + Sync + Send>> {
+        match *ty {
+            PgType::INT2 => {
+                let v = self.as_i64()? as i16;
+                v.to_sql(ty, out)
+            }
+            PgType::INT4 => {
+                let v = self.as_i64()? as i32;
+                v.to_sql(ty, out)
+            }
+            PgType::INT8 => {
+                let v = self.as_i64()?;
+                v.to_sql(ty, out)
+            }
+            PgType::FLOAT4 => {
+                let v = self.as_f64()? as f32;
+                v.to_sql(ty, out)
+            }
+            PgType::FLOAT8 => {
+                let v = self.as_f64()?;
+                v.to_sql(ty, out)
+            }
+            _ => Err("unsupported numeric parameter type".into()),
+        }
+    }
+
+    fn accepts(ty: &PgType) -> bool {
+        matches!(
+            *ty,
+            PgType::INT2 | PgType::INT4 | PgType::INT8 | PgType::FLOAT4 | PgType::FLOAT8
+        )
+    }
+
+    to_sql_checked!();
+}
+
+impl PgNumericParam {
+    fn as_i64(&self) -> Result<i64, Box<dyn StdError + Sync + Send>> {
+        match *self {
+            PgNumericParam::I64(v) => Ok(v),
+            PgNumericParam::U64(v) => Ok(v.min(i64::MAX as u64) as i64),
+            PgNumericParam::F64(v) => Ok(v as i64),
+        }
+    }
+
+    fn as_f64(&self) -> Result<f64, Box<dyn StdError + Sync + Send>> {
+        match *self {
+            PgNumericParam::I64(v) => Ok(v as f64),
+            PgNumericParam::U64(v) => Ok(v as f64),
+            PgNumericParam::F64(v) => Ok(v),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct PgStringParam(String);
+
+#[derive(Debug)]
+struct PgNullParam;
+
+impl ToSql for PgNullParam {
+    fn to_sql(&self, _ty: &PgType, _out: &mut BytesMut) -> Result<IsNull, Box<dyn StdError + Sync + Send>> {
+        Ok(IsNull::Yes)
+    }
+
+    fn accepts(_ty: &PgType) -> bool {
+        true
+    }
+
+    to_sql_checked!();
+}
+
+impl ToSql for PgStringParam {
+    fn to_sql(&self, ty: &PgType, out: &mut BytesMut) -> Result<IsNull, Box<dyn StdError + Sync + Send>> {
+        match *ty {
+            PgType::INT2 => {
+                let v: i16 = self.0.parse()?;
+                v.to_sql(ty, out)
+            }
+            PgType::INT4 => {
+                let v: i32 = self.0.parse()?;
+                v.to_sql(ty, out)
+            }
+            PgType::INT8 => {
+                let v: i64 = self.0.parse()?;
+                v.to_sql(ty, out)
+            }
+            PgType::FLOAT4 => {
+                let v: f32 = self.0.parse()?;
+                v.to_sql(ty, out)
+            }
+            PgType::FLOAT8 => {
+                let v: f64 = self.0.parse()?;
+                v.to_sql(ty, out)
+            }
+            PgType::TIMESTAMPTZ => {
+                if let Ok(dt) = DateTime::parse_from_rfc3339(&self.0) {
+                    return dt.with_timezone(&Utc).to_sql(ty, out);
+                }
+                if let Ok(dt) = DateTime::parse_from_str(&self.0, "%Y-%m-%dT%H:%M:%S%z") {
+                    return dt.with_timezone(&Utc).to_sql(ty, out);
+                }
+                if let Ok(dt) = NaiveDateTime::parse_from_str(&self.0, "%Y-%m-%d %H:%M:%S") {
+                    return DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc).to_sql(ty, out);
+                }
+                Err("invalid timestamptz string".into())
+            }
+            PgType::TIMESTAMP => {
+                if let Ok(dt) = NaiveDateTime::parse_from_str(&self.0, "%Y-%m-%d %H:%M:%S") {
+                    return dt.to_sql(ty, out);
+                }
+                if let Ok(dt) = NaiveDateTime::parse_from_str(&self.0, "%Y-%m-%dT%H:%M:%S") {
+                    return dt.to_sql(ty, out);
+                }
+                if let Ok(dt) = DateTime::parse_from_rfc3339(&self.0) {
+                    return dt.naive_utc().to_sql(ty, out);
+                }
+                if let Ok(dt) = DateTime::parse_from_str(&self.0, "%Y-%m-%dT%H:%M:%S%z") {
+                    return dt.naive_utc().to_sql(ty, out);
+                }
+                Err("invalid timestamp string".into())
+            }
+            PgType::DATE => {
+                if let Ok(date) = NaiveDate::parse_from_str(&self.0, "%Y-%m-%d") {
+                    return date.to_sql(ty, out);
+                }
+                Err("invalid date string".into())
+            }
+            PgType::TIME => {
+                if let Ok(time) = NaiveTime::parse_from_str(&self.0, "%H:%M:%S") {
+                    return time.to_sql(ty, out);
+                }
+                Err("invalid time string".into())
+            }
+            _ => self.0.to_sql(ty, out),
+        }
+    }
+
+    fn accepts(ty: &PgType) -> bool {
+        matches!(
+            *ty,
+            PgType::TEXT
+                | PgType::VARCHAR
+                | PgType::BPCHAR
+                | PgType::INT2
+                | PgType::INT4
+                | PgType::INT8
+                | PgType::FLOAT4
+                | PgType::FLOAT8
+                | PgType::TIMESTAMPTZ
+                | PgType::TIMESTAMP
+                | PgType::DATE
+                | PgType::TIME
+        )
+    }
+
+    to_sql_checked!();
 }
 
 fn pg_cell_to_json(row: &postgres::Row, idx: usize) -> serde_json::Value {

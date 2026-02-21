@@ -2186,6 +2186,8 @@ name = "modules_php"
 version = "0.1.0"
 dependencies = [
  "bumpalo",
+ "bytes",
+ "chrono",
  "deka-validation",
  "deno_core",
  "getrandom 0.2.17",
@@ -2201,6 +2203,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
  "wit-parser",
 ]
 
@@ -2811,6 +2814,7 @@ dependencies = [
  "dirs",
  "json5",
  "libc",
+ "modules_php",
  "reqwest",
  "runtime_core",
  "serde",
@@ -2882,6 +2886,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54b858f82211e84682fecd373f68e1ceae642d8d751a1ebd13f33de6257b3e20"
 dependencies = [
  "bytes",
+ "chrono",
  "fallible-iterator 0.2.0",
  "postgres-protocol",
 ]
