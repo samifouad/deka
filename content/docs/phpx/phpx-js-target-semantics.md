@@ -1,7 +1,5 @@
 ---
 category: "phpx-js-target-semantics"
-categoryLabel: "Overview"
-categoryOrder: 0
 version: "latest"
 ---
 # PHPX JavaScript Target Semantics

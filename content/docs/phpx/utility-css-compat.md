@@ -1,7 +1,5 @@
 ---
 category: "utility-css-compat"
-categoryLabel: "Overview"
-categoryOrder: 0
 version: "latest"
 ---
 # Utility CSS Compatibility (Runtime)

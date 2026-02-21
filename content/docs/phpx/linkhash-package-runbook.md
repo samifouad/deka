@@ -1,7 +1,5 @@
 ---
 category: "linkhash-package-runbook"
-categoryLabel: "Overview"
-categoryOrder: 0
 version: "latest"
 ---
 # Linkhash Package Runbook (MVP)

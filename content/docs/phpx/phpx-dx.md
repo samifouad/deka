@@ -1,7 +1,5 @@
 ---
 category: "phpx-dx"
-categoryLabel: "Overview"
-categoryOrder: 0
 version: "latest"
 ---
 # PHPX DX + Syntax Summary

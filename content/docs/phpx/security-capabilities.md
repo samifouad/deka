@@ -1,7 +1,5 @@
 ---
 category: "security-capabilities"
-categoryLabel: "Overview"
-categoryOrder: 0
 version: "latest"
 ---
 # PHPX Security Capabilities (MVP)

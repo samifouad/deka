@@ -1,7 +1,5 @@
 ---
 category: "phpx-components"
-categoryLabel: "Overview"
-categoryOrder: 0
 version: "latest"
 ---
 # PHPX Components (JSX + VNode)

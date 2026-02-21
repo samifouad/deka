@@ -4,6 +4,13 @@ import bundledDocsData from './bundled-docs.json'
 export interface DocMetadata {
   title: string
   description?: string
+  section?: string
+  category?: string
+  categoryLabel?: string
+  categoryOrder?: number
+  sidebar?: {
+    order?: number
+  }
 }
 
 export interface DocFile {
@@ -24,6 +31,7 @@ export interface SidebarItem {
   label: string
   href: string
   items?: SidebarItem[]
+  order?: number
 }
 
 export interface TableOfContentsItem {
@@ -49,73 +57,61 @@ export function getDoc(slug: string[]): DocFile | null {
 export function generateSidebar(): SidebarSection[] {
   const allDocs = getAllDocs()
 
-  // Create a flat structure organized by top-level category
   const categoryMap = new Map<string, SidebarItem[]>()
+  const categoryLabels = new Map<string, string>()
+  const categoryOrder = new Map<string, number>()
 
   for (const doc of allDocs) {
     if (doc.slug.length === 0) continue // Skip root index
 
-    const category = doc.slug[0]
+    const section = doc.metadata.section || doc.slug[0] || 'docs'
+    const categorySlug = doc.metadata.category || doc.slug[1] || 'general'
+    const categoryKey = `${section}::${categorySlug}`
+    const sectionLabel = formatSectionLabel(section)
+    const categoryLabel = doc.metadata.categoryLabel || formatCategoryLabel(categorySlug)
+    const labelPrefix = sectionLabel ? `${sectionLabel} · ` : ''
+    const categoryDisplay = `${labelPrefix}${categoryLabel}`
     const href = `/docs/${doc.slug.join('/')}`
     const label = doc.metadata.title || doc.slug[doc.slug.length - 1]
 
-    if (!categoryMap.has(category)) {
-      categoryMap.set(category, [])
+    if (!categoryMap.has(categoryKey)) {
+      categoryMap.set(categoryKey, [])
     }
 
-    categoryMap.get(category)!.push({ label, href })
-  }
+    categoryLabels.set(categoryKey, categoryDisplay)
+    if (typeof doc.metadata.categoryOrder === 'number') {
+      const existing = categoryOrder.get(categoryKey)
+      if (existing === undefined || doc.metadata.categoryOrder < existing) {
+        categoryOrder.set(categoryKey, doc.metadata.categoryOrder)
+      }
+    }
 
-  // Map categories to sections with proper labels
-  const sections: SidebarSection[] = []
-
-  // ============================================
-  // USER SECTION - Using Tana as an end user
-  // ============================================
-  if (categoryMap.has('guides')) {
-    sections.push({
-      label: 'Guides',
-      items: categoryMap.get('guides')!
+    categoryMap.get(categoryKey)!.push({
+      label,
+      href,
+      order: doc.metadata.sidebar?.order,
     })
   }
 
-  if (categoryMap.has('tana-app')) {
-    sections.push({
-      label: 'Mobile App',
-      items: categoryMap.get('tana-app')!
-    })
-  }
-
-  // ============================================
-  // SOVEREIGN SECTION - Running your own network
-  // ============================================
-  if (categoryMap.has('sovereign')) {
-    sections.push({
-      label: 'Sovereign',
-      items: categoryMap.get('sovereign')!
-    })
-  }
-
-  if (categoryMap.has('tana-edge')) {
-    sections.push({
-      label: 'Edge Server',
-      items: categoryMap.get('tana-edge')!
-    })
-  }
-
-  // ============================================
-  // DEVELOPER SECTION - Contributing to Tana
-  // ============================================
-  if (categoryMap.has('contributing')) {
-    sections.push({
-      label: 'Developer',
-      items: categoryMap.get('contributing')!
-    })
-  }
+  type SectionEntry = SidebarSection & { categoryKey: string }
+  const sections: SectionEntry[] = Array.from(categoryMap.entries()).map(([categoryKey, items]) => {
+    return {
+      label: categoryLabels.get(categoryKey) || categoryKey,
+      items,
+      categoryKey,
+    }
+  })
 
   // Sort items within each section - prioritize intro/overview
   for (const section of sections) {
     section.items.sort((a, b) => {
+      const aOrder = (a as SidebarItem & { order?: number }).order
+      const bOrder = (b as SidebarItem & { order?: number }).order
+      if (aOrder !== undefined || bOrder !== undefined) {
+        const safeA = aOrder ?? 999
+        const safeB = bOrder ?? 999
+        if (safeA !== safeB) return safeA - safeB
+      }
       const aLabel = a.label.toLowerCase()
       const bLabel = b.label.toLowerCase()
 
@@ -128,7 +124,34 @@ export function generateSidebar(): SidebarSection[] {
     })
   }
 
+  sections.sort((a, b) => {
+    const orderA = categoryOrder.get(a.categoryKey)
+    const orderB = categoryOrder.get(b.categoryKey)
+    if (orderA !== undefined || orderB !== undefined) {
+      const safeA = orderA ?? 999
+      const safeB = orderB ?? 999
+      if (safeA !== safeB) return safeA - safeB
+    }
+    return a.label.localeCompare(b.label)
+  })
+
   return sections
+}
+
+function formatCategoryLabel(value: string): string {
+  if (!value) return 'General'
+  return value
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function formatSectionLabel(value: string): string {
+  if (!value) return ''
+  const lowered = value.toLowerCase()
+  if (lowered === 'phpx') return 'PHPX'
+  if (lowered === 'php') return 'PHP'
+  if (lowered === 'js') return 'JS'
+  return formatCategoryLabel(value)
 }
 
 // Get table of contents for a doc (pre-computed at build time)

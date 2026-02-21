@@ -1,7 +1,5 @@
 ---
 category: "editor-support"
-categoryLabel: "Overview"
-categoryOrder: 0
 version: "latest"
 ---
 # PHPX Editor Support
