@@ -7,8 +7,9 @@ import { PackageStatPills, PackageVersionRows } from '@/src/pages/package_detail
 import { buildAdwaBaseUrl, buildAdwaPreviewUrl, buildAdwaPreviewUrlForRef, buildAdwaEditUrl } from '@/src/services/adwa'
 import { gitApiDefaultBase, scopedReleaseDocsPath, scopedReleaseTreePath, scopedReleaseBlobPath, repoIssuesPath, repoIssueDetailPath, repoIssueCommentPath, repoPullsPath, repoPullDetailPath, repoPullCommentPath, repoResolvePath, repoForkPath } from '@/src/services/linkhash_git'
 import { repoIssueCreateRoute, repoIssueCommentRoute, repoPullCreateRoute, repoPullCommentRoute, repoForkRoute, buildRepoActionRedirectPath } from '@/src/api/repo_actions'
+import { Meta } from '@/db/meta'
+import { createClient } from '@/db'
 import { stats } from 'db'
-import { query as pgQuery, exec as pgExec } from 'db/postgres'
 import { connect as sqliteConnect, query as sqliteQuery, query_one as sqliteQueryOne, exec as sqliteExec, close as sqliteClose } from 'db/sqlite'
 import { connect as mysqlConnect, query_one as mysqlQueryOne, exec as mysqlExec, close as mysqlClose } from 'db/mysql'
 import { open as fsOpen, read as fsRead, close as fsClose } from 'fs'
@@ -154,6 +155,10 @@ function openDbHandle() {
   return { ok: false, error: 'postgres connect failed across candidates: ' . implode(' | ', $errors) }
 }
 
+function dbClient($handle) {
+  return createClient(Meta, (int) $handle)
+}
+
 function dbClose($handle) {
   $h = (int) $handle
   if ($h <= 0) {
@@ -168,47 +173,19 @@ function dbClose($handle) {
   return dbCloseRaw($h)
 }
 
-function isUnknownHandleError($error): bool {
-  $msg = strtolower('' . $error)
-  return strpos($msg, 'unknown handle') !== false
-}
-
-function dbExec($handle, $sql, $params = []) {
-  $res = pgExec($handle, $sql, $params)
-  if (result_is_ok($res) || !isUnknownHandleError($res->error)) {
-    return $res
+function parseTimestamp($value) {
+  if ($value === null) {
+    return null
   }
-  $reopen = openDbHandle()
-  if (!result_is_ok($reopen)) {
-    return $res
+  $str = trim('' . $value)
+  if ($str === '') {
+    return null
   }
-  $fresh = $reopen->value
-  return pgExec($fresh, $sql, $params)
-}
-
-function dbQuery($handle, $sql, $params = []) {
-  $res = pgQuery($handle, $sql, $params)
-  if (result_is_ok($res) || !isUnknownHandleError($res->error)) {
-    return $res
+  $parsed = strtotime($str)
+  if ($parsed === false) {
+    return null
   }
-  $reopen = openDbHandle()
-  if (!result_is_ok($reopen)) {
-    return $res
-  }
-  $fresh = $reopen->value
-  return pgQuery($fresh, $sql, $params)
-}
-
-function dbQueryOne($handle, $sql, $params = []) {
-  $res = dbQuery($handle, $sql, $params)
-  if (!result_is_ok($res)) {
-    return $res
-  }
-  $rows = rowsFromQueryResult($res)
-  if (!is_array($rows) || count($rows) === 0) {
-    return result_err('no rows')
-  }
-  return result_ok($rows[0])
+  return $parsed
 }
 
 function openCatalogFallbackSqlite() {
@@ -367,12 +344,13 @@ function probePostgres() {
     return { ok: false, error: $conn->error }
   }
   $handle = $conn->value
-  $row = dbQueryOne($handle, 'select now() as now', [])
+  $client = dbClient($handle)
+  $check = $client->selectMany($client->models->RuntimeProbeLog, null, null, $client->limit(1))
   dbClose($handle)
-  if (!result_is_ok($row)) {
-    return { ok: false, error: $row->error }
+  if (!result_is_ok($check)) {
+    return { ok: false, error: $check->error }
   }
-  return { ok: true, row: $row->value }
+  return { ok: true, row: { now: date('c') } }
 }
 
 function probeSqlite() {
@@ -439,14 +417,15 @@ function collectRuntimeChecks() {
 }
 
 function ensureProbeTable($target, $handle) {
-  $sql = 'create table if not exists runtime_probe_log (driver text, note text, created_at text)'
   if ($target === 'postgres') {
-    return dbExec($handle, $sql, [])
+    return result_ok(true)
   }
   if ($target === 'sqlite') {
+    $sql = 'create table if not exists runtime_probe_log (driver text, note text, created_at text)'
     return sqliteExec($handle, $sql, [])
   }
   if ($target === 'mysql') {
+    $sql = 'create table if not exists runtime_probe_log (driver text, note text, created_at text)'
     return mysqlExec($handle, $sql, [])
   }
   return { ok: false, error: 'unknown driver' }
@@ -454,29 +433,40 @@ function ensureProbeTable($target, $handle) {
 
 function insertProbeRow($target, $handle, $note) {
   $now = date('c')
-  $sql = 'insert into runtime_probe_log (driver, note, created_at) values (?, ?, ?)'
   if ($target === 'postgres') {
-    $sql = 'insert into runtime_probe_log (driver, note, created_at) values ($1, $2, $3)'
-    return dbExec($handle, $sql, [$target, $note, $now])
+    $client = dbClient($handle)
+    return $client->insertOne($client->models->RuntimeProbeLog, {
+      driver: '' . $target,
+      note: '' . $note,
+      created_at: '' . $now
+    }, false)
   }
   if ($target === 'sqlite') {
+    $sql = 'insert into runtime_probe_log (driver, note, created_at) values (?, ?, ?)'
     return sqliteExec($handle, $sql, [$target, $note, $now])
   }
   if ($target === 'mysql') {
+    $sql = 'insert into runtime_probe_log (driver, note, created_at) values (?, ?, ?)'
     return mysqlExec($handle, $sql, [$target, $note, $now])
   }
   return { ok: false, error: 'unknown driver' }
 }
 
 function countProbeRows($target, $handle) {
-  $sql = 'select count(*) as total from runtime_probe_log'
   if ($target === 'postgres') {
-    return dbQueryOne($handle, $sql, [])
+    $client = dbClient($handle)
+    $rows = $client->selectMany($client->models->RuntimeProbeLog)
+    if (!result_is_ok($rows)) {
+      return $rows
+    }
+    return result_ok({ total: count($rows->value) })
   }
   if ($target === 'sqlite') {
+    $sql = 'select count(*) as total from runtime_probe_log'
     return sqliteQueryOne($handle, $sql, [])
   }
   if ($target === 'mysql') {
+    $sql = 'select count(*) as total from runtime_probe_log'
     return mysqlQueryOne($handle, $sql, [])
   }
   return { ok: false, error: 'unknown driver' }
@@ -829,36 +819,29 @@ function fetchRegistryStatsResult() {
     return { ok: false, error: $conn->error }
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $row = dbQueryOne(
-    $db,
-    "select
-      (select count(*) from packages) as packageCount,
-      (select count(*) from lh_orgs) as orgCount,
-      (select count(*) from package_versions) as versionCount",
-    []
-  )
-  $downloadRowsRes = dbQuery(
-    $db,
-    "select download_count as downloadCount from packages",
-    []
-  )
+  $client = dbClient($db)
+  $packagesRes = $client->selectMany($client->models->Package)
+  $orgsRes = $client->selectMany($client->models->LhOrg)
+  $versionsRes = $client->selectMany($client->models->PackageVersion)
   dbClose($db)
-  if (!result_is_ok($row)) {
-    return { ok: false, error: $row->error }
+  if (!result_is_ok($packagesRes)) {
+    return { ok: false, error: $packagesRes->error }
   }
-  if (!result_is_ok($downloadRowsRes)) {
-    return { ok: false, error: $downloadRowsRes->error }
+  if (!result_is_ok($orgsRes)) {
+    return { ok: false, error: $orgsRes->error }
   }
-  $downloadRows = rowsFromQueryResult($downloadRowsRes)
+  if (!result_is_ok($versionsRes)) {
+    return { ok: false, error: $versionsRes->error }
+  }
+  $downloadRows = $packagesRes->value
   $totalDownloads = 0
   foreach ($downloadRows as $drow) {
     $totalDownloads += (int) rowValue($drow, 'downloadCount', rowValue($drow, 'download_count', 0))
   }
   return { ok: true, stats: [
-    'packageCount' => (int) rowValue($row->value, 'packageCount', rowValue($row->value, 'packagecount', 0)),
-    'orgCount' => (int) rowValue($row->value, 'orgCount', rowValue($row->value, 'orgcount', 0)),
-    'versionCount' => (int) rowValue($row->value, 'versionCount', rowValue($row->value, 'versioncount', 0)),
+    'packageCount' => count($packagesRes->value),
+    'orgCount' => count($orgsRes->value),
+    'versionCount' => count($versionsRes->value),
     'totalDownloads' => (int) $totalDownloads
   ], source: 'postgres', degraded: false, warning: null }
 }
@@ -2043,26 +2026,7 @@ function appendLogLine($line) {
 }
 
 function ensureEventLogSchema($db) {
-  if (isset($GLOBALS) && is_array($GLOBALS) && array_key_exists('__lh_event_log_schema_ready', $GLOBALS) && $GLOBALS['__lh_event_log_schema_ready'] === true) {
-    return
-  }
-  dbExec(
-    $db,
-    'create table if not exists lh_event_log (
-      id bigserial primary key,
-      ts timestamptz not null default now(),
-      level text not null,
-      event text not null,
-      request_id text,
-      method text,
-      path text,
-      meta_json text
-    )',
-    []
-  )
-  if (isset($GLOBALS) && is_array($GLOBALS)) {
-    $GLOBALS['__lh_event_log_schema_ready'] = true
-  }
+  return
 }
 
 function logEventDb($payload) {
@@ -2071,23 +2035,19 @@ function logEventDb($payload) {
     return
   }
   $db = $conn->value
-  ensureEventLogSchema($db)
+  $client = dbClient($db)
   $metaJson = encodeJson(normalizeJsonValue(rowValue($payload, 'meta', {})))
   if (!is_string($metaJson)) {
     $metaJson = '{}'
   }
-  dbExec(
-    $db,
-    'insert into lh_event_log (level, event, request_id, method, path, meta_json) values ($1, $2, $3, $4, $5, $6)',
-    [
-      '' . rowValue($payload, 'level', 'info'),
-      '' . rowValue($payload, 'event', 'unknown'),
-      '' . rowValue($payload, 'requestId', ''),
-      '' . rowValue($payload, 'method', ''),
-      '' . rowValue($payload, 'path', ''),
-      $metaJson
-    ]
-  )
+  $client->insertOne($client->models->LhEventLog, {
+    level: '' . rowValue($payload, 'level', 'info'),
+    event: '' . rowValue($payload, 'event', 'unknown'),
+    request_id: '' . rowValue($payload, 'requestId', ''),
+    method: '' . rowValue($payload, 'method', ''),
+    path: '' . rowValue($payload, 'path', ''),
+    meta_json: $metaJson
+  }, false)
   dbClose($db)
 }
 
@@ -2110,33 +2070,7 @@ function logEvent($level, $event, $meta = []) {
 }
 
 function ensureAuditSchema($db) {
-  if (isset($GLOBALS) && is_array($GLOBALS) && array_key_exists('__lh_audit_schema_ready', $GLOBALS) && $GLOBALS['__lh_audit_schema_ready'] === true) {
-    return
-  }
-  dbExec(
-    $db,
-    'create table if not exists lh_audit_log (
-      id bigserial primary key,
-      created_at timestamptz not null default now(),
-      action text not null,
-      result text not null default \'ok\',
-      actor_user_id bigint,
-      actor_handle text,
-      auth_kind text,
-      scope_mask integer not null default 0,
-      subject_kind text,
-      subject_ref text,
-      request_id text,
-      method text,
-      path text,
-      ip_address text,
-      detail_json text
-    )',
-    []
-  )
-  if (isset($GLOBALS) && is_array($GLOBALS)) {
-    $GLOBALS['__lh_audit_schema_ready'] = true
-  }
+  return
 }
 
 function auditEvent($action, $auth, $result = 'ok', $subjectKind = '', $subjectRef = '', $details = []) {
@@ -2166,23 +2100,22 @@ function auditEvent($action, $auth, $result = 'ok', $subjectKind = '', $subjectR
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  ensureAuditSchema($db)
-  dbExec(
-    $db,
-    'insert into lh_audit_log (action, result, actor_user_id, actor_handle, auth_kind, scope_mask, subject_kind, subject_ref, detail_json) values ($1, $2, nullif($3, \'\')::bigint, $4, $5, ($6)::text::integer, $7, $8, $9)',
-    [
-      '' . $action,
-      '' . $result,
-      $actorUserId === null ? '' : ('' . $actorUserId),
-      $actorHandle,
-      $authKind,
-      '' . $scopeMask,
-      '' . $subjectKind,
-      '' . $subjectRef,
-      $detailJson
-    ]
-  )
+  $client = dbClient($db)
+  $client->insertOne($client->models->LhAuditLog, {
+    action: '' . $action,
+    result: '' . $result,
+    actor_user_id: $actorUserId === null ? null : (int) $actorUserId,
+    actor_handle: $actorHandle,
+    auth_kind: $authKind,
+    scope_mask: (int) $scopeMask,
+    subject_kind: '' . $subjectKind,
+    subject_ref: '' . $subjectRef,
+    request_id: requestId(),
+    method: requestMethod(),
+    path: requestPath(),
+    ip_address: '' . clientIp(),
+    detail_json: $detailJson
+  }, false)
   dbClose($db)
 }
 
@@ -2295,20 +2228,26 @@ function isNoRowsError($error): bool {
 }
 
 function authSelectUserByDid($db, $did) {
-  return dbQueryOne(
-    $db,
-    "select id, did, handle, display_name as displayName from lh_users where did = $1 limit 1",
-    [$did]
+  $client = dbClient($db)
+  return $client->selectOne(
+    $client->models->LhUser,
+    $client->eq('did', '' . $did)
   )
 }
 
 function authUpsertUserByDid($db, $did, $handle, $displayName) {
   $existing = authSelectUserByDid($db, $did)
   if (result_is_ok($existing)) {
-    $up = dbExec(
-      $db,
-      "update lh_users set handle = $1, display_name = $2, updated_at = now() where did = $3",
-      [$handle, $displayName, $did]
+    $client = dbClient($db)
+    $up = $client->updateWhere(
+      $client->models->LhUser,
+      $client->eq('did', '' . $did),
+      {
+        handle: '' . $handle,
+        display_name: '' . $displayName,
+        updated_at: gmdate('c')
+      },
+      false
     )
     if (!result_is_ok($up)) {
       return $up
@@ -2319,10 +2258,15 @@ function authUpsertUserByDid($db, $did, $handle, $displayName) {
     return $existing
   }
 
-  $ins = dbExec(
-    $db,
-    "insert into lh_users (did, handle, display_name, created_at, updated_at) values ($1, $2, $3, now(), now())",
-    [$did, $handle, $displayName]
+  $client = dbClient($db)
+  $ins = $client->insertOne(
+    $client->models->LhUser,
+    {
+      did: '' . $did,
+      handle: '' . $handle,
+      display_name: '' . $displayName
+    },
+    false
   )
   if (!result_is_ok($ins)) {
     return $ins
@@ -2426,34 +2370,7 @@ function isValidPackageName($name) {
 }
 
 function ensureAuthSchema($db) {
-  dbExec($db, 'create table if not exists lh_users (id bigserial primary key, did text not null unique, handle text not null unique, display_name text, avatar_url text, created_at timestamptz not null default now(), updated_at timestamptz not null default now())', [])
-  dbExec($db, 'create table if not exists lh_sessions (id bigserial primary key, user_id bigint not null references lh_users(id) on delete cascade, session_token_hash text not null unique, csrf_token_hash text, ip_address text, user_agent text, last_seen_at timestamptz not null default now(), expires_at timestamptz not null, created_at timestamptz not null default now(), revoked_at timestamptz)', [])
-  dbExec($db, 'alter table lh_sessions add column if not exists csrf_token_hash text', [])
-  dbExec($db, 'create table if not exists lh_api_tokens (id bigserial primary key, user_id bigint not null references lh_users(id) on delete cascade, token_prefix text not null, token_hash text not null unique, scope_mask integer not null, label text, last_used_at timestamptz, expires_at timestamptz, created_at timestamptz not null default now(), revoked_at timestamptz)', [])
-  dbExec($db, "create table if not exists lh_orgs (id bigserial primary key, handle text not null unique, visibility text not null default 'public', created_at timestamptz not null default now(), updated_at timestamptz not null default now())", [])
-  dbExec($db, "create table if not exists lh_org_members (id bigserial primary key, org_id bigint not null references lh_orgs(id) on delete cascade, user_id bigint not null references lh_users(id) on delete cascade, role text not null, created_at timestamptz not null default now(), revoked_at timestamptz, unique (org_id, user_id))", [])
-  dbExec($db, "update lh_org_members set role = 'publisher' where lower(role) = 'owner'", [])
-  dbExec($db, "create index if not exists lh_org_members_org_idx on lh_org_members(org_id)", [])
-  dbExec($db, "create index if not exists lh_org_members_user_idx on lh_org_members(user_id)", [])
-  dbExec($db, "create table if not exists lh_rate_limit_hits (id bigserial primary key, bucket text not null, subject_key text not null, created_at timestamptz not null default now())", [])
-  dbExec($db, "create index if not exists lh_rate_limit_bucket_subject_idx on lh_rate_limit_hits(bucket, subject_key, created_at)", [])
-  dbExec($db, "create table if not exists lh_audit_log (id bigserial primary key, created_at timestamptz not null default now(), action text not null, result text not null default 'ok', actor_user_id bigint, actor_handle text, auth_kind text, scope_mask integer not null default 0, subject_kind text, subject_ref text, request_id text, method text, path text, ip_address text, detail_json text)", [])
-  dbExec($db, "create index if not exists lh_audit_log_created_idx on lh_audit_log(created_at)", [])
-  dbExec($db, "create table if not exists packages (id bigserial primary key, org_id bigint not null, name text not null, description text not null default '', latest_version text not null default '0.1.0', download_count bigint not null default 0, visibility text not null default 'public', private_read_mask integer not null default 0, created_at timestamptz not null default now(), updated_at timestamptz not null default now())", [])
-  dbExec($db, "create unique index if not exists idx_packages_org_name on packages(org_id, lower(name))", [])
-  dbExec($db, "alter table packages add column if not exists visibility text not null default 'public'", [])
-  dbExec($db, "alter table packages add column if not exists private_read_mask integer not null default 0", [])
-  dbExec($db, "create table if not exists package_versions (id bigserial primary key, package_id bigint not null references packages(id) on delete cascade, version text not null, main_file text default 'index.phpx', files jsonb not null default '[]'::jsonb, dependencies jsonb not null default '{}'::jsonb, readme text not null default '', published_at timestamptz not null default now(), r2_key text, sha256 text, canonical_id text, lock_hash text, integrity_algo text, module_graph_hash text, fs_graph_hash text, artifact_backend text not null default 'local', artifact_key text, artifact_mime text not null default 'application/octet-stream', artifact_size_bytes bigint not null default 0)", [])
-  dbExec($db, "alter table package_versions add column if not exists artifact_inline_b64 text", [])
-  dbExec($db, "alter table package_versions add column if not exists capability_metadata jsonb", [])
-  dbExec($db, "alter table package_versions add column if not exists integrity_algo text", [])
-  dbExec($db, "alter table package_versions add column if not exists module_graph_hash text", [])
-  dbExec($db, "alter table package_versions add column if not exists fs_graph_hash text", [])
-  dbExec($db, "create unique index if not exists idx_package_versions_package_version on package_versions(package_id, version)", [])
-  dbExec($db, "create unique index if not exists idx_package_versions_canonical_id on package_versions(canonical_id) where canonical_id is not null", [])
-  dbExec($db, "create index if not exists idx_package_versions_module_graph_hash on package_versions(module_graph_hash)", [])
-  dbExec($db, "create index if not exists idx_package_versions_fs_graph_hash on package_versions(fs_graph_hash)", [])
-  dbExec($db, "create table if not exists downloads (id bigserial primary key, package_id bigint not null references packages(id) on delete cascade, version_id bigint not null references package_versions(id) on delete cascade, downloaded_at timestamptz not null default now(), ip_address text, user_agent text)", [])
+  return
 }
 
 function bootstrapSchema() {
@@ -2475,26 +2392,65 @@ function ensureUserOrgMembership($db, $user) {
     return [ 'ok' => false, 'error' => 'reserved or invalid org handle' ]
   }
 
-  $org = dbQueryOne(
-    $db,
-    "insert into lh_orgs (handle, visibility, created_at, updated_at) values ($1, 'public', now(), now()) on conflict (handle) do update set updated_at = now() returning id, handle, visibility",
-    [$normalized]
-  )
-  if (!result_is_ok($org)) {
-    return [ 'ok' => false, 'error' => $org->error ]
+  $client = dbClient($db)
+  $orgRes = $client->selectOne($client->models->LhOrg, $client->eq('handle', $normalized))
+  if (!result_is_ok($orgRes)) {
+    if (!isNoRowsError($orgRes->error)) {
+      return [ 'ok' => false, 'error' => $orgRes->error ]
+    }
+    $created = $client->insertOne($client->models->LhOrg, {
+      handle: $normalized,
+      visibility: 'public'
+    }, false)
+    if (!result_is_ok($created)) {
+      return [ 'ok' => false, 'error' => $created->error ]
+    }
+    $orgRes = $client->selectOne($client->models->LhOrg, $client->eq('handle', $normalized))
+    if (!result_is_ok($orgRes)) {
+      return [ 'ok' => false, 'error' => $orgRes->error ]
+    }
+  } else {
+    $client->updateWhere(
+      $client->models->LhOrg,
+      $client->eq('id', (int) rowValue($orgRes->value, 'id', 0)),
+      { updated_at: gmdate('c') },
+      false
+    )
   }
 
-  $orgId = '' . rowValue($org->value, 'id', '0')
-  $membership = dbExec(
-    $db,
-    "insert into lh_org_members (org_id, user_id, role, created_at) values (($1)::text::bigint, ($2)::text::bigint, 'publisher', now()) on conflict (org_id, user_id) do update set role = 'publisher', revoked_at = null",
-    [$orgId, $userId]
+  $orgId = (int) rowValue($orgRes->value, 'id', 0)
+  $memberRes = $client->selectOne(
+    $client->models->LhOrgMember,
+    $client->andWhere($client->eq('org_id', $orgId), $client->eq('user_id', (int) $userId))
   )
-  if (!result_is_ok($membership)) {
-    return [ 'ok' => false, 'error' => $membership->error ]
+  if (result_is_ok($memberRes)) {
+    $membership = $client->updateWhere(
+      $client->models->LhOrgMember,
+      $client->eq('id', (int) rowValue($memberRes->value, 'id', 0)),
+      { role: 'publisher', revoked_at: null },
+      false
+    )
+    if (!result_is_ok($membership)) {
+      return [ 'ok' => false, 'error' => $membership->error ]
+    }
+  } else if (isNoRowsError($memberRes->error)) {
+    $membership = $client->insertOne(
+      $client->models->LhOrgMember,
+      {
+        org_id: $orgId,
+        user_id: (int) $userId,
+        role: 'publisher'
+      },
+      false
+    )
+    if (!result_is_ok($membership)) {
+      return [ 'ok' => false, 'error' => $membership->error ]
+    }
+  } else {
+    return [ 'ok' => false, 'error' => $memberRes->error ]
   }
 
-  return [ 'ok' => true, 'org' => $org->value ]
+  return [ 'ok' => true, 'org' => $orgRes->value ]
 }
 
 function canonicalOrgRole($role) {
@@ -2506,10 +2462,14 @@ function canonicalOrgRole($role) {
 }
 
 function orgMemberRole($db, $orgId, $userId) {
-  $row = dbQueryOne(
-    $db,
-    "select role from lh_org_members where org_id = ($1)::text::bigint and user_id = ($2)::text::bigint and revoked_at is null limit 1",
-    ['' . $orgId, '' . $userId]
+  $client = dbClient($db)
+  $row = $client->selectOne(
+    $client->models->LhOrgMember,
+    $client->andWhere(
+      $client->eq('org_id', (int) $orgId),
+      $client->eq('user_id', (int) $userId),
+      $client->isNull('revoked_at')
+    )
   )
   if (!result_is_ok($row)) {
     return null
@@ -2537,29 +2497,48 @@ function rateLimitCheck($db, $bucket, $subjectKey, $limit, $windowSeconds) {
   $subject = '' . $subjectKey
   $maxCount = max(1, (int) $limit)
   $window = max(1, (int) $windowSeconds)
-
-  dbExec(
-    $db,
-    "delete from lh_rate_limit_hits where bucket = $1 and subject_key = $2 and created_at < now() - (($3)::text::integer * interval '1 second')",
-    [$bucketName, $subject, '' . $window]
+  $client = dbClient($db)
+  $hits = $client->selectMany(
+    $client->models->LhRateLimitHit,
+    $client->andWhere(
+      $client->eq('bucket', $bucketName),
+      $client->eq('subject_key', $subject)
+    )
   )
-  $ins = dbExec(
-    $db,
-    "insert into lh_rate_limit_hits (bucket, subject_key, created_at) values ($1, $2, now())",
-    [$bucketName, $subject]
+  if (!result_is_ok($hits)) {
+    return [ 'ok' => false, 'error' => $hits->error ]
+  }
+  $now = time()
+  $windowStart = $now - $window
+  $seen = 0
+  foreach ($hits->value as $hit) {
+    $ts = parseTimestamp(rowValue($hit, 'createdAt', rowValue($hit, 'created_at', '')))
+    if ($ts === null) {
+      continue
+    }
+    if ($ts < $windowStart) {
+      $client->deleteWhere(
+        $client->models->LhRateLimitHit,
+        $client->eq('id', (int) rowValue($hit, 'id', 0)),
+        false
+      )
+      continue
+    }
+    $seen += 1
+  }
+  $ins = $client->insertOne(
+    $client->models->LhRateLimitHit,
+    {
+      bucket: $bucketName,
+      subject_key: $subject,
+      created_at: gmdate('c')
+    },
+    false
   )
   if (!result_is_ok($ins)) {
     return [ 'ok' => false, 'error' => $ins->error ]
   }
-  $count = dbQueryOne(
-    $db,
-    "select count(*) as c from lh_rate_limit_hits where bucket = $1 and subject_key = $2 and created_at >= now() - (($3)::text::integer * interval '1 second')",
-    [$bucketName, $subject, '' . $window]
-  )
-  if (!result_is_ok($count)) {
-    return [ 'ok' => false, 'error' => $count->error ]
-  }
-  $seen = (int) rowValue($count->value, 'c', 0)
+  $seen += 1
   if ($seen > $maxCount) {
     return [ 'ok' => false, 'error' => 'rate limit exceeded', 'bucket' => $bucketName, 'limit' => $maxCount, 'window' => $window ]
   }
@@ -2610,95 +2589,125 @@ function authUserId($auth) {
 
 function fetchVisiblePackageRows($db, $limit = 25, $query = '', $userId = 0) {
   $max = max(1, (int) $limit)
-  $maxSql = '' . $max
-  $q = trim('' . $query)
+  $q = strtolower(trim('' . $query))
   $uid = (int) $userId
+  $client = dbClient($db)
 
+  $packages = []
   if ($uid > 0) {
-    $publicSql = 'select p.id, p.org_id as orgId, o.handle as orgHandle, p.name, p.description, p.latest_version as latestVersion, p.download_count as downloadCount, p.created_at as createdAt, p.updated_at as updatedAt, p.visibility, lv.canonical_id as canonicalId
-      from packages p
-      join lh_orgs o on o.id = p.org_id
-      left join package_versions lv on lv.package_id = p.id and lv.version = p.latest_version
-      where p.visibility = \'public\''
-    $publicParams = []
-    if ($q !== '') {
-      $publicSql = $publicSql . ' and (p.name ilike $1 or p.description ilike $1)'
-      $publicParams = ['%' . $q . '%']
+    $members = $client->selectMany(
+      $client->models->LhOrgMember,
+      $client->andWhere(
+        $client->eq('user_id', $uid),
+        $client->isNull('revoked_at')
+      )
+    )
+    if (!result_is_ok($members)) {
+      return { ok: false, error: $members->error }
     }
-    $publicSql = $publicSql . ' order by p.download_count desc, p.id desc limit ' . $maxSql
-    $publicRes = dbQuery($db, $publicSql, $publicParams)
+    $allowed = []
+    foreach ($members->value as $member) {
+      $role = canonicalOrgRole(rowValue($member, 'role', ''))
+      if ($role === 'publisher' || $role === 'maintainer') {
+        $allowed[(int) rowValue($member, 'org_id', 0)] = true
+      }
+    }
+
+    $publicRes = $client->selectMany($client->models->Package, $client->eq('visibility', 'public'))
     if (!result_is_ok($publicRes)) {
       return { ok: false, error: $publicRes->error }
     }
-    $publicRows = rowsFromQueryResult($publicRes)
-
-    $privateSql = 'select p.id, p.org_id as orgId, o.handle as orgHandle, p.name, p.description, p.latest_version as latestVersion, p.download_count as downloadCount, p.created_at as createdAt, p.updated_at as updatedAt, p.visibility, lv.canonical_id as canonicalId
-      from packages p
-      join lh_orgs o on o.id = p.org_id
-      left join package_versions lv on lv.package_id = p.id and lv.version = p.latest_version
-      where p.visibility = \'private\'
-        and exists (
-          select 1
-          from lh_org_members m
-          where m.org_id = p.org_id
-            and m.user_id = ($1)::text::bigint
-            and m.revoked_at is null
-            and lower(m.role) in (\'publisher\', \'maintainer\')
-        )'
-    $privateParams = ['' . $uid]
-    if ($q !== '') {
-      $privateSql = $privateSql . ' and (p.name ilike $2 or p.description ilike $2)'
-      $privateParams[] = '%' . $q . '%'
-    }
-    $privateSql = $privateSql . ' order by p.download_count desc, p.id desc limit ' . $maxSql
-    $privateRes = dbQuery($db, $privateSql, $privateParams)
+    $privateRes = $client->selectMany($client->models->Package, $client->eq('visibility', 'private'))
     if (!result_is_ok($privateRes)) {
       return { ok: false, error: $privateRes->error }
     }
-    $privateRows = rowsFromQueryResult($privateRes)
-
-    $seen = []
-    $out = []
-    foreach ($publicRows as $row) {
-      $idKey = '' . rowValue($row, 'id', rowValue($row, 'ID', null))
-      if ($idKey === '') {
-        continue
-      }
-      if (!array_key_exists($idKey, $seen)) {
-        $seen[$idKey] = true
-        $out[] = $row
+    foreach ($publicRes->value as $row) {
+      $packages[] = $row
+    }
+    foreach ($privateRes->value as $row) {
+      $orgId = (int) rowValue($row, 'org_id', rowValue($row, 'orgId', 0))
+      if (array_key_exists($orgId, $allowed)) {
+        $packages[] = $row
       }
     }
-    foreach ($privateRows as $row) {
-      $idKey = '' . rowValue($row, 'id', rowValue($row, 'ID', null))
-      if ($idKey === '') {
-        continue
-      }
-      if (!array_key_exists($idKey, $seen)) {
-        $seen[$idKey] = true
-        $out[] = $row
-      }
+  } else {
+    $publicRes = $client->selectMany($client->models->Package, $client->eq('visibility', 'public'))
+    if (!result_is_ok($publicRes)) {
+      return { ok: false, error: $publicRes->error }
     }
-    return { ok: true, rows: $out }
+    $packages = $publicRes->value
   }
 
-  $term = $q === '' ? '%' : ('%' . $q . '%')
-  $rows = dbQuery(
-    $db,
-    'select p.id, p.org_id as orgId, o.handle as orgHandle, p.name, p.description, p.latest_version as latestVersion, p.download_count as downloadCount, p.created_at as createdAt, p.updated_at as updatedAt, p.visibility, lv.canonical_id as canonicalId
-       from packages p
-       join lh_orgs o on o.id = p.org_id
-       left join package_versions lv on lv.package_id = p.id and lv.version = p.latest_version
-      where p.visibility = \'public\'
-        and (p.name ilike $1 or p.description ilike $1)
-      order by p.download_count desc, p.id desc
-      limit ' . $maxSql,
-    [$term]
-  )
-  if (!result_is_ok($rows)) {
-    return { ok: false, error: $rows->error }
+  if ($q !== '') {
+    $filtered = []
+    foreach ($packages as $row) {
+      $name = strtolower('' . rowValue($row, 'name', ''))
+      $desc = strtolower('' . rowValue($row, 'description', ''))
+      if (strpos($name, $q) !== false || strpos($desc, $q) !== false) {
+        $filtered[] = $row
+      }
+    }
+    $packages = $filtered
   }
-  return { ok: true, rows: rowsFromQueryResult($rows) }
+
+  usort($packages, fn($a, $b) => {
+    $ad = (int) rowValue($a, 'download_count', rowValue($a, 'downloadCount', 0))
+    $bd = (int) rowValue($b, 'download_count', rowValue($b, 'downloadCount', 0))
+    if ($ad === $bd) {
+      $aid = (int) rowValue($a, 'id', 0)
+      $bid = (int) rowValue($b, 'id', 0)
+      if ($aid === $bid) {
+        return 0
+      }
+      return $bid > $aid ? 1 : -1
+    }
+    return $bd > $ad ? 1 : -1
+  })
+
+  if (count($packages) > $max) {
+    $packages = array_slice($packages, 0, $max)
+  }
+
+  $orgsRes = $client->selectMany($client->models->LhOrg)
+  if (!result_is_ok($orgsRes)) {
+    return { ok: false, error: $orgsRes->error }
+  }
+  $orgMap = []
+  foreach ($orgsRes->value as $org) {
+    $orgMap[(int) rowValue($org, 'id', 0)] = '' . rowValue($org, 'handle', '')
+  }
+
+  $versionsRes = $client->selectMany($client->models->PackageVersion)
+  if (!result_is_ok($versionsRes)) {
+    return { ok: false, error: $versionsRes->error }
+  }
+  $latestByPackage = []
+  foreach ($packages as $row) {
+    $latestByPackage[(int) rowValue($row, 'id', 0)] = '' . rowValue($row, 'latest_version', rowValue($row, 'latestVersion', ''))
+  }
+  $canonicalByPackage = []
+  foreach ($versionsRes->value as $ver) {
+    $pid = (int) rowValue($ver, 'package_id', rowValue($ver, 'packageId', 0))
+    $latest = array_key_exists($pid, $latestByPackage) ? $latestByPackage[$pid] : ''
+    if ($latest === '') {
+      continue
+    }
+    $verName = '' . rowValue($ver, 'version', '')
+    if ($verName === $latest) {
+      $canonicalByPackage[$pid] = '' . rowValue($ver, 'canonical_id', rowValue($ver, 'canonicalId', ''))
+    }
+  }
+
+  $out = []
+  foreach ($packages as $row) {
+    $orgId = (int) rowValue($row, 'org_id', rowValue($row, 'orgId', 0))
+    $pid = (int) rowValue($row, 'id', 0)
+    $row['orgHandle'] = array_key_exists($orgId, $orgMap) ? $orgMap[$orgId] : ''
+    $row['canonicalId'] = array_key_exists($pid, $canonicalByPackage) ? $canonicalByPackage[$pid] : ''
+    $out[] = $row
+  }
+
+  return { ok: true, rows: $out }
 }
 
 function devRandomHex($len = 32) {
@@ -2733,15 +2742,29 @@ function authIssueSession($handle, $userId) {
     return [ 'ok' => false, 'error' => $conn->error ]
   }
   $db = $conn->value
-  dbExec(
-    $db,
-    "update lh_sessions set revoked_at = now() where user_id = ($1)::text::bigint and revoked_at is null",
-    ['' . $userId]
+  $client = dbClient($db)
+  $client->updateWhere(
+    $client->models->LhSession,
+    $client->andWhere(
+      $client->eq('user_id', (int) $userId),
+      $client->isNull('revoked_at')
+    ),
+    { revoked_at: gmdate('c') },
+    false
   )
-  $insExec = dbQuery(
-    $db,
-    "insert into lh_sessions (user_id, session_token_hash, csrf_token_hash, last_seen_at, expires_at, created_at, ip_address, user_agent) values (($1)::text::bigint, $2, $3, now(), now() + interval '7 days', now(), $4, $5) returning id",
-    ['' . $userId, $tokenHash, $csrfHash, $ipAddress, $userAgent]
+  $insExec = $client->insertOne(
+    $client->models->LhSession,
+    {
+      user_id: (int) $userId,
+      session_token_hash: $tokenHash,
+      csrf_token_hash: $csrfHash,
+      last_seen_at: gmdate('c'),
+      expires_at: authSessionExpiresAt(),
+      created_at: gmdate('c'),
+      ip_address: $ipAddress,
+      user_agent: $userAgent
+    },
+    false
   )
   if (!result_is_ok($insExec)) {
     $diag = [
@@ -2756,7 +2779,7 @@ function authIssueSession($handle, $userId) {
     ]
     return [ 'ok' => false, 'error' => 'authIssueSession.insert: ' . $insExec->error, 'diag' => $diag ]
   }
-  $lookup = dbQueryOne($db, "select id from lh_sessions where session_token_hash = $1 limit 1", [$tokenHash])
+  $lookup = $client->selectOne($client->models->LhSession, $client->eq('session_token_hash', $tokenHash))
   dbClose($db)
   if (!result_is_ok($lookup)) {
     return [ 'ok' => false, 'error' => 'authIssueSession.lookup: ' . $lookup->error ]
@@ -2789,11 +2812,8 @@ function authCurrentUser() {
         return [ 'ok' => false, 'error' => $conn->error ]
       }
       $db = $conn->value
-      $user = dbQueryOne(
-        $db,
-        "select id, did, handle, display_name as displayName, avatar_url as avatarUrl from lh_users where id = ($1)::text::bigint limit 1",
-        ['' . $devUid]
-      )
+      $client = dbClient($db)
+      $user = $client->selectOne($client->models->LhUser, $client->eq('id', $devUid))
       dbClose($db)
       if (result_is_ok($user)) {
         $u = $user->value
@@ -2816,20 +2836,55 @@ function authCurrentUser() {
     return [ 'ok' => false, 'error' => $conn->error ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $row = dbQueryOne(
-    $db,
-    "select u.id, u.did, u.handle, u.display_name as displayName, u.avatar_url as avatarUrl, s.csrf_token_hash as csrfHash from lh_sessions s join lh_users u on u.id = s.user_id where s.session_token_hash = $1 and s.revoked_at is null and s.expires_at > now() and s.last_seen_at > now() - (($2)::text::integer * interval '1 second') and s.created_at > now() - (($3)::text::integer * interval '1 second') limit 1",
-    [$tokenHash, $idleSecs, $maxSecs]
-  )
-  if (result_is_ok($row)) {
-    dbExec($db, 'update lh_sessions set last_seen_at = now() where session_token_hash = $1', [$tokenHash])
+  $client = dbClient($db)
+  $session = $client->selectOne($client->models->LhSession, $client->eq('session_token_hash', $tokenHash))
+  if (result_is_ok($session)) {
+    $s = $session->value
+    $revokedAt = rowValue($s, 'revoked_at', rowValue($s, 'revokedAt', null))
+    $expiresAt = parseTimestamp(rowValue($s, 'expires_at', rowValue($s, 'expiresAt', null)))
+    $lastSeenAt = parseTimestamp(rowValue($s, 'last_seen_at', rowValue($s, 'lastSeenAt', null)))
+    $createdAt = parseTimestamp(rowValue($s, 'created_at', rowValue($s, 'createdAt', null)))
+    $now = time()
+    $idleLimit = $now - (int) $idleSecs
+    $maxLimit = $now - (int) $maxSecs
+    if ($revokedAt !== null) {
+      $session = result_err('revoked')
+    } else if ($expiresAt !== null && $expiresAt <= $now) {
+      $session = result_err('expired')
+    } else if ($lastSeenAt !== null && $lastSeenAt <= $idleLimit) {
+      $session = result_err('idle timeout')
+    } else if ($createdAt !== null && $createdAt <= $maxLimit) {
+      $session = result_err('max timeout')
+    }
+  }
+  if (result_is_ok($session)) {
+    $client->updateWhere(
+      $client->models->LhSession,
+      $client->eq('id', (int) rowValue($session->value, 'id', 0)),
+      { last_seen_at: gmdate('c') },
+      false
+    )
+    $user = $client->selectOne(
+      $client->models->LhUser,
+      $client->eq('id', (int) rowValue($session->value, 'user_id', rowValue($session->value, 'userId', 0)))
+    )
+    if (result_is_ok($user)) {
+      $u = $user->value
+      if (is_array($u)) {
+        $u['csrfHash'] = rowValue($session->value, 'csrf_token_hash', rowValue($session->value, 'csrfTokenHash', ''))
+      } else {
+        $u->csrfHash = rowValue($session->value, 'csrf_token_hash', rowValue($session->value, 'csrfTokenHash', ''))
+      }
+      $session = result_ok($u)
+    } else {
+      $session = result_err($user->error)
+    }
   }
   dbClose($db)
-  if (!result_is_ok($row)) {
+  if (!result_is_ok($session)) {
     return [ 'ok' => false, 'error' => 'not authenticated' ]
   }
-  return [ 'ok' => true, 'user' => $row->value ]
+  return [ 'ok' => true, 'user' => $session->value ]
 }
 
 function authValidateCsrfForSessionUser($user) {
@@ -2895,24 +2950,55 @@ function authPatFromBearer($requiredMask = 1) {
     return [ 'ok' => false, 'error' => $conn->error ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $row = dbQueryOne(
-    $db,
-    "select t.id as tokenId, t.scope_mask as scopeMask, u.id, u.did, u.handle, u.display_name as displayName, u.avatar_url as avatarUrl from lh_api_tokens t join lh_users u on u.id = t.user_id where t.token_hash = $1 and t.revoked_at is null and (t.expires_at is null or t.expires_at > now()) and ((t.scope_mask)::text::integer & ($2)::text::integer) = ($2)::text::integer limit 1",
-    [$tokenHash, $required]
-  )
-  if (result_is_ok($row)) {
-    dbExec($db, 'update lh_api_tokens set last_used_at = now() where token_hash = $1', [$tokenHash])
+  $client = dbClient($db)
+  $tokenRow = $client->selectOne($client->models->LhApiToken, $client->eq('token_hash', $tokenHash))
+  if (result_is_ok($tokenRow)) {
+    $tokenValue = $tokenRow->value
+    $revokedAt = rowValue($tokenValue, 'revoked_at', rowValue($tokenValue, 'revokedAt', null))
+    $expiresAt = parseTimestamp(rowValue($tokenValue, 'expires_at', rowValue($tokenValue, 'expiresAt', null)))
+    $scopeMask = (int) rowValue($tokenValue, 'scope_mask', rowValue($tokenValue, 'scopeMask', 0))
+    $now = time()
+    if ($revokedAt !== null) {
+      $tokenRow = result_err('revoked')
+    } else if ($expiresAt !== null && $expiresAt <= $now) {
+      $tokenRow = result_err('expired')
+    } else if (!authHasScopeMask($scopeMask, (int) $requiredMask)) {
+      $tokenRow = result_err('scope')
+    } else {
+      $client->updateWhere(
+        $client->models->LhApiToken,
+        $client->eq('id', (int) rowValue($tokenValue, 'id', 0)),
+        { last_used_at: gmdate('c') },
+        false
+      )
+      $user = $client->selectOne(
+        $client->models->LhUser,
+        $client->eq('id', (int) rowValue($tokenValue, 'user_id', rowValue($tokenValue, 'userId', 0)))
+      )
+      if (result_is_ok($user)) {
+        $userValue = $user->value
+        if (is_array($userValue)) {
+          $userValue['tokenId'] = rowValue($tokenValue, 'id', 0)
+          $userValue['scopeMask'] = $scopeMask
+        } else {
+          $userValue->tokenId = rowValue($tokenValue, 'id', 0)
+          $userValue->scopeMask = $scopeMask
+        }
+        $tokenRow = result_ok($userValue)
+      } else {
+        $tokenRow = result_err($user->error)
+      }
+    }
   }
   dbClose($db)
-  if (!result_is_ok($row)) {
+  if (!result_is_ok($tokenRow)) {
     return [ 'ok' => false, 'error' => 'invalid or insufficient PAT scope' ]
   }
   return [
     'ok' => true,
     'kind' => 'pat',
-    'scopeMask' => (int) rowValue($row->value, 'scopeMask', 0),
-    'user' => $row->value
+    'scopeMask' => (int) rowValue($tokenRow->value, 'scopeMask', rowValue($tokenRow->value, 'scope_mask', 0)),
+    'user' => $tokenRow->value
   ]
 }
 
@@ -3200,7 +3286,13 @@ function apiAuthLogout() {
     $conn = openDbHandle()
     if (result_is_ok($conn)) {
       $db = $conn->value
-      dbExec($db, 'update lh_sessions set revoked_at = now() where session_token_hash = $1', [$tokenHash])
+      $client = dbClient($db)
+      $client->updateWhere(
+        $client->models->LhSession,
+        $client->eq('session_token_hash', $tokenHash),
+        { revoked_at: gmdate('c') },
+        false
+      )
       dbClose($db)
     }
   }
@@ -3280,11 +3372,20 @@ function apiAuthPatCreate() {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $ins = dbQueryOne(
-    $db,
-    "insert into lh_api_tokens (user_id, token_prefix, token_hash, scope_mask, label, expires_at, created_at) values (($1)::text::bigint, $2, $3, ($4)::text::integer, $5, now() + (($6)::text::integer * interval '1 day'), now()) returning id, token_prefix as tokenPrefix, scope_mask as scopeMask, label, (expires_at)::text as expiresAt, (created_at)::text as createdAt",
-    ['' . rowValue($me['user'], 'id', '0'), $prefix, $tokenHash, '' . $scopeMask, $label, $expiresDaysClamped]
+  $client = dbClient($db)
+  $expiresAt = gmdate('c', time() + ((int) $expiresDaysClamped * 86400))
+  $ins = $client->insertOne(
+    $client->models->LhApiToken,
+    {
+      user_id: (int) rowValue($me['user'], 'id', 0),
+      token_prefix: $prefix,
+      token_hash: $tokenHash,
+      scope_mask: (int) $scopeMask,
+      label: $label,
+      expires_at: $expiresAt,
+      created_at: gmdate('c')
+    },
+    false
   )
   dbClose($db)
   if (!result_is_ok($ins)) {
@@ -3292,13 +3393,26 @@ function apiAuthPatCreate() {
     echo jsonReply([ 'ok' => false, 'error' => $ins->error ])
     return
   }
-  auditEvent('pat.create', [ 'ok' => true, 'kind' => 'session', 'scopeMask' => 7, 'user' => $me['user'] ], 'ok', 'pat', '' . rowValue($ins->value, 'id', '0'), [ 'label' => $label, 'scopeMask' => $scopeMask, 'expiresDays' => $expiresDaysClamped ])
+  $conn = openDbHandle()
+  if (!result_is_ok($conn)) {
+    echo jsonReply([ 'ok' => false, 'error' => $conn->error ])
+    return
+  }
+  $db = $conn->value
+  $client = dbClient($db)
+  $meta = $client->selectOne($client->models->LhApiToken, $client->eq('token_hash', $tokenHash))
+  dbClose($db)
+  if (!result_is_ok($meta)) {
+    echo jsonReply([ 'ok' => false, 'error' => $meta->error ])
+    return
+  }
+  auditEvent('pat.create', [ 'ok' => true, 'kind' => 'session', 'scopeMask' => 7, 'user' => $me['user'] ], 'ok', 'pat', '' . rowValue($meta->value, 'id', '0'), [ 'label' => $label, 'scopeMask' => $scopeMask, 'expiresDays' => $expiresDaysClamped ])
 
   echo jsonReply([
     'ok' => true,
     'token' => $rawToken,
     'token_hint' => $prefix,
-    'meta' => $ins->value
+    'meta' => $meta->value
   ])
 }
 
@@ -3316,11 +3430,11 @@ function apiAuthPatList() {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $rows = dbQuery(
-    $db,
-    'select id, token_prefix as tokenprefix, scope_mask as scopemask, label, (last_used_at is not null) as used, (last_used_at)::text as lastusedat, (expires_at)::text as expiresat, (created_at)::text as createdat, (revoked_at)::text as revokedat from lh_api_tokens where user_id = ($1)::text::bigint order by created_at desc',
-    ['' . rowValue($me['user'], 'id', '0')]
+  $client = dbClient($db)
+  $rows = $client->selectMany(
+    $client->models->LhApiToken,
+    $client->eq('user_id', (int) rowValue($me['user'], 'id', 0)),
+    $client->desc('created_at')
   )
   dbClose($db)
   if (!result_is_ok($rows)) {
@@ -3328,20 +3442,20 @@ function apiAuthPatList() {
     return
   }
   $out = []
-  $rowsList = rowsFromQueryResult($rows)
-  foreach ($rowsList as $row) {
+  foreach ($rows->value as $row) {
     if (rowValue($row, 'revokedat', rowValue($row, 'revoked_at', null)) !== null) {
       continue
     }
     $scopeMask = (int) rowValue($row, 'scopemask', rowValue($row, 'scope_mask', 0))
+    $lastUsedAt = rowValue($row, 'last_used_at', rowValue($row, 'lastusedat', null))
     $out[] = [
       'id' => rowValue($row, 'id', 0),
       'tokenPrefix' => rowValue($row, 'tokenprefix', rowValue($row, 'token_prefix', '')),
       'label' => rowValue($row, 'label', ''),
       'scopeMask' => $scopeMask,
       'scope' => authScopeText($scopeMask),
-      'used' => (bool) rowValue($row, 'used', false),
-      'lastUsedAt' => rowValue($row, 'lastusedat', rowValue($row, 'last_used_at', null)),
+      'used' => $lastUsedAt !== null && ('' . $lastUsedAt) !== '',
+      'lastUsedAt' => $lastUsedAt,
       'expiresAt' => rowValue($row, 'expiresat', rowValue($row, 'expires_at', null)),
       'createdAt' => rowValue($row, 'createdat', rowValue($row, 'created_at', null))
     ]
@@ -3390,10 +3504,15 @@ function apiAuthPatRevoke() {
     return
   }
   $db = $conn->value
-  $res = dbExec(
-    $db,
-    'update lh_api_tokens set revoked_at = now() where id = ($1)::text::bigint and user_id = ($2)::text::bigint',
-    ['' . $id, '' . rowValue($me['user'], 'id', '0')]
+  $client = dbClient($db)
+  $res = $client->updateWhere(
+    $client->models->LhApiToken,
+    $client->andWhere(
+      $client->eq('id', (int) $id),
+      $client->eq('user_id', (int) rowValue($me['user'], 'id', 0))
+    ),
+    { revoked_at: gmdate('c') },
+    false
   )
   dbClose($db)
   if (!result_is_ok($res)) {
@@ -3441,10 +3560,15 @@ function apiAuthPatRevokeAll() {
     return
   }
   $db = $conn->value
-  $res = dbExec(
-    $db,
-    'update lh_api_tokens set revoked_at = now() where user_id = ($1)::text::bigint and revoked_at is null',
-    ['' . rowValue($me['user'], 'id', '0')]
+  $client = dbClient($db)
+  $res = $client->updateWhere(
+    $client->models->LhApiToken,
+    $client->andWhere(
+      $client->eq('user_id', (int) rowValue($me['user'], 'id', 0)),
+      $client->isNull('revoked_at')
+    ),
+    { revoked_at: gmdate('c') },
+    false
   )
   dbClose($db)
   if (!result_is_ok($res)) {
@@ -3462,18 +3586,21 @@ function fetchPatListForUserId($userId) {
     return [ 'ok' => false, 'error' => $conn->error, 'tokens' => [] ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $rows = dbQuery(
-    $db,
-    'select id, token_prefix as tokenprefix, scope_mask as scopemask, label, (last_used_at)::text as lastusedat, (expires_at)::text as expiresat, (created_at)::text as createdat from lh_api_tokens where user_id = ($1)::text::bigint and revoked_at is null order by created_at desc',
-    ['' . $userId]
+  $client = dbClient($db)
+  $rows = $client->selectMany(
+    $client->models->LhApiToken,
+    $client->andWhere(
+      $client->eq('user_id', (int) $userId),
+      $client->isNull('revoked_at')
+    ),
+    $client->desc('created_at')
   )
   dbClose($db)
   if (!result_is_ok($rows)) {
     return [ 'ok' => false, 'error' => $rows->error, 'tokens' => [] ]
   }
   $out = []
-  foreach (rowsFromQueryResult($rows) as $row) {
+  foreach ($rows->value as $row) {
     $scopeMask = (int) rowValue($row, 'scopemask', rowValue($row, 'scope_mask', 0))
     $out[] = [
       'id' => (int) rowValue($row, 'id', 0),
@@ -3495,27 +3622,37 @@ function fetchOrgsForUserId($userId) {
     return [ 'ok' => false, 'error' => $conn->error, 'orgs' => [] ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $rows = dbQuery(
-    $db,
-    "select o.id, o.handle, o.visibility, m.role
-       from lh_org_members m
-       join lh_orgs o on o.id = m.org_id
-      where m.user_id = ($1)::text::bigint
-        and m.revoked_at is null
-      order by o.handle asc",
-    ['' . $userId]
+  $client = dbClient($db)
+  $members = $client->selectMany(
+    $client->models->LhOrgMember,
+    $client->andWhere(
+      $client->eq('user_id', (int) $userId),
+      $client->isNull('revoked_at')
+    )
   )
+  $orgsRes = $client->selectMany($client->models->LhOrg, null, $client->asc('handle'))
   dbClose($db)
-  if (!result_is_ok($rows)) {
-    return [ 'ok' => false, 'error' => $rows->error, 'orgs' => [] ]
+  if (!result_is_ok($members)) {
+    return [ 'ok' => false, 'error' => $members->error, 'orgs' => [] ]
+  }
+  if (!result_is_ok($orgsRes)) {
+    return [ 'ok' => false, 'error' => $orgsRes->error, 'orgs' => [] ]
+  }
+  $orgMap = []
+  foreach ($orgsRes->value as $org) {
+    $orgMap[(int) rowValue($org, 'id', 0)] = $org
   }
   $out = []
-  foreach (rowsFromQueryResult($rows) as $row) {
+  foreach ($members->value as $row) {
+    $orgId = (int) rowValue($row, 'org_id', rowValue($row, 'orgId', 0))
+    if (!array_key_exists($orgId, $orgMap)) {
+      continue
+    }
+    $org = $orgMap[$orgId]
     $out[] = [
-      'id' => (int) rowValue($row, 'id', 0),
-      'handle' => rowValue($row, 'handle', ''),
-      'visibility' => rowValue($row, 'visibility', 'public'),
+      'id' => (int) rowValue($org, 'id', 0),
+      'handle' => rowValue($org, 'handle', ''),
+      'visibility' => rowValue($org, 'visibility', 'public'),
       'role' => rowValue($row, 'role', 'maintainer')
     ]
   }
@@ -3538,19 +3675,37 @@ function accountCreatePat($user, $label, $scope, $days) {
     return [ 'ok' => false, 'error' => $conn->error ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $ins = dbQueryOne(
-    $db,
-    "insert into lh_api_tokens (user_id, token_prefix, token_hash, scope_mask, label, expires_at, created_at)
-     values (($1)::text::bigint, $2, $3, ($4)::text::integer, $5, now() + (($6)::text::integer * interval '1 day'), now())
-     returning id",
-    ['' . $userId, $prefix, $tokenHash, '' . $scopeMask, '' . $label, '' . $expiresDays]
+  $client = dbClient($db)
+  $expiresAt = gmdate('c', time() + ($expiresDays * 86400))
+  $ins = $client->insertOne(
+    $client->models->LhApiToken,
+    {
+      user_id: $userId,
+      token_prefix: $prefix,
+      token_hash: $tokenHash,
+      scope_mask: (int) $scopeMask,
+      label: '' . $label,
+      expires_at: $expiresAt,
+      created_at: gmdate('c')
+    },
+    false
   )
   dbClose($db)
   if (!result_is_ok($ins)) {
     return [ 'ok' => false, 'error' => $ins->error ]
   }
-  return [ 'ok' => true, 'token' => $rawToken, 'id' => rowValue($ins->value, 'id', 0) ]
+  $conn = openDbHandle()
+  if (!result_is_ok($conn)) {
+    return [ 'ok' => false, 'error' => $conn->error ]
+  }
+  $db = $conn->value
+  $client = dbClient($db)
+  $meta = $client->selectOne($client->models->LhApiToken, $client->eq('token_hash', $tokenHash))
+  dbClose($db)
+  if (!result_is_ok($meta)) {
+    return [ 'ok' => false, 'error' => $meta->error ]
+  }
+  return [ 'ok' => true, 'token' => $rawToken, 'id' => rowValue($meta->value, 'id', 0) ]
 }
 
 function accountRevokePat($user, $id) {
@@ -3564,11 +3719,15 @@ function accountRevokePat($user, $id) {
     return [ 'ok' => false, 'error' => $conn->error ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $res = dbExec(
-    $db,
-    'update lh_api_tokens set revoked_at = now() where id = ($1)::text::bigint and user_id = ($2)::text::bigint',
-    ['' . $tokenId, '' . $userId]
+  $client = dbClient($db)
+  $res = $client->updateWhere(
+    $client->models->LhApiToken,
+    $client->andWhere(
+      $client->eq('id', $tokenId),
+      $client->eq('user_id', $userId)
+    ),
+    { revoked_at: gmdate('c') },
+    false
   )
   dbClose($db)
   if (!result_is_ok($res)) {
@@ -3587,11 +3746,15 @@ function accountRevokeAllPat($user) {
     return [ 'ok' => false, 'error' => $conn->error ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $res = dbExec(
-    $db,
-    'update lh_api_tokens set revoked_at = now() where user_id = ($1)::text::bigint and revoked_at is null',
-    ['' . $userId]
+  $client = dbClient($db)
+  $res = $client->updateWhere(
+    $client->models->LhApiToken,
+    $client->andWhere(
+      $client->eq('user_id', $userId),
+      $client->isNull('revoked_at')
+    ),
+    { revoked_at: gmdate('c') },
+    false
   )
   dbClose($db)
   if (!result_is_ok($res)) {
@@ -3609,39 +3772,13 @@ function apiOrgsMine() {
     return
   }
   $userId = authUserId($auth)
-
-  $conn = openDbHandle()
-  if (!result_is_ok($conn)) {
-    echo jsonReply([ 'ok' => false, 'error' => $conn->error ])
+  $res = fetchOrgsForUserId($userId)
+  if (!$res['ok']) {
+    echo jsonReply([ 'ok' => false, 'error' => $res['error'] ])
     return
   }
-  $db = $conn->value
-  ensureAuthSchema($db)
-  $rows = dbQuery(
-    $db,
-    "select o.id, o.handle, o.visibility, m.role
-       from lh_org_members m
-       join lh_orgs o on o.id = m.org_id
-      where m.user_id = ($1)::text::bigint
-        and m.revoked_at is null
-      order by o.handle asc",
-    ['' . $userId]
-  )
-  dbClose($db)
-  if (!result_is_ok($rows)) {
-    echo jsonReply([ 'ok' => false, 'error' => $rows->error ])
-    return
-  }
-  $out = []
-  foreach (rowsFromQueryResult($rows) as $row) {
-    $out[] = [
-      'id' => rowValue($row, 'id', null),
-      'handle' => rowValue($row, 'handle', ''),
-      'visibility' => rowValue($row, 'visibility', 'public'),
-      'role' => rowValue($row, 'role', '')
-    ]
-  }
-  echo jsonReply([ 'ok' => true, 'orgs' => $out, 'total' => count($out) ])
+  $orgs = rowValue($res, 'orgs', [])
+  echo jsonReply([ 'ok' => true, 'orgs' => $orgs, 'total' => count($orgs) ])
 }
 
 function apiOrgsCreate() {
@@ -3692,35 +3829,79 @@ function apiOrgsCreate() {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-
-  $org = dbQueryOne(
-    $db,
-    "insert into lh_orgs (handle, visibility, created_at, updated_at)
-     values ($1, $2, now(), now())
-     on conflict (handle) do update set updated_at = now()
-     returning id, handle, visibility",
-    [$handle, $visibility]
-  )
+  $client = dbClient($db)
+  $org = $client->selectOne($client->models->LhOrg, $client->eq('handle', $handle))
   if (!result_is_ok($org)) {
-    dbClose($db)
-    echo jsonReply([ 'ok' => false, 'error' => $org->error ])
-    return
+    if (!isNoRowsError($org->error)) {
+      dbClose($db)
+      echo jsonReply([ 'ok' => false, 'error' => $org->error ])
+      return
+    }
+    $created = $client->insertOne(
+      $client->models->LhOrg,
+      { handle: $handle, visibility: $visibility },
+      false
+    )
+    if (!result_is_ok($created)) {
+      dbClose($db)
+      echo jsonReply([ 'ok' => false, 'error' => $created->error ])
+      return
+    }
+    $org = $client->selectOne($client->models->LhOrg, $client->eq('handle', $handle))
+    if (!result_is_ok($org)) {
+      dbClose($db)
+      echo jsonReply([ 'ok' => false, 'error' => $org->error ])
+      return
+    }
+  } else {
+    $client->updateWhere(
+      $client->models->LhOrg,
+      $client->eq('id', (int) rowValue($org->value, 'id', 0)),
+      { updated_at: gmdate('c') },
+      false
+    )
   }
-  $orgId = '' . rowValue($org->value, 'id', '0')
-  $member = dbExec(
-    $db,
-    "insert into lh_org_members (org_id, user_id, role, created_at)
-     values (($1)::text::bigint, ($2)::text::bigint, 'publisher', now())
-     on conflict (org_id, user_id) do update set role = 'publisher', revoked_at = null",
-    [$orgId, '' . $userId]
+
+  $orgId = (int) rowValue($org->value, 'id', 0)
+  $member = $client->selectOne(
+    $client->models->LhOrgMember,
+    $client->andWhere(
+      $client->eq('org_id', $orgId),
+      $client->eq('user_id', (int) $userId)
+    )
   )
-  dbClose($db)
-  if (!result_is_ok($member)) {
+  if (result_is_ok($member)) {
+    $memberUpdate = $client->updateWhere(
+      $client->models->LhOrgMember,
+      $client->eq('id', (int) rowValue($member->value, 'id', 0)),
+      { role: 'publisher', revoked_at: null },
+      false
+    )
+    if (!result_is_ok($memberUpdate)) {
+      dbClose($db)
+      auditEvent('org.create', $auth, 'error', 'org', $handle, [ 'error' => $memberUpdate->error ])
+      echo jsonReply([ 'ok' => false, 'error' => $memberUpdate->error ])
+      return
+    }
+  } else if (isNoRowsError($member->error)) {
+    $memberInsert = $client->insertOne(
+      $client->models->LhOrgMember,
+      { org_id: $orgId, user_id: (int) $userId, role: 'publisher' },
+      false
+    )
+    if (!result_is_ok($memberInsert)) {
+      dbClose($db)
+      auditEvent('org.create', $auth, 'error', 'org', $handle, [ 'error' => $memberInsert->error ])
+      echo jsonReply([ 'ok' => false, 'error' => $memberInsert->error ])
+      return
+    }
+  } else {
+    dbClose($db)
     auditEvent('org.create', $auth, 'error', 'org', $handle, [ 'error' => $member->error ])
     echo jsonReply([ 'ok' => false, 'error' => $member->error ])
     return
   }
+  dbClose($db)
   auditEvent('org.create', $auth, 'ok', 'org', $handle, [ 'orgId' => $orgId, 'visibility' => $visibility ])
   echo jsonReply([ 'ok' => true, 'org' => $org->value ])
 }
@@ -3746,33 +3927,45 @@ function apiOrgMembersList() {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
   if (!canEditOrg($db, $orgId, $userId)) {
     dbClose($db)
     echo jsonReply([ 'ok' => false, 'error' => 'forbidden: missing org access' ])
     return
   }
-  $rows = dbQuery(
-    $db,
-    "select m.user_id as userId, u.handle, u.display_name as displayName, m.role
-       from lh_org_members m
-       join lh_users u on u.id = m.user_id
-      where m.org_id = ($1)::text::bigint
-        and m.revoked_at is null
-      order by m.created_at asc",
-    ['' . $orgId]
+  $client = dbClient($db)
+  $members = $client->selectMany(
+    $client->models->LhOrgMember,
+    $client->andWhere(
+      $client->eq('org_id', $orgId),
+      $client->isNull('revoked_at')
+    ),
+    $client->asc('created_at')
   )
+  $users = $client->selectMany($client->models->LhUser)
   dbClose($db)
-  if (!result_is_ok($rows)) {
-    echo jsonReply([ 'ok' => false, 'error' => $rows->error ])
+  if (!result_is_ok($members)) {
+    echo jsonReply([ 'ok' => false, 'error' => $members->error ])
+    return
+  }
+  if (!result_is_ok($users)) {
+    echo jsonReply([ 'ok' => false, 'error' => $users->error ])
     return
   }
   $out = []
-  foreach (rowsFromQueryResult($rows) as $row) {
+  $userMap = []
+  foreach ($users->value as $user) {
+    $userMap[(int) rowValue($user, 'id', 0)] = $user
+  }
+  foreach ($members->value as $row) {
+    $uid = (int) rowValue($row, 'user_id', rowValue($row, 'userId', 0))
+    if (!array_key_exists($uid, $userMap)) {
+      continue
+    }
+    $user = $userMap[$uid]
     $out[] = [
-      'userId' => rowValue($row, 'userId', rowValue($row, 'userid', null)),
-      'handle' => rowValue($row, 'handle', ''),
-      'displayName' => rowValue($row, 'displayName', rowValue($row, 'displayname', null)),
+      'userId' => $uid,
+      'handle' => rowValue($user, 'handle', ''),
+      'displayName' => rowValue($user, 'display_name', rowValue($user, 'displayName', null)),
       'role' => rowValue($row, 'role', '')
     ]
   }
@@ -3828,17 +4021,13 @@ function apiOrgMembersUpsert() {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
   if (!canManageOrg($db, $orgId, $userId)) {
     dbClose($db)
     echo jsonReply([ 'ok' => false, 'error' => 'forbidden: missing org manage access' ])
     return
   }
-  $target = dbQueryOne(
-    $db,
-    "select id from lh_users where lower(handle) = lower($1) limit 1",
-    [$targetHandle]
-  )
+  $client = dbClient($db)
+  $target = $client->selectOne($client->models->LhUser, $client->ilike('handle', $targetHandle))
   if (!result_is_ok($target)) {
     dbClose($db)
     echo jsonReply([ 'ok' => false, 'error' => 'target user not found' ])
@@ -3850,13 +4039,29 @@ function apiOrgMembersUpsert() {
     echo jsonReply([ 'ok' => false, 'error' => 'target user not found' ])
     return
   }
-  $up = dbExec(
-    $db,
-    "insert into lh_org_members (org_id, user_id, role, created_at)
-     values (($1)::text::bigint, ($2)::text::bigint, $3, now())
-     on conflict (org_id, user_id) do update set role = excluded.role, revoked_at = null",
-    ['' . $orgId, $targetId, $role]
+  $existing = $client->selectOne(
+    $client->models->LhOrgMember,
+    $client->andWhere(
+      $client->eq('org_id', (int) $orgId),
+      $client->eq('user_id', (int) $targetId)
+    )
   )
+  if (result_is_ok($existing)) {
+    $up = $client->updateWhere(
+      $client->models->LhOrgMember,
+      $client->eq('id', (int) rowValue($existing->value, 'id', 0)),
+      { role: $role, revoked_at: null },
+      false
+    )
+  } else if (isNoRowsError($existing->error)) {
+    $up = $client->insertOne(
+      $client->models->LhOrgMember,
+      { org_id: (int) $orgId, user_id: (int) $targetId, role: $role },
+      false
+    )
+  } else {
+    $up = $existing
+  }
   dbClose($db)
   if (!result_is_ok($up)) {
     auditEvent('org.member.upsert', $auth, 'error', 'org', '' . $orgId, [ 'handle' => $targetHandle, 'role' => $role, 'error' => $up->error ])
@@ -3911,17 +4116,13 @@ function apiOrgMembersRemove() {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
   if (!canManageOrg($db, $orgId, $userId)) {
     dbClose($db)
     echo jsonReply([ 'ok' => false, 'error' => 'forbidden: missing org manage access' ])
     return
   }
-  $target = dbQueryOne(
-    $db,
-    "select id from lh_users where lower(handle) = lower($1) limit 1",
-    [$targetHandle]
-  )
+  $client = dbClient($db)
+  $target = $client->selectOne($client->models->LhUser, $client->ilike('handle', $targetHandle))
   if (!result_is_ok($target)) {
     dbClose($db)
     echo jsonReply([ 'ok' => false, 'error' => 'target user not found' ])
@@ -3939,14 +4140,15 @@ function apiOrgMembersRemove() {
     echo jsonReply([ 'ok' => false, 'error' => 'cannot remove your own membership' ])
     return
   }
-  $up = dbExec(
-    $db,
-    "update lh_org_members
-        set revoked_at = now()
-      where org_id = ($1)::text::bigint
-        and user_id = ($2)::text::bigint
-        and revoked_at is null",
-    ['' . $orgId, $targetId]
+  $up = $client->updateWhere(
+    $client->models->LhOrgMember,
+    $client->andWhere(
+      $client->eq('org_id', (int) $orgId),
+      $client->eq('user_id', (int) $targetId),
+      $client->isNull('revoked_at')
+    ),
+    { revoked_at: gmdate('c') },
+    false
   )
   dbClose($db)
   if (!result_is_ok($up)) {
@@ -4002,12 +4204,8 @@ function apiPackageSetVisibility() {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $pkg = dbQueryOne(
-    $db,
-    "select id, org_id as orgId from packages where lower(name) = lower($1) limit 1",
-    [$name]
-  )
+  $client = dbClient($db)
+  $pkg = $client->selectOne($client->models->Package, $client->ilike('name', $name))
   if (!result_is_ok($pkg)) {
     dbClose($db)
     echo jsonReply([ 'ok' => false, 'error' => 'package not found' ])
@@ -4019,10 +4217,11 @@ function apiPackageSetVisibility() {
     echo jsonReply([ 'ok' => false, 'error' => 'forbidden: missing org edit access' ])
     return
   }
-  $up = dbExec(
-    $db,
-    "update packages set visibility = $1 where id = ($2)::text::bigint",
-    [$visibility, '' . rowValue($pkg->value, 'id', 0)]
+  $up = $client->updateWhere(
+    $client->models->Package,
+    $client->eq('id', (int) rowValue($pkg->value, 'id', 0)),
+    { visibility: $visibility },
+    false
   )
   dbClose($db)
   if (!result_is_ok($up)) {
@@ -4313,11 +4512,9 @@ function apiPublishPackage() {
   $filesDecoded = decodeJsonLike($filesInput, [])
   $depsDecoded = decodeJsonLike($depsInput, [])
   $capabilityDecoded = decodeJsonLike($capabilityInput, null)
-  $filesJson = encodeJson(normalizeJsonValue(is_array($filesDecoded) ? $filesDecoded : []))
-  $depsJson = encodeJson(normalizeJsonValue(is_array($depsDecoded) ? $depsDecoded : []))
-  $capabilityJson = $capabilityDecoded === null
-    ? 'null'
-    : encodeJson(normalizeJsonValue($capabilityDecoded))
+  $filesPayload = is_array($filesDecoded) ? $filesDecoded : []
+  $depsPayload = is_array($depsDecoded) ? $depsDecoded : []
+  $capabilityPayload = $capabilityDecoded === null ? null : $capabilityDecoded
 
   if ($orgId <= 0 || !isValidPackageName($name) || isReservedPackageName($name) || $version === '' || $visibility === null) {
     auditEvent('package.publish', $auth, 'error', 'package', '@' . $orgId . '/' . $name . '@' . $version, [ 'error' => 'invalid publish parameters' ])
@@ -4331,7 +4528,7 @@ function apiPublishPackage() {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
+  $client = dbClient($db)
   if (!canEditOrg($db, $orgId, $userId)) {
     auditEvent('package.publish', $auth, 'forbidden', 'org', '' . $orgId, [ 'name' => $name, 'version' => $version ])
     dbClose($db)
@@ -4339,28 +4536,54 @@ function apiPublishPackage() {
     return
   }
 
-  $pkg = dbQueryOne(
-    $db,
-    "select id, org_id as orgId, name from packages where org_id = ($1)::text::bigint and lower(name) = lower($2) limit 1",
-    ['' . $orgId, $name]
+  $pkg = $client->selectOne(
+    $client->models->Package,
+    $client->andWhere(
+      $client->eq('org_id', $orgId),
+      $client->ilike('name', $name)
+    )
   )
   $packageId = 0
   if (result_is_ok($pkg)) {
     $packageId = (int) rowValue($pkg->value, 'id', 0)
-  } else {
-    $created = dbQueryOne(
-      $db,
-      "insert into packages (org_id, name, description, latest_version, download_count, visibility)
-       values (($1)::text::bigint, $2, $3, $4, 0, $5)
-       returning id",
-      ['' . $orgId, $name, $description, $version, $visibility]
+  } else if (isNoRowsError($pkg->error)) {
+    $created = $client->insertOne(
+      $client->models->Package,
+      {
+        org_id: $orgId,
+        name: $name,
+        description: $description,
+        latest_version: $version,
+        download_count: 0,
+        visibility: $visibility,
+        private_read_mask: 0,
+        created_at: gmdate('c'),
+        updated_at: gmdate('c')
+      },
+      false
     )
     if (!result_is_ok($created)) {
       dbClose($db)
       echo jsonReply([ 'ok' => false, 'error' => $created->error ])
       return
     }
-    $packageId = (int) rowValue($created->value, 'id', 0)
+    $pkg = $client->selectOne(
+      $client->models->Package,
+      $client->andWhere(
+        $client->eq('org_id', $orgId),
+        $client->ilike('name', $name)
+      )
+    )
+    if (!result_is_ok($pkg)) {
+      dbClose($db)
+      echo jsonReply([ 'ok' => false, 'error' => $pkg->error ])
+      return
+    }
+    $packageId = (int) rowValue($pkg->value, 'id', 0)
+  } else {
+    dbClose($db)
+    echo jsonReply([ 'ok' => false, 'error' => $pkg->error ])
+    return
   }
   if ($packageId <= 0) {
     dbClose($db)
@@ -4368,7 +4591,7 @@ function apiPublishPackage() {
     return
   }
 
-  $owner = dbQueryOne($db, "select handle from lh_orgs where id = ($1)::text::bigint limit 1", ['' . $orgId])
+  $owner = $client->selectOne($client->models->LhOrg, $client->eq('id', $orgId))
   $ownerHandle = result_is_ok($owner) ? ('' . rowValue($owner->value, 'handle', 'org')) : 'org'
   $canonicalId = registryCanonicalId($ownerHandle, $name, $version, $lockHash)
   $artifactKey = registryArtifactKey($ownerHandle, $name, $version, $lockHash)
@@ -4391,14 +4614,69 @@ function apiPublishPackage() {
     }
   }
 
-  $upVer = dbQueryOne(
-    $db,
-    "insert into package_versions (package_id, version, main_file, files, dependencies, readme, published_at, r2_key, sha256, canonical_id, lock_hash, integrity_algo, module_graph_hash, fs_graph_hash, artifact_backend, artifact_key, artifact_mime, artifact_size_bytes, artifact_inline_b64, capability_metadata)
-     values (($1)::text::bigint, $2, $3, ($4)::jsonb, ($5)::jsonb, $6, now(), null, $7, $8, $9, $10, $11, $12, $13, $14, $15, ($16)::text::bigint, $17, ($18)::jsonb)
-     on conflict (package_id, version) do update set main_file = excluded.main_file, files = excluded.files, dependencies = excluded.dependencies, readme = excluded.readme, sha256 = excluded.sha256, canonical_id = excluded.canonical_id, lock_hash = excluded.lock_hash, integrity_algo = excluded.integrity_algo, module_graph_hash = excluded.module_graph_hash, fs_graph_hash = excluded.fs_graph_hash, artifact_backend = excluded.artifact_backend, artifact_key = excluded.artifact_key, artifact_mime = excluded.artifact_mime, artifact_size_bytes = excluded.artifact_size_bytes, artifact_inline_b64 = excluded.artifact_inline_b64, capability_metadata = excluded.capability_metadata, published_at = now()
-     returning id, version, canonical_id as canonicalId, artifact_key as artifactKey",
-    ['' . $packageId, $version, $mainFile, $filesJson, $depsJson, $readme, $sha256, $canonicalId, $lockHash, $integrityAlgo, $moduleGraphHash, $fsGraphHash, $artifactBackend, $artifactKey, $mime, '' . $artifactSize, $artifactB64, $capabilityJson]
+  $verRow = $client->selectOne(
+    $client->models->PackageVersion,
+    $client->andWhere(
+      $client->eq('package_id', $packageId),
+      $client->eq('version', $version)
+    )
   )
+  if (result_is_ok($verRow)) {
+    $upVer = $client->updateWhere(
+      $client->models->PackageVersion,
+      $client->eq('id', (int) rowValue($verRow->value, 'id', 0)),
+      {
+        main_file: $mainFile,
+        files: $filesPayload,
+        dependencies: $depsPayload,
+        readme: $readme,
+        published_at: gmdate('c'),
+        r2_key: null,
+        sha256: $sha256,
+        canonical_id: $canonicalId,
+        lock_hash: $lockHash,
+        integrity_algo: $integrityAlgo,
+        module_graph_hash: $moduleGraphHash,
+        fs_graph_hash: $fsGraphHash,
+        artifact_backend: $artifactBackend,
+        artifact_key: $artifactKey,
+        artifact_mime: $mime,
+        artifact_size_bytes: $artifactSize,
+        artifact_inline_b64: $artifactB64,
+        capability_metadata: $capabilityPayload
+      },
+      false
+    )
+  } else if (isNoRowsError($verRow->error)) {
+    $upVer = $client->insertOne(
+      $client->models->PackageVersion,
+      {
+        package_id: $packageId,
+        version: $version,
+        main_file: $mainFile,
+        files: $filesPayload,
+        dependencies: $depsPayload,
+        readme: $readme,
+        published_at: gmdate('c'),
+        r2_key: null,
+        sha256: $sha256,
+        canonical_id: $canonicalId,
+        lock_hash: $lockHash,
+        integrity_algo: $integrityAlgo,
+        module_graph_hash: $moduleGraphHash,
+        fs_graph_hash: $fsGraphHash,
+        artifact_backend: $artifactBackend,
+        artifact_key: $artifactKey,
+        artifact_mime: $mime,
+        artifact_size_bytes: $artifactSize,
+        artifact_inline_b64: $artifactB64,
+        capability_metadata: $capabilityPayload
+      },
+      false
+    )
+  } else {
+    $upVer = $verRow
+  }
   if (!result_is_ok($upVer)) {
     auditEvent('package.publish', $auth, 'error', 'package', '@' . $ownerHandle . '/' . $name . '@' . $version, [ 'error' => $upVer->error ])
     dbClose($db)
@@ -4406,10 +4684,11 @@ function apiPublishPackage() {
     return
   }
 
-  dbExec(
-    $db,
-    "update packages set latest_version = $1, visibility = $2, updated_at = now() where id = ($3)::text::bigint",
-    [$version, $visibility, '' . $packageId]
+  $client->updateWhere(
+    $client->models->Package,
+    $client->eq('id', $packageId),
+    { latest_version: $version, visibility: $visibility, updated_at: gmdate('c') },
+    false
   )
   dbClose($db)
 
@@ -4442,18 +4721,20 @@ function apiInstallPackage() {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $org = dbQueryOne($db, "select id, handle from lh_orgs where lower(handle) = lower($1) limit 1", [$orgHandle])
+  $client = dbClient($db)
+  $org = $client->selectOne($client->models->LhOrg, $client->ilike('handle', $orgHandle))
   if (!result_is_ok($org)) {
     dbClose($db)
     echo jsonReply([ 'ok' => false, 'error' => 'org not found' ])
     return
   }
   $orgId = (int) rowValue($org->value, 'id', 0)
-  $pkg = dbQueryOne(
-    $db,
-    "select id, org_id as orgId, name, latest_version as latestVersion, visibility from packages where org_id = ($1)::text::bigint and lower(name) = lower($2) limit 1",
-    ['' . $orgId, $name]
+  $pkg = $client->selectOne(
+    $client->models->Package,
+    $client->andWhere(
+      $client->eq('org_id', $orgId),
+      $client->ilike('name', $name)
+    )
   )
   if (!result_is_ok($pkg)) {
     dbClose($db)
@@ -4467,10 +4748,12 @@ function apiInstallPackage() {
   }
   $packageId = (int) rowValue($pkg->value, 'id', 0)
   $resolvedVersion = $version === 'latest' ? ('' . rowValue($pkg->value, 'latestVersion', rowValue($pkg->value, 'latest_version', ''))) : $version
-  $ver = dbQueryOne(
-    $db,
-    "select id, version, canonical_id as canonicalId, lock_hash as lockHash, sha256, integrity_algo as integrityAlgo, module_graph_hash as moduleGraphHash, fs_graph_hash as fsGraphHash, artifact_backend as artifactBackend, artifact_key as artifactKey, artifact_mime as artifactMime, artifact_size_bytes as artifactSizeBytes from package_versions where package_id = ($1)::text::bigint and version = $2 limit 1",
-    ['' . $packageId, $resolvedVersion]
+  $ver = $client->selectOne(
+    $client->models->PackageVersion,
+    $client->andWhere(
+      $client->eq('package_id', $packageId),
+      $client->eq('version', $resolvedVersion)
+    )
   )
   if (!result_is_ok($ver)) {
     dbClose($db)
@@ -4483,12 +4766,24 @@ function apiInstallPackage() {
     $lockHash = '' . rowValue($ver->value, 'lockHash', rowValue($ver->value, 'lock_hash', 'dev'))
     $canonicalId = registryCanonicalId($orgHandle, $name, $resolvedVersion, $lockHash === '' ? 'dev' : $lockHash)
   }
-  dbExec(
-    $db,
-    "insert into downloads (package_id, version_id, downloaded_at, ip_address, user_agent) values (($1)::text::bigint, ($2)::text::bigint, now(), $3, $4)",
-    ['' . $packageId, '' . $versionId, clientIp(), (is_array($_SERVER) && array_key_exists('HTTP_USER_AGENT', $_SERVER)) ? $_SERVER['HTTP_USER_AGENT'] : '']
+  $client->insertOne(
+    $client->models->Download,
+    {
+      package_id: $packageId,
+      version_id: $versionId,
+      downloaded_at: gmdate('c'),
+      ip_address: clientIp(),
+      user_agent: (is_array($_SERVER) && array_key_exists('HTTP_USER_AGENT', $_SERVER)) ? $_SERVER['HTTP_USER_AGENT'] : ''
+    },
+    false
   )
-  dbExec($db, "update packages set download_count = download_count + 1 where id = ($1)::text::bigint", ['' . $packageId])
+  $currentDownloads = (int) rowValue($pkg->value, 'download_count', rowValue($pkg->value, 'downloadCount', 0))
+  $client->updateWhere(
+    $client->models->Package,
+    $client->eq('id', $packageId),
+    { download_count: $currentDownloads + 1 },
+    false
+  )
   dbClose($db)
 
   echo jsonReply([
@@ -4524,21 +4819,19 @@ function fetchPackageDetail($orgHandle, $name, $auth) {
     return [ 'ok' => false, 'error' => $conn->error ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-
-  $orgRow = dbQueryOne($db, "select id, handle from lh_orgs where lower(handle) = lower($1) limit 1", [$org])
+  $client = dbClient($db)
+  $orgRow = $client->selectOne($client->models->LhOrg, $client->ilike('handle', $org))
   if (!result_is_ok($orgRow)) {
     dbClose($db)
     return [ 'ok' => false, 'error' => 'org lookup failed', 'detail' => $orgRow->error ]
   }
   $orgId = (int) rowValue($orgRow->value, 'id', 0)
-  $pkgRow = dbQueryOne(
-    $db,
-    "select id, org_id as orgId, name, description, latest_version as latestVersion, download_count as downloadCount, visibility
-       from packages
-      where org_id = ($1)::text::bigint and lower(name) = lower($2)
-      limit 1",
-    ['' . $orgId, $pkgName]
+  $pkgRow = $client->selectOne(
+    $client->models->Package,
+    $client->andWhere(
+      $client->eq('org_id', $orgId),
+      $client->ilike('name', $pkgName)
+    )
   )
   if (!result_is_ok($pkgRow)) {
     dbClose($db)
@@ -4549,15 +4842,12 @@ function fetchPackageDetail($orgHandle, $name, $auth) {
     return [ 'ok' => false, 'error' => 'forbidden: package is private' ]
   }
 
-  $versions = dbQuery(
-    $db,
-    "select version, published_at as publishedAt, sha256, canonical_id as canonicalId, lock_hash as lockHash, integrity_algo as integrityAlgo, module_graph_hash as moduleGraphHash, fs_graph_hash as fsGraphHash, artifact_backend as artifactBackend, artifact_key as artifactKey, artifact_size_bytes as artifactSizeBytes, main_file as mainFile, files, dependencies, readme, capability_metadata as capabilityMetadata
-       from package_versions
-      where package_id = ($1)::text::bigint
-      order by published_at desc",
-    ['' . rowValue($pkgRow->value, 'id', 0)]
+  $versions = $client->selectMany(
+    $client->models->PackageVersion,
+    $client->eq('package_id', (int) rowValue($pkgRow->value, 'id', 0)),
+    $client->desc('published_at')
   )
-  $versionRows = result_is_ok($versions) ? rowsFromQueryResult($versions) : []
+  $versionRows = result_is_ok($versions) ? $versions->value : []
   $activeVersion = count($versionRows) > 0 ? ('' . rowValue($versionRows[0], 'version', '')) : ''
   $docsSymbols = []
   $docsError = ''
@@ -4898,30 +5188,31 @@ function fetchCanonicalTarget($canonicalId, $auth) {
     return [ 'ok' => false, 'error' => $conn->error ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $row = dbQueryOne(
-    $db,
-    "select v.version, v.canonical_id as canonicalId, o.handle as orgHandle, p.name, p.visibility, p.org_id as orgId
-       from package_versions v
-       join packages p on p.id = v.package_id
-       join lh_orgs o on o.id = p.org_id
-      where v.canonical_id = $1
-      limit 1",
-    [$id]
-  )
-  if (!result_is_ok($row)) {
+  $client = dbClient($db)
+  $ver = $client->selectOne($client->models->PackageVersion, $client->eq('canonical_id', $id))
+  if (!result_is_ok($ver)) {
     dbClose($db)
     return [ 'ok' => false, 'error' => 'canonical package not found' ]
   }
-  if (!packageIsVisibleTo($db, $row->value, $auth)) {
+  $pkg = $client->selectOne($client->models->Package, $client->eq('id', (int) rowValue($ver->value, 'package_id', 0)))
+  if (!result_is_ok($pkg)) {
+    dbClose($db)
+    return [ 'ok' => false, 'error' => 'package not found' ]
+  }
+  $org = $client->selectOne($client->models->LhOrg, $client->eq('id', (int) rowValue($pkg->value, 'org_id', 0)))
+  if (!result_is_ok($org)) {
+    dbClose($db)
+    return [ 'ok' => false, 'error' => 'org not found' ]
+  }
+  if (!packageIsVisibleTo($db, $pkg->value, $auth)) {
     dbClose($db)
     return [ 'ok' => false, 'error' => 'forbidden: package is private' ]
   }
   $target = [
-    'org' => '' . rowValue($row->value, 'orgHandle', ''),
-    'name' => '' . rowValue($row->value, 'name', ''),
-    'version' => '' . rowValue($row->value, 'version', ''),
-    'canonicalId' => '' . rowValue($row->value, 'canonicalId', '')
+    'org' => '' . rowValue($org->value, 'handle', ''),
+    'name' => '' . rowValue($pkg->value, 'name', ''),
+    'version' => '' . rowValue($ver->value, 'version', ''),
+    'canonicalId' => '' . rowValue($ver->value, 'canonical_id', rowValue($ver->value, 'canonicalId', ''))
   ]
   dbClose($db)
   return [ 'ok' => true, 'target' => $target ]
@@ -5109,12 +5400,8 @@ function fetchOrgProfile($handle, $auth) {
     return [ 'ok' => false, 'error' => $conn->error ]
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $org = dbQueryOne(
-    $db,
-    "select id, handle, visibility from lh_orgs where lower(handle) = lower($1) limit 1",
-    [$orgHandle]
-  )
+  $client = dbClient($db)
+  $org = $client->selectOne($client->models->LhOrg, $client->ilike('handle', $orgHandle))
   if (!result_is_ok($org)) {
     dbClose($db)
     return [ 'ok' => false, 'error' => 'org lookup failed', 'detail' => $org->error ]
@@ -5128,15 +5415,31 @@ function fetchOrgProfile($handle, $auth) {
     dbClose($db)
     return [ 'ok' => false, 'error' => 'forbidden: org is private' ]
   }
-  $sql = "select id, org_id as orgId, name, description, latest_version as latestVersion, download_count as downloadCount, visibility from packages where org_id = ($1)::text::bigint"
+  $where = $client->eq('org_id', $orgId)
   if (!$memberAccess) {
-    $sql = $sql . " and visibility = 'public'"
+    $where = $client->andWhere($where, $client->eq('visibility', 'public'))
   }
-  $sql = $sql . " order by download_count desc, id desc limit 100"
-  $pkgRows = rowsFromQueryResult(dbQuery($db, $sql, ['' . $orgId]))
+  $pkgRes = $client->selectMany($client->models->Package, $where, $client->desc('download_count'))
   dbClose($db)
 
   $packages = []
+  $pkgRows = result_is_ok($pkgRes) ? $pkgRes->value : []
+  usort($pkgRows, fn($a, $b) => {
+    $ad = (int) rowValue($a, 'download_count', rowValue($a, 'downloadCount', 0))
+    $bd = (int) rowValue($b, 'download_count', rowValue($b, 'downloadCount', 0))
+    if ($ad === $bd) {
+      $aid = (int) rowValue($a, 'id', 0)
+      $bid = (int) rowValue($b, 'id', 0)
+      if ($aid === $bid) {
+        return 0
+      }
+      return $bid > $aid ? 1 : -1
+    }
+    return $bd > $ad ? 1 : -1
+  })
+  if (count($pkgRows) > 100) {
+    $pkgRows = array_slice($pkgRows, 0, 100)
+  }
   foreach ($pkgRows as $row) {
     $packages[] = normalizePackage($row)
   }
@@ -5172,17 +5475,17 @@ function apiArtifactDownload($canonicalId) {
     return
   }
   $db = $conn->value
-  ensureAuthSchema($db)
-  $row = dbQueryOne(
-    $db,
-    "select v.artifact_inline_b64 as artifactInlineB64, v.artifact_mime as artifactMime, v.artifact_backend as artifactBackend, v.artifact_key as artifactKey, p.org_id as orgId, p.visibility
-       from package_versions v
-       join packages p on p.id = v.package_id
-      where v.canonical_id = $1
-      limit 1",
-    [$id]
-  )
-  if (!result_is_ok($row)) {
+  $client = dbClient($db)
+  $ver = $client->selectOne($client->models->PackageVersion, $client->eq('canonical_id', $id))
+  if (!result_is_ok($ver)) {
+    dbClose($db)
+    header('HTTP/1.1 404 Not Found')
+    header('Content-Type: application/json')
+    echo jsonReply([ 'ok' => false, 'error' => 'artifact not found' ])
+    return
+  }
+  $pkg = $client->selectOne($client->models->Package, $client->eq('id', (int) rowValue($ver->value, 'package_id', 0)))
+  if (!result_is_ok($pkg)) {
     dbClose($db)
     header('HTTP/1.1 404 Not Found')
     header('Content-Type: application/json')
@@ -5190,16 +5493,16 @@ function apiArtifactDownload($canonicalId) {
     return
   }
 
-  if (!packageIsVisibleTo($db, $row->value, $auth)) {
+  if (!packageIsVisibleTo($db, $pkg->value, $auth)) {
     dbClose($db)
     header('HTTP/1.1 403 Forbidden')
     header('Content-Type: application/json')
     echo jsonReply([ 'ok' => false, 'error' => 'forbidden: package is private' ])
     return
   }
-  $backend = '' . rowValue($row->value, 'artifactBackend', rowValue($row->value, 'artifact_backend', 'local'))
-  $mime = '' . rowValue($row->value, 'artifactMime', rowValue($row->value, 'artifact_mime', 'application/octet-stream'))
-  $artifactKey = '' . rowValue($row->value, 'artifactKey', rowValue($row->value, 'artifact_key', ''))
+  $backend = '' . rowValue($ver->value, 'artifactBackend', rowValue($ver->value, 'artifact_backend', 'local'))
+  $mime = '' . rowValue($ver->value, 'artifactMime', rowValue($ver->value, 'artifact_mime', 'application/octet-stream'))
+  $artifactKey = '' . rowValue($ver->value, 'artifactKey', rowValue($ver->value, 'artifact_key', ''))
   $bytes = null
   if ($backend === 'r2' && $artifactKey !== '') {
     $fromR2 = r2GetObject($artifactKey)
@@ -5209,7 +5512,7 @@ function apiArtifactDownload($canonicalId) {
     }
   }
   if ($bytes === null) {
-    $b64 = '' . rowValue($row->value, 'artifactInlineB64', rowValue($row->value, 'artifact_inline_b64', ''))
+    $b64 = '' . rowValue($ver->value, 'artifactInlineB64', rowValue($ver->value, 'artifact_inline_b64', ''))
     if ($b64 === '') {
       dbClose($db)
       header('HTTP/1.1 404 Not Found')
@@ -5796,19 +6099,37 @@ function apiCreateDemoPackage() {
   }
 
   $handle = $conn->value
-  ensureAuthSchema($handle)
+  $client = dbClient($handle)
   if (!canEditOrg($handle, $orgId, $userId)) {
     dbClose($handle)
     echo jsonReply({ ok: false, error: 'forbidden: missing org edit access' })
     return
   }
-  $pkgInsert = dbQueryOne(
-    $handle,
-    "insert into packages (org_id, name, description, latest_version, download_count, visibility)
-     values (($1)::text::bigint, $2, $3, $4, ($5)::text::integer, $6)
-     returning id, org_id as orgId, name, visibility",
-    ['' . $orgId, $pkgName, 'Demo package created from API', '0.1.0', '0', $visibility]
+  $insert = $client->insertOne(
+    $client->models->Package,
+    {
+      org_id: $orgId,
+      name: $pkgName,
+      description: 'Demo package created from API',
+      latest_version: '0.1.0',
+      download_count: 0,
+      visibility: $visibility,
+      private_read_mask: 0,
+      created_at: gmdate('c'),
+      updated_at: gmdate('c')
+    },
+    false
   )
+  $pkgInsert = $insert
+  if (result_is_ok($insert)) {
+    $pkgInsert = $client->selectOne(
+      $client->models->Package,
+      $client->andWhere(
+        $client->eq('org_id', $orgId),
+        $client->ilike('name', $pkgName)
+      )
+    )
+  }
   dbClose($handle)
 
   echo jsonReply({
@@ -5870,8 +6191,8 @@ function apiBumpPackageDownloads() {
   }
 
   $handle = $conn->value
-  ensureAuthSchema($handle)
-  $row = dbQueryOne($handle, 'select id, org_id as orgId, download_count as downloadCount from packages where name = $1 limit 1', [$name])
+  $client = dbClient($handle)
+  $row = $client->selectOne($client->models->Package, $client->ilike('name', $name))
   if (!result_is_ok($row)) {
     dbClose($handle)
     echo jsonReply({ ok: false, error: 'package not found' })
@@ -5893,7 +6214,12 @@ function apiBumpPackageDownloads() {
   }
   $current = (int) rowValue($pkg, 'downloadCount', rowValue($pkg, 'download_count', 0))
   $next = $current + $by
-  $updated = dbExec($handle, 'update packages set download_count = $1 where id = $2', [$next, $id])
+  $updated = $client->updateWhere(
+    $client->models->Package,
+    $client->eq('id', $id),
+    { download_count: $next },
+    false
+  )
   dbClose($handle)
 
   if (!result_is_ok($updated)) {
