@@ -29,12 +29,13 @@ Notes:
 - Router now renders `Page` + `Layout` exports and returns partial responses when requested.
 
 ## Task 3: Userland Serve Entry
-- [~] Update `deka init` template to generate `app/main.phpx` that calls the router.
+- [x] Update `deka init` template to generate `app/main.phpx` that calls the router.
 - [x] Ensure `renderToString` is default (alias `render()`), and `renderToStream` optional.
 - [ ] Provide explicit error messages when `app/` is missing or empty.
 
 Notes:
 - `deka init` now scaffolds `app/page.phpx` and `app/layout.phpx` plus `component/router.phpx`.
+- `app/main.phpx` now calls `Router()` by default.
 - Runtime prelude now preloads app module IDs once per process (respects security gates).
 - Runtime now treats `.php` as unsupported for routing and run mode.
 

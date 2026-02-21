@@ -351,7 +351,7 @@ fn default_deka_lock_json() -> String {
 }
 
 fn default_main_phpx() -> &'static str {
-    "---\n$title = \"Deka App\"\n---\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <title>{$title}</title>\n  </head>\n  <body>\n    <main>\n      <h1>{$title}</h1>\n      <p>Project initialized. Edit <code>app/page.phpx</code>.</p>\n    </main>\n  </body>\n</html>\n"
+    "import { Router } from 'component/router';\n\necho Router();\n"
 }
 
 fn default_app_page_phpx() -> &'static str {
