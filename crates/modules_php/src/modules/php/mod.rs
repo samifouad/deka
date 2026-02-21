@@ -16,6 +16,7 @@ use postgres::{
     Client, NoTls,
 };
 use std::error::Error as StdError;
+use serde_json::{Map, Value};
 use prost::Message as ProstMessage;
 use runtime_core::security_policy::{RuleList, SecurityPolicy, parse_deka_security_policy};
 use rusqlite::types::ValueRef as SqliteValueRef;
@@ -2099,6 +2100,15 @@ fn prompt_grant(
                     .lock()
                     .map_err(|_| core_err("security prompt lock poisoned"))?;
                 grants.insert(key);
+                if let Err(err) = update_deka_json_allow(capability, target) {
+                    eprintln!("[security] note: failed to update deka.json: {}", err);
+                } else {
+                    eprintln!(
+                        "[security] updated deka.json to allow {} on {}",
+                        capability,
+                        target.unwrap_or("*")
+                    );
+                }
             }
             Ok(accepted)
         }
@@ -2277,6 +2287,130 @@ fn patch_for_suggestion(capability: &str, suggestion: &str) -> Option<String> {
         capability, items
     );
     Some(patch)
+}
+
+fn update_deka_json_allow(capability: &str, target: Option<&str>) -> Result<(), String> {
+    let target = target.ok_or("missing target")?.trim();
+    if target.is_empty() {
+        return Err("empty target".to_string());
+    }
+    let project_kind = project_kind();
+    let root = project_root().ok_or("failed to determine project root")?;
+    let path = root.join("deka.json");
+    let mut doc = if path.exists() {
+        let raw = std::fs::read_to_string(&path)
+            .map_err(|err| format!("failed to read {}: {}", path.display(), err))?;
+        serde_json::from_str::<Value>(&raw)
+            .map_err(|err| format!("invalid JSON in {}: {}", path.display(), err))?
+    } else {
+        Value::Object(Map::new())
+    };
+
+    let root_obj = doc
+        .as_object_mut()
+        .ok_or("deka.json root must be an object")?;
+    let security = root_obj
+        .entry("security")
+        .or_insert_with(|| Value::Object(Map::new()));
+    let security_obj = security
+        .as_object_mut()
+        .ok_or("security must be an object")?;
+    let allow = security_obj
+        .entry("allow")
+        .or_insert_with(|| Value::Object(Map::new()));
+    let allow_obj = allow
+        .as_object_mut()
+        .ok_or("security.allow must be an object")?;
+
+    let items = rule_items_for_request(capability, target, project_kind);
+    if items.is_empty() {
+        return Err("no allow items to apply".to_string());
+    }
+
+    let entry = allow_obj.entry(capability).or_insert(Value::Bool(false));
+    if entry.as_bool() == Some(true) {
+        return Ok(());
+    }
+
+    let mut list = Vec::new();
+    match entry {
+        Value::Bool(_) => {}
+        Value::String(existing) => {
+            list.push(existing.clone());
+        }
+        Value::Array(existing) => {
+            for value in existing.iter() {
+                if let Some(item) = value.as_str() {
+                    if !item.trim().is_empty() {
+                        list.push(item.to_string());
+                    }
+                }
+            }
+        }
+        _ => {
+            return Err(format!(
+                "security.allow.{} must be boolean, string, or array",
+                capability
+            ));
+        }
+    }
+
+    for item in items {
+        if !list.iter().any(|existing| existing == &item) {
+            list.push(item);
+        }
+    }
+
+    *entry = Value::Array(list.into_iter().map(Value::String).collect());
+
+    let payload = serde_json::to_string_pretty(&doc)
+        .map_err(|err| format!("failed to serialize deka.json: {}", err))?;
+    std::fs::write(&path, payload)
+        .map_err(|err| format!("failed to write {}: {}", path.display(), err))?;
+    Ok(())
+}
+
+fn rule_items_for_request(capability: &str, target: &str, project_kind: ProjectKind) -> Vec<String> {
+    match capability {
+        "read" => rule_items_for_path(target, project_kind, true),
+        "write" => rule_items_for_path(target, project_kind, false),
+        "net" | "env" | "run" | "db" | "wasm" => vec![target.trim().to_string()],
+        _ => Vec::new(),
+    }
+}
+
+fn rule_items_for_path(target: &str, _project_kind: ProjectKind, is_read: bool) -> Vec<String> {
+    let root = project_root();
+    let path = std::path::Path::new(target);
+    let rel = root
+        .as_ref()
+        .and_then(|root| path.strip_prefix(root).ok())
+        .unwrap_or(path);
+    let rel_str = rel.to_string_lossy().replace('\\', "/");
+
+    let item = if rel_str.starts_with("php_modules/.cache") {
+        "./php_modules/.cache".to_string()
+    } else if rel_str.starts_with("php_modules/") {
+        "./php_modules".to_string()
+    } else if rel_str.starts_with("src/") {
+        "./src".to_string()
+    } else if rel_str.starts_with("deps/") {
+        "./deps".to_string()
+    } else if rel_str.starts_with("node_modules/") {
+        "./node_modules".to_string()
+    } else if !is_read && rel_str.starts_with("dist/") {
+        "./dist".to_string()
+    } else if !is_read && rel_str.starts_with("build/") {
+        "./build".to_string()
+    } else if rel_str == "deka.lock" {
+        "./deka.lock".to_string()
+    } else if let Some(prefix) = rel.components().next().and_then(|c| c.as_os_str().to_str()) {
+        format!("./{}", prefix)
+    } else {
+        target.to_string()
+    };
+
+    vec![item]
 }
 
 fn enforce_read(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
