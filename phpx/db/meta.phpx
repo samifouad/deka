@@ -44,7 +44,7 @@ export function meta() {
                 lastSeenAt: { type: 'string', db_name: 'last_seen_at', annotations: [{ name: 'map', args: ['"last_seen_at"'] }] },
                 expiresAt: { type: 'string', db_name: 'expires_at', annotations: [{ name: 'map', args: ['"expires_at"'] }] },
                 createdAt: { type: 'string', db_name: 'created_at', annotations: [{ name: 'map', args: ['"created_at"'] }] },
-                revokedAt: { type: 'string', db_name: 'revoked_at', annotations: [{ name: 'map', args: ['"revoked_at"'] }] },
+                revokedAt: { type: 'Option<string>', db_name: 'revoked_at', annotations: [{ name: 'map', args: ['"revoked_at"'] }] },
             },
             relations: []
         },
@@ -61,7 +61,7 @@ export function meta() {
                 lastUsedAt: { type: 'string', db_name: 'last_used_at', annotations: [{ name: 'map', args: ['"last_used_at"'] }] },
                 expiresAt: { type: 'string', db_name: 'expires_at', annotations: [{ name: 'map', args: ['"expires_at"'] }] },
                 createdAt: { type: 'string', db_name: 'created_at', annotations: [{ name: 'map', args: ['"created_at"'] }] },
-                revokedAt: { type: 'string', db_name: 'revoked_at', annotations: [{ name: 'map', args: ['"revoked_at"'] }] },
+                revokedAt: { type: 'Option<string>', db_name: 'revoked_at', annotations: [{ name: 'map', args: ['"revoked_at"'] }] },
             },
             relations: []
         },
@@ -86,7 +86,7 @@ export function meta() {
                 userId: { type: 'int', db_name: 'user_id', annotations: [{ name: 'map', args: ['"user_id"'] }] },
                 role: { type: 'string', db_name: 'role', annotations: [] },
                 createdAt: { type: 'string', db_name: 'created_at', annotations: [{ name: 'map', args: ['"created_at"'] }] },
-                revokedAt: { type: 'string', db_name: 'revoked_at', annotations: [{ name: 'map', args: ['"revoked_at"'] }] },
+                revokedAt: { type: 'Option<string>', db_name: 'revoked_at', annotations: [{ name: 'map', args: ['"revoked_at"'] }] },
             },
             relations: []
         },

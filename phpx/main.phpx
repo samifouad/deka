@@ -173,7 +173,7 @@ function clientInsertOne($client, $model, $row, $returning = false) {
 }
 
 function clientUpdateWhere($client, $model, $where, $values, $returning = false) {
-  return updateWhere($client.handle, $model, $where, $values, $returning)
+  return updateWhere($client.handle, $model, $values, $where, $returning)
 }
 
 function clientDeleteWhere($client, $model, $where, $returning = false) {
@@ -2293,7 +2293,10 @@ function authUpsertUserByDid($db, $did, $handle, $displayName) {
     {
       did: '' . $did,
       handle: '' . $handle,
-      display_name: '' . $displayName
+      display_name: '' . $displayName,
+      avatar_url: '',
+      created_at: gmdate('c'),
+      updated_at: gmdate('c')
     },
     false
   )
@@ -2790,6 +2793,7 @@ function authIssueSession($handle, $userId) {
       last_seen_at: gmdate('c'),
       expires_at: authSessionExpiresAt(),
       created_at: gmdate('c'),
+      revoked_at: null,
       ip_address: $ipAddress,
       user_agent: $userAgent
     },

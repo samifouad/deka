@@ -26,7 +26,7 @@ struct LhSession {
   $lastSeenAt: string @map("last_seen_at")
   $expiresAt: string @map("expires_at")
   $createdAt: string @map("created_at")
-  $revokedAt: string @map("revoked_at")
+  $revokedAt: Option<string> @map("revoked_at")
 }
 
 struct LhApiToken {
@@ -39,7 +39,7 @@ struct LhApiToken {
   $lastUsedAt: string @map("last_used_at")
   $expiresAt: string @map("expires_at")
   $createdAt: string @map("created_at")
-  $revokedAt: string @map("revoked_at")
+  $revokedAt: Option<string> @map("revoked_at")
 }
 
 struct LhOrg {
@@ -56,7 +56,7 @@ struct LhOrgMember {
   $userId: int @map("user_id")
   $role: string
   $createdAt: string @map("created_at")
-  $revokedAt: string @map("revoked_at")
+  $revokedAt: Option<string> @map("revoked_at")
 }
 
 struct LhRateLimitHit {

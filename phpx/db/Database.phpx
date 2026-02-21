@@ -41,7 +41,7 @@ function clientInsertOne($client, $model, $row, $returning = false) {
 }
 
 function clientUpdateWhere($client, $model, $where, $values, $returning = false) {
-  return updateWhere($client.handle, $model, $where, $values, $returning)
+  return updateWhere($client.handle, $model, $values, $where, $returning)
 }
 
 function clientDeleteWhere($client, $model, $where, $returning = false) {
