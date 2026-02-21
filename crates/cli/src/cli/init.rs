@@ -1,4 +1,5 @@
 use core::{CommandSpec, Context, Registry};
+use serde_json::{Map, Value};
 use std::path::{Path, PathBuf};
 use stdio::{error as stdio_error, raw};
 
@@ -124,6 +125,69 @@ pub fn cmd(context: &Context) {
         return;
     }
 
+    if let Err(err) = ensure_file(
+        &php_modules.join("encoding").join("json").join("index.phpx"),
+        load_module_template("encoding/json/index.phpx")
+            .unwrap_or_else(default_encoding_json_phpx),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+
+    if let Err(err) = ensure_file(
+        &php_modules.join("core").join("result.phpx"),
+        load_module_template("core/result.phpx").unwrap_or_else(default_core_result_phpx),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+
+    if let Err(err) = ensure_file(
+        &php_modules.join("core").join("byte.phpx"),
+        load_module_template("core/byte.phpx").unwrap_or_else(default_core_byte_phpx),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+
+    if let Err(err) = ensure_file(
+        &php_modules.join("core").join("num.phpx"),
+        load_module_template("core/num.phpx").unwrap_or_else(default_core_num_phpx),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+
+    if let Err(err) = ensure_file(
+        &php_modules.join("core").join("bridge.phpx"),
+        load_module_template("core/bridge.phpx").unwrap_or_else(default_core_bridge_phpx),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+
+    if let Err(err) = ensure_lock_module_entries(
+        &target.join("deka.lock"),
+        &[
+            ("component/core", "php_modules/component/core.phpx"),
+            ("component/dom", "php_modules/component/dom.phpx"),
+            ("encoding/json", "php_modules/encoding/json/index.phpx"),
+            ("core/result", "php_modules/core/result.phpx"),
+            ("core/byte", "php_modules/core/byte.phpx"),
+            ("core/num", "php_modules/core/num.phpx"),
+            ("core/bridge", "php_modules/core/bridge.phpx"),
+        ],
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+
     if touched.is_empty() {
         raw("[init] project is already initialized");
         return;
@@ -147,6 +211,89 @@ fn ensure_file(path: &Path, content: String, touched: &mut Vec<String>) -> Resul
         .map_err(|err| format!("failed to write {}: {}", path.display(), err))?;
     touched.push(path_display(path));
     Ok(())
+}
+
+fn ensure_lock_module_entries(
+    lock_path: &Path,
+    entries: &[(&str, &str)],
+    touched: &mut Vec<String>,
+) -> Result<(), String> {
+    let mut doc = if lock_path.exists() {
+        let raw = std::fs::read_to_string(lock_path)
+            .map_err(|err| format!("failed to read {}: {}", lock_path.display(), err))?;
+        serde_json::from_str::<Value>(&raw)
+            .map_err(|err| format!("invalid JSON in {}: {}", lock_path.display(), err))?
+    } else {
+        serde_json::from_str::<Value>(&default_deka_lock_json())
+            .map_err(|err| format!("invalid default deka.lock JSON: {}", err))?
+    };
+
+    let root = doc
+        .as_object_mut()
+        .ok_or("deka.lock must be a JSON object")?;
+    let php = root
+        .entry("php")
+        .or_insert_with(|| Value::Object(Map::new()));
+    let php_obj = php
+        .as_object_mut()
+        .ok_or("deka.lock php section must be an object")?;
+    let cache = php_obj
+        .entry("cache")
+        .or_insert_with(|| Value::Object(Map::new()));
+    let cache_obj = cache
+        .as_object_mut()
+        .ok_or("deka.lock php.cache must be an object")?;
+    cache_obj
+        .entry("version")
+        .or_insert_with(|| Value::Number(1.into()));
+    cache_obj
+        .entry("compiler")
+        .or_insert_with(|| Value::String("phpx-cache-v3".to_string()));
+    let modules = cache_obj
+        .entry("modules")
+        .or_insert_with(|| Value::Object(Map::new()));
+    let modules_obj = modules
+        .as_object_mut()
+        .ok_or("deka.lock php.cache.modules must be an object")?;
+
+    let mut changed = false;
+    for (module_id, src_rel) in entries {
+        if modules_obj.contains_key(*module_id) {
+            continue;
+        }
+        let cache_rel = module_cache_rel(src_rel);
+        let entry = serde_json::json!({
+            "src": src_rel,
+            "hash": "",
+            "cache": cache_rel,
+            "compiler": "phpx-cache-v3",
+            "deps": [],
+            "exports": []
+        });
+        modules_obj.insert((*module_id).to_string(), entry);
+        changed = true;
+    }
+
+    if changed {
+        let payload = serde_json::to_string_pretty(&doc)
+            .map_err(|err| format!("failed to serialize {}: {}", lock_path.display(), err))?;
+        std::fs::write(lock_path, payload)
+            .map_err(|err| format!("failed to write {}: {}", lock_path.display(), err))?;
+        touched.push(path_display(lock_path));
+    }
+
+    Ok(())
+}
+
+fn module_cache_rel(src_rel: &str) -> String {
+    let normalized = src_rel.replace('\\', "/");
+    let trimmed = normalized.strip_prefix("php_modules/").unwrap_or(normalized.as_str());
+    let mut rel = trimmed.to_string();
+    if rel.ends_with(".phpx") {
+        rel.truncate(rel.len() - 5);
+        rel.push_str(".php");
+    }
+    format!("php_modules/.cache/phpx/{}", rel)
 }
 
 fn project_name_from_dir(path: &Path) -> String {
@@ -271,16 +418,138 @@ export function jsxs($type, $props = false, ...$children): object {
 }
 
 fn default_component_dom_phpx() -> String {
-    "export function renderToString($node) {
+    r#"export function renderToString($node) {
     if (is_string($node)) {
         return $node;
     }
-    return \"\";
+    return "";
 }
 
 export function Hydration($props: object): mixed {
     return null;
 }
-"
-    .to_string()
+"#
+        .to_string()
+}
+
+fn default_encoding_json_phpx() -> String {
+    r#"import { result_ok, result_err } from 'core/result';
+import { byte_is_digit, byte_is_hex, byte_is_whitespace } from 'core/byte';
+import { num_parse_int, num_parse_float } from 'core/num';
+import { bridge } from 'core/bridge';
+
+export function json_encode($value) {
+    return bridge('json', 'encode', { value: $value });
+}
+
+export function json_decode($value, $assoc = false) {
+    return bridge('json', 'decode', { value: $value, assoc: $assoc });
+}
+
+export function json_decode_result($value, $assoc = false): Result {
+    return json_decode($value, $assoc);
+}
+
+export function json_last_error(): int {
+    return 0;
+}
+
+export function json_last_error_msg(): string {
+    return '';
+}
+
+export function json_validate($value): bool {
+    return true;
+}
+"#
+        .to_string()
+}
+
+fn default_core_result_phpx() -> String {
+    r#"enum Result {
+    case Ok(mixed $value);
+    case Err(mixed $error);
+}
+
+export function result_ok($value): Result {
+    return Result::Ok($value);
+}
+
+export function result_err($error): Result {
+    return Result::Err($error);
+}
+
+export function result_is_ok($value): bool {
+    return $value is Result::Ok;
+}
+
+export function result_is_err($value): bool {
+    return $value is Result::Err;
+}
+
+export function result_unwrap($value) {
+    if ($value is Result::Ok) return $value.value;
+    panic('Tried to unwrap Err result.');
+}
+
+export function result_unwrap_or($value, $fallback) {
+    if ($value is Result::Ok) return $value.value;
+    return $fallback;
+}
+"#
+        .to_string()
+}
+
+fn default_core_byte_phpx() -> String {
+    r#"export function byte_from_char($char): int {
+    return ord('' . $char);
+}
+
+export function byte_to_char($byte): string {
+    return chr($byte);
+}
+
+export function byte_is_whitespace($byte): bool {
+    return $byte === 9 || $byte === 10 || $byte === 13 || $byte === 32;
+}
+
+export function byte_is_digit($byte): bool {
+    return $byte >= 48 && $byte <= 57;
+}
+
+export function byte_is_hex($byte): bool {
+    return ($byte >= 48 && $byte <= 57) || ($byte >= 65 && $byte <= 70) || ($byte >= 97 && $byte <= 102);
+}
+"#
+        .to_string()
+}
+
+fn default_core_num_phpx() -> String {
+    r#"export function num_parse_int($value): int {
+    return intval($value);
+}
+
+export function num_parse_float($value): float {
+    return floatval($value);
+}
+"#
+        .to_string()
+}
+
+fn default_core_bridge_phpx() -> String {
+    r#"export function bridge($kind, $action, $payload = {}) {
+    if (function_exists('__bridge')) {
+        return \__bridge($kind, $action, $payload);
+    }
+    return \__deka_wasm_call('__deka_' . ('' . $kind), '' . $action, $payload);
+}
+
+export async function bridge_async($kind, $action, $payload = {}): Promise<mixed> {
+    if (function_exists('__bridge_async')) {
+        return await \__bridge_async($kind, $action, $payload);
+    }
+    return await \__deka_wasm_call_async('__deka_' . ('' . $kind), '' . $action, $payload);
+}
+"#
+        .to_string()
 }
