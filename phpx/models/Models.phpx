@@ -1,0 +1,47 @@
+// Database models for the registry
+
+struct Organization {
+  $id: int
+  $handle: string
+  $did: string
+  $name: string
+  $description: string
+  $avatarUrl: string
+  $createdAt: string
+}
+
+struct Package {
+  $id: int
+  $orgId: int
+  $name: string
+  $description: string
+  $latestVersion: string
+  $downloadCount: int
+  $createdAt: string
+  $updatedAt: string
+}
+
+struct PackageVersion {
+  $id: int
+  $packageId: int
+  $version: string
+  $mainFile: string
+  $files: array<string>
+  $dependencies: mixed
+  $readme: string
+  $publishedAt: string
+  $r2Key: string
+  $sha256: string
+  $integrityAlgo: string
+  $moduleGraphHash: string
+  $fsGraphHash: string
+}
+
+struct Download {
+  $id: int
+  $packageId: int
+  $versionId: int
+  $downloadedAt: string
+  $ipAddress: string
+  $userAgent: string
+}

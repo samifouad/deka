@@ -1,10 +1,10 @@
 ---
 import { jsx, jsxs } from 'component/core'
 import { renderPartialJson, isPartialRequest, Link, Hydration } from 'component/dom'
-import { json_encode as encodeJson } from 'encoding/json'
+import { json_encode as encodeJson, json_decode_result } from 'encoding/json'
 import { PreviewRouteSection, ForkResultSection } from '@/src/pages/repo_flows'
 import { PackageStatPills, PackageVersionRows } from '@/src/pages/package_detail'
-import { buildAdwaBaseUrl, buildAdwaPreviewUrl, buildAdwaEditUrl } from '@/src/services/adwa'
+import { buildAdwaBaseUrl, buildAdwaPreviewUrl, buildAdwaPreviewUrlForRef, buildAdwaEditUrl } from '@/src/services/adwa'
 import { gitApiDefaultBase, scopedReleaseDocsPath, scopedReleaseTreePath, scopedReleaseBlobPath, repoIssuesPath, repoIssueDetailPath, repoIssueCommentPath, repoPullsPath, repoPullDetailPath, repoPullCommentPath, repoResolvePath, repoForkPath } from '@/src/services/linkhash_git'
 import { repoIssueCreateRoute, repoIssueCommentRoute, repoPullCreateRoute, repoPullCommentRoute, repoForkRoute, buildRepoActionRedirectPath } from '@/src/api/repo_actions'
 import { stats } from 'db'
@@ -1287,10 +1287,11 @@ function parseUrlParts($url) {
 }
 
 function parseHttpHeaders($rawHeaders) {
-  $lines = explode("\r\n", '' . $rawHeaders)
+  $normalized = str_replace("\r\n", "\n", '' . $rawHeaders)
+  $lines = explode("\n", $normalized)
   $statusLine = count($lines) > 0 ? ('' . $lines[0]) : ''
   $status = 0
-  if (preg_match('/^HTTP\/[0-9.]+\s+([0-9]{3})/', $statusLine, $m)) {
+  if (preg_match('/^HTTP\/[0-9.]+\s+([0-9]{3})/i', $statusLine, $m)) {
     $status = (int) $m[1]
   }
   $headers = []
@@ -1422,11 +1423,16 @@ function httpRequestRaw($method, $url, $headers = [], $body = '') {
   }
 
   $sepPos = strpos($raw, "\r\n\r\n")
+  $sepLen = 4
+  if ($sepPos === false) {
+    $sepPos = strpos($raw, "\n\n")
+    $sepLen = 2
+  }
   if ($sepPos === false) {
     return { ok: false, error: 'invalid http response', raw: $raw }
   }
   $rawHeaders = substr($raw, 0, $sepPos)
-  $rawBody = substr($raw, $sepPos + 4)
+  $rawBody = substr($raw, $sepPos + $sepLen)
   $parsed = parseHttpHeaders($rawHeaders)
   $status = (int) $parsed->status
   $outHeaders = $parsed->headers
@@ -1454,11 +1460,25 @@ function formUrlEncode($pairs) {
 }
 
 function linkhashGitApiBase() {
-  $base = trim('' . envValue('LINKHASH_GIT_API_URL', gitApiDefaultBase()))
-  if ($base === '') {
-    return 'http://localhost:8508'
+  $override = trim('' . envValue('LINKHASH_GIT_API_URL', ''))
+  if ($override !== '') {
+    return rtrim($override, '/')
   }
-  return rtrim($base, '/')
+  $candidates = [gitApiDefaultBase(), 'http://127.0.0.1:8608']
+  foreach ($candidates as $candidate) {
+    $base = rtrim(trim('' . $candidate), '/')
+    if ($base === '') {
+      continue
+    }
+    $probe = httpRequestRaw('GET', $base . '/health', [ 'Accept' => 'application/json' ], '')
+    if (is_array($probe) && rowValue($probe, 'ok', false)) {
+      $status = (int) rowValue($probe, 'status', 0)
+      if ($status >= 200 && $status < 500) {
+        return $base
+      }
+    }
+  }
+  return rtrim(gitApiDefaultBase(), '/')
 }
 
 function fetchRemoteReleaseDocs($org, $name, $version) {
@@ -1470,18 +1490,18 @@ function fetchRemoteReleaseDocs($org, $name, $version) {
   }
   $url = linkhashGitApiBase() . scopedReleaseDocsPath($scope, $pkg, $ver)
   $res = httpRequestRaw('GET', $url, [ 'Accept' => 'application/json' ], '')
-  if (!is_array($res) || !rowValue($res, 'ok', false)) {
-    return [ 'ok' => false, 'error' => 'docs request failed' ]
+  if (!rowValue($res, 'ok', false)) {
+    return [ 'ok' => false, 'error' => 'docs request failed (' . rowValue($res, 'error', 'request failed') . ')' ]
   }
   $status = (int) rowValue($res, 'status', 0)
   if ($status < 200 || $status >= 300) {
     return [ 'ok' => false, 'error' => 'docs not available', 'status' => $status ]
   }
-  $decoded = json_decode_result(rowValue($res, 'body', '{}'), true)
-  if (!result_is_ok($decoded) || !is_array($decoded->value)) {
+  $decoded = decodeJsonLike(rowValue($res, 'body', '{}'), null)
+  if (!is_array($decoded)) {
     return [ 'ok' => false, 'error' => 'invalid docs payload' ]
   }
-  return [ 'ok' => true, 'value' => $decoded->value ]
+  return [ 'ok' => true, 'value' => $decoded ]
 }
 
 function fetchRemoteReleaseTree($org, $name, $version) {
@@ -1493,18 +1513,18 @@ function fetchRemoteReleaseTree($org, $name, $version) {
   }
   $url = linkhashGitApiBase() . scopedReleaseTreePath($scope, $pkg, $ver)
   $res = httpRequestRaw('GET', $url, [ 'Accept' => 'application/json' ], '')
-  if (!is_array($res) || !rowValue($res, 'ok', false)) {
-    return [ 'ok' => false, 'error' => 'tree request failed' ]
+  if (!rowValue($res, 'ok', false)) {
+    return [ 'ok' => false, 'error' => 'tree request failed (' . rowValue($res, 'error', 'request failed') . ')' ]
   }
   $status = (int) rowValue($res, 'status', 0)
   if ($status < 200 || $status >= 300) {
     return [ 'ok' => false, 'error' => 'tree not available', 'status' => $status ]
   }
-  $decoded = json_decode_result(rowValue($res, 'body', '{}'), true)
-  if (!result_is_ok($decoded) || !is_array($decoded->value)) {
+  $decoded = decodeJsonLike(rowValue($res, 'body', '{}'), null)
+  if (!is_array($decoded)) {
     return [ 'ok' => false, 'error' => 'invalid tree payload' ]
   }
-  return [ 'ok' => true, 'value' => $decoded->value ]
+  return [ 'ok' => true, 'value' => $decoded ]
 }
 
 function fetchRemoteReleaseBlob($org, $name, $version, $path) {
@@ -1517,18 +1537,18 @@ function fetchRemoteReleaseBlob($org, $name, $version, $path) {
   }
   $url = linkhashGitApiBase() . scopedReleaseBlobPath($scope, $pkg, $ver, $file)
   $res = httpRequestRaw('GET', $url, [ 'Accept' => 'application/json' ], '')
-  if (!is_array($res) || !rowValue($res, 'ok', false)) {
-    return [ 'ok' => false, 'error' => 'blob request failed' ]
+  if (!rowValue($res, 'ok', false)) {
+    return [ 'ok' => false, 'error' => 'blob request failed (' . rowValue($res, 'error', 'request failed') . ')' ]
   }
   $status = (int) rowValue($res, 'status', 0)
   if ($status < 200 || $status >= 300) {
     return [ 'ok' => false, 'error' => 'blob not available', 'status' => $status ]
   }
-  $decoded = json_decode_result(rowValue($res, 'body', '{}'), true)
-  if (!result_is_ok($decoded) || !is_array($decoded->value)) {
+  $decoded = decodeJsonLike(rowValue($res, 'body', '{}'), null)
+  if (!is_array($decoded)) {
     return [ 'ok' => false, 'error' => 'invalid blob payload' ]
   }
-  return [ 'ok' => true, 'value' => $decoded->value ]
+  return [ 'ok' => true, 'value' => $decoded ]
 }
 
 function linkhashGitAuthToken() {
@@ -1562,18 +1582,19 @@ function fetchRemoteGitJson($method, $path, $payload = null) {
     $headers['Content-Type'] = 'application/json'
   }
   $res = httpRequestRaw($method, $url, $headers, $body)
-  if (!is_array($res) || !rowValue($res, 'ok', false)) {
-    return [ 'ok' => false, 'error' => 'request failed' ]
+  if (!rowValue($res, 'ok', false)) {
+    $rawErr = '' . rowValue($res, 'error', 'request failed')
+    return [ 'ok' => false, 'error' => 'request failed (' . $rawErr . ')', 'url' => $url ]
   }
   $status = (int) rowValue($res, 'status', 0)
-  $decoded = json_decode_result(rowValue($res, 'body', '{}'), true)
-  if (!result_is_ok($decoded) || !is_array($decoded->value)) {
+  $decoded = decodeJsonLike(rowValue($res, 'body', '{}'), null)
+  if (!is_array($decoded)) {
     return [ 'ok' => false, 'error' => 'invalid response payload', 'status' => $status ]
   }
   if ($status < 200 || $status >= 300) {
-    return [ 'ok' => false, 'error' => '' . rowValue($decoded->value, 'error', 'request rejected'), 'status' => $status, 'payload' => $decoded->value ]
+    return [ 'ok' => false, 'error' => '' . rowValue($decoded, 'error', 'request rejected'), 'status' => $status, 'payload' => $decoded ]
   }
-  return [ 'ok' => true, 'value' => $decoded->value, 'status' => $status ]
+  return [ 'ok' => true, 'value' => $decoded, 'status' => $status ]
 }
 
 function fetchRemoteRepoIssues($org, $name, $state = 'open') {
@@ -1680,7 +1701,22 @@ function fetchRepoRefResolution($owner, $repo, $ref = 'HEAD') {
   if ($org === '' || $name === '') {
     return [ 'ok' => false, 'error' => 'invalid preview target' ]
   }
-  return fetchRemoteGitJson('GET', repoResolvePath($org, $name, $targetRef))
+  $path = repoResolvePath($org, $name, $targetRef)
+  $url = linkhashGitApiBase() . $path
+  $res = httpRequestRaw('GET', $url, [ 'Accept' => 'application/json' ], '')
+  if (!rowValue($res, 'ok', false)) {
+    return [ 'ok' => false, 'error' => 'request failed (' . rowValue($res, 'error', 'request failed') . ')', 'url' => $url ]
+  }
+  $status = (int) rowValue($res, 'status', 0)
+  $payload = decodeJsonLike(rowValue($res, 'body', '{}'), [])
+  if ($status === 0 && is_array($payload) && rowValue($payload, 'ok', false) && ('' . rowValue($payload, 'commit', '')) !== '') {
+    return [ 'ok' => true, 'value' => $payload, 'status' => 200, 'url' => $url ]
+  }
+  if ($status < 200 || $status >= 300) {
+    $err = '' . rowValue($payload, 'error', 'request rejected') . ' (status ' . (string) $status . ')'
+    return [ 'ok' => false, 'error' => $err, 'status' => $status, 'url' => $url ]
+  }
+  return [ 'ok' => true, 'value' => is_array($payload) ? $payload : [], 'status' => $status, 'url' => $url ]
 }
 
 function createRemoteRepoFork($sourceOwner, $sourceRepo, $targetRepo) {
@@ -1701,6 +1737,10 @@ function adwaBaseUrl() {
 
 function adwaPreviewUrl($owner, $repo, $commit) {
   return buildAdwaPreviewUrl(adwaBaseUrl(), normalizeHandleName($owner), normalizePackageName($repo), $commit)
+}
+
+function adwaPreviewUrlForRef($owner, $repo, $ref = 'HEAD') {
+  return buildAdwaPreviewUrlForRef(adwaBaseUrl(), normalizeHandleName($owner), normalizePackageName($repo), trim('' . $ref))
 }
 
 function adwaEditUrl($owner, $repo, $commit = '') {
@@ -1756,11 +1796,11 @@ function oauthFetchProfile($accessToken, $cfg) {
   if ((int) $res['status'] < 200 || (int) $res['status'] >= 300) {
     return [ 'ok' => false, 'error' => 'profile request rejected', 'status' => $res['status'], 'body' => $res['body'] ]
   }
-  $decoded = json_decode_result($res['body'], true)
-  if (!result_is_ok($decoded)) {
+  $decoded = decodeJsonLike($res['body'], null)
+  if (!is_array($decoded)) {
     return [ 'ok' => false, 'error' => 'invalid profile json' ]
   }
-  $profile = $decoded->value
+  $profile = $decoded
   if (!is_array($profile)) {
     return [ 'ok' => false, 'error' => 'invalid profile payload' ]
   }
@@ -2403,11 +2443,16 @@ function ensureAuthSchema($db) {
   dbExec($db, "create unique index if not exists idx_packages_org_name on packages(org_id, lower(name))", [])
   dbExec($db, "alter table packages add column if not exists visibility text not null default 'public'", [])
   dbExec($db, "alter table packages add column if not exists private_read_mask integer not null default 0", [])
-  dbExec($db, "create table if not exists package_versions (id bigserial primary key, package_id bigint not null references packages(id) on delete cascade, version text not null, main_file text default 'index.phpx', files jsonb not null default '[]'::jsonb, dependencies jsonb not null default '{}'::jsonb, readme text not null default '', published_at timestamptz not null default now(), r2_key text, sha256 text, canonical_id text, lock_hash text, artifact_backend text not null default 'local', artifact_key text, artifact_mime text not null default 'application/octet-stream', artifact_size_bytes bigint not null default 0)", [])
+  dbExec($db, "create table if not exists package_versions (id bigserial primary key, package_id bigint not null references packages(id) on delete cascade, version text not null, main_file text default 'index.phpx', files jsonb not null default '[]'::jsonb, dependencies jsonb not null default '{}'::jsonb, readme text not null default '', published_at timestamptz not null default now(), r2_key text, sha256 text, canonical_id text, lock_hash text, integrity_algo text, module_graph_hash text, fs_graph_hash text, artifact_backend text not null default 'local', artifact_key text, artifact_mime text not null default 'application/octet-stream', artifact_size_bytes bigint not null default 0)", [])
   dbExec($db, "alter table package_versions add column if not exists artifact_inline_b64 text", [])
   dbExec($db, "alter table package_versions add column if not exists capability_metadata jsonb", [])
+  dbExec($db, "alter table package_versions add column if not exists integrity_algo text", [])
+  dbExec($db, "alter table package_versions add column if not exists module_graph_hash text", [])
+  dbExec($db, "alter table package_versions add column if not exists fs_graph_hash text", [])
   dbExec($db, "create unique index if not exists idx_package_versions_package_version on package_versions(package_id, version)", [])
   dbExec($db, "create unique index if not exists idx_package_versions_canonical_id on package_versions(canonical_id) where canonical_id is not null", [])
+  dbExec($db, "create index if not exists idx_package_versions_module_graph_hash on package_versions(module_graph_hash)", [])
+  dbExec($db, "create index if not exists idx_package_versions_fs_graph_hash on package_versions(fs_graph_hash)", [])
   dbExec($db, "create table if not exists downloads (id bigserial primary key, package_id bigint not null references packages(id) on delete cascade, version_id bigint not null references package_versions(id) on delete cascade, downloaded_at timestamptz not null default now(), ip_address text, user_agent text)", [])
 }
 
@@ -3003,12 +3048,12 @@ function apiAuthCallback() {
     echo jsonReply([ 'ok' => false, 'error' => 'token exchange rejected', 'status' => $tokenRes['status'], 'body' => $tokenRes['body'] ])
     return
   }
-  $tokenDecoded = json_decode_result($tokenRes['body'], true)
-  if (!result_is_ok($tokenDecoded) || !is_array($tokenDecoded->value)) {
+  $tokenDecoded = decodeJsonLike($tokenRes['body'], null)
+  if (!is_array($tokenDecoded)) {
     echo jsonReply([ 'ok' => false, 'error' => 'invalid token response json' ])
     return
   }
-  $tokens = $tokenDecoded->value
+  $tokens = $tokenDecoded
   if (!array_key_exists('access_token', $tokens) || ('' . $tokens['access_token']) === '') {
     echo jsonReply([ 'ok' => false, 'error' => 'token response missing access_token', 'response' => $tokens ])
     return
@@ -4217,6 +4262,9 @@ function apiPublishPackage() {
   $version = trim('' . queryValue('version', array_key_exists('version', $body) ? $body['version'] : ''))
   $lockHash = trim('' . queryValue('lockHash', array_key_exists('lockHash', $body) ? $body['lockHash'] : 'dev'))
   $sha256 = trim('' . queryValue('sha256', array_key_exists('sha256', $body) ? $body['sha256'] : ''))
+  $integrityAlgo = trim('' . queryValue('integrityAlgo', array_key_exists('integrityAlgo', $body) ? $body['integrityAlgo'] : ''))
+  $moduleGraphHash = trim('' . queryValue('moduleGraphHash', array_key_exists('moduleGraphHash', $body) ? $body['moduleGraphHash'] : ''))
+  $fsGraphHash = trim('' . queryValue('fsGraphHash', array_key_exists('fsGraphHash', $body) ? $body['fsGraphHash'] : ''))
   $mime = trim('' . queryValue('mime', array_key_exists('mime', $body) ? $body['mime'] : 'application/octet-stream'))
   $mainFile = trim('' . queryValue('mainFile', array_key_exists('mainFile', $body) ? $body['mainFile'] : 'index.phpx'))
   $artifactB64 = '' . queryValue('artifactBase64', array_key_exists('artifactBase64', $body) ? $body['artifactBase64'] : '')
@@ -4226,6 +4274,41 @@ function apiPublishPackage() {
   $depsInput = array_key_exists('dependencies', $body) ? $body['dependencies'] : []
   $readme = '' . queryValue('readme', array_key_exists('readme', $body) ? $body['readme'] : '')
   $capabilityInput = array_key_exists('capabilityMetadata', $body) ? $body['capabilityMetadata'] : (array_key_exists('capabilities', $body) ? [ 'declared' => $body['capabilities'] ] : null)
+
+  if (array_key_exists('integrity', $body) && (is_array($body['integrity']) || is_object($body['integrity']))) {
+    $integrity = is_array($body['integrity']) ? $body['integrity'] : (array) $body['integrity']
+    if ($integrityAlgo === '' && array_key_exists('algo', $integrity)) {
+      $integrityAlgo = trim('' . $integrity['algo'])
+    }
+    if ($moduleGraphHash === '' && array_key_exists('moduleGraphHash', $integrity)) {
+      $moduleGraphHash = trim('' . $integrity['moduleGraphHash'])
+    }
+    if ($fsGraphHash === '' && array_key_exists('fsGraphHash', $integrity)) {
+      $fsGraphHash = trim('' . $integrity['fsGraphHash'])
+    }
+    if (($moduleGraphHash === '' || $fsGraphHash === '') && array_key_exists('moduleGraph', $integrity)) {
+      $moduleGraph = is_array($integrity['moduleGraph']) ? $integrity['moduleGraph'] : (array) $integrity['moduleGraph']
+      if ($moduleGraphHash === '' && array_key_exists('hash', $moduleGraph)) {
+        $moduleGraphHash = trim('' . $moduleGraph['hash'])
+      }
+      if ($integrityAlgo === '' && array_key_exists('algo', $moduleGraph)) {
+        $integrityAlgo = trim('' . $moduleGraph['algo'])
+      }
+    }
+    if (($moduleGraphHash === '' || $fsGraphHash === '') && array_key_exists('fsGraph', $integrity)) {
+      $fsGraph = is_array($integrity['fsGraph']) ? $integrity['fsGraph'] : (array) $integrity['fsGraph']
+      if ($fsGraphHash === '' && array_key_exists('hash', $fsGraph)) {
+        $fsGraphHash = trim('' . $fsGraph['hash'])
+      }
+      if ($integrityAlgo === '' && array_key_exists('algo', $fsGraph)) {
+        $integrityAlgo = trim('' . $fsGraph['algo'])
+      }
+    }
+  }
+
+  if ($integrityAlgo === '' && ($moduleGraphHash !== '' || $fsGraphHash !== '')) {
+    $integrityAlgo = 'sha256'
+  }
 
   $filesDecoded = decodeJsonLike($filesInput, [])
   $depsDecoded = decodeJsonLike($depsInput, [])
@@ -4310,11 +4393,11 @@ function apiPublishPackage() {
 
   $upVer = dbQueryOne(
     $db,
-    "insert into package_versions (package_id, version, main_file, files, dependencies, readme, published_at, r2_key, sha256, canonical_id, lock_hash, artifact_backend, artifact_key, artifact_mime, artifact_size_bytes, artifact_inline_b64, capability_metadata)
-     values (($1)::text::bigint, $2, $3, ($4)::jsonb, ($5)::jsonb, $6, now(), null, $7, $8, $9, $10, $11, $12, ($13)::text::bigint, $14, ($15)::jsonb)
-     on conflict (package_id, version) do update set main_file = excluded.main_file, files = excluded.files, dependencies = excluded.dependencies, readme = excluded.readme, sha256 = excluded.sha256, canonical_id = excluded.canonical_id, lock_hash = excluded.lock_hash, artifact_backend = excluded.artifact_backend, artifact_key = excluded.artifact_key, artifact_mime = excluded.artifact_mime, artifact_size_bytes = excluded.artifact_size_bytes, artifact_inline_b64 = excluded.artifact_inline_b64, capability_metadata = excluded.capability_metadata, published_at = now()
+    "insert into package_versions (package_id, version, main_file, files, dependencies, readme, published_at, r2_key, sha256, canonical_id, lock_hash, integrity_algo, module_graph_hash, fs_graph_hash, artifact_backend, artifact_key, artifact_mime, artifact_size_bytes, artifact_inline_b64, capability_metadata)
+     values (($1)::text::bigint, $2, $3, ($4)::jsonb, ($5)::jsonb, $6, now(), null, $7, $8, $9, $10, $11, $12, $13, $14, $15, ($16)::text::bigint, $17, ($18)::jsonb)
+     on conflict (package_id, version) do update set main_file = excluded.main_file, files = excluded.files, dependencies = excluded.dependencies, readme = excluded.readme, sha256 = excluded.sha256, canonical_id = excluded.canonical_id, lock_hash = excluded.lock_hash, integrity_algo = excluded.integrity_algo, module_graph_hash = excluded.module_graph_hash, fs_graph_hash = excluded.fs_graph_hash, artifact_backend = excluded.artifact_backend, artifact_key = excluded.artifact_key, artifact_mime = excluded.artifact_mime, artifact_size_bytes = excluded.artifact_size_bytes, artifact_inline_b64 = excluded.artifact_inline_b64, capability_metadata = excluded.capability_metadata, published_at = now()
      returning id, version, canonical_id as canonicalId, artifact_key as artifactKey",
-    ['' . $packageId, $version, $mainFile, $filesJson, $depsJson, $readme, $sha256, $canonicalId, $lockHash, $artifactBackend, $artifactKey, $mime, '' . $artifactSize, $artifactB64, $capabilityJson]
+    ['' . $packageId, $version, $mainFile, $filesJson, $depsJson, $readme, $sha256, $canonicalId, $lockHash, $integrityAlgo, $moduleGraphHash, $fsGraphHash, $artifactBackend, $artifactKey, $mime, '' . $artifactSize, $artifactB64, $capabilityJson]
   )
   if (!result_is_ok($upVer)) {
     auditEvent('package.publish', $auth, 'error', 'package', '@' . $ownerHandle . '/' . $name . '@' . $version, [ 'error' => $upVer->error ])
@@ -4386,7 +4469,7 @@ function apiInstallPackage() {
   $resolvedVersion = $version === 'latest' ? ('' . rowValue($pkg->value, 'latestVersion', rowValue($pkg->value, 'latest_version', ''))) : $version
   $ver = dbQueryOne(
     $db,
-    "select id, version, canonical_id as canonicalId, lock_hash as lockHash, sha256, artifact_backend as artifactBackend, artifact_key as artifactKey, artifact_mime as artifactMime, artifact_size_bytes as artifactSizeBytes from package_versions where package_id = ($1)::text::bigint and version = $2 limit 1",
+    "select id, version, canonical_id as canonicalId, lock_hash as lockHash, sha256, integrity_algo as integrityAlgo, module_graph_hash as moduleGraphHash, fs_graph_hash as fsGraphHash, artifact_backend as artifactBackend, artifact_key as artifactKey, artifact_mime as artifactMime, artifact_size_bytes as artifactSizeBytes from package_versions where package_id = ($1)::text::bigint and version = $2 limit 1",
     ['' . $packageId, $resolvedVersion]
   )
   if (!result_is_ok($ver)) {
@@ -4419,6 +4502,11 @@ function apiInstallPackage() {
       'key' => rowValue($ver->value, 'artifactKey', rowValue($ver->value, 'artifact_key', null)),
       'mime' => rowValue($ver->value, 'artifactMime', rowValue($ver->value, 'artifact_mime', 'application/octet-stream')),
       'sizeBytes' => (int) rowValue($ver->value, 'artifactSizeBytes', rowValue($ver->value, 'artifact_size_bytes', 0))
+    ],
+    'integrity' => [
+      'algo' => rowValue($ver->value, 'integrityAlgo', rowValue($ver->value, 'integrity_algo', '')),
+      'moduleGraphHash' => rowValue($ver->value, 'moduleGraphHash', rowValue($ver->value, 'module_graph_hash', '')),
+      'fsGraphHash' => rowValue($ver->value, 'fsGraphHash', rowValue($ver->value, 'fs_graph_hash', ''))
     ],
     'downloadUrl' => '/api/artifacts/' . $canonicalId
   ])
@@ -4463,7 +4551,7 @@ function fetchPackageDetail($orgHandle, $name, $auth) {
 
   $versions = dbQuery(
     $db,
-    "select version, published_at as publishedAt, sha256, canonical_id as canonicalId, artifact_backend as artifactBackend, artifact_key as artifactKey, artifact_size_bytes as artifactSizeBytes, main_file as mainFile, files, dependencies, readme, lock_hash as lockHash, capability_metadata as capabilityMetadata
+    "select version, published_at as publishedAt, sha256, canonical_id as canonicalId, lock_hash as lockHash, integrity_algo as integrityAlgo, module_graph_hash as moduleGraphHash, fs_graph_hash as fsGraphHash, artifact_backend as artifactBackend, artifact_key as artifactKey, artifact_size_bytes as artifactSizeBytes, main_file as mainFile, files, dependencies, readme, capability_metadata as capabilityMetadata
        from package_versions
       where package_id = ($1)::text::bigint
       order by published_at desc",
@@ -4595,9 +4683,9 @@ function decodeJsonLike($value, $fallback = null) {
   if ($raw === '') {
     return $fallback
   }
-  $parsed = json_decode($raw, true)
-  if (is_array($parsed)) {
-    return $parsed
+  $parsed = json_decode_result($raw, true)
+  if (result_is_ok($parsed) && is_array($parsed->value)) {
+    return $parsed->value
   }
   return $fallback
 }
@@ -5219,6 +5307,22 @@ function PackageDetailPage($props) {
   $capabilityPills = []
   foreach ($capabilities as $cap) {
     $capabilityPills[] = <span class="rounded-full bg-blue-100 px-2 py-1 text-[11px] font-semibold text-blue-700">{$cap}</span>
+  }
+
+  $integrityAlgo = '' . rowValue($activeVersion, 'integrityAlgo', rowValue($activeVersion, 'integrity_algo', ''))
+  $moduleGraphHash = '' . rowValue($activeVersion, 'moduleGraphHash', rowValue($activeVersion, 'module_graph_hash', ''))
+  $fsGraphHash = '' . rowValue($activeVersion, 'fsGraphHash', rowValue($activeVersion, 'fs_graph_hash', ''))
+  if ($integrityAlgo !== '' || $moduleGraphHash !== '' || $fsGraphHash !== '') {
+    $capabilityRows[] = <div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+      <div class="flex items-center justify-between">
+        <span class="font-mono text-[11px] text-gray-500">integrity</span>
+        <span class="rounded bg-slate-200 px-2 py-0.5 text-[11px] text-slate-700">{$integrityAlgo === '' ? 'unknown' : $integrityAlgo}</span>
+      </div>
+      <div class="mt-2 grid gap-1">
+        <div><span class="text-gray-500">module graph</span> {' ' . ($moduleGraphHash === '' ? '-' : substr($moduleGraphHash, 0, 12) . '…')}</div>
+        <div><span class="text-gray-500">fs graph</span> {' ' . ($fsGraphHash === '' ? '-' : substr($fsGraphHash, 0, 12) . '…')}</div>
+      </div>
+    </div>
   }
 
   $fileSource = (is_array($treeEntries) && count($treeEntries) > 0) ? $treeEntries : $fileRows
@@ -6049,7 +6153,7 @@ if (strpos($path, '/package/') === 0) {
         [ 'requestedRef' => $ref, 'commit' => $commit ]
       )
       $node = <Layout>
-        <PreviewRouteSection ok={true} owner={$owner} repo={$repo} ref={$ref} shortCommit={$shortCommit} previewUrl={adwaPreviewUrl($owner, $repo, $commit)} editUrl={adwaEditUrl($owner, $repo, $commit)} />
+        <PreviewRouteSection ok={true} owner={$owner} repo={$repo} ref={$ref} shortCommit={$shortCommit} previewPath={$path} previewUrl={adwaPreviewUrl($owner, $repo, $commit)} editUrl={adwaEditUrl($owner, $repo, $commit)} />
       </Layout>
     } else {
       $owner = rowValue($preview, 'owner', '')
@@ -6063,8 +6167,14 @@ if (strpos($path, '/package/') === 0) {
         '@' . $owner . '/' . $repo,
         [ 'requestedRef' => $ref, 'error' => rowValue($resolved, 'error', 'resolve failed') ]
       )
+      $err = '' . rowValue($resolved, 'error', 'resolve failed')
+      $resolvedUrl = '' . rowValue($resolved, 'url', '')
+      $remedy = ' Ensure linkhash-git is running and LINKHASH_GIT_API_URL points to it (e.g. http://127.0.0.1:8508).'
+      if ($resolvedUrl !== '') {
+        $err = $err . ' [resolver=' . $resolvedUrl . ']'
+      }
       $node = <Layout>
-        <PreviewRouteSection ok={false} owner={$owner} repo={$repo} ref={$ref} error={rowValue($resolved, 'error', 'resolve failed')} />
+        <PreviewRouteSection ok={false} owner={$owner} repo={$repo} ref={$ref} previewPath={$path} error={$err . $remedy} previewUrl={adwaPreviewUrlForRef($owner, $repo, $ref)} editUrl={adwaEditUrl($owner, $repo)} />
       </Layout>
     }
   } else {

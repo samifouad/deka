@@ -1,0 +1,211 @@
+import { connect as db_connect, query as db_query, query_one as db_query_one, close as db_close } from 'db/postgres'
+import { result_ok, result_err, result_is_ok } from 'core/result'
+
+struct Database {
+  $config: mixed
+  $handle: int
+}
+
+export function connect($config) {
+  $res = db_connect($config)
+
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+
+  return result_ok(Database {
+    $config: $config,
+    $handle: $res->value
+  })
+}
+
+export function close($db: Database) {
+  return db_close($db->handle)
+}
+
+export function ping($db: Database) {
+  return db_query_one($db->handle, 'select 1 as ok')
+}
+
+export function findOrganizations($db: Database, $query: string): array {
+  $res = db_query($db->handle, 'select id, handle, did, name, description, avatar_url as avatarUrl, created_at as createdAt from organizations where lower(handle) like lower($1) or lower(name) like lower($2) limit 20', ['%' . $query . '%', '%' . $query . '%'])
+  if (!result_is_ok($res)) {
+    return []
+  }
+  return $res->value['rows']
+}
+
+export function getOrganizationByHandle($db: Database, $handle: string) {
+  $res = db_query_one($db->handle, 'select id, handle, did, name, description, avatar_url as avatarUrl, created_at as createdAt from organizations where handle = $1 limit 1', [$handle])
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+  return result_ok($res->value)
+}
+
+export function createOrganization($db: Database, $org) {
+  $res = db_query_one(
+    $db->handle,
+    'insert into organizations (handle, did, name, description, avatar_url, created_at) values ($1, $2, $3, $4, $5, now()) returning id, handle, did, name, description, avatar_url as avatarUrl, created_at as createdAt',
+    [
+      '' . $org['handle'],
+      '' . $org['did'],
+      '' . $org['name'],
+      '' . ($org['description'] ?? ''),
+      '' . ($org['avatarUrl'] ?? '')
+    ]
+  )
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+  return result_ok($res->value)
+}
+
+export function findPackages($db: Database, $query: string): array {
+  return []
+}
+
+export function getPackage($db: Database, $org: string, $name: string) {
+  return result_err('Not implemented')
+}
+
+export function createPackage($db: Database, $pkg) {
+  $res = db_query_one(
+    $db->handle,
+    'insert into packages (org_id, name, description, latest_version, download_count, created_at, updated_at) values ($1, $2, $3, $4, $5, now(), now()) returning id, org_id as orgId, name, description, latest_version as latestVersion, download_count as downloadCount, created_at as createdAt, updated_at as updatedAt',
+    [
+      (int) $pkg['orgId'],
+      '' . $pkg['name'],
+      '' . ($pkg['description'] ?? ''),
+      '' . ($pkg['latestVersion'] ?? '0.0.0'),
+      (int) ($pkg['downloadCount'] ?? 0)
+    ]
+  )
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+  return result_ok($res->value)
+}
+
+export function getPackageVersions($db: Database, $packageId: int): array {
+  return []
+}
+
+export function getPackageVersion($db: Database, $packageId: int, $version: string) {
+  $res = db_query_one(
+    $db->handle,
+    'select id, package_id as packageId, version, main_file as mainFile, files, dependencies, readme, published_at as publishedAt, r2_key as r2Key, sha256, canonical_id as canonicalId, lock_hash as lockHash, integrity_algo as integrityAlgo, module_graph_hash as moduleGraphHash, fs_graph_hash as fsGraphHash, artifact_backend as artifactBackend, artifact_key as artifactKey, artifact_mime as artifactMime, artifact_size_bytes as artifactSizeBytes from package_versions where package_id = $1 and version = $2 limit 1',
+    [$packageId, $version]
+  )
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+  return result_ok($res->value)
+}
+
+export function createPackageVersion($db: Database, $version) {
+  $res = db_query_one(
+    $db->handle,
+    'insert into package_versions (package_id, version, main_file, files, dependencies, readme, published_at, r2_key, sha256, canonical_id, lock_hash, integrity_algo, module_graph_hash, fs_graph_hash, artifact_backend, artifact_key, artifact_mime, artifact_size_bytes) values ($1, $2, $3, $4::jsonb, $5, $6, now(), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) returning id, package_id as packageId, version, main_file as mainFile, files, dependencies, readme, published_at as publishedAt, r2_key as r2Key, sha256, canonical_id as canonicalId, lock_hash as lockHash, integrity_algo as integrityAlgo, module_graph_hash as moduleGraphHash, fs_graph_hash as fsGraphHash, artifact_backend as artifactBackend, artifact_key as artifactKey, artifact_mime as artifactMime, artifact_size_bytes as artifactSizeBytes',
+    [
+      (int) $version['packageId'],
+      '' . $version['version'],
+      '' . $version['mainFile'],
+      json_encode($version['files'] ?? []),
+      json_encode($version['dependencies'] ?? {}),
+      '' . ($version['readme'] ?? ''),
+      '' . ($version['r2Key'] ?? ''),
+      '' . ($version['sha256'] ?? ''),
+      '' . ($version['canonicalId'] ?? ''),
+      '' . ($version['lockHash'] ?? ''),
+      '' . ($version['integrityAlgo'] ?? ''),
+      '' . ($version['moduleGraphHash'] ?? ''),
+      '' . ($version['fsGraphHash'] ?? ''),
+      '' . ($version['artifactBackend'] ?? 'local'),
+      '' . ($version['artifactKey'] ?? ''),
+      '' . ($version['artifactMime'] ?? 'application/octet-stream'),
+      (int) ($version['artifactSizeBytes'] ?? 0)
+    ]
+  )
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+  return result_ok($res->value)
+}
+
+export function recordDownload($db: Database, $download) {
+  $res = db_query_one(
+    $db->handle,
+    'insert into downloads (package_id, version_id, downloaded_at, ip_address, user_agent) values ($1, $2, now(), $3, $4) returning id',
+    [
+      (int) $download['packageId'],
+      (int) $download['versionId'],
+      '' . ($download['ipAddress'] ?? ''),
+      '' . ($download['userAgent'] ?? '')
+    ]
+  )
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+  return result_ok($res->value)
+}
+
+export function upsertUserByDid($db: Database, $did: string, $handle: string, $displayName = null, $avatarUrl = null) {
+  $res = db_query_one(
+    $db->handle,
+    'insert into users (did, handle, display_name, avatar_url, created_at, updated_at) values ($1, $2, $3, $4, now(), now()) on conflict (did) do update set handle = excluded.handle, display_name = excluded.display_name, avatar_url = excluded.avatar_url, updated_at = now() returning id, did, handle, display_name as displayName, avatar_url as avatarUrl, created_at as createdAt, updated_at as updatedAt',
+    [$did, $handle, $displayName, $avatarUrl]
+  )
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+  return result_ok($res->value)
+}
+
+export function createSession($db: Database, $userId: int, $sessionTokenHash: string, $expiresAt: string, $ipAddress = null, $userAgent = null) {
+  $res = db_query_one(
+    $db->handle,
+    'insert into sessions (user_id, session_token_hash, ip_address, user_agent, last_seen_at, expires_at, created_at) values ($1, $2, $3, $4, now(), $5::timestamptz, now()) returning id, user_id as userId, expires_at as expiresAt, created_at as createdAt',
+    [$userId, $sessionTokenHash, $ipAddress, $userAgent, $expiresAt]
+  )
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+  return result_ok($res->value)
+}
+
+export function createApiToken($db: Database, $userId: int, $tokenPrefix: string, $tokenHash: string, $scopeMask: int, $label = null, $expiresAt = null) {
+  $res = db_query_one(
+    $db->handle,
+    'insert into api_tokens (user_id, token_prefix, token_hash, scope_mask, label, expires_at, created_at) values ($1, $2, $3, $4, $5, $6::timestamptz, now()) returning id, user_id as userId, token_prefix as tokenPrefix, scope_mask as scopeMask, label, expires_at as expiresAt, created_at as createdAt',
+    [$userId, $tokenPrefix, $tokenHash, $scopeMask, $label, $expiresAt]
+  )
+  if (!result_is_ok($res)) {
+    return result_err($res->error)
+  }
+  return result_ok($res->value)
+}
+
+export function getPopularPackages($db: Database, $limit: int = 10): array {
+  $res = db_query(
+    $db->handle,
+    'select id, org_id as orgId, name, description, latest_version as latestVersion, download_count as downloadCount, created_at as createdAt, updated_at as updatedAt from packages order by download_count desc limit $1',
+    [$limit]
+  )
+  if (!result_is_ok($res)) {
+    return []
+  }
+  return $res->value['rows']
+}
+
+export function searchPackages($db: Database, $query: string): array {
+  $res = db_query(
+    $db->handle,
+    'select id, org_id as orgId, name, description, latest_version as latestVersion, download_count as downloadCount, created_at as createdAt, updated_at as updatedAt from packages where lower(name) like lower($1) or lower(description) like lower($2) order by download_count desc limit 50',
+    ['%' . $query . '%', '%' . $query . '%']
+  )
+  if (!result_is_ok($res)) {
+    return []
+  }
+  return $res->value['rows']
+}
