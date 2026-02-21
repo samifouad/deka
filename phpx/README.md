@@ -29,7 +29,7 @@ This registry is built entirely in PHPX and demonstrates:
 
 - Type-safe API endpoints
 - JSX components for frontend
-- Postgres integration via `db/postgres`
+- Postgres integration via the generated ORM client (`deka db generate` + `deka db migrate`)
 - Modern error handling with Result types
 - Tailwind CSS styling
 
@@ -77,6 +77,13 @@ export LINKHASH_LOG_BACKEND=db
 # Run
 deka serve main.phpx
 ```
+
+Schema + ORM notes:
+
+- Models live in `phpx/models/Models.phpx`.
+- Migrations are stored in `phpx/db/migrations/`.
+- Generate ORM files with `deka db generate models/Models.phpx`.
+- Apply migrations with `deka db migrate` (uses the `DB_*` env vars).
 
 ## Docker Deployment (Local)
 
@@ -174,6 +181,7 @@ Publish/install notes:
 
 - `POST /api/publish` currently accepts query/body fields:
   - `orgId`, `name`, `version`, `lockHash`, `sha256`
+  - optional integrity fields: `integrityAlgo`, `moduleGraphHash`, `fsGraphHash`
   - optional: `visibility`, `mime`, `mainFile`, `description`, `artifactBase64`
 - Artifact storage supports two modes:
   - `LINKHASH_ARTIFACT_BACKEND=local` (default): Postgres inline bytes (`artifact_inline_b64`)
