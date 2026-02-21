@@ -120,3 +120,15 @@ Dynamic execution is treated as high risk and should remain disabled unless requ
 
 - Linkhash publish preflight detects `run` and `dynamic` usage and requires explicit declaration.
 - Install checks local `security` policy and blocks packages that require denied capabilities.
+
+## Package Integrity (Lockfile Hashing)
+
+For third-party PHP packages, Deka verifies that the on-disk package contents match the lockfile.
+
+- `deka install` records two hashes per PHP package in `deka.lock`:
+  - `moduleGraph`: hash of the package's PHPX import graph.
+  - `fsGraph`: hash of the package directory contents.
+- On `deka run` / `deka serve`, Deka recomputes both and refuses to run if they differ.
+- This check applies to scoped packages (for example `@scope/name`). Local project modules (`@/` and `@user/*`) and stdlib modules are not enforced.
+
+If a package hash is missing or mismatched, Deka exits with an integrity error. Reinstall the package to regenerate the lock entry.
