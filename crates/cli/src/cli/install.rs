@@ -50,6 +50,11 @@ pub fn register(registry: &mut Registry) {
         aliases: &["-p"],
         description: "prompt before installing",
     });
+    registry.add_flag(FlagSpec {
+        name: "--rehash",
+        aliases: &[],
+        description: "rehash php package integrity and update deka.lock",
+    });
     registry.add_param(ParamSpec {
         name: "--payload",
         description: "path to a JSON payload describing the install",
@@ -108,24 +113,20 @@ fn build_payload(context: &Context) -> Result<InstallPayload> {
         if specs.is_empty() && !context.args.positionals.is_empty() {
             specs = context.args.positionals.clone();
         }
-        let ecosystem = context
-            .args
-            .params
-            .get("--ecosystem")
-            .cloned()
-            .or_else(|| {
-                if command_name == "install" {
-                    None
-                } else {
-                    Some("php".to_string())
-                }
-            });
+        let ecosystem = context.args.params.get("--ecosystem").cloned().or_else(|| {
+            if command_name == "install" {
+                None
+            } else {
+                Some("php".to_string())
+            }
+        });
         InstallPayload {
             specs,
             ecosystem,
             yes: false,
             prompt: false,
             quiet: false,
+            rehash: false,
         }
     };
 
@@ -135,6 +136,10 @@ fn build_payload(context: &Context) -> Result<InstallPayload> {
             resolved_specs.push(resolve_php_spec(spec)?);
         }
         payload.specs = resolved_specs;
+    }
+
+    if payload.rehash && payload.ecosystem.is_none() {
+        payload.ecosystem = Some("php".to_string());
     }
 
     apply_flags(&mut payload, context);
@@ -150,6 +155,9 @@ fn apply_flags(payload: &mut InstallPayload, context: &Context) {
     }
     if context.args.flags.contains_key("--quiet") || context.args.flags.contains_key("-q") {
         payload.quiet = true;
+    }
+    if context.args.flags.contains_key("--rehash") {
+        payload.rehash = true;
     }
 }
 

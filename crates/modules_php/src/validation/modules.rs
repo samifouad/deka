@@ -1233,9 +1233,6 @@ fn package_name_from_module_id(module_id: &str) -> Option<String> {
     if trimmed.starts_with('@') {
         let mut parts = trimmed.split('/').filter(|part| !part.is_empty());
         let scope = parts.next()?;
-        if scope == "@user" {
-            return None;
-        }
         let name = parts.next()?;
         return Some(format!("{}/{}", scope, name));
     }

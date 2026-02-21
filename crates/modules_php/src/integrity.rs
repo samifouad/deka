@@ -68,7 +68,15 @@ fn compute_module_graph_hash(root: &Path) -> Result<String, String> {
         let specs = collect_import_specs(&source, path.to_string_lossy().as_ref());
         let mut imports = specs
             .into_iter()
-            .map(|spec| format!("{}:{}", import_kind_label(spec.kind), spec.from))
+            .map(|spec| {
+                format!(
+                    "{}:{}:{}:{}",
+                    import_kind_label(spec.kind),
+                    spec.from,
+                    spec.imported,
+                    spec.local
+                )
+            })
             .collect::<Vec<_>>();
         imports.sort();
 

@@ -24,6 +24,15 @@ use std::{
 use tokio::{sync::Semaphore, task::JoinSet};
 
 pub async fn run_install(payload: InstallPayload) -> Result<()> {
+    if payload.rehash {
+        if let Some(ecosystem) = payload.ecosystem.as_deref() {
+            if Ecosystem::from_str(ecosystem).unwrap_or(Ecosystem::Node) != Ecosystem::Php {
+                bail!("rehash only supports PHP packages");
+            }
+        }
+        rehash_php_packages(&payload).await?;
+        return Ok(());
+    }
     let mut specs = payload.specs.clone();
     let auto_resolved = specs.is_empty();
     if auto_resolved {
@@ -350,6 +359,54 @@ async fn run_php_install(specs: Vec<String>, quiet: bool) -> Result<()> {
 
     let duration = Instant::now().duration_since(start);
     emit_summary(installed_count, duration.as_millis() as u64, quiet)?;
+    Ok(())
+}
+
+async fn rehash_php_packages(payload: &InstallPayload) -> Result<()> {
+    let lock = lock::read_lockfile();
+    let mut specs = payload.specs.clone();
+    if specs.is_empty() {
+        specs = lock.php.packages.keys().cloned().collect();
+    }
+    if specs.is_empty() {
+        bail!("no PHP packages found to rehash");
+    }
+
+    for name in specs {
+        let package_root = php_modules_path_for(&name)?;
+        if !package_root.is_dir() {
+            bail!(
+                "package '{}' is missing from php_modules (expected {})",
+                name,
+                package_root.display()
+            );
+        }
+        let integrity = compute_package_integrity(&package_root)
+            .map_err(|err| anyhow!("failed to compute package integrity for {}: {}", name, err))?;
+        let entry = lock.php.packages.get(&name).cloned();
+        let Some((descriptor, resolved, mut metadata, integrity_field)) = entry else {
+            bail!("package '{}' is missing from deka.lock", name);
+        };
+        if let Value::Object(map) = &mut metadata {
+            map.insert(
+                "moduleGraph".to_string(),
+                json!({ "algo": "sha256", "hash": integrity.module_graph }),
+            );
+            map.insert(
+                "fsGraph".to_string(),
+                json!({ "algo": "sha256", "hash": integrity.fs_graph }),
+            );
+        }
+        lock::update_lock_entry(
+            "php",
+            &name,
+            descriptor,
+            resolved,
+            metadata,
+            integrity_field,
+        )?;
+    }
+
     Ok(())
 }
 
