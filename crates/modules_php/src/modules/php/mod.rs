@@ -2618,8 +2618,9 @@ fn db_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
     let req = proto::bridge_v1::DbRequest::decode(request)
         .map_err(|e| core_err(format!("db proto decode failed: {}", e)))?;
     let (action, payload, kind) = db_proto_request_to_action_payload(&req)?;
-    let db_target = payload.get("driver").and_then(|v| v.as_str()).or(Some("*"));
-    enforce_db(db_target)?;
+    let db_target = db_target_from_payload(&payload);
+    let target = db_target.as_deref().unwrap_or("*");
+    enforce_db(Some(target))?;
     let response_json = db_call_impl(action, payload)?;
     let response = db_json_response_to_proto(&response_json, kind);
     let out = response.encode_to_vec();
@@ -2630,6 +2631,20 @@ fn db_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
         started.elapsed().as_micros() as u64,
     );
     Ok(out)
+}
+
+fn db_target_from_payload(payload: &serde_json::Value) -> Option<String> {
+    let obj = payload.as_object()?;
+    if let Some(driver) = obj.get("driver").and_then(|v| v.as_str()) {
+        let trimmed = driver.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    let handle = obj.get("handle").and_then(|v| v.as_u64())?;
+    let state = db_state().lock().ok()?;
+    let conn = state.handles.get(&handle)?;
+    Some(conn.config.driver_name().to_string())
 }
 
 #[op2]
