@@ -7,6 +7,7 @@ use php_rs::parser::ast::{Expr, ExprId, Program, Stmt};
 use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
 use serde_json::Value;
+use crate::integrity::compute_package_integrity;
 
 use super::{ErrorKind, Severity, ValidationError};
 use crate::validation::exports::{parse_export_function, parse_export_list_line};
@@ -52,6 +53,10 @@ pub fn validate_module_resolution(source: &str, file_path: &str) -> Vec<Validati
 
     graph.collect_missing_exports(&mut errors);
     graph.detect_cycles(&mut errors);
+    if let Some(root) = modules_root.as_deref() {
+        let package_errors = validate_package_integrity(root, graph.nodes.keys());
+        errors.extend(package_errors);
+    }
     errors
 }
 
@@ -302,10 +307,7 @@ impl ModuleGraph {
             });
             let (message, help) = if has_tla {
                 (
-                    format!(
-                        "Top-level await import cycle detected: {}",
-                        cycle_key
-                    ),
+                    format!("Top-level await import cycle detected: {}", cycle_key),
                     "Break the async cycle by removing one import edge or by moving await out of module scope.",
                 )
             } else {
@@ -354,7 +356,9 @@ fn expr_has_await(expr: ExprId<'_>) -> bool {
 fn stmt_is_tla_candidate(stmt: &Stmt<'_>) -> bool {
     match stmt {
         Stmt::Expression { expr, .. } => expr_has_await(*expr),
-        Stmt::Return { expr: Some(expr), .. } => expr_has_await(*expr),
+        Stmt::Return {
+            expr: Some(expr), ..
+        } => expr_has_await(*expr),
         Stmt::Echo { exprs, .. } => exprs.iter().any(|expr| expr_has_await(*expr)),
         _ => false,
     }
@@ -370,7 +374,8 @@ fn has_top_level_await(source: &str) -> bool {
         .collect::<Vec<_>>()
         .join("\n");
     let arena = Bump::new();
-    let mut parser = Parser::new_with_mode(Lexer::new(filtered.as_bytes()), &arena, ParserMode::Phpx);
+    let mut parser =
+        Parser::new_with_mode(Lexer::new(filtered.as_bytes()), &arena, ParserMode::Phpx);
     let program: Program<'_> = parser.parse_program();
     program
         .statements
@@ -378,7 +383,7 @@ fn has_top_level_await(source: &str) -> bool {
         .any(|stmt| stmt_is_tla_candidate(stmt))
 }
 
-fn collect_import_specs(source: &str, file_path: &str) -> Vec<ImportSpec> {
+pub(crate) fn collect_import_specs(source: &str, file_path: &str) -> Vec<ImportSpec> {
     let lines: Vec<&str> = source.lines().collect();
     let bounds = frontmatter_bounds(&lines);
     let scan_end = bounds.map(|(_, end)| end).unwrap_or(lines.len());
@@ -478,11 +483,11 @@ pub(crate) fn resolve_modules_root(file_path: &str) -> Option<PathBuf> {
                 return Some(candidate);
             }
         }
-        if root
-            .file_name()
-            .is_some_and(|name| name == "php_modules")
+        if root.file_name().is_some_and(|name| name == "php_modules")
             && root.exists()
-            && root.parent().is_some_and(|parent| parent.join("deka.lock").exists())
+            && root
+                .parent()
+                .is_some_and(|parent| parent.join("deka.lock").exists())
         {
             return Some(root);
         }
@@ -1017,6 +1022,228 @@ fn describe_lock_status(current_file_path: &str) -> String {
     format!("{local}; {global}")
 }
 
+fn validate_package_integrity<'a, I>(
+    modules_root: &Path,
+    module_ids: I,
+) -> Vec<ValidationError>
+where
+    I: Iterator<Item = &'a String>,
+{
+    let mut packages: HashSet<String> = HashSet::new();
+    for module_id in module_ids {
+        if let Some(name) = package_name_from_module_id(module_id) {
+            packages.insert(name);
+        }
+    }
+
+    if packages.is_empty() {
+        return Vec::new();
+    }
+
+    let lock_path = modules_root.parent().map(|root| root.join("deka.lock"));
+    let Some(lock_path) = lock_path else {
+        return packages
+            .into_iter()
+            .map(|name| {
+                module_error(
+                    1,
+                    1,
+                    name.len().max(1),
+                    format!(
+                        "Missing deka.lock; cannot verify integrity for package '{}'.",
+                        name
+                    ),
+                    "Create or restore deka.lock before running third-party modules.",
+                )
+            })
+            .collect();
+    };
+
+    let lock_raw = match std::fs::read_to_string(&lock_path) {
+        Ok(raw) => raw,
+        Err(err) => {
+            return packages
+                .into_iter()
+                .map(|name| {
+                    module_error(
+                        1,
+                        1,
+                        name.len().max(1),
+                        format!(
+                            "Failed to read {} for integrity validation: {}",
+                            lock_path.display(),
+                            err
+                        ),
+                        "Fix file permissions or restore the lockfile.",
+                    )
+                })
+                .collect();
+        }
+    };
+
+    let lock_json: Value = match serde_json::from_str(&lock_raw) {
+        Ok(json) => json,
+        Err(err) => {
+            return packages
+                .into_iter()
+                .map(|name| {
+                    module_error(
+                        1,
+                        1,
+                        name.len().max(1),
+                        format!(
+                            "Invalid deka.lock JSON; cannot verify integrity for '{}': {}",
+                            name, err
+                        ),
+                        "Recreate the lockfile with a clean install.",
+                    )
+                })
+                .collect();
+        }
+    };
+
+    let packages_json = lock_json
+        .pointer("/php/packages")
+        .and_then(|value| value.as_object());
+    let Some(packages_json) = packages_json else {
+        return packages
+            .into_iter()
+            .map(|name| {
+                module_error(
+                    1,
+                    1,
+                    name.len().max(1),
+                    format!(
+                        "deka.lock has no php package entries; cannot verify '{}'.",
+                        name
+                    ),
+                    "Run `deka install` to recreate package entries.",
+                )
+            })
+            .collect();
+    };
+
+    let mut cache: HashMap<String, (String, String)> = HashMap::new();
+    let mut errors = Vec::new();
+    for name in packages {
+        let entry = match packages_json.get(&name) {
+            Some(value) => value,
+            None => {
+                errors.push(module_error(
+                    1,
+                    1,
+                    name.len().max(1),
+                    format!("Package '{}' is missing from deka.lock.", name),
+                    "Reinstall the package to regenerate the lock entry.",
+                ));
+                continue;
+            }
+        };
+
+        let metadata = entry
+            .as_array()
+            .and_then(|items| items.get(2))
+            .and_then(|value| value.as_object());
+        let Some(metadata) = metadata else {
+            errors.push(module_error(
+                1,
+                1,
+                name.len().max(1),
+                format!("Package '{}' lock entry is malformed.", name),
+                "Reinstall the package to regenerate the lock entry.",
+            ));
+            continue;
+        };
+
+        let expected_module_graph = metadata
+            .get("moduleGraph")
+            .and_then(|value| value.get("hash"))
+            .and_then(|value| value.as_str());
+        let expected_fs_graph = metadata
+            .get("fsGraph")
+            .and_then(|value| value.get("hash"))
+            .and_then(|value| value.as_str());
+
+        if expected_module_graph.is_none() || expected_fs_graph.is_none() {
+            errors.push(module_error(
+                1,
+                1,
+                name.len().max(1),
+                format!(
+                    "Package '{}' lock entry is missing integrity hashes.",
+                    name
+                ),
+                "Reinstall the package to regenerate integrity hashes.",
+            ));
+            continue;
+        }
+
+        let (module_hash, fs_hash) = match cache.get(&name) {
+            Some(values) => values.clone(),
+            None => {
+                let package_root = modules_root.join(&name);
+                match compute_package_integrity(&package_root) {
+                    Ok(integrity) => {
+                        let values = (integrity.module_graph, integrity.fs_graph);
+                        cache.insert(name.clone(), values.clone());
+                        values
+                    }
+                    Err(err) => {
+                        errors.push(module_error(
+                            1,
+                            1,
+                            name.len().max(1),
+                            format!(
+                                "Failed to compute integrity for '{}': {}",
+                                name, err
+                            ),
+                            "Ensure the package directory exists and is readable.",
+                        ));
+                        continue;
+                    }
+                }
+            }
+        };
+
+        if expected_module_graph != Some(module_hash.as_str())
+            || expected_fs_graph != Some(fs_hash.as_str())
+        {
+            errors.push(module_error(
+                1,
+                1,
+                name.len().max(1),
+                format!(
+                    "Package '{}' failed integrity check (lockfile mismatch).",
+                    name
+                ),
+                "Reinstall the package to restore the expected content.",
+            ));
+        }
+    }
+
+    errors
+}
+
+fn package_name_from_module_id(module_id: &str) -> Option<String> {
+    let trimmed = module_id.trim();
+    if trimmed.is_empty() || trimmed.starts_with("@/") {
+        return None;
+    }
+
+    if trimmed.starts_with('@') {
+        let mut parts = trimmed.split('/').filter(|part| !part.is_empty());
+        let scope = parts.next()?;
+        if scope == "@user" {
+            return None;
+        }
+        let name = parts.next()?;
+        return Some(format!("{}/{}", scope, name));
+    }
+
+    let mut parts = trimmed.split('/');
+    parts.next().map(|part| part.to_string())
+}
+
 fn module_error(
     line: usize,
     column: usize,
@@ -1098,7 +1325,8 @@ mod tests {
         unsafe {
             std::env::set_var("PHPX_MODULE_ROOT", &global);
         }
-        let resolved = resolve_modules_root(entry.to_string_lossy().as_ref()).expect("resolve modules root");
+        let resolved =
+            resolve_modules_root(entry.to_string_lossy().as_ref()).expect("resolve modules root");
         // SAFETY: test process controls env mutations in this isolated test.
         unsafe {
             std::env::remove_var("PHPX_MODULE_ROOT");
@@ -1112,7 +1340,9 @@ mod tests {
     #[test]
     fn resolve_modules_root_supports_global_only_mode() {
         let global = make_temp_modules_root("global_only", true);
-        let outside = std::env::temp_dir().join("deka_no_local_project").join("entry.phpx");
+        let outside = std::env::temp_dir()
+            .join("deka_no_local_project")
+            .join("entry.phpx");
         fs::create_dir_all(outside.parent().expect("outside parent")).expect("mkdir outside");
         fs::write(&outside, "import { foo } from 'a'\n").expect("write outside entry");
 
@@ -1120,7 +1350,8 @@ mod tests {
         unsafe {
             std::env::set_var("PHPX_MODULE_ROOT", &global);
         }
-        let resolved = resolve_modules_root(outside.to_string_lossy().as_ref()).expect("resolve modules root");
+        let resolved =
+            resolve_modules_root(outside.to_string_lossy().as_ref()).expect("resolve modules root");
         // SAFETY: test process controls env mutations in this isolated test.
         unsafe {
             std::env::remove_var("PHPX_MODULE_ROOT");
@@ -1134,7 +1365,9 @@ mod tests {
     #[test]
     fn global_only_mode_requires_global_lockfile() {
         let global = make_temp_modules_root("global_missing_lock", false);
-        let outside = std::env::temp_dir().join("deka_missing_lock_project").join("entry.phpx");
+        let outside = std::env::temp_dir()
+            .join("deka_missing_lock_project")
+            .join("entry.phpx");
         fs::create_dir_all(outside.parent().expect("outside parent")).expect("mkdir outside");
         fs::write(&outside, "import { foo } from 'a'\n").expect("write outside entry");
 
@@ -1148,7 +1381,10 @@ mod tests {
             std::env::remove_var("PHPX_MODULE_ROOT");
         }
 
-        assert!(resolved.is_none(), "expected no modules root without global lock");
+        assert!(
+            resolved.is_none(),
+            "expected no modules root without global lock"
+        );
         let _ = fs::remove_dir_all(global);
         let _ = fs::remove_file(outside);
     }
@@ -1202,9 +1438,10 @@ mod tests {
             errors
         );
         assert!(
-            errors
-                .iter()
-                .any(|err| err.help_text.contains("Ensure the module exists in php_modules") || err.help_text.contains("Available modules:")),
+            errors.iter().any(|err| err
+                .help_text
+                .contains("Ensure the module exists in php_modules")
+                || err.help_text.contains("Available modules:")),
             "expected actionable help text, got: {:?}",
             errors
         );
@@ -1272,9 +1509,9 @@ mod tests {
             entry.to_string_lossy().as_ref(),
         );
         assert!(
-            errors
-                .iter()
-                .any(|err| err.message.contains("Top-level await import cycle detected:")),
+            errors.iter().any(|err| err
+                .message
+                .contains("Top-level await import cycle detected:")),
             "expected top-level await cycle error, got: {:?}",
             errors
         );
@@ -1299,7 +1536,12 @@ mod tests {
         unsafe {
             std::env::remove_var("PHPX_TARGET");
         }
-        assert_eq!(errors.len(), 1, "expected one capability error: {:?}", errors);
+        assert_eq!(
+            errors.len(),
+            1,
+            "expected one capability error: {:?}",
+            errors
+        );
         assert!(
             errors[0].message.contains("db/postgres"),
             "expected module in message: {:?}",

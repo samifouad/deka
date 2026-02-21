@@ -8,10 +8,11 @@ use crate::{
     payload::InstallPayload,
     spec::{Ecosystem, parse_hinted_spec, parse_package_spec},
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, anyhow};
 use runtime_core::security_policy::{RuleList, SecurityPolicy, parse_deka_security_policy};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
+use modules_php::integrity::compute_package_integrity;
 use std::{
     collections::{BTreeMap, HashSet, VecDeque},
     fs,
@@ -318,12 +319,23 @@ async fn run_php_install(specs: Vec<String>, quiet: bool) -> Result<()> {
         let destination = php_modules_path_for(&name)?;
         copy_package(&cache_dir, &destination)?;
 
+        let package_integrity = compute_package_integrity(&destination)
+            .map_err(|err| anyhow!("failed to compute package integrity for {}: {}", name, err))?;
+
         let metadata = json!({
             "owner": release.owner,
             "repo": release.repo,
             "gitRef": release.git_ref,
             "description": release.description,
             "manifest": release.manifest,
+            "moduleGraph": {
+                "algo": "sha256",
+                "hash": package_integrity.module_graph,
+            },
+            "fsGraph": {
+                "algo": "sha256",
+                "hash": package_integrity.fs_graph,
+            },
         });
         lock::update_lock_entry(
             "php",
@@ -365,7 +377,7 @@ fn load_project_security_policy() -> Result<SecurityPolicy> {
             .map(|d| format!("{} at {}: {}", d.code, d.path, d.message))
             .collect::<Vec<_>>()
             .join("\n");
-        bail!("invalid deka.security policy:\n{}", details);
+        bail!("invalid security policy:\n{}", details);
     }
     Ok(parsed.policy)
 }
@@ -374,14 +386,14 @@ fn enforce_release_policy(release: &PhpPackageRelease, policy: &SecurityPolicy) 
     let capabilities = extract_release_capabilities(release);
     if capabilities.iter().any(|cap| cap == "run") && !matches!(policy.deny.run, RuleList::None) {
         bail!(
-            "install blocked by deka.security: package {}@{} requires `run` capability",
+            "install blocked by security policy: package {}@{} requires `run` capability",
             release.package_name,
             release.version
         );
     }
     if capabilities.iter().any(|cap| cap == "dynamic") && policy.deny.dynamic {
         bail!(
-            "install blocked by deka.security: package {}@{} requires `dynamic` capability",
+            "install blocked by security policy: package {}@{} requires `dynamic` capability",
             release.package_name,
             release.version
         );
@@ -402,7 +414,7 @@ fn extract_release_capabilities(release: &PhpPackageRelease) -> Vec<String> {
     }
     if let Some(manifest) = &release.manifest {
         let allow = manifest
-            .get("deka.security")
+            .get("security")
             .and_then(|v| v.get("allow"))
             .cloned()
             .unwrap_or(Value::Null);
@@ -606,7 +618,7 @@ mod tests {
     fn extracts_capabilities_from_metadata_and_manifest() {
         let release = sample_release(
             Some(json!({
-                "deka.security": {
+                "security": {
                     "allow": {
                         "dynamic": true,
                         "run": ["git"]
@@ -646,7 +658,7 @@ mod tests {
     fn allows_install_when_policy_has_no_denies() {
         let release = sample_release(
             Some(json!({
-                "deka.security": {
+                "security": {
                     "allow": { "run": ["git"] }
                 }
             })),
