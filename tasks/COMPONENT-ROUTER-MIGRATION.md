@@ -3,9 +3,15 @@
 Goal: Move app routing + page resolution out of runtime magic and into userland `php_modules/component/router.phpx`, while keeping a clean, NextJS-like DX.
 
 ## Task 1: Inventory + Baseline
-- [ ] Document current routing behavior and entry resolution.
-- [ ] Capture current behavior and error cases in notes.
-- [ ] Add a regression fixture for `deka init` + `deka task dev` 404 case.
+- [x] Document current routing behavior and entry resolution.
+- [x] Capture current behavior and error cases in notes.
+- [x] Add a regression fixture for `deka init` + `deka task dev` 404 case.
+
+Notes (current behavior):
+- Runtime resolves handler path in Rust: `crates/core/src/handler.rs` + `crates/engine/src/config.rs`.
+- If an `app/` directory exists, runtime forces PHP routing mode and treats the project root as the handler path.
+- PHP routing is implemented in `crates/modules_php/src/modules/deka_php/php.js` (`buildAppRouteManifest`, `resolvePhpDirectoryRoute`, `resolvePhpApiRoute`).
+- `deka init` writes `app/main.phpx`, but the current router expects `app/page.phpx` / `app/index.phpx`, so a fresh init can 404 with “Not Found”.
 
 ## Task 2: Userland Router API (PHPX)
 - [ ] Define `component/router.phpx` public API:
