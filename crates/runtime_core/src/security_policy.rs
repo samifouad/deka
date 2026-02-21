@@ -51,7 +51,10 @@ pub struct SecurityPolicy {
 impl Default for SecurityPolicy {
     fn default() -> Self {
         Self {
-            allow: SecurityScope::default(),
+            allow: SecurityScope {
+                run: RuleList::List(vec!["deka".to_string()]),
+                ..SecurityScope::default()
+            },
             deny: SecurityScope::default(),
             prompt: true,
         }
@@ -207,7 +210,7 @@ pub fn merge_policy_with_cli(
 
 pub fn policy_to_json(policy: &SecurityPolicy) -> Value {
     json!({
-        "deka.security": {
+        "security": {
             "allow": scope_to_json(&policy.allow),
             "deny": scope_to_json(&policy.deny),
             "prompt": policy.prompt
@@ -231,7 +234,7 @@ pub fn parse_deka_security_policy(root: &Value) -> PolicyParseOutcome {
         };
     };
 
-    let Some(security) = obj.get("deka.security") else {
+    let Some(security) = obj.get("security") else {
         return PolicyParseOutcome {
             policy,
             diagnostics,
@@ -242,8 +245,8 @@ pub fn parse_deka_security_policy(root: &Value) -> PolicyParseOutcome {
         diagnostics.push(diag(
             PolicyDiagnosticLevel::Error,
             "SECURITY_POLICY_INVALID_TYPE",
-            "$.deka.security",
-            "Expected object for `deka.security`",
+            "$.security",
+            "Expected object for `security`",
         ));
         return PolicyParseOutcome {
             policy,
@@ -256,17 +259,17 @@ pub fn parse_deka_security_policy(root: &Value) -> PolicyParseOutcome {
             diagnostics.push(diag(
                 PolicyDiagnosticLevel::Warning,
                 "SECURITY_POLICY_UNKNOWN_KEY",
-                &format!("$.deka.security.{}", key),
-                "Unknown key in `deka.security`",
+                &format!("$.security.{}", key),
+                "Unknown key in `security`",
             ));
         }
     }
 
     if let Some(allow) = security_obj.get("allow") {
-        policy.allow = parse_scope("$.deka.security.allow", allow, &mut diagnostics);
+        policy.allow = parse_scope("$.security.allow", allow, &mut diagnostics);
     }
     if let Some(deny) = security_obj.get("deny") {
-        policy.deny = parse_scope("$.deka.security.deny", deny, &mut diagnostics);
+        policy.deny = parse_scope("$.security.deny", deny, &mut diagnostics);
     }
     if let Some(prompt) = security_obj.get("prompt") {
         if let Some(value) = prompt.as_bool() {
@@ -275,7 +278,7 @@ pub fn parse_deka_security_policy(root: &Value) -> PolicyParseOutcome {
             diagnostics.push(diag(
                 PolicyDiagnosticLevel::Error,
                 "SECURITY_POLICY_INVALID_PROMPT",
-                "$.deka.security.prompt",
+                "$.security.prompt",
                 "Expected boolean for `prompt`",
             ));
         }
@@ -356,6 +359,19 @@ fn parse_rule_list(
     };
 
     if let Some(flag) = value.as_bool() {
+        if flag && path.contains(".allow.") {
+            let message = if let Some(hint) = broad_allow_hint(path) {
+                format!("Broad allow enabled. {}", hint)
+            } else {
+                "Broad allow enabled.".to_string()
+            };
+            diagnostics.push(diag(
+                PolicyDiagnosticLevel::Warning,
+                "SECURITY_POLICY_BROAD_ALLOW",
+                path,
+                &message,
+            ));
+        }
         return if flag { RuleList::All } else { RuleList::None };
     }
 
@@ -410,6 +426,31 @@ fn parse_rule_list(
         "Expected boolean, string, or string array",
     ));
     RuleList::None
+}
+
+fn broad_allow_hint(path: &str) -> Option<String> {
+    if path.ends_with(".read") {
+        return Some("Prefer explicit folders like \"./src\" or \"./php_modules\".".to_string());
+    }
+    if path.ends_with(".write") {
+        return Some("Prefer explicit folders like \"./php_modules/.cache\".".to_string());
+    }
+    if path.ends_with(".net") {
+        return Some("Prefer explicit hosts like \"localhost:5432\".".to_string());
+    }
+    if path.ends_with(".env") {
+        return Some("Prefer explicit vars like \"DATABASE_URL\".".to_string());
+    }
+    if path.ends_with(".run") {
+        return Some("Prefer explicit binaries like \"git\" or \"deka\".".to_string());
+    }
+    if path.ends_with(".db") {
+        return Some("Prefer explicit drivers like \"postgres\" or \"sqlite\".".to_string());
+    }
+    if path.ends_with(".wasm") {
+        return Some("Prefer explicit modules like \"php_rs.wasm\".".to_string());
+    }
+    None
 }
 
 fn diag(
@@ -472,7 +513,7 @@ mod tests {
     #[test]
     fn parses_allow_and_deny_scope() {
         let doc = serde_json::json!({
-            "deka.security": {
+            "security": {
                 "allow": {
                     "read": ["./src", "./src", "./db"],
                     "run": "git",
@@ -508,7 +549,7 @@ mod tests {
     #[test]
     fn emits_errors_for_invalid_shapes() {
         let doc = serde_json::json!({
-            "deka.security": {
+            "security": {
                 "allow": {
                     "read": [true, ""],
                     "dynamic": "yes"
@@ -541,7 +582,7 @@ mod tests {
     #[test]
     fn merges_cli_flags_over_policy() {
         let doc = serde_json::json!({
-            "deka.security": {
+            "security": {
                 "allow": { "read": ["./src"] },
                 "deny": { "net": ["169.254.169.254"] },
                 "prompt": true
@@ -565,19 +606,19 @@ mod tests {
     #[test]
     fn converts_policy_to_json_shape() {
         let parsed = parse_deka_security_policy(&serde_json::json!({
-            "deka.security": {
+            "security": {
                 "allow": { "wasm": true, "dynamic": false },
                 "deny": { "dynamic": true }
             }
         }));
         let out = policy_to_json(&parsed.policy);
         assert_eq!(
-            out.pointer("/deka.security/allow/wasm")
+            out.pointer("/security/allow/wasm")
                 .and_then(|v| v.as_bool()),
             Some(true)
         );
         assert_eq!(
-            out.pointer("/deka.security/deny/dynamic")
+            out.pointer("/security/deny/dynamic")
                 .and_then(|v| v.as_bool()),
             Some(true)
         );
