@@ -244,9 +244,10 @@ function resolveDocId(raw, docMap) {
 function getCategoryMeta(section, category, docMap) {
   const defaults = docMap && docMap.defaults ? docMap.defaults[section] : null
   const prefixMeta = docMap && docMap.prefixes ? docMap.prefixes[`${section}/${category}`] : null
+  const isDefaultCategory = Boolean(defaults && defaults.category === category)
   const categoryLabel = prefixMeta && prefixMeta.categoryLabel
     ? prefixMeta.categoryLabel
-    : (defaults && defaults.categoryLabel ? defaults.categoryLabel : null)
+    : (isDefaultCategory && defaults && defaults.categoryLabel ? defaults.categoryLabel : null)
 
   let categoryOrder = prefixMeta && typeof prefixMeta.categoryOrder === 'number'
     ? prefixMeta.categoryOrder
@@ -263,7 +264,7 @@ function getCategoryMeta(section, category, docMap) {
     }
   }
 
-  if (categoryOrder === null && defaults && typeof defaults.categoryOrder === 'number') {
+  if (categoryOrder === null && isDefaultCategory && defaults && typeof defaults.categoryOrder === 'number') {
     categoryOrder = defaults.categoryOrder
   }
 
