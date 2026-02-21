@@ -1,0 +1,162 @@
+import { json_encode } from 'encoding/json';
+import { readDirSync, writeFileSync, mkdirSync } from 'fs';
+import { result_is_ok } from 'core/result';
+import { now_ms } from 'time';
+
+/// docid: phpx/component/generate_manifest()
+/// <Function name="generate_manifest">
+///   <Description>Generate and cache an app route manifest from the filesystem.</Description>
+///   <Parameter name="$root" type="string" required="false" />
+///   <ReturnType type="mixed" />
+/// </Function>
+export function generate_manifest($root = '.') {
+    $root = normalize_root($root);
+    $app_dir = join_path($root, 'app');
+    $cache_dir = join_path($root, 'php_modules/.cache');
+    $manifest_path = join_path($cache_dir, 'app-manifest.json');
+
+    $entries_res = readDirSync($app_dir);
+    if (!result_is_ok($entries_res)) {
+        return { ok: false, error: 'missing app/ directory' };
+    }
+
+    mkdirSync($cache_dir);
+
+    $pages = [];
+    $layouts = [];
+    $apis = [];
+
+    scan_app_dir($app_dir, [], $pages, $layouts, $apis);
+
+    $manifest = {
+        ok: true,
+        root: $root,
+        app_dir: $app_dir,
+        pages: $pages,
+        layouts: $layouts,
+        api: $apis,
+        generated_at: now_ms(),
+    };
+
+    $json = json_encode($manifest);
+    writeFileSync($manifest_path, $json);
+    return $manifest;
+}
+
+function scan_app_dir($dir, $segments, &$pages, &$layouts, &$apis) {
+    $entries_res = readDirSync($dir);
+    if (!result_is_ok($entries_res)) return;
+    $entries = $entries_res->value;
+    if (!is_array($entries)) return;
+
+    foreach ($entries as $entry) {
+        $name = entry_name($entry);
+        if ($name === '' || $name === '.' || $name === '..') {
+            continue;
+        }
+        if (entry_is_dir($entry)) {
+            scan_app_dir(join_path($dir, $name), array_merge($segments, [$name]), $pages, $layouts, $apis);
+            continue;
+        }
+        if (!entry_is_file($entry)) continue;
+        if (!ends_with($name, '.phpx') && !ends_with($name, '.php')) continue;
+
+        $no_ext = strip_ext($name);
+        $route_segments = $segments;
+        $kind = 'page';
+
+        if ($no_ext === 'layout') {
+            $kind = 'layout';
+        } else if ($no_ext === 'page' || $no_ext === 'index') {
+            $kind = 'page';
+        } else {
+            $route_segments[] = $no_ext;
+            $kind = 'page';
+        }
+
+        $route = {
+            file: join_path($dir, $name),
+            segments: $route_segments,
+            tokens: route_segments_to_tokens($route_segments),
+        };
+
+        if ($kind === 'layout') {
+            $layouts[] = $route;
+        } else if (is_api_route($segments)) {
+            $apis[] = $route;
+        } else {
+            $pages[] = $route;
+        }
+    }
+}
+
+function is_api_route($segments) {
+    return count($segments) > 0 && $segments[0] === 'api';
+}
+
+function route_segments_to_tokens($segments) {
+    $tokens = [];
+    foreach ($segments as $segment) {
+        $tokens[] = parse_route_token($segment);
+    }
+    return $tokens;
+}
+
+function parse_route_token($segment) {
+    $raw = '' . $segment;
+    if (preg_match('/^\\[\\[\\.\\.\\.([A-Za-z_][A-Za-z0-9_]*)\\]\\]$/', $raw, $m)) {
+        return { kind: 'optional_catchall', name: $m[1] };
+    }
+    if (preg_match('/^\\[\\.\\.\\.([A-Za-z_][A-Za-z0-9_]*)\\]$/', $raw, $m)) {
+        return { kind: 'catchall', name: $m[1] };
+    }
+    if (preg_match('/^\\[([A-Za-z_][A-Za-z0-9_]*)\\]$/', $raw, $m)) {
+        return { kind: 'param', name: $m[1] };
+    }
+    return { kind: 'static', value: $raw };
+}
+
+function normalize_root($root) {
+    $root = '' . $root;
+    if ($root === '') return '.';
+    return $root;
+}
+
+function join_path($a, $b) {
+    $a = rtrim($a, '/');
+    $b = ltrim($b, '/');
+    if ($a === '') return $b;
+    if ($b === '') return $a;
+    return $a . '/' . $b;
+}
+
+function strip_ext($name) {
+    if (ends_with($name, '.phpx')) return substr($name, 0, strlen($name) - 5);
+    if (ends_with($name, '.php')) return substr($name, 0, strlen($name) - 4);
+    return $name;
+}
+
+function ends_with($value, $suffix) {
+    $value = '' . $value;
+    $suffix = '' . $suffix;
+    if ($suffix === '') return true;
+    return substr($value, -strlen($suffix)) === $suffix;
+}
+
+function entry_name($entry) {
+    if (is_array($entry) && array_key_exists('name', $entry)) return '' . $entry['name'];
+    if (is_object($entry) && isset($entry->name)) return '' . $entry->name;
+    return '';
+}
+
+function entry_is_dir($entry) {
+    if (is_array($entry) && array_key_exists('is_dir', $entry)) return $entry['is_dir'] === true;
+    if (is_object($entry) && isset($entry->is_dir)) return $entry->is_dir === true;
+    return false;
+}
+
+function entry_is_file($entry) {
+    if (is_array($entry) && array_key_exists('is_file', $entry)) return $entry['is_file'] === true;
+    if (is_object($entry) && isset($entry->is_file)) return $entry->is_file === true;
+    return false;
+}

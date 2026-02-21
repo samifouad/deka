@@ -211,3 +211,52 @@ export function read_file($path) {
 export function write_file($path, $bytes) {
     return writeFileSync($path, $bytes)
 }
+
+/// docid: phpx/fs/readDirSync()
+/// <Function name="readDirSync">
+///   <Description>PHPX standard module function `readDirSync` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function readDirSync($path) {
+    $raw = bridge('fs', 'read_dir', { path: $path, with_types: true })
+    $res = normalize_result($raw)
+    if (!result_is_ok($res)) {
+        return $res
+    }
+    $value = to_assoc($res->value)
+    if (is_array($value) && array_key_exists('entries', $value)) {
+        $entries = $value['entries']
+        if (is_array($entries)) {
+            return result_ok($entries)
+        }
+    }
+    return result_err('read_dir returned invalid payload')
+}
+
+/// docid: phpx/fs/readDir()
+/// <Function name="readDir">
+///   <Description>PHPX standard module function `readDir` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function readDir($path) {
+    return readDirSync($path)
+}
+
+/// docid: phpx/fs/mkdirSync()
+/// <Function name="mkdirSync">
+///   <Description>PHPX standard module function `mkdirSync` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function mkdirSync($path) {
+    $raw = bridge('fs', 'mkdirs', { path: $path })
+    return normalize_result($raw)
+}
+
+/// docid: phpx/fs/mkdir()
+/// <Function name="mkdir">
+///   <Description>PHPX standard module function `mkdir` from `fs`.</Description>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function mkdir($path) {
+    return mkdirSync($path)
+}

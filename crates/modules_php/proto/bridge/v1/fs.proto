@@ -30,6 +30,25 @@ message FsWriteFileRequest {
   bytes data = 2;
 }
 
+message FsReadDirRequest {
+  string path = 1;
+  bool with_types = 2;
+}
+
+message FsMkdirsRequest {
+  string path = 1;
+}
+
+message FsDirEntry {
+  string name = 1;
+  bool is_dir = 2;
+  bool is_file = 3;
+}
+
+message FsReadDirResponse {
+  repeated FsDirEntry entries = 1;
+}
+
 message FsRequest {
   uint32 schema_version = 1;
   oneof action {
@@ -39,6 +58,8 @@ message FsRequest {
     FsCloseRequest close = 13;
     FsReadFileRequest read_file = 14;
     FsWriteFileRequest write_file = 15;
+    FsReadDirRequest read_dir = 16;
+    FsMkdirsRequest mkdirs = 17;
   }
 }
 
@@ -70,5 +91,7 @@ message FsResponse {
     FsUnitResponse close = 13;
     FsReadResponse read_file = 14;
     FsWriteResponse write_file = 15;
+    FsReadDirResponse read_dir = 16;
+    FsUnitResponse mkdirs = 17;
   }
 }

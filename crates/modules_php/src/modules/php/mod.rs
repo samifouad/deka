@@ -3737,6 +3737,62 @@ fn fs_call_impl(
                 })),
             }
         }
+        "read_dir" => {
+            let path = args_obj
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim_matches('\0')
+                .to_string();
+            if path.is_empty() {
+                return Ok(serde_json::json!({ "ok": false, "error": "read_dir: missing path" }));
+            }
+            let entries = std::fs::read_dir(&path).map_err(|e| {
+                deno_core::error::CoreError::from(std::io::Error::new(
+                    e.kind(),
+                    format!("read_dir: {}", e),
+                ))
+            })?;
+            let mut out = Vec::new();
+            for entry in entries {
+                let entry = entry.map_err(|e| {
+                    deno_core::error::CoreError::from(std::io::Error::new(
+                        e.kind(),
+                        format!("read_dir: {}", e),
+                    ))
+                })?;
+                let file_type = entry.file_type().map_err(|e| {
+                    deno_core::error::CoreError::from(std::io::Error::new(
+                        e.kind(),
+                        format!("read_dir: {}", e),
+                    ))
+                })?;
+                out.push(serde_json::json!({
+                    "name": entry.file_name().to_string_lossy().to_string(),
+                    "is_dir": file_type.is_dir(),
+                    "is_file": file_type.is_file(),
+                }));
+            }
+            Ok(serde_json::json!({ "ok": true, "entries": out }))
+        }
+        "mkdirs" => {
+            let path = args_obj
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim_matches('\0')
+                .to_string();
+            if path.is_empty() {
+                return Ok(serde_json::json!({ "ok": false, "error": "mkdirs: missing path" }));
+            }
+            match std::fs::create_dir_all(&path) {
+                Ok(()) => Ok(serde_json::json!({ "ok": true })),
+                Err(e) => Ok(serde_json::json!({
+                    "ok": false,
+                    "error": format!("mkdirs: {}", e)
+                })),
+            }
+        }
         _ => Ok(serde_json::json!({
             "ok": false,
             "error": format!("unknown fs action '{}'", action)
@@ -3752,6 +3808,8 @@ enum FsProtoActionKind {
     Close,
     ReadFile,
     WriteFile,
+    ReadDir,
+    Mkdirs,
 }
 
 fn fs_action_payload_to_proto_request(
@@ -3834,6 +3892,24 @@ fn fs_action_payload_to_proto_request(
                 data,
             })
         }
+        "read_dir" => Action::ReadDir(proto::bridge_v1::FsReadDirRequest {
+            path: args
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            with_types: args
+                .get("with_types")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true),
+        }),
+        "mkdirs" => Action::Mkdirs(proto::bridge_v1::FsMkdirsRequest {
+            path: args
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+        }),
         other => return Err(core_err(format!("unsupported fs proto action '{}'", other))),
     };
     Ok(proto::bridge_v1::FsRequest {
@@ -3885,6 +3961,16 @@ fn fs_proto_request_to_action_payload(
                 "data": write_file.data.iter().map(|b| serde_json::Value::Number((*b as u64).into())).collect::<Vec<_>>()
             }),
             FsProtoActionKind::WriteFile,
+        )),
+        Action::ReadDir(read_dir) => Ok((
+            "read_dir".to_string(),
+            serde_json::json!({ "path": read_dir.path, "with_types": read_dir.with_types }),
+            FsProtoActionKind::ReadDir,
+        )),
+        Action::Mkdirs(mkdirs) => Ok((
+            "mkdirs".to_string(),
+            serde_json::json!({ "path": mkdirs.path }),
+            FsProtoActionKind::Mkdirs,
         )),
     }
 }
@@ -3944,6 +4030,28 @@ fn fs_json_response_to_proto(
                 written: resp.get("written").and_then(|v| v.as_u64()).unwrap_or(0),
             }))
         }
+        FsProtoActionKind::ReadDir => {
+            let entries = resp
+                .get("entries")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|entry| entry.as_object())
+                        .map(|entry| proto::bridge_v1::FsDirEntry {
+                            name: entry
+                                .get("name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            is_dir: entry.get("is_dir").and_then(|v| v.as_bool()).unwrap_or(false),
+                            is_file: entry.get("is_file").and_then(|v| v.as_bool()).unwrap_or(false),
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            Some(Action::ReadDir(proto::bridge_v1::FsReadDirResponse { entries }))
+        }
+        FsProtoActionKind::Mkdirs => Some(Action::Mkdirs(proto::bridge_v1::FsUnitResponse { ok })),
     };
     proto::bridge_v1::FsResponse {
         schema_version: 1,
@@ -3992,6 +4100,27 @@ fn fs_proto_response_to_json(resp: &proto::bridge_v1::FsResponse) -> serde_json:
             Action::Close(unit) => {
                 out.insert("ok".to_string(), serde_json::Value::Bool(unit.ok));
             }
+            Action::ReadDir(read_dir) => {
+                out.insert(
+                    "entries".to_string(),
+                    serde_json::Value::Array(
+                        read_dir
+                            .entries
+                            .iter()
+                            .map(|entry| {
+                                serde_json::json!({
+                                    "name": entry.name,
+                                    "is_dir": entry.is_dir,
+                                    "is_file": entry.is_file,
+                                })
+                            })
+                            .collect(),
+                    ),
+                );
+            }
+            Action::Mkdirs(unit) => {
+                out.insert("ok".to_string(), serde_json::Value::Bool(unit.ok));
+            }
         }
     }
     serde_json::Value::Object(out)
@@ -4005,7 +4134,8 @@ fn fs_call_proto_impl(request: &[u8]) -> Result<Vec<u8>, deno_core::error::CoreE
     let fs_target = payload.get("path").and_then(|v| v.as_str()).or(Some("*"));
     match action.as_str() {
         "read" | "read_file" => enforce_read(fs_target)?,
-        "write" | "write_file" => enforce_write(fs_target)?,
+        "write" | "write_file" | "mkdirs" => enforce_write(fs_target)?,
+        "read_dir" => enforce_read(fs_target)?,
         "open" => {
             let mode = payload.get("mode").and_then(|v| v.as_str()).unwrap_or("r");
             if mode.contains('w')
