@@ -1294,8 +1294,9 @@ fn op_php_mkdirs(#[string] path: String) -> Result<(), deno_core::error::CoreErr
 }
 
 #[op2(fast)]
-fn op_php_set_privileged(#[number] enabled: i64) {
-    set_security_privileged(enabled != 0);
+fn op_php_set_privileged(#[number] enabled: i64, #[string] label: String) {
+    let label = if label.trim().is_empty() { None } else { Some(label) };
+    set_security_privileged(enabled != 0, label);
 }
 
 #[op2]
@@ -1972,14 +1973,21 @@ fn normalize_path(value: &str) -> std::path::PathBuf {
 
 thread_local! {
     static SECURITY_PRIVILEGED: Cell<bool> = Cell::new(false);
+    static SECURITY_PRIVILEGED_LABEL: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
 }
 
-fn set_security_privileged(enabled: bool) {
+fn set_security_privileged(enabled: bool, label: Option<String>) {
     SECURITY_PRIVILEGED.with(|flag| flag.set(enabled));
+    SECURITY_PRIVILEGED_LABEL.with(|slot| {
+        let mut guard = slot.borrow_mut();
+        *guard = label;
+    });
+    let context = SECURITY_PRIVILEGED_LABEL.with(|slot| slot.borrow().clone());
+    let context = context.as_deref().unwrap_or("unknown");
     if enabled {
-        stdio::debug("security", "privileged context enabled");
+        stdio::debug("security", &format!("privileged context enabled ({})", context));
     } else {
-        stdio::debug("security", "privileged context disabled");
+        stdio::debug("security", &format!("privileged context disabled ({})", context));
     }
 }
 

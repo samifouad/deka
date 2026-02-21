@@ -161,25 +161,25 @@ globalThis.process = {
     env: __phpEnv,
     cwd: ()=>op_php_cwd()
 };
-function withPrivileged(fn) {
+function withPrivileged(label, fn) {
     if (typeof op_php_set_privileged !== 'function') {
         return fn();
     }
-    op_php_set_privileged(1);
+    op_php_set_privileged(1, label || '');
     try {
         return fn();
     } finally{
-        op_php_set_privileged(0);
+        op_php_set_privileged(0, label || '');
     }
 }
-function privilegedReadFileSync(path, encoding) {
-    return withPrivileged(()=>globalThis.fs.readFileSync(path, encoding));
+function privilegedReadFileSync(path, encoding, label) {
+    return withPrivileged(label, ()=>globalThis.fs.readFileSync(path, encoding));
 }
-function privilegedWriteFileSync(path, data, encoding) {
-    return withPrivileged(()=>globalThis.fs.writeFileSync(path, data, encoding));
+function privilegedWriteFileSync(path, data, encoding, label) {
+    return withPrivileged(label, ()=>globalThis.fs.writeFileSync(path, data, encoding));
 }
-function privilegedMkdirSync(path, options) {
-    return withPrivileged(()=>globalThis.fs.mkdirSync(path, options));
+function privilegedMkdirSync(path, options, label) {
+    return withPrivileged(label, ()=>globalThis.fs.mkdirSync(path, options));
 }
 if (globalThis.__dekaPhpLogEnabled === undefined) {
     const debug = globalThis.process?.env?.DEKA_DEBUG;
@@ -365,7 +365,7 @@ function lockCacheModules(lock) {
         : {};
 }
 function parseLockFile(lockPath) {
-    const raw = privilegedReadFileSync(lockPath, 'utf8');
+    const raw = privilegedReadFileSync(lockPath, 'utf8', 'lock:read');
     let lock = null;
     try {
         lock = JSON.parse(raw);
@@ -2655,7 +2655,7 @@ function ensureDir(path) {
     if (globalThis.fs.existsSync(path)) return;
     privilegedMkdirSync(path, {
         recursive: true
-    });
+    }, 'cache:mkdir');
 }
 function ensureDirForFile(filePath) {
     if (!filePath) return;
@@ -2683,7 +2683,7 @@ function readDekaLock(entryPath) {
 }
 function writeDekaLock(lockPath, lock) {
     const json = JSON.stringify(lock, null, 2) + "\n";
-    privilegedWriteFileSync(lockPath, json, 'utf8');
+    privilegedWriteFileSync(lockPath, json, 'utf8', 'lock:write');
 }
 function resolveModuleCachePath(modulesRoot, relPath) {
     let cacheRel = relPath;
@@ -2726,7 +2726,7 @@ function buildLazyModuleRegistry(modules, entryPath) {
         const needsWrite = !cacheEntry || cacheEntry.hash !== desiredHash || cacheEntry.compiler !== PHPX_COMPILER_ID || cacheEntry.lockIdentity !== lockIdentity || !globalThis.fs.existsSync(cachePath);
         if (needsWrite) {
             ensureDirForFile(cachePath);
-            privilegedWriteFileSync(cachePath, module.code, 'utf8');
+            privilegedWriteFileSync(cachePath, module.code, 'utf8', 'cache:write');
             lockDirty = true;
         }
         if (!cacheEntry || cacheEntry.hash !== desiredHash || cacheEntry.compiler !== PHPX_COMPILER_ID || cacheEntry.cache !== cacheRel || cacheEntry.src !== srcRel || cacheEntry.lockIdentity !== lockIdentity) {
