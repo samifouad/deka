@@ -2128,7 +2128,11 @@ fn config_hint_for_request(capability: &str, target: Option<&str>) -> Option<Str
     } else {
         ""
     };
-    Some(format!("add to deka.json: {}{}", suggestion, note))
+    let patch = patch_for_suggestion(capability, &suggestion)?;
+    Some(format!(
+        "add to deka.json: {}{} Patch:\n{}",
+        suggestion, note, patch
+    ))
 }
 
 fn suggest_read_rule(target: &str, project_kind: ProjectKind) -> Option<String> {
@@ -2136,6 +2140,12 @@ fn suggest_read_rule(target: &str, project_kind: ProjectKind) -> Option<String> 
     let path = std::path::Path::new(target);
     let rel = path.strip_prefix(&root).ok().unwrap_or(path);
     let rel_str = rel.to_string_lossy();
+    if rel_str.starts_with("deps/") {
+        return Some("security.allow.read = [\"./deps\"]".to_string());
+    }
+    if rel_str.starts_with("node_modules/") {
+        return Some("security.allow.read = [\"./node_modules\"]".to_string());
+    }
     if rel_str.starts_with("php_modules/.cache") {
         return Some("security.allow.read = [\"./php_modules/.cache\"]".to_string());
     }
@@ -2161,6 +2171,12 @@ fn suggest_write_rule(target: &str, project_kind: ProjectKind) -> Option<String>
     let rel_str = rel.to_string_lossy();
     if rel_str.starts_with("php_modules/.cache") {
         return Some("security.allow.write = [\"./php_modules/.cache\"]".to_string());
+    }
+    if rel_str.starts_with("dist/") {
+        return Some("security.allow.write = [\"./dist\"]".to_string());
+    }
+    if rel_str.starts_with("build/") {
+        return Some("security.allow.write = [\"./build\"]".to_string());
     }
     if rel_str.starts_with(".cache/") {
         return Some("security.allow.write = [\"./.cache\"]".to_string());
@@ -2235,10 +2251,32 @@ fn is_common_target(target: &str, project_kind: ProjectKind, capability: &str) -
     match (project_kind, capability) {
         (ProjectKind::Php, "read") => target.contains("/php_modules/") || target.ends_with("/deka.lock"),
         (ProjectKind::Php, "write") => target.contains("/php_modules/.cache/") || target.ends_with("/deka.lock"),
-        (ProjectKind::Js, "read") => target.contains("/src/") || target.ends_with(".ts") || target.ends_with(".js"),
-        (ProjectKind::Js, "write") => target.contains("/.cache/") || target.ends_with(".cache"),
+        (ProjectKind::Js, "read") => {
+            target.contains("/src/")
+                || target.contains("/deps/")
+                || target.contains("/node_modules/")
+                || target.ends_with(".ts")
+                || target.ends_with(".js")
+        }
+        (ProjectKind::Js, "write") => {
+            target.contains("/.cache/")
+                || target.ends_with(".cache")
+                || target.contains("/dist/")
+                || target.contains("/build/")
+        }
         _ => false,
     }
+}
+
+fn patch_for_suggestion(capability: &str, suggestion: &str) -> Option<String> {
+    let list_start = suggestion.find('[')?;
+    let list_end = suggestion.rfind(']')?;
+    let items = suggestion.get(list_start + 1..list_end)?.trim();
+    let patch = format!(
+        "{{\n  \"security\": {{\n    \"allow\": {{\n      \"{}\": [{}]\n    }}\n  }}\n}}",
+        capability, items
+    );
+    Some(patch)
 }
 
 fn enforce_read(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {

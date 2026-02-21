@@ -147,6 +147,10 @@ fn format_warning(
             message.push(' ');
             message.push_str(&example);
         }
+        if let Some(patch) = example_patch_for_warning(diag.path.as_str(), project_kind) {
+            message.push_str("\n[security] patch:\n");
+            message.push_str(&patch);
+        }
     }
     message
 }
@@ -194,4 +198,52 @@ fn example_for_warning(path: &str, project_kind: ProjectKind) -> Option<String> 
         ProjectKind::Other => "Example:",
     };
     Some(format!("{} {}", label, example))
+}
+
+fn example_patch_for_warning(path: &str, project_kind: ProjectKind) -> Option<String> {
+    let capability = if path.ends_with(".read") {
+        "read"
+    } else if path.ends_with(".write") {
+        "write"
+    } else if path.ends_with(".net") {
+        "net"
+    } else if path.ends_with(".env") {
+        "env"
+    } else if path.ends_with(".run") {
+        "run"
+    } else if path.ends_with(".db") {
+        "db"
+    } else if path.ends_with(".wasm") {
+        "wasm"
+    } else {
+        return None;
+    };
+
+    let entries = match (project_kind, capability) {
+        (ProjectKind::Php, "read") => vec!["./php_modules"],
+        (ProjectKind::Php, "write") => vec!["./php_modules/.cache"],
+        (ProjectKind::Php, "wasm") => vec!["php_rs.wasm"],
+        (ProjectKind::Php, "net") => vec!["localhost:5432"],
+        (ProjectKind::Php, "env") => vec!["DATABASE_URL"],
+        (ProjectKind::Php, "run") => vec!["git"],
+        (ProjectKind::Php, "db") => vec!["postgres"],
+        (ProjectKind::Js, "read") => vec!["./src"],
+        (ProjectKind::Js, "write") => vec!["./.cache"],
+        (ProjectKind::Js, "wasm") => vec!["module.wasm"],
+        (ProjectKind::Js, "net") => vec!["localhost:3000"],
+        (ProjectKind::Js, "env") => vec!["API_KEY"],
+        (ProjectKind::Js, "run") => vec!["git"],
+        (ProjectKind::Js, "db") => vec!["postgres"],
+        _ => return None,
+    };
+
+    let items = entries
+        .into_iter()
+        .map(|item| format!("\"{}\"", item))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!(
+        "{{\n  \"security\": {{\n    \"allow\": {{\n      \"{}\": [{}]\n    }}\n  }}\n}}",
+        capability, items
+    ))
 }
