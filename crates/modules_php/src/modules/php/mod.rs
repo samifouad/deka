@@ -1976,6 +1976,11 @@ thread_local! {
 
 fn set_security_privileged(enabled: bool) {
     SECURITY_PRIVILEGED.with(|flag| flag.set(enabled));
+    if enabled {
+        stdio::debug("security", "privileged context enabled");
+    } else {
+        stdio::debug("security", "privileged context disabled");
+    }
 }
 
 fn security_privileged_enabled() -> bool {
