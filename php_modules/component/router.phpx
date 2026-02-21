@@ -1,5 +1,5 @@
-import { json_encode } from 'encoding/json';
-import { readDirSync, writeFileSync, mkdirSync } from 'fs';
+import { json_encode, json_decode } from 'encoding/json';
+import { readDirSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { result_is_ok } from 'core/result';
 import { now_ms } from 'time';
 
@@ -41,6 +41,65 @@ export function generate_manifest($root = '.') {
     $json = json_encode($manifest);
     writeFileSync($manifest_path, $json);
     return $manifest;
+}
+
+/// docid: phpx/component/load_manifest()
+/// <Function name="load_manifest">
+///   <Description>Load the cached app route manifest (generates it if missing).</Description>
+///   <Parameter name="$root" type="string" required="false" />
+///   <ReturnType type="mixed" />
+/// </Function>
+export function load_manifest($root = '.') {
+    $root = normalize_root($root);
+    $cache_dir = join_path($root, 'php_modules/.cache');
+    $manifest_path = join_path($cache_dir, 'app-manifest.json');
+    $raw_res = readFileSync($manifest_path);
+    if (result_is_ok($raw_res)) {
+        $raw = $raw_res->value;
+        $raw = is_array($raw) ? '' : '' . $raw;
+        $decoded = json_decode('' . $raw, true);
+        if (is_array($decoded) || is_object($decoded)) {
+            return $decoded;
+        }
+    }
+    return generate_manifest($root);
+}
+
+/// docid: phpx/component/resolve_path()
+/// <Function name="resolve_path">
+///   <Description>Resolve a URL path against the app manifest.</Description>
+///   <Parameter name="$path" type="string" required="true" />
+///   <Parameter name="$root" type="string" required="false" />
+///   <ReturnType type="mixed" />
+/// </Function>
+export function resolve_path($path, $root = '.') {
+    $manifest = load_manifest($root);
+    if (!is_array($manifest) && !is_object($manifest)) {
+        return { ok: false, error: 'invalid manifest' };
+    }
+    $pages = manifest_get($manifest, 'pages');
+    $layouts = manifest_get($manifest, 'layouts');
+    if (!is_array($pages)) {
+        return { ok: false, error: 'no pages in manifest' };
+    }
+    $url_segments = split_request_path($path);
+    $match = match_routes($pages, $url_segments);
+    if ($match === false) {
+        return { ok: false, error: 'not found' };
+    }
+    $matched_layouts = match_layouts($layouts, $url_segments);
+    return {
+        ok: true,
+        file: $match.file,
+        params: $match.params,
+        layouts: $matched_layouts,
+    };
+}
+
+function manifest_get($manifest, $key) {
+    if (is_array($manifest) && array_key_exists($key, $manifest)) return $manifest[$key];
+    if (is_object($manifest) && isset($manifest->{$key})) return $manifest->{$key};
+    return null;
 }
 
 function scan_app_dir($dir, $segments, &$pages, &$layouts, &$apis) {
@@ -100,6 +159,129 @@ function route_segments_to_tokens($segments) {
         $tokens[] = parse_route_token($segment);
     }
     return $tokens;
+}
+
+function split_request_path($path) {
+    $path = '' . $path;
+    if ($path === '') return [];
+    if ($path === '/') return [];
+    if (strpos($path, '?') !== false) {
+        $path = explode('?', $path, 2)[0];
+    }
+    $path = trim($path, '/');
+    if ($path === '') return [];
+    return explode('/', $path);
+}
+
+function route_specificity($tokens) {
+    $score = 0;
+    foreach ($tokens as $token) {
+        if (!is_array($token) && !is_object($token)) continue;
+        $kind = token_field($token, 'kind');
+        if ($kind === 'static') $score += 30;
+        else if ($kind === 'param') $score += 20;
+        else if ($kind === 'catchall') $score += 5;
+        else if ($kind === 'optional_catchall') $score += 4;
+    }
+    return $score;
+}
+
+function match_routes($routes, $url_segments) {
+    $best = false;
+    $best_score = -1;
+    foreach ($routes as $route) {
+        $tokens = route_tokens($route);
+        $params = match_route_tokens($tokens, $url_segments);
+        if ($params === false) continue;
+        $score = route_specificity($tokens);
+        if ($score > $best_score) {
+            $best_score = $score;
+            $best = {
+                file: route_field($route, 'file'),
+                params: $params,
+                tokens: $tokens,
+            };
+        }
+    }
+    return $best;
+}
+
+function match_layouts($layouts, $url_segments) {
+    if (!is_array($layouts)) return [];
+    $matched = [];
+    foreach ($layouts as $layout) {
+        $tokens = route_tokens($layout);
+        $params = match_route_tokens($tokens, array_slice($url_segments, 0, count($tokens)));
+        if ($params === false) continue;
+        $matched[] = route_field($layout, 'file');
+    }
+    return $matched;
+}
+
+function route_tokens($route) {
+    $tokens = route_field($route, 'tokens');
+    if (is_array($tokens)) return $tokens;
+    if (is_object($tokens)) return (array) $tokens;
+    return [];
+}
+
+function route_field($route, $key) {
+    if (is_array($route) && array_key_exists($key, $route)) return $route[$key];
+    if (is_object($route) && isset($route->{$key})) return $route->{$key};
+    return null;
+}
+
+function token_field($token, $key) {
+    if (is_array($token) && array_key_exists($key, $token)) return $token[$key];
+    if (is_object($token) && isset($token->{$key})) return $token->{$key};
+    return null;
+}
+
+function match_route_tokens($tokens, $url_segments) {
+    $params = [];
+    $i = 0;
+    $j = 0;
+    $token_count = is_array($tokens) ? count($tokens) : 0;
+    $seg_count = is_array($url_segments) ? count($url_segments) : 0;
+    while ($i < $token_count) {
+        $token = $tokens[$i];
+        $kind = token_field($token, 'kind');
+        if ($kind === 'static') {
+            $value = token_field($token, 'value');
+            if ($j >= $seg_count || $url_segments[$j] !== $value) return false;
+            $i += 1;
+            $j += 1;
+            continue;
+        }
+        if ($kind === 'param') {
+            if ($j >= $seg_count) return false;
+            $name = token_field($token, 'name');
+            $params[$name] = $url_segments[$j];
+            $i += 1;
+            $j += 1;
+            continue;
+        }
+        if ($kind === 'catchall') {
+            if ($j >= $seg_count) return false;
+            $name = token_field($token, 'name');
+            $rest = array_slice($url_segments, $j);
+            $params[$name] = implode('/', $rest);
+            $i += 1;
+            $j = $seg_count;
+            continue;
+        }
+        if ($kind === 'optional_catchall') {
+            $name = token_field($token, 'name');
+            $rest = array_slice($url_segments, $j);
+            $params[$name] = implode('/', $rest);
+            $i += 1;
+            $j = $seg_count;
+            continue;
+        }
+        return false;
+    }
+    if ($j !== $seg_count) return false;
+    return $params;
 }
 
 function parse_route_token($segment) {
