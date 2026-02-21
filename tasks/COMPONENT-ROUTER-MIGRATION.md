@@ -27,9 +27,12 @@ Notes:
 - Added `load_manifest()` + `resolve_path()` + token matching helpers (parity with runtime router).
 
 ## Task 3: Userland Serve Entry
-- [ ] Update `deka init` template to generate `app/main.phpx` that calls the router.
-- [ ] Ensure `renderToString` is default (alias `render()`), and `renderToStream` optional.
+- [~] Update `deka init` template to generate `app/main.phpx` that calls the router.
+- [x] Ensure `renderToString` is default (alias `render()`), and `renderToStream` optional.
 - [ ] Provide explicit error messages when `app/` is missing or empty.
+
+Notes:
+- `deka init` now scaffolds `app/page.phpx` and `app/layout.phpx` plus `component/router.phpx`.
 
 ## Task 4: Runtime De‑Magic (Phase 1)
 - [ ] Gate the old runtime router with a warning.
