@@ -18,12 +18,13 @@ Notes (current behavior):
   - `resolve($request, $root, $opts)`
   - `Router($props)` component
   - `route_manifest($root, $opts)`
-- [ ] Port routing logic from `deka_php/php.js` into PHPX.
+- [~] Port routing logic from `deka_php/php.js` into PHPX.
 - [ ] Ensure compatibility with existing `app/` conventions (`page.phpx`, `layout.phpx`, dynamic tokens).
 
 Notes:
 - Added `component/router.phpx` with `generate_manifest()` scaffold.
 - Added `fs.readDirSync` + `fs.mkdirSync` via fs bridge so router can scan `app/` and write `php_modules/.cache/app-manifest.json`.
+- Added `load_manifest()` + `resolve_path()` + token matching helpers (parity with runtime router).
 
 ## Task 3: Userland Serve Entry
 - [ ] Update `deka init` template to generate `app/main.phpx` that calls the router.
