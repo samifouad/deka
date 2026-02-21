@@ -17,7 +17,7 @@ Project policy lives in `deka.json` under `security`:
       "net": ["api.linkhash.dev:443"],
       "env": ["DATABASE_URL"],
       "run": ["git"],
-      "db": ["postgres"],
+      "db": ["postgres", "stats"],
       "wasm": true,
       "dynamic": false
     },
@@ -100,6 +100,13 @@ to reduce prompt noise:
 - `env`: all
 
 Explicit `deny` rules still take precedence.
+
+## DB Targets
+
+The `db` capability accepts driver targets and a stats target:
+
+- `postgres`, `mysql`, `sqlite`: allow specific database engines
+- `stats`: allow `db stats` without granting all drivers
 
 ## Subprocesses (`run`) and Privilege Escalation
 

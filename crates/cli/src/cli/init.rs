@@ -169,7 +169,7 @@ fn path_display(path: &Path) -> String {
 
 fn default_deka_json(name: &str) -> String {
     format!(
-        "{{\n  \"name\": \"{}\",\n  \"type\": \"serve\",\n  \"serve\": {{ \"entry\": \"app/main.phpx\" }},\n  \"scripts\": {{ \"dev\": \"deka serve --dev\" }},\n  \"security\": {{\n    \"allow\": {{\n      \"read\": [\".\"],\n      \"write\": [\".cache\", \"php_modules/.cache\"],\n      \"wasm\": [\"*\"],\n      \"env\": [\"*\"]\n    }}\n  }}\n}}\n",
+        "{{\n  \"name\": \"{}\",\n  \"type\": \"serve\",\n  \"serve\": {{ \"entry\": \"app/main.phpx\" }},\n  \"scripts\": {{ \"dev\": \"deka serve --dev\" }},\n  \"security\": {{\n    \"allow\": {{\n      \"read\": [\".\"],\n      \"write\": [\".cache\", \"php_modules/.cache\"],\n      \"wasm\": [\"*\"],\n      \"env\": [\"*\"],\n      \"db\": [\"stats\"]\n    }}\n  }}\n}}\n",
         name
     )
 }
