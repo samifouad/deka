@@ -1858,6 +1858,13 @@ impl WorkerThread {
                     };
                 }
 
+                if (typeof globalThis.__dekaPrint !== 'function') {
+                    globalThis.__dekaPrint = (value, isErr = false) => {
+                        const text = value == null ? '' : String(value);
+                        Deno.core.print(text, !!isErr);
+                    };
+                }
+
                 if (!globalThis.TextEncoder) {
                     globalThis.TextEncoder = class TextEncoder {
                         encode(input) {
@@ -2172,6 +2179,29 @@ impl WorkerThread {
                             return routeHostCall(kind, exportName, payload || {});
                         }
                         return { ok: false, error: `unknown host bridge module '${name}'` };
+                    };
+                }
+
+                if (typeof globalThis.__dekaRuntime !== 'object') {
+                    globalThis.__dekaRuntime = {
+                        executePhpx: async function(_source, file, _props) {
+                            if (!(globalThis.__dekaPhp && typeof globalThis.__dekaPhp.runFile === 'function')) {
+                                throw new Error('runtime.executePhpx requires __dekaPhp.runFile');
+                            }
+                            const result = await globalThis.__dekaPhp.runFile(String(file || ''));
+                            const stdout = result && result.stdout ? String(result.stdout) : "";
+                            let stderr = result && result.stderr ? String(result.stderr) : "";
+                            if (!stderr && result && result.error) {
+                                stderr = String(result.error);
+                            }
+                            if (stdout) Deno.core.print(stdout, false);
+                            if (stderr) Deno.core.print(stderr, true);
+                            const ok = result && result.ok !== false;
+                            let exitCode = result && typeof result.exit_code === 'number' ? result.exit_code : 0;
+                            if (!ok && exitCode === 0) exitCode = 1;
+                            if (exitCode) globalThis.__dekaExitCode = exitCode;
+                            return result;
+                        }
                     };
                 }
 
@@ -2491,6 +2521,25 @@ impl WorkerThread {
             &request.request_data.request_value,
             request.request_data.request_parts.as_ref(),
             &self.deka_args,
+        ) {
+            isolate.active_requests = 0;
+            isolate.state = IsolateState::Idle;
+            return (
+                ExecutionOutcome::Err(format!("Setup failed: {}", err)),
+                ExecutionProfile::empty(),
+            );
+        }
+
+        let exec_mode = match request.request_data.mode {
+            ExecutionMode::Module => "module",
+            _ => "request",
+        };
+        if let Err(err) = isolate.runtime.execute_script(
+            "exec_mode.js",
+            ModuleCodeString::from(format!(
+                "globalThis.__dekaExecMode = {};",
+                serde_json::to_string(exec_mode).unwrap_or_else(|_| "\"request\"".to_string())
+            )),
         ) {
             isolate.active_requests = 0;
             isolate.state = IsolateState::Idle;

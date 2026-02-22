@@ -26,6 +26,8 @@ pub struct PhpxEsmLoader {
     cache_dir: PathBuf,
     entry_specifier: ModuleSpecifier,
     wrapper_specifier: ModuleSpecifier,
+    prelude_specifier: ModuleSpecifier,
+    prelude_source: String,
     sources: Rc<RefCell<HashMap<String, ModuleSourceCode>>>,
 }
 
@@ -38,11 +40,18 @@ impl PhpxEsmLoader {
             .map_err(|_| JsErrorBox::generic("invalid entry module path"))?;
         let wrapper_specifier = ModuleSpecifier::from_file_path(entry_wrapper_path(&project_root))
             .map_err(|_| JsErrorBox::generic("invalid entry wrapper path"))?;
+        let prelude_specifier = ModuleSpecifier::from_file_path(entry_prelude_path(&project_root))
+            .map_err(|_| JsErrorBox::generic("invalid prelude path"))?;
+        let prelude_source =
+            "if (!globalThis.panic) { globalThis.panic = (msg) => { throw new Error(String(msg)); }; }\n"
+                .to_string();
         Ok(Self {
             project_root,
             cache_dir,
             entry_specifier,
             wrapper_specifier,
+            prelude_specifier,
+            prelude_source,
             sources: Rc::new(RefCell::new(HashMap::new())),
         })
     }
@@ -105,6 +114,14 @@ impl PhpxEsmLoader {
     }
 
     fn load_source(&self, specifier: &ModuleSpecifier) -> Result<ModuleSource, JsErrorBox> {
+        if specifier == &self.prelude_specifier {
+            return Ok(ModuleSource::new(
+                ModuleType::JavaScript,
+                ModuleSourceCode::String(self.prelude_source.clone().into()),
+                specifier,
+                None,
+            ));
+        }
         if specifier == &self.wrapper_specifier {
             let wrapper = self.wrapper_source();
             return Ok(ModuleSource::new(
@@ -130,7 +147,8 @@ impl PhpxEsmLoader {
 
     fn wrapper_source(&self) -> String {
         let entry = self.entry_specifier.to_string();
-        let template = "import * as __dekaMain from \"__ENTRY__\";\n\
+        let template = "import \"__PRELUDE__\";\n\
+import * as __dekaMain from \"__ENTRY__\";\n\
 const __candidate = typeof __dekaMain.default !== \"undefined\"\n\
   ? __dekaMain.default\n\
   : typeof __dekaMain.app !== \"undefined\"\n\
@@ -138,6 +156,15 @@ const __candidate = typeof __dekaMain.default !== \"undefined\"\n\
   : typeof __dekaMain.handler !== \"undefined\"\n\
   ? __dekaMain.handler\n\
   : __dekaMain;\n\
+if (__dekaMain && __dekaMain.phpxBuildMode === \"scaffold\" && typeof globalThis.__dekaRuntime === \"object\") {\n\
+  const __mode = globalThis.__dekaExecMode || \"request\";\n\
+  if (__mode === \"module\" && typeof __dekaMain.runPhpx === \"function\") {\n\
+    await __dekaMain.runPhpx(globalThis.__dekaRuntime);\n\
+  }\n\
+  if (__mode !== \"module\" && typeof globalThis.__dekaPhp === \"object\" && typeof __dekaPhp.servePhp === \"function\") {\n\
+    globalThis.app = __dekaPhp.servePhp(__dekaMain.phpxFile);\n\
+  }\n\
+}\n\
 if (typeof globalThis.app === \"undefined\" && typeof __candidate !== \"undefined\") {\n\
   if (typeof __candidate === \"function\" && typeof globalThis.__dekaNodeExpressAdapter === \"function\" && (typeof __candidate.handle === \"function\" || typeof __candidate.listen === \"function\")) {\n\
     globalThis.app = globalThis.__dekaNodeExpressAdapter(__candidate);\n\
@@ -147,7 +174,9 @@ if (typeof globalThis.app === \"undefined\" && typeof __candidate !== \"undefine
     globalThis.app = __candidate;\n\
   }\n\
 }\n";
-        template.replace("__ENTRY__", &entry)
+        template
+            .replace("__PRELUDE__", &self.prelude_specifier.to_string())
+            .replace("__ENTRY__", &entry)
     }
 }
 
@@ -224,6 +253,13 @@ pub fn entry_wrapper_path(project_root: &Path) -> PathBuf {
         .join(".cache")
         .join("phpx_js")
         .join("__deka_entry.js")
+}
+
+pub fn entry_prelude_path(project_root: &Path) -> PathBuf {
+    project_root
+        .join(".cache")
+        .join("phpx_js")
+        .join("__deka_prelude.js")
 }
 
 pub fn hash_module_graph(entry_path: &Path) -> Result<u64, String> {

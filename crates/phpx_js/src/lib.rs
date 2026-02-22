@@ -804,7 +804,10 @@ impl<'a> JsSubsetEmitter<'a> {
             Stmt::Echo { exprs, .. } => {
                 for expr in *exprs {
                     let value = self.emit_expr(*expr)?;
-                    self.body.push_str(&format!("console.log({});\n", value));
+                    self.body.push_str(&format!(
+                        "(globalThis.__dekaPrint ? globalThis.__dekaPrint({}) : console.log({}));\n",
+                        value, value
+                    ));
                 }
                 Ok(())
             }
@@ -1193,7 +1196,10 @@ impl<'a> JsSubsetEmitter<'a> {
             }
             Expr::Print { expr, .. } => {
                 let value = self.emit_expr(*expr)?;
-                Ok(format!("(console.log({}), undefined)", value))
+                Ok(format!(
+                    "(globalThis.__dekaPrint ? globalThis.__dekaPrint({}) : console.log({}), undefined)",
+                    value, value
+                ))
             }
             Expr::Await { expr, .. } => {
                 let value = self.emit_expr(*expr)?;
@@ -1587,13 +1593,22 @@ impl<'a> JsSubsetEmitter<'a> {
 
     fn encode_php_string_literal(&self, value: &[u8]) -> String {
         let mut bytes: &[u8] = value;
-        if bytes.len() >= 2
-            && ((bytes[0] == b'\'' && bytes[bytes.len() - 1] == b'\'')
-                || (bytes[0] == b'"' && bytes[bytes.len() - 1] == b'"'))
-        {
-            bytes = &bytes[1..bytes.len() - 1];
+        let mut quote = None;
+        if bytes.len() >= 2 {
+            let first = bytes[0];
+            let last = bytes[bytes.len() - 1];
+            if (first == b'\'' && last == b'\'') || (first == b'"' && last == b'"') {
+                quote = Some(first);
+                bytes = &bytes[1..bytes.len() - 1];
+            }
         }
-        json_string(&String::from_utf8_lossy(bytes))
+        let raw = String::from_utf8_lossy(bytes).to_string();
+        let decoded = match quote {
+            Some(b'\'') => unescape_php_single(&raw),
+            Some(b'"') => unescape_php_double(&raw),
+            _ => raw,
+        };
+        json_string(&decoded)
     }
 
     fn normalize_jsx_text(&self, span: php_rs::parser::span::Span) -> Option<String> {
@@ -1725,6 +1740,92 @@ impl<'a> JsSubsetEmitter<'a> {
             }
         }
     }
+}
+
+fn unescape_php_single(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut chars = raw.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some('\'') => out.push('\''),
+                Some('\\') => out.push('\\'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+fn unescape_php_double(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut chars = raw.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            out.push(ch);
+            continue;
+        }
+        let Some(next) = chars.next() else {
+            out.push('\\');
+            break;
+        };
+        match next {
+            'n' => out.push('\n'),
+            'r' => out.push('\r'),
+            't' => out.push('\t'),
+            'v' => out.push('\x0b'),
+            'e' => out.push('\x1b'),
+            'f' => out.push('\x0c'),
+            '"' => out.push('"'),
+            '\\' => out.push('\\'),
+            '$' => out.push('$'),
+            'x' => {
+                let mut hex = String::new();
+                for _ in 0..2 {
+                    if let Some(h) = chars.peek().copied() {
+                        if h.is_ascii_hexdigit() {
+                            hex.push(h);
+                            chars.next();
+                        }
+                    }
+                }
+                if hex.is_empty() {
+                    out.push('x');
+                } else if let Ok(code) = u8::from_str_radix(&hex, 16) {
+                    out.push(code as char);
+                }
+            }
+            '0'..='7' => {
+                let mut oct = String::new();
+                oct.push(next);
+                for _ in 0..2 {
+                    if let Some(o) = chars.peek().copied() {
+                        if o >= '0' && o <= '7' {
+                            oct.push(o);
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                if let Ok(code) = u32::from_str_radix(&oct, 8) {
+                    if let Some(c) = std::char::from_u32(code) {
+                        out.push(c);
+                    }
+                }
+            }
+            other => {
+                out.push(other);
+            }
+        }
+    }
+    out
 }
 
 fn add_or_merge_import(imports: &mut Vec<ImportDecl>, from: &str, specs: Vec<ImportSpec>) {
