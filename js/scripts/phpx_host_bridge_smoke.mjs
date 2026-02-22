@@ -109,7 +109,8 @@ const dbOpen = bridge.call({
   action: "open",
   payload: { driver: "sqlite", config: { database: "host-bridge-smoke" } },
 });
-assert(dbOpen.ok, "db should be available in adwa host bridge");
+assert(!dbOpen.ok, "db should be denied in adwa host bridge");
+assert(dbOpen.code === "CAPABILITY_DENIED", "db denial should use CAPABILITY_DENIED");
 
 const write = bridge.call({
   kind: "fs",

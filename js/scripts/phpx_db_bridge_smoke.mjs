@@ -1,4 +1,5 @@
 import { createPhpHostBridge } from "../dist/phpx_host_bridge.js";
+import initSqlJs from "sql.js/dist/sql-wasm.js";
 
 class MemoryFs {
   #files = new Map();
@@ -17,19 +18,44 @@ class MemoryFs {
 
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
 
+if (typeof globalThis.localStorage === "undefined") {
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(String(key), String(value)),
+    removeItem: (key) => store.delete(String(key)),
+    clear: () => store.clear(),
+    key: (index) => Array.from(store.keys())[index] ?? null,
+    get length() { return store.size; },
+  };
+}
+
 const bridge = createPhpHostBridge({
   fs: new MemoryFs(),
-  target: "adwa",
+  target: "server",
   projectRoot: "/project",
   cwd: "/project",
 });
 
-const opened = bridge.call({
+globalThis.initSqlJs = (opts) =>
+  initSqlJs({
+    ...opts,
+    locateFile: (file) => new URL(`../node_modules/sql.js/dist/${file}`, import.meta.url).toString(),
+  });
+
+const openPayload = {
   kind: "db",
   action: "open",
   payload: { driver: "sqlite", config: { database: "smoke" } },
-});
-assert(opened.ok, "db open should succeed on adwa");
+};
+let opened = bridge.call(openPayload);
+if (!opened.ok && /initializing|still initializing/i.test(String(opened.error || ""))) {
+  if (globalThis.__adwaSqlJsPromise) {
+    await globalThis.__adwaSqlJsPromise;
+  }
+  opened = bridge.call(openPayload);
+}
+assert(opened.ok, "db open should succeed on server host bridge");
 const handle = opened.value.handle;
 
 const create = bridge.call({

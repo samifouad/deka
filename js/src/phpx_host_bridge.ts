@@ -70,7 +70,7 @@ const ADWA_CAPS: HostCapabilities = {
   net: true,
   processEnv: false,
   clockRandom: true,
-  db: true,
+  db: false,
   wasmImports: true,
 };
 
