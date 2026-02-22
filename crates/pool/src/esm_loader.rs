@@ -82,13 +82,7 @@ impl PhpxEsmLoader {
     }
 
     fn resolve_phpx_module_spec(&self, specifier: &str) -> Option<PathBuf> {
-        let modules_dir = self.project_root.join("php_modules");
-        let base = if specifier.starts_with("@user/") {
-            modules_dir.join("@user").join(specifier.trim_start_matches("@user/"))
-        } else {
-            modules_dir.join(specifier)
-        };
-        resolve_with_candidates(&base)
+        resolve_phpx_module_spec(&self.project_root, specifier)
     }
 
     fn resolve_path(&self, specifier: &str, referrer: &str) -> Result<ModuleSpecifier, JsErrorBox> {
@@ -232,6 +226,39 @@ pub fn entry_wrapper_path(project_root: &Path) -> PathBuf {
         .join("__deka_entry.js")
 }
 
+pub fn hash_module_graph(entry_path: &Path) -> Result<u64, String> {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let project_root = resolve_project_root(entry_path)?;
+    let mut visited: HashSet<PathBuf> = HashSet::new();
+    let mut stack: Vec<PathBuf> = vec![entry_path.to_path_buf()];
+    let mut hasher = DefaultHasher::new();
+
+    while let Some(path) = stack.pop() {
+        if !visited.insert(path.clone()) {
+            continue;
+        }
+        let source = std::fs::read_to_string(&path)
+            .map_err(|err| format!("failed to read {}: {}", path.display(), err))?;
+        source.hash(&mut hasher);
+
+        let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+        if ext == "phpx" {
+            let meta = parse_source_module_meta(&source);
+            for decl in meta.imports {
+                if let Some(resolved) =
+                    resolve_import_path(&project_root, &path, decl.from.trim())
+                {
+                    stack.push(resolved);
+                }
+            }
+        }
+    }
+
+    Ok(hasher.finish())
+}
+
 pub fn ensure_project_layout(project_root: &Path, meta: &SourceModuleMeta) -> Result<(), String> {
     let lock_path = project_root.join("deka.lock");
     if !lock_path.is_file() {
@@ -325,6 +352,40 @@ fn resolve_module_file(modules_dir: &Path, spec: &str) -> Option<PathBuf> {
     }
 
     candidates.into_iter().find(|path| path.is_file())
+}
+
+fn resolve_phpx_module_spec(project_root: &Path, specifier: &str) -> Option<PathBuf> {
+    let modules_dir = project_root.join("php_modules");
+    let base = if specifier.starts_with("@user/") {
+        modules_dir.join("@user").join(specifier.trim_start_matches("@user/"))
+    } else {
+        modules_dir.join(specifier)
+    };
+    resolve_with_candidates(&base)
+}
+
+fn resolve_import_path(
+    project_root: &Path,
+    referrer: &Path,
+    specifier: &str,
+) -> Option<PathBuf> {
+    if is_bare_specifier(specifier) {
+        return resolve_phpx_module_spec(project_root, specifier);
+    }
+
+    if specifier.starts_with("http://") || specifier.starts_with("https://") {
+        return None;
+    }
+
+    let base = if specifier.starts_with('/') {
+        PathBuf::from(specifier)
+    } else {
+        referrer
+            .parent()
+            .unwrap_or(Path::new("."))
+            .join(specifier)
+    };
+    resolve_with_candidates(&base)
 }
 
 fn resolve_with_candidates(target: &Path) -> Option<PathBuf> {

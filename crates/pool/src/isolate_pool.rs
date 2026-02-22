@@ -55,7 +55,9 @@ thread_local! {
 }
 
 use crate::validation;
-use crate::esm_loader::{PhpxEsmLoader, entry_wrapper_path, resolve_project_root};
+use crate::esm_loader::{
+    PhpxEsmLoader, entry_wrapper_path, hash_module_graph, resolve_project_root,
+};
 
 // ========== OS-level Thread CPU Time ==========
 
@@ -1396,8 +1398,22 @@ impl WorkerThread {
             }
         }
 
+        let use_esm_for_hash = request.request_data.handler_entry.is_some()
+            && std::env::var("DEKA_RUNTIME_ESM")
+                .map(|value| value != "0" && value != "false")
+                .unwrap_or(true);
+
         // Compute source hash for cache validation
-        let source_hash = if request.request_data.handler_code.trim().is_empty() {
+        let source_hash = if use_esm_for_hash {
+            if let Some(entry) = request.request_data.handler_entry.as_ref() {
+                match hash_module_graph(Path::new(entry)) {
+                    Ok(hash) => hash,
+                    Err(_) => Self::hash_source(entry),
+                }
+            } else {
+                Self::hash_source("")
+            }
+        } else if request.request_data.handler_code.trim().is_empty() {
             if let Some(entry) = request.request_data.handler_entry.as_ref() {
                 match std::fs::read_to_string(entry) {
                     Ok(contents) => Self::hash_source(&contents),
