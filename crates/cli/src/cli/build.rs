@@ -718,11 +718,9 @@ fn build_single_file_bundle_to_path(
     minify: bool,
 ) -> Result<(), String> {
     let output = build_single_file_to_string(input_path)?;
-    let prelude = phpx_js::build_stdlib_prelude(&output.project_root)?;
-    let entry_js = format!("{prelude}\n{}", output.js);
     let entry_path = fs::canonicalize(input_path)
         .map_err(|err| format!("failed to resolve {}: {}", input_path.display(), err))?;
-    let provider = Arc::new(PhpxBundleProvider::new(entry_path.clone(), entry_js));
+    let provider = Arc::new(PhpxBundleProvider::new(entry_path.clone(), output.js.clone()));
     let bundle = bundle_virtual_entry(
         &entry_path,
         BundleOptions {
