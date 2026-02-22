@@ -1836,6 +1836,148 @@ impl WorkerThread {
                     };
                 }
 
+                // Runtime bridge helpers for PHPX stdlib (JS runtime path)
+                if (typeof globalThis.function_exists !== 'function') {
+                    globalThis.function_exists = function(name) {
+                        return typeof globalThis[name] === 'function';
+                    };
+                }
+
+                if (typeof globalThis.__bridge !== 'function') {
+                    const ops = (Deno && Deno.core && Deno.core.ops) ? Deno.core.ops : {};
+                    const routeHostCall = (kind, action, payload) => {
+                        if (kind === 'db') {
+                            if (typeof ops.op_php_db_call_proto === 'function' && typeof ops.op_php_db_proto_encode === 'function' && typeof ops.op_php_db_proto_decode === 'function') {
+                                const request = ops.op_php_db_proto_encode(String(action || ''), payload || {});
+                                const response = ops.op_php_db_call_proto(request);
+                                return ops.op_php_db_proto_decode(response);
+                            }
+                            return { ok: false, error: 'db protobuf bridge ops unavailable' };
+                        }
+                        if (kind === 'net') {
+                            if (typeof ops.op_php_net_call_proto === 'function' && typeof ops.op_php_net_proto_encode === 'function' && typeof ops.op_php_net_proto_decode === 'function') {
+                                const request = ops.op_php_net_proto_encode(String(action || ''), payload || {});
+                                const response = ops.op_php_net_call_proto(request);
+                                return ops.op_php_net_proto_decode(response);
+                            }
+                            return { ok: false, error: 'net protobuf bridge ops unavailable' };
+                        }
+                        if (kind === 'fs') {
+                            if (typeof ops.op_php_fs_call_proto === 'function' && typeof ops.op_php_fs_proto_encode === 'function' && typeof ops.op_php_fs_proto_decode === 'function') {
+                                const request = ops.op_php_fs_proto_encode(String(action || ''), payload || {});
+                                const response = ops.op_php_fs_call_proto(request);
+                                const decoded = ops.op_php_fs_proto_decode(response);
+                                return Object.entries(decoded || {});
+                            }
+                            return { ok: false, error: 'fs protobuf bridge ops unavailable' };
+                        }
+                        if (kind === 'time') {
+                            const act = String(action || '');
+                            const req = payload || {};
+                            if (act === 'now_ms') {
+                                return Object.entries({ ok: true, now_ms: Date.now() });
+                            }
+                            if (act === 'sleep_ms') {
+                                const msRaw = Number(req.milliseconds ?? req.ms ?? 0);
+                                const ms = Number.isFinite(msRaw) ? Math.max(0, Math.floor(msRaw)) : 0;
+                                try {
+                                    if (ms > 0) {
+                                        if (typeof SharedArrayBuffer !== 'undefined' && typeof Atomics !== 'undefined' && typeof Atomics.wait === 'function') {
+                                            const sab = new SharedArrayBuffer(4);
+                                            const arr = new Int32Array(sab);
+                                            Atomics.wait(arr, 0, 0, ms);
+                                        } else {
+                                            const end = Date.now() + ms;
+                                            while (Date.now() < end) {}
+                                        }
+                                    }
+                                    return Object.entries({ ok: true, slept_ms: ms });
+                                } catch (err) {
+                                    return Object.entries({ ok: false, error: err && err.message ? err.message : String(err) });
+                                }
+                            }
+                            return { ok: false, error: `unknown time action '${act}'` };
+                        }
+                        if (kind === 'crypto') {
+                            const act = String(action || '');
+                            if (act === 'random_bytes') {
+                                const req = payload || {};
+                                const n = Number(req.length ?? req.len ?? 0);
+                                if (!Number.isFinite(n) || n <= 0) {
+                                    return { ok: false, error: 'length must be > 0' };
+                                }
+                                const bytes = new Uint8Array(Math.floor(n));
+                                let filled = false;
+                                if (!filled && typeof ops.op_php_random_bytes === 'function') {
+                                    const raw = ops.op_php_random_bytes(Math.floor(n));
+                                    if (raw && typeof raw.length === 'number') {
+                                        bytes.set(raw);
+                                        filled = true;
+                                    }
+                                }
+                                if (!filled && globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
+                                    globalThis.crypto.getRandomValues(bytes);
+                                    filled = true;
+                                }
+                                if (!filled) {
+                                    return { ok: false, error: 'secure random source unavailable' };
+                                }
+                                return Object.entries({ ok: true, data: Array.from(bytes) });
+                            }
+                            return { ok: false, error: `unknown crypto action '${act}'` };
+                        }
+                        if (kind === 'json') {
+                            const act = String(action || '');
+                            const req = payload || {};
+                            if (act === 'encode') {
+                                try {
+                                    return Object.entries({ ok: true, json: JSON.stringify(req.value ?? null) });
+                                } catch (err) {
+                                    return Object.entries({ ok: false, error: err && err.message ? err.message : String(err) });
+                                }
+                            }
+                            if (act === 'decode') {
+                                try {
+                                    const src = String(req.json ?? '');
+                                    return Object.entries({ ok: true, value: JSON.parse(src) });
+                                } catch (err) {
+                                    return Object.entries({ ok: false, error: err && err.message ? err.message : String(err) });
+                                }
+                            }
+                            if (act === 'validate') {
+                                try {
+                                    const src = String(req.json ?? '');
+                                    JSON.parse(src);
+                                    return Object.entries({ ok: true, valid: true });
+                                } catch (_err) {
+                                    return Object.entries({ ok: true, valid: false });
+                                }
+                            }
+                            return Object.entries({ ok: false, error: `unknown json action '${act}'` });
+                        }
+                        return { ok: false, error: `unknown bridge kind '${kind}'` };
+                    };
+
+                    globalThis.__bridge = (kind, action, payload) => routeHostCall(String(kind || ''), String(action || ''), payload || {});
+                    globalThis.__bridge_async = async (kind, action, payload) => routeHostCall(String(kind || ''), String(action || ''), payload || {});
+                    globalThis.__deka_wasm_call = (moduleId, exportName, payload) => {
+                        const name = String(moduleId || '');
+                        if (name.startsWith('__deka_')) {
+                            const kind = name.replace(/^__deka_/, '');
+                            return routeHostCall(kind, exportName, payload || {});
+                        }
+                        return { ok: false, error: `unknown host bridge module '${name}'` };
+                    };
+                    globalThis.__deka_wasm_call_async = async (moduleId, exportName, payload) => {
+                        const name = String(moduleId || '');
+                        if (name.startsWith('__deka_')) {
+                            const kind = name.replace(/^__deka_/, '');
+                            return routeHostCall(kind, exportName, payload || {});
+                        }
+                        return { ok: false, error: `unknown host bridge module '${name}'` };
+                    };
+                }
+
                 if (typeof globalThis.__dekaExecuteRequest !== 'function') {
                     globalThis.__dekaExecuteRequest = async function() {
                         function base64Encode(bytes) {
