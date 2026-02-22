@@ -74,7 +74,7 @@ pub fn bundle_virtual_entry(
 
     let bundles = GLOBALS
         .set(&globals, || bundler.bundle(entries))
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| format!("{err:?}"))?;
     let bundle = bundles
         .into_iter()
         .find(|bundle| matches!(bundle.kind, BundleKind::Named { .. }))

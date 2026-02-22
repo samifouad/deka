@@ -1,7 +1,7 @@
 use bumpalo::Bump;
 use bundler::{bundle_virtual_entry, BundleOptions, VirtualSource};
 use core::{CommandSpec, Context, ParamSpec, Registry};
-use modules_php::compiler_api::compile_phpx;
+use modules_php::compiler_api::{compile_phpx, compile_phpx_internal};
 use modules_php::validation::format_multiple_errors;
 use php_rs::parser::ast::{
     BinaryOp, ClassKind, ClassMember, Expr, ExprId, JsxChild, ObjectKey, Program, Stmt, StmtId,
@@ -741,7 +741,12 @@ fn compile_phpx_source_to_js(
     meta: SourceModuleMeta,
 ) -> Result<String, String> {
     let arena = Bump::new();
-    let result = compile_phpx(source, input, &arena);
+    let path = Path::new(input);
+    let result = if is_internal_phpx_path(path) {
+        compile_phpx_internal(source, input, &arena)
+    } else {
+        compile_phpx(source, input, &arena)
+    };
     if !result.errors.is_empty() {
         let formatted = format_multiple_errors(source, input, &result.errors, &result.warnings);
         return Err(formatted);
@@ -757,6 +762,12 @@ fn compile_phpx_source_to_js(
     };
 
     Ok(js)
+}
+
+fn is_internal_phpx_path(path: &Path) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    normalized.starts_with("php_modules/")
+        || normalized.contains("/php_modules/")
 }
 
 struct PhpxBundleProvider {

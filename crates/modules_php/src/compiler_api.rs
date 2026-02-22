@@ -38,9 +38,27 @@ use std::path::{Path, PathBuf};
 /// (if no syntax errors were encountered). Callers should provide a bump
 /// arena for AST allocations.
 pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> ValidationResult<'a> {
+    compile_phpx_with_mode(source, file_path, arena, ParserMode::Phpx, true)
+}
+
+pub fn compile_phpx_internal<'a>(
+    source: &str,
+    file_path: &str,
+    arena: &'a Bump,
+) -> ValidationResult<'a> {
+    compile_phpx_with_mode(source, file_path, arena, ParserMode::PhpxInternal, false)
+}
+
+fn compile_phpx_with_mode<'a>(
+    source: &str,
+    file_path: &str,
+    arena: &'a Bump,
+    mode: ParserMode,
+    strict: bool,
+) -> ValidationResult<'a> {
     let parser_source = preprocess_phpx_source(source);
     let lexer = Lexer::new(parser_source.as_bytes());
-    let mut parser = Parser::new_with_mode(lexer, arena, ParserMode::Phpx);
+    let mut parser = Parser::new_with_mode(lexer, arena, mode);
     let program = parser.parse_program();
 
     let mut errors = validate_syntax(source, &program, file_path);
@@ -54,30 +72,31 @@ pub fn compile_phpx<'a>(source: &str, file_path: &str, arena: &'a Bump) -> Valid
     let export_errors = validate_exports(source, file_path, &program);
     errors.extend(export_errors);
 
-    let type_errors = validate_type_annotations(&program, source);
-    errors.extend(type_errors);
-
     let (mut wasm_functions, wasm_errors) = collect_wasm_stub_signatures(source, file_path, arena);
     errors.extend(wasm_errors);
 
-    let type_errors = if wasm_functions.is_empty() {
-        check_types(&program, source, Some(file_path))
-    } else {
-        check_types_with_externals(&program, source, Some(file_path), &wasm_functions)
-    };
-    errors.extend(type_errors);
+    if strict {
+        errors.extend(validate_type_annotations(&program, source));
 
-    let (generic_errors, generic_warnings) = validate_generics(&program, source);
-    errors.extend(generic_errors);
-    warnings.extend(generic_warnings);
+        let type_errors = if wasm_functions.is_empty() {
+            check_types(&program, source, Some(file_path))
+        } else {
+            check_types_with_externals(&program, source, Some(file_path), &wasm_functions)
+        };
+        errors.extend(type_errors);
 
-    errors.extend(validate_no_null(&program, source));
-    errors.extend(validate_no_exceptions(&program, source));
-    errors.extend(validate_no_oop(&program, source));
-    errors.extend(validate_no_namespace(&program, source));
+        let (generic_errors, generic_warnings) = validate_generics(&program, source);
+        errors.extend(generic_errors);
+        warnings.extend(generic_warnings);
 
-    errors.extend(validate_struct_definitions(&program, source));
-    errors.extend(validate_struct_literals(&program, source));
+        errors.extend(validate_no_null(&program, source));
+        errors.extend(validate_no_exceptions(&program, source));
+        errors.extend(validate_no_oop(&program, source));
+        errors.extend(validate_no_namespace(&program, source));
+
+        errors.extend(validate_struct_definitions(&program, source));
+        errors.extend(validate_struct_literals(&program, source));
+    }
 
     errors.extend(validate_frontmatter(source, file_path));
     errors.extend(validate_template_section(source, file_path));
