@@ -208,6 +208,19 @@ fn build_request(context: &Context) -> Result<PublishRequest> {
 }
 
 async fn run_publish(request: PublishRequest) -> Result<()> {
+    let requested_name = request
+        .payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let requested_version = request
+        .payload
+        .get("version")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
     let client = reqwest::Client::new();
     let preflight_endpoint = request
         .endpoint
@@ -347,6 +360,21 @@ async fn run_publish(request: PublishRequest) -> Result<()> {
         .get("version")
         .and_then(|v| v.as_str())
         .unwrap_or("<unknown>");
+
+    if !requested_name.is_empty() && package != requested_name {
+        bail!(
+            "publish response mismatch: requested package `{}`, got `{}`",
+            requested_name,
+            package
+        );
+    }
+    if !requested_version.is_empty() && version != requested_version {
+        bail!(
+            "publish response mismatch: requested version `{}`, got `{}`",
+            requested_version,
+            version
+        );
+    }
 
     stdio::log("publish", &format!("published: {}@{}", package, version));
     Ok(())
