@@ -2022,7 +2022,10 @@ fn is_internal_security_target(target: &str) -> bool {
 
 #[cfg(test)]
 mod security_rule_tests {
-    use super::{RuleList, is_internal_security_target, match_rule_item, rule_allows, rule_denies};
+    use super::{
+        RuleList, is_internal_security_target, is_runtime_safe_env_key, match_rule_item,
+        prompt_scope_key, rule_allows, rule_denies,
+    };
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -2077,6 +2080,22 @@ mod security_rule_tests {
         assert!(is_internal_security_target(".cache/phpx/foo.php"));
         assert!(is_internal_security_target("/tmp/project/.cache"));
         assert!(!is_internal_security_target("/tmp/project/app/index.phpx"));
+    }
+
+    #[test]
+    fn runtime_safe_env_keys_detected() {
+        assert!(is_runtime_safe_env_key("PORT"));
+        assert!(is_runtime_safe_env_key("deka_security_policy"));
+        assert!(!is_runtime_safe_env_key("DATABASE_URL"));
+    }
+
+    #[test]
+    fn prompt_scope_key_collapses_env_runtime_safe() {
+        assert_eq!(prompt_scope_key("env", Some("PORT")), "env::runtime-safe");
+        assert_eq!(
+            prompt_scope_key("env", Some("DATABASE_URL")),
+            "env::DATABASE_URL"
+        );
     }
 }
 
@@ -2139,7 +2158,13 @@ fn prompt_grant(
     capability: &str,
     target: Option<&str>,
 ) -> Result<bool, deno_core::error::CoreError> {
-    let key = format!("{}::{}", capability, target.unwrap_or("*"));
+    let key = prompt_scope_key(capability, target);
+    let origin = classify_security_origin(capability, target);
+    let target_label = target.unwrap_or("*");
+    let safe_env_scope = capability == "env"
+        && target
+            .map(|value| is_runtime_safe_env_key(value))
+            .unwrap_or(false);
     {
         let grants = prompt_grants()
             .lock()
@@ -2152,11 +2177,18 @@ fn prompt_grant(
     if let Some(hint) = config_hint_for_request(capability, target) {
         eprintln!("[security] hint: {}", hint);
     }
+    if safe_env_scope {
+        eprintln!(
+            "[security] note: '{}' is treated as runtime-safe env scope; one decision applies to this process",
+            target_label
+        );
+    }
     let prompt = format!(
-        "[security] allow {} on {} (origin={}) for this process? [y/N]: ",
+        "[security] allow {} on {} (origin={}, scope={}) for this process? [y/N]: ",
         capability,
-        target.unwrap_or("*"),
-        classify_security_origin(capability, target)
+        target_label,
+        origin,
+        key
     );
     eprint!("{}", prompt);
     let _ = std::io::stderr().flush();
@@ -2184,6 +2216,47 @@ fn prompt_grant(
         }
         Err(err) => Err(core_err(format!("security prompt failed: {}", err))),
     }
+}
+
+fn prompt_scope_key(capability: &str, target: Option<&str>) -> String {
+    let Some(target) = target else {
+        return format!("{}::*", capability);
+    };
+    let target = target.trim();
+    if target.is_empty() {
+        return format!("{}::*", capability);
+    }
+    let project_kind = project_kind();
+    match capability {
+        "read" | "write" => {
+            let items = rule_items_for_request(capability, target, project_kind);
+            if let Some(item) = items.first() {
+                return format!("{}::{}", capability, item);
+            }
+        }
+        "env" => {
+            if is_runtime_safe_env_key(target) {
+                return "env::runtime-safe".to_string();
+            }
+        }
+        _ => {}
+    }
+    format!("{}::{}", capability, target)
+}
+
+fn is_runtime_safe_env_key(key: &str) -> bool {
+    let normalized = key.trim().to_ascii_uppercase();
+    matches!(
+        normalized.as_str(),
+        "PORT"
+            | "PWD"
+            | "TMPDIR"
+            | "TEMP"
+            | "TMP"
+            | "HOME"
+            | "PATH"
+            | "PHPX_MODULE_ROOT"
+    ) || normalized.starts_with("DEKA_")
 }
 
 fn classify_security_origin(capability: &str, target: Option<&str>) -> &'static str {
@@ -2256,10 +2329,41 @@ fn config_hint_for_request(capability: &str, target: Option<&str>) -> Option<Str
         ""
     };
     let patch = patch_for_suggestion(capability, &suggestion)?;
+    let path = format!("$.security.allow.{}", capability);
+    let risk = risk_note_for_request(capability, &suggestion);
     Some(format!(
-        "add to deka.json: {}{} Patch:\n{}",
-        suggestion, note, patch
+        "deka.json path: {} rule: {}{} risk: {} patch:\n{}",
+        path, suggestion, note, risk, patch
     ))
+}
+
+fn risk_note_for_request(capability: &str, suggestion: &str) -> &'static str {
+    let broad = suggestion.contains("\"./\"")
+        || suggestion.contains("\"*\"")
+        || suggestion.contains("\"./app\"")
+        || suggestion.contains("\"./php_modules\"");
+    match capability {
+        "read" => {
+            if broad {
+                "broader read grants expose more local files; prefer the narrowest folder."
+            } else {
+                "read grants reveal file contents at allowed paths only."
+            }
+        }
+        "write" => {
+            if broad {
+                "broader write grants permit file mutation; keep writable paths scoped."
+            } else {
+                "write grants can modify files in allowed paths; avoid source roots when possible."
+            }
+        }
+        "env" => "env grants expose process secrets; allow specific keys only.",
+        "net" => "net grants allow outbound/inbound network access to allowed targets.",
+        "run" => "run grants allow subprocess execution; treat binaries as privileged.",
+        "db" => "db grants allow database side effects on allowed drivers.",
+        "wasm" => "wasm grants permit loading executable wasm modules.",
+        _ => "this grant expands runtime capabilities; scope tightly.",
+    }
 }
 
 fn suggest_read_rule(target: &str, project_kind: ProjectKind) -> Option<String> {

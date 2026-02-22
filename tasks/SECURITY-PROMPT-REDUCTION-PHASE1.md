@@ -16,12 +16,12 @@ Reduce prompt spam in `deka run/serve/task` while keeping default-deny behavior 
   - [x] `third-party` (installed packages, registry artifacts).
 - [x] Enforce privileged bypass only for `runtime-internal` operations.
 - [ ] Collapse repeated prompts into scoped decisions:
-  - [ ] directory-level read/write grants for current process session.
-  - [ ] capability-level env grants for known safe runtime keys.
+  - [x] directory-level read/write grants for current process session.
+  - [x] capability-level env grants for known safe runtime keys.
 - [ ] Improve denial errors with structured suggestions:
-  - [ ] exact `deka.json` path/key to edit.
-  - [ ] minimal allow rule to unblock.
-  - [ ] short risk note.
+  - [x] exact `deka.json` path/key to edit.
+  - [x] minimal allow rule to unblock.
+  - [x] short risk note.
 - [ ] Add regression tests:
   - [ ] fresh init + `deka task dev` boots without interactive prompt cascade.
   - [ ] userland package access still prompts/denies correctly when not allowed.
