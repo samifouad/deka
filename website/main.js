@@ -294,6 +294,14 @@ const applyVfsSnapshot = (snap) => {
 };
 
 const ensureBundledProjectSeed = () => {
+  const pathExists = (path) => {
+    try {
+      vfs.stat(path);
+      return true;
+    } catch {
+      return false;
+    }
+  };
   const mergedFiles = {
     ...BASE_FS_FILES,
     ...bundledProjectTree,
@@ -302,16 +310,16 @@ const ensureBundledProjectSeed = () => {
     [DEMO_ENTRY]: defaultSource,
   };
   for (const dir of BASE_FS_DIRS) {
-    if (!statPath(dir)) vfs.mkdir(dir);
+    if (!pathExists(dir)) vfs.mkdir(dir);
   }
   for (const [path, content] of Object.entries(mergedFiles)) {
-    if (!statPath(path)) {
+    if (!pathExists(path)) {
       vfs.writeFile(path, new TextEncoder().encode(String(content)));
     }
   }
   // Older snapshots may not include the mirrored local module root.
   const localModuleDir = normalizePath(`${DEMO_ROOT}/php_modules`);
-  if (!statPath(localModuleDir) && statPath("/php_modules")) {
+  if (!pathExists(localModuleDir) && pathExists("/php_modules")) {
     vfs.mkdir(localModuleDir);
   }
 };
