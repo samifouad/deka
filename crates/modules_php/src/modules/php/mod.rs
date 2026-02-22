@@ -2483,10 +2483,10 @@ fn rule_items_for_path(target: &str, _project_kind: ProjectKind, is_read: bool) 
 fn enforce_read(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
     let policy = security_policy_from_env();
     if security_privileged_enabled() {
-        if let Some(target) = target {
-            if is_internal_security_target(target) {
-                return Ok(());
-            }
+        match target {
+            None => return Ok(()),
+            Some(target) if is_internal_security_target(target) => return Ok(()),
+            _ => {}
         }
     }
     enforce_scope("read", &policy.allow.read, &policy.deny.read, target)
@@ -2495,10 +2495,10 @@ fn enforce_read(target: Option<&str>) -> Result<(), deno_core::error::CoreError>
 fn enforce_write(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
     let policy = security_policy_from_env();
     if security_privileged_enabled() {
-        if let Some(target) = target {
-            if is_internal_security_target(target) {
-                return Ok(());
-            }
+        match target {
+            None => return Ok(()),
+            Some(target) if is_internal_security_target(target) => return Ok(()),
+            _ => {}
         }
     }
     enforce_scope("write", &policy.allow.write, &policy.deny.write, target)
@@ -4214,7 +4214,6 @@ fn op_php_bridge_proto_stats() -> Result<serde_json::Value, deno_core::error::Co
 #[op2]
 #[string]
 fn op_php_cwd() -> Result<String, deno_core::error::CoreError> {
-    enforce_read(None)?;
     std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .map_err(|e| deno_core::error::CoreError::from(e))

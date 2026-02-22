@@ -1,3 +1,5 @@
+import { array_key_exists } from 'array/array_key_exists'
+
 struct VNode {
     $kind: string = 'component.element';
     $type: mixed;
@@ -36,6 +38,7 @@ function &__component_context_next_id() {
 /// </Function>
 export function jsx($type, $props, $key = '') {
     $props = __component_normalize_prop_aliases($props);
+    $props = __component_normalize_children($props);
     return VNode { $type: $type, $props: $props, $key: $key };
 }
 
@@ -55,6 +58,7 @@ export function jsx($type, $props, $key = '') {
 /// </Function>
 export function jsxs($type, $props, $key = '') {
     $props = __component_normalize_prop_aliases($props);
+    $props = __component_normalize_children($props);
     return VNode { $type: $type, $props: $props, $key: $key };
 }
 
@@ -153,6 +157,22 @@ function __component_normalize_prop_aliases($props) {
         $props.referrerPolicy = $props.referrerpolicy;
     }
 
+    return $props;
+}
+
+function __component_normalize_children($props) {
+    if (!is_array($props) && !is_object($props)) {
+        return $props;
+    }
+    if (is_array($props)) {
+        if (array_key_exists('children', $props) && !is_array($props['children'])) {
+            $props['children'] = [$props['children']];
+        }
+        return $props;
+    }
+    if (isset($props.children) && !is_array($props.children)) {
+        $props.children = [$props.children];
+    }
     return $props;
 }
 

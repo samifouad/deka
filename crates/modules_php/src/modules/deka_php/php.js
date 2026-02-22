@@ -196,6 +196,10 @@ function privilegedMkdirSync(path, options, label) {
     const fullLabel = formatPrivilegedLabel(label, path);
     return withPrivileged(fullLabel, ()=>globalThis.fs.mkdirSync(path, options));
 }
+function privilegedExistsSync(path, label) {
+    const fullLabel = formatPrivilegedLabel(label, path);
+    return withPrivileged(fullLabel, ()=>globalThis.fs.existsSync(path));
+}
 if (globalThis.__dekaPhpLogEnabled === undefined) {
     const debug = globalThis.process?.env?.DEKA_DEBUG;
     globalThis.__dekaPhpLogEnabled = debug === '1' || debug === 'true' || debug === 'yes' || debug === 'on';
@@ -357,7 +361,7 @@ function findLockRoot(startDir) {
     let current = startDir;
     while(true){
         const candidate = globalThis.path.resolve(current, 'deka.lock');
-        if (globalThis.fs.existsSync(candidate)) {
+        if (privilegedExistsSync(candidate, 'lock:exists')) {
             return current;
         }
         const parent = globalThis.path.dirname(current);
@@ -420,7 +424,7 @@ function buildResolutionState(entryPath) {
     if (envRootRaw && String(envRootRaw).trim()) {
         globalRoot = normalizeHostPath(envRootRaw);
         const globalLockPath = globalThis.path.resolve(globalRoot, 'deka.lock');
-        if (!globalThis.fs.existsSync(globalLockPath)) {
+        if (!privilegedExistsSync(globalLockPath, 'lock:exists')) {
             throw new Error(`PHPX_MODULE_ROOT is set but deka.lock was not found at ${globalLockPath}.`);
         }
     }
@@ -451,7 +455,7 @@ function buildResolutionState(entryPath) {
         if (seen.has(key)) continue;
         seen.add(key);
         const lockPath = globalThis.path.resolve(tier.root, 'deka.lock');
-        if (!globalThis.fs.existsSync(lockPath)) {
+        if (!privilegedExistsSync(lockPath, 'lock:exists')) {
             if (tier.tier === 'local') {
                 throw new Error(`Local project mode requires deka.lock at ${lockPath}.`);
             }
@@ -487,7 +491,7 @@ function getPhpModulesRoots(entryPath) {
 function resolvePhpModulesRoot(entryPath) {
     const roots = getPhpModulesRoots(entryPath);
     for (const root of roots){
-        if (globalThis.fs.existsSync(root)) {
+        if (privilegedExistsSync(root, 'modules:exists')) {
             return root;
         }
     }
@@ -520,7 +524,7 @@ function getDekaEntryPath(entryPath) {
     const state = phpResolutionState || buildResolutionState(entryPath);
     for (const tier of state.tiers){
         const candidate = globalThis.path.resolve(tier.modulesRoot, 'deka.php');
-        if (globalThis.fs.existsSync(candidate)) {
+        if (privilegedExistsSync(candidate, 'deka:entry')) {
             return candidate;
         }
     }
@@ -5696,9 +5700,11 @@ function runSource(source) {
 }
 async function runFile(filePath) {
     await initPhpWasm();
-    setPhpActiveRoots(filePath);
-    const moduleInfo = buildCliPrelude(filePath);
-    const stitched = injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude);
+    const stitched = withPrivileged('runtime:phpx-prelude', ()=>{
+        setPhpActiveRoots(filePath);
+        const moduleInfo = buildCliPrelude(filePath);
+        return injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude);
+    });
     const dumpPath = globalThis.process?.env?.DEKA_DUMP_PHPX;
     if (dumpPath) {
         if (dumpPath === 'stdout') {
@@ -5716,9 +5722,11 @@ async function runFile(filePath) {
     return runSource(stitched);
 }
 function runRequest(request, filePath) {
-    setPhpActiveRoots(filePath);
-    const moduleInfo = buildPrelude(request || {}, filePath);
-    const stitched = injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude);
+    const stitched = withPrivileged('runtime:phpx-prelude', ()=>{
+        setPhpActiveRoots(filePath);
+        const moduleInfo = buildPrelude(request || {}, filePath);
+        return injectPrelude(moduleInfo.source, moduleInfo.prelude, filePath, moduleInfo.entryPrelude);
+    });
     const dumpPath = globalThis.process?.env?.DEKA_DUMP_PHPX;
     if (dumpPath) {
         if (dumpPath === 'stdout') {

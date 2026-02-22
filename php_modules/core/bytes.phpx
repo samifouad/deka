@@ -1,3 +1,8 @@
+import { strlen } from 'string/strlen'
+import { substr } from 'string/substr'
+import { ord } from 'string/ord'
+import { chr } from 'string/chr'
+
 /// docid: phpx/core/bytes_from_string()
 /// <Function name="bytes_from_string">
 ///   <Description>PHPX standard module function `bytes_from_string` from `core`.</Description>

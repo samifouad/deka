@@ -1,7 +1,14 @@
 import { result_ok, result_err, result_is_ok } from 'core/result'
-import { hmac_sha256_bytes, secure_compare } from 'crypto'
+import { hmac_sha256_bytes, secure_compare, base64_encode_string, base64_decode_string } from 'crypto'
 import { to_string as bytes_to_string } from 'bytes'
 import { json_encode, json_decode_result } from 'encoding/json'
+import { rtrim } from 'string/rtrim'
+import { str_replace } from 'string/str_replace'
+import { strlen } from 'string/strlen'
+import { str_repeat } from 'string/str_repeat'
+import { strtoupper } from 'string/strtoupper'
+import { explode } from 'string/explode'
+import { now_ms } from 'time'
 
 function to_assoc($value) {
   if (is_array($value)) {
@@ -27,7 +34,7 @@ function to_assoc($value) {
 }
 
 function b64url_encode($raw) {
-  return rtrim(str_replace(['+', '/'], ['-', '_'], base64_encode($raw)), '=')
+  return rtrim(str_replace(['+', '/'], ['-', '_'], base64_encode_string($raw)), '=')
 }
 
 function b64url_decode($value) {
@@ -36,7 +43,7 @@ function b64url_decode($value) {
   if ($pad > 0) {
     $padded = $padded . str_repeat('=', 4 - $pad)
   }
-  $decoded = base64_decode(str_replace(['-', '_'], ['+', '/'], $padded), true)
+  $decoded = base64_decode_string(str_replace(['-', '_'], ['+', '/'], $padded), true)
   if ($decoded === false) {
     return result_err('invalid base64url payload')
   }
@@ -44,7 +51,7 @@ function b64url_decode($value) {
 }
 
 function now_unix() {
-  return time()
+  return (int) (now_ms() / 1000)
 }
 
 function normalize_claims($payload, $options = []) {

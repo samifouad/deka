@@ -1129,6 +1129,9 @@ where
         let entry = match packages_json.get(&name) {
             Some(value) => value,
             None => {
+                if name.starts_with("@user/") {
+                    continue;
+                }
                 errors.push(module_error(
                     1,
                     1,

@@ -5,7 +5,7 @@ use php_rs::parser::ast::{
     BinaryOp, ClassKind, ClassMember, Expr, ExprId, JsxChild, ObjectKey, Program, Stmt, StmtId,
     Type as AstType, UnaryOp,
 };
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -189,11 +189,20 @@ pub fn build_stdlib_prelude(project_root: &Path) -> Result<String, String> {
     prelude.push_str("    globalThis[key] = value;\n");
     prelude.push_str("  }\n");
     prelude.push_str("};\n");
+    prelude.push_str("if (!globalThis.panic) {\n");
+    prelude.push_str("  globalThis.panic = (msg) => { throw new Error(String(msg)); };\n");
+    prelude.push_str("}\n");
+    prelude.push_str("if (!globalThis.function_exists) {\n");
+    prelude.push_str("  globalThis.function_exists = (name) => typeof globalThis[name] === 'function';\n");
+    prelude.push_str("}\n");
+    prelude.push_str("if (!globalThis.class_exists) {\n");
+    prelude.push_str("  globalThis.class_exists = (name) => typeof globalThis[name] === 'function' || typeof globalThis[name] === 'object';\n");
+    prelude.push_str("}\n");
+    prelude.push_str("if (!globalThis.class_alias) {\n");
+    prelude.push_str("  globalThis.class_alias = () => false;\n");
+    prelude.push_str("}\n");
     prelude.push_str("if (!globalThis.__dekaGlobalsInstalled) {\n");
     prelude.push_str("  globalThis.__dekaGlobalsInstalled = true;\n");
-    prelude.push_str("  if (!globalThis.panic) {\n");
-    prelude.push_str("    globalThis.panic = (msg) => { throw new Error(String(msg)); };\n");
-    prelude.push_str("  }\n");
     for var in &binds {
         prelude.push_str(&format!("  __dekaExportToGlobal({});\n", var));
     }
@@ -270,10 +279,13 @@ fn parse_import_line(line: &str) -> Option<ImportDecl> {
 
 fn parse_export_function_line(line: &str) -> Option<String> {
     let trimmed = line.trim_start();
-    if !trimmed.starts_with("export function ") {
+    let rest = if let Some(rest) = trimmed.strip_prefix("export function ") {
+        rest
+    } else if let Some(rest) = trimmed.strip_prefix("export async function ") {
+        rest
+    } else {
         return None;
-    }
-    let rest = &trimmed[16..];
+    };
     let name = rest.split('(').next()?.trim();
     if name.is_empty() {
         return None;
@@ -326,14 +338,28 @@ fn unquote(input: &str) -> Option<&str> {
     }
 }
 
+#[derive(Clone, Debug)]
+struct EnumCaseDef {
+    name: String,
+    params: Vec<String>,
+}
+
+enum AssignmentTarget {
+    Direct(String),
+    Append(String),
+}
+
 struct JsSubsetEmitter<'a> {
     source: &'a [u8],
     body: String,
+    main_body: String,
     uses_jsx_runtime: bool,
     uses_include_stub: bool,
     scopes: Vec<HashSet<String>>,
     meta: SourceModuleMeta,
     struct_schemas: Vec<(String, String)>,
+    struct_names: HashSet<String>,
+    enum_cases: HashMap<String, Vec<EnumCaseDef>>,
 }
 
 impl<'a> JsSubsetEmitter<'a> {
@@ -341,11 +367,14 @@ impl<'a> JsSubsetEmitter<'a> {
         Self {
             source,
             body: String::new(),
+            main_body: String::new(),
             uses_jsx_runtime: false,
             uses_include_stub: false,
             scopes: vec![HashSet::new()],
             meta,
             struct_schemas: Vec::new(),
+            struct_names: HashSet::new(),
+            enum_cases: HashMap::new(),
         }
     }
 
@@ -355,6 +384,52 @@ impl<'a> JsSubsetEmitter<'a> {
         out.push_str("// Target semantics: JavaScript runtime semantics.\n");
         out.push_str("export const phpxBuildMode = \"subset-ast\";\n");
         out.push_str("export const phpxTargetSemantics = \"js\";\n\n");
+        out.push_str("if (!globalThis.panic) { globalThis.panic = (msg) => { throw new Error(String(msg)); }; }\n");
+        out.push_str("if (!globalThis.function_exists) { globalThis.function_exists = (name) => typeof globalThis[name] === 'function'; }\n");
+        out.push_str("if (!globalThis.class_exists) { globalThis.class_exists = (name) => typeof globalThis[name] === 'function' || typeof globalThis[name] === 'object'; }\n");
+        out.push_str("if (!globalThis.class_alias) { globalThis.class_alias = () => false; }\n\n");
+        out.push_str("if (!globalThis.defined) { globalThis.defined = (name) => Object.prototype.hasOwnProperty.call(globalThis, String(name)); }\n\n");
+        out.push_str("if (!globalThis.__phpx_is_struct) { globalThis.__phpx_is_struct = (value, name) => Boolean(value && typeof value === 'object' && value.__struct === name); }\n\n");
+        out.push_str("if (!globalThis.__phpx_func_num_args) { globalThis.__phpx_func_num_args = (args) => args.length; }\n");
+        out.push_str("if (!globalThis.__phpx_func_get_args) { globalThis.__phpx_func_get_args = (args) => Array.prototype.slice.call(args); }\n");
+        out.push_str("if (!globalThis.__phpx_func_get_arg) { globalThis.__phpx_func_get_arg = (args, idx) => (idx >= 0 && idx < args.length ? args[idx] : null); }\n\n");
+        out.push_str("if (!globalThis.__deka_chr) { globalThis.__deka_chr = (code) => String.fromCharCode((Number(code) || 0) & 0xff); }\n");
+        out.push_str("if (!globalThis.__deka_ord) { globalThis.__deka_ord = (value) => { const str = String(value ?? ''); return str.length ? str.charCodeAt(0) : 0; }; }\n");
+        out.push_str("if (!globalThis.chr) { globalThis.chr = globalThis.__deka_chr; }\n");
+        out.push_str("if (!globalThis.ord) { globalThis.ord = globalThis.__deka_ord; }\n");
+        out.push_str("if (!globalThis.strlen) { globalThis.strlen = (value) => String(value ?? '').length; }\n");
+        out.push_str("if (!globalThis.count) { globalThis.count = (value) => { if (Array.isArray(value) || typeof value === 'string') return value.length; if (value && typeof value === 'object') return Object.keys(value).length; return 0; }; }\n");
+        out.push_str("if (!globalThis.time) { globalThis.time = () => Math.floor(Date.now() / 1000); }\n");
+        out.push_str("if (!globalThis.GLOBALS || typeof globalThis.GLOBALS !== 'object') { globalThis.GLOBALS = {}; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_NONE !== 'number') { globalThis.JSON_ERROR_NONE = 0; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_DEPTH !== 'number') { globalThis.JSON_ERROR_DEPTH = 1; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_STATE_MISMATCH !== 'number') { globalThis.JSON_ERROR_STATE_MISMATCH = 2; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_CTRL_CHAR !== 'number') { globalThis.JSON_ERROR_CTRL_CHAR = 3; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_SYNTAX !== 'number') { globalThis.JSON_ERROR_SYNTAX = 4; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_UTF8 !== 'number') { globalThis.JSON_ERROR_UTF8 = 5; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_RECURSION !== 'number') { globalThis.JSON_ERROR_RECURSION = 6; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_INF_OR_NAN !== 'number') { globalThis.JSON_ERROR_INF_OR_NAN = 7; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_UNSUPPORTED_TYPE !== 'number') { globalThis.JSON_ERROR_UNSUPPORTED_TYPE = 8; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_INVALID_PROPERTY_NAME !== 'number') { globalThis.JSON_ERROR_INVALID_PROPERTY_NAME = 9; }\n");
+        out.push_str("if (typeof globalThis.JSON_ERROR_UTF16 !== 'number') { globalThis.JSON_ERROR_UTF16 = 10; }\n");
+        out.push_str("if (!globalThis.__deka_object_set) { globalThis.__deka_object_set = (obj, key, value) => { if (obj && typeof obj === 'object') { obj[key] = value; } return obj; }; }\n");
+        out.push_str("if (!globalThis.__phpx_base64_table) { globalThis.__phpx_base64_table = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'; }\n");
+        out.push_str("if (!globalThis.base64_encode) { globalThis.base64_encode = (input) => { const str = String(input ?? ''); const tbl = globalThis.__phpx_base64_table; let out = ''; for (let i = 0; i < str.length; i += 3) { const b0 = str.charCodeAt(i) & 0xff; const b1 = i + 1 < str.length ? str.charCodeAt(i + 1) & 0xff : NaN; const b2 = i + 2 < str.length ? str.charCodeAt(i + 2) & 0xff : NaN; const n = (b0 << 16) | ((Number.isNaN(b1) ? 0 : b1) << 8) | (Number.isNaN(b2) ? 0 : b2); out += tbl[(n >> 18) & 63]; out += tbl[(n >> 12) & 63]; out += Number.isNaN(b1) ? '=' : tbl[(n >> 6) & 63]; out += Number.isNaN(b2) ? '=' : tbl[n & 63]; } return out; }; }\n");
+        out.push_str("if (!globalThis.base64_decode) { globalThis.base64_decode = (input, strict = false) => { const src = String(input ?? '').replace(/\\s+/g, ''); if (src.length % 4 !== 0) return strict ? false : ''; const tbl = globalThis.__phpx_base64_table; let out = ''; for (let i = 0; i < src.length; i += 4) { const c0 = src[i], c1 = src[i + 1], c2 = src[i + 2], c3 = src[i + 3]; const n0 = tbl.indexOf(c0), n1 = tbl.indexOf(c1); const n2 = c2 === '=' ? -1 : tbl.indexOf(c2); const n3 = c3 === '=' ? -1 : tbl.indexOf(c3); if (n0 < 0 || n1 < 0 || n2 < -1 || n3 < -1) return strict ? false : ''; const n = (n0 << 18) | (n1 << 12) | ((n2 < 0 ? 0 : n2) << 6) | (n3 < 0 ? 0 : n3); out += String.fromCharCode((n >> 16) & 0xff); if (c2 !== '=') out += String.fromCharCode((n >> 8) & 0xff); if (c3 !== '=') out += String.fromCharCode(n & 0xff); } return out; }; }\n");
+        out.push_str("if (!globalThis.__phpx_sha256_hex) { globalThis.__phpx_sha256_hex = (input) => { const K = [1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298]; const bytes = []; const src = String(input ?? ''); for (let i = 0; i < src.length; i += 1) bytes.push(src.charCodeAt(i) & 0xff); const bitLen = bytes.length * 8; bytes.push(0x80); while ((bytes.length % 64) !== 56) bytes.push(0); for (let i = 7; i >= 0; i -= 1) bytes.push((bitLen >>> (i * 8)) & 0xff); let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a, h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19; const rotr = (x, n) => ((x >>> n) | (x << (32 - n))) >>> 0; for (let i = 0; i < bytes.length; i += 64) { const w = new Array(64); for (let j = 0; j < 16; j += 1) { const k = i + (j * 4); w[j] = (((bytes[k] << 24) | (bytes[k + 1] << 16) | (bytes[k + 2] << 8) | bytes[k + 3]) >>> 0); } for (let j = 16; j < 64; j += 1) { const s0 = (rotr(w[j - 15], 7) ^ rotr(w[j - 15], 18) ^ (w[j - 15] >>> 3)) >>> 0; const s1 = (rotr(w[j - 2], 17) ^ rotr(w[j - 2], 19) ^ (w[j - 2] >>> 10)) >>> 0; w[j] = (((w[j - 16] + s0) >>> 0) + ((w[j - 7] + s1) >>> 0)) >>> 0; } let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7; for (let j = 0; j < 64; j += 1) { const S1 = (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) >>> 0; const ch = ((e & f) ^ ((~e) & g)) >>> 0; const t1 = (((((h + S1) >>> 0) + ch) >>> 0) + ((K[j] + w[j]) >>> 0)) >>> 0; const S0 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) >>> 0; const maj = ((a & b) ^ (a & c) ^ (b & c)) >>> 0; const t2 = (S0 + maj) >>> 0; h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0; } h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0; } const words = [h0, h1, h2, h3, h4, h5, h6, h7]; let out = ''; for (const w of words) { out += (w >>> 0).toString(16).padStart(8, '0'); } return out; }; }\n");
+        out.push_str("if (!globalThis.__phpx_hex_to_binary) { globalThis.__phpx_hex_to_binary = (hex) => { const src = String(hex ?? ''); let out = ''; for (let i = 0; i < src.length; i += 2) out += String.fromCharCode(parseInt(src.slice(i, i + 2), 16) & 0xff); return out; }; }\n");
+        out.push_str("if (!globalThis.__phpx_hmac_sha256_hex) { globalThis.__phpx_hmac_sha256_hex = (data, key) => { const toBytes = (s) => { const out = []; const src = String(s ?? ''); for (let i = 0; i < src.length; i += 1) out.push(src.charCodeAt(i) & 0xff); return out; }; const fromBytes = (arr) => arr.map((v) => String.fromCharCode(v & 0xff)).join(''); let k = toBytes(key); if (k.length > 64) { const kh = globalThis.__phpx_sha256_hex(fromBytes(k)); k = toBytes(globalThis.__phpx_hex_to_binary(kh)); } while (k.length < 64) k.push(0); const o = [], i = []; for (let n = 0; n < 64; n += 1) { o.push(k[n] ^ 0x5c); i.push(k[n] ^ 0x36); } const innerHex = globalThis.__phpx_sha256_hex(fromBytes(i) + String(data ?? '')); const outerHex = globalThis.__phpx_sha256_hex(fromBytes(o) + globalThis.__phpx_hex_to_binary(innerHex)); return outerHex; }; }\n");
+        out.push_str("if (!globalThis.__phpx_node_crypto) { globalThis.__phpx_node_crypto = (() => { try { if (typeof require === 'function') { return require('node:crypto'); } } catch (_err) {} try { if (typeof require === 'function') { return require('crypto'); } } catch (_err) {} return null; })(); }\n");
+        out.push_str("if (!globalThis.hash) { globalThis.hash = (algo, data, raw = false) => { const name = String(algo || '').toLowerCase(); if (name === 'sha256') { const hex = globalThis.__phpx_sha256_hex(String(data ?? '')); return raw ? globalThis.__phpx_hex_to_binary(hex) : hex; } const mod = globalThis.__phpx_node_crypto; if (!mod || typeof mod.createHash !== 'function') throw new Error('hash() requires crypto support'); const digest = mod.createHash(name).update(String(data ?? ''), 'binary').digest(raw ? 'latin1' : 'hex'); return digest; }; }\n");
+        out.push_str("if (!globalThis.hash_hmac) { globalThis.hash_hmac = (algo, data, key, raw = false) => { const name = String(algo || '').toLowerCase(); if (name === 'sha256') { const hex = globalThis.__phpx_hmac_sha256_hex(String(data ?? ''), String(key ?? '')); return raw ? globalThis.__phpx_hex_to_binary(hex) : hex; } const mod = globalThis.__phpx_node_crypto; if (!mod || typeof mod.createHmac !== 'function') throw new Error('hash_hmac() requires crypto support'); const digest = mod.createHmac(name, String(key ?? '')).update(String(data ?? ''), 'binary').digest(raw ? 'latin1' : 'hex'); return digest; }; }\n");
+        out.push_str("if (!globalThis.hash_equals) { globalThis.hash_equals = (a, b) => { const left = String(a ?? ''); const right = String(b ?? ''); if (left.length !== right.length) return false; let out = 0; for (let i = 0; i < left.length; i += 1) out |= left.charCodeAt(i) ^ right.charCodeAt(i); return out === 0; }; }\n");
+        out.push_str("if (!globalThis.__phpx_symbol_table) { globalThis.__phpx_symbol_table = Object.create(null); }\n");
+        out.push_str("if (!globalThis.__deka_symbol_set) { globalThis.__deka_symbol_set = (name, value) => { const key = String(name); globalThis.__phpx_symbol_table[key] = value; return true; }; }\n");
+        out.push_str("if (!globalThis.__deka_symbol_get) { globalThis.__deka_symbol_get = (name) => { const key = String(name); return Object.prototype.hasOwnProperty.call(globalThis.__phpx_symbol_table, key) ? globalThis.__phpx_symbol_table[key] : null; }; }\n");
+        out.push_str("if (!globalThis.__deka_symbol_exists) { globalThis.__deka_symbol_exists = (name) => { const key = String(name); return Object.prototype.hasOwnProperty.call(globalThis.__phpx_symbol_table, key); }; }\n");
+        out.push_str("if (!globalThis.__phpx_array_cursor) { globalThis.__phpx_array_cursor = new WeakMap(); }\n");
+        out.push_str("if (!globalThis.__deka_array_cursor) { globalThis.__deka_array_cursor = (arr, action) => { if (!arr || (typeof arr !== 'object' && !Array.isArray(arr))) return null; const map = globalThis.__phpx_array_cursor; let state = map.get(arr); if (!state) { state = { idx: 0 }; map.set(arr, state); } const keys = Object.keys(arr); if (keys.length === 0) return null; const clamp = () => { if (state.idx < 0) state.idx = 0; if (state.idx >= keys.length) state.idx = keys.length - 1; }; switch (String(action)) { case 'reset': state.idx = 0; break; case 'end': state.idx = keys.length - 1; break; case 'next': state.idx += 1; if (state.idx >= keys.length) return null; break; case 'prev': state.idx -= 1; if (state.idx < 0) return null; break; case 'pos': case 'current': break; case 'key': break; default: return null; } clamp(); const key = keys[state.idx]; if (String(action) === 'key') return key; return arr[key]; }; }\n\n");
+        out.push_str("if (!globalThis.is_array || !globalThis.is_array.__deka_polyfill) { const __isArray = (value) => Array.isArray(value) || (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype); __isArray.__deka_polyfill = true; globalThis.is_array = __isArray; }\n\n");
 
         let mut imports = self.meta.imports.clone();
         if self.uses_jsx_runtime {
@@ -419,6 +494,14 @@ impl<'a> JsSubsetEmitter<'a> {
 
         out.push_str(&self.body);
 
+        if !self.main_body.is_empty() {
+            out.push('\n');
+            out.push_str("const __phpx_main = async () => {\n");
+            out.push_str(&self.main_body);
+            out.push_str("};\n");
+            out.push_str("await __phpx_main();\n");
+        }
+
         if !self.meta.export_specs.is_empty() {
             out.push('\n');
             out.push_str("export { ");
@@ -439,10 +522,63 @@ impl<'a> JsSubsetEmitter<'a> {
     }
 
     fn emit_program(&mut self, program: &Program<'_>) -> Result<(), String> {
+        let import_locals: Vec<String> = self
+            .meta
+            .imports
+            .iter()
+            .flat_map(|decl| decl.specs.iter().map(|spec| spec.local.clone()))
+            .collect();
+        for local in import_locals {
+            self.declare_in_scope(&local);
+        }
         for stmt in program.statements {
-            self.emit_stmt(*stmt)?;
+            match stmt {
+                Stmt::Function { name, .. } => {
+                    let fn_name = self.token_name(name);
+                    if !self.is_declared(&fn_name) {
+                        self.declare_in_scope(&fn_name);
+                    }
+                }
+                Stmt::Enum { name, .. } => {
+                    let enum_name = self.token_name(name);
+                    if !self.is_declared(&enum_name) {
+                        self.declare_in_scope(&enum_name);
+                    }
+                }
+                Stmt::Class {
+                    kind: ClassKind::Struct,
+                    name,
+                    ..
+                } => {
+                    let struct_name = self.token_name(name);
+                    self.struct_names.insert(struct_name);
+                }
+                _ => {}
+            }
+        }
+        for stmt in program.statements {
+            let is_decl = matches!(
+                stmt,
+                Stmt::Function { .. }
+                    | Stmt::Enum { .. }
+                    | Stmt::Class { .. }
+                    | Stmt::Const { .. }
+                    | Stmt::TypeAlias { .. }
+            );
+            if is_decl {
+                self.emit_stmt(*stmt)?;
+            } else {
+                self.emit_stmt_to_main(*stmt)?;
+            }
         }
         Ok(())
+    }
+
+    fn emit_stmt_to_main(&mut self, stmt: StmtId<'_>) -> Result<(), String> {
+        std::mem::swap(&mut self.body, &mut self.main_body);
+        let res = self.emit_stmt(stmt);
+        std::mem::swap(&mut self.body, &mut self.main_body);
+        res
     }
 
     fn emit_stmt(&mut self, stmt: StmtId<'_>) -> Result<(), String> {
@@ -463,10 +599,13 @@ impl<'a> JsSubsetEmitter<'a> {
                 self.struct_schemas.push((self.token_name(name), schema));
                 Ok(())
             }
+            Stmt::Enum { name, members, .. } => {
+                self.emit_enum(name, members)?;
+                Ok(())
+            }
             Stmt::Class { .. }
             | Stmt::Trait { .. }
-            | Stmt::Interface { .. }
-            | Stmt::Enum { .. } => {
+            | Stmt::Interface { .. } => {
                 Err("class-like declarations are not supported in JS subset emitter".to_string())
             }
             Stmt::TypeAlias { .. } => {
@@ -476,9 +615,12 @@ impl<'a> JsSubsetEmitter<'a> {
                 Err("parser error statement reached JS subset emitter".to_string())
             }
             Stmt::Function {
-                name, params, body, ..
+                name, params, body, is_async, ..
             } => {
                 let fn_name = self.token_name(name);
+                if !self.is_declared(&fn_name) {
+                    self.declare_in_scope(&fn_name);
+                }
                 let js_params = params
                     .iter()
                     .map(|p| self.token_name(p.name))
@@ -487,18 +629,20 @@ impl<'a> JsSubsetEmitter<'a> {
 
                 let exported =
                     self.scopes.len() == 1 && self.meta.exported_functions.contains(&fn_name);
+                let async_kw = if *is_async { "async " } else { "" };
                 if exported {
                     self.body
-                        .push_str(&format!("export function {}({}) {{\n", fn_name, js_params));
+                        .push_str(&format!("export {}function {}({}) {{\n", async_kw, fn_name, js_params));
                 } else {
                     self.body
-                        .push_str(&format!("function {}({}) {{\n", fn_name, js_params));
+                        .push_str(&format!("{}function {}({}) {{\n", async_kw, fn_name, js_params));
                 }
 
                 self.push_scope();
                 for p in *params {
                     self.declare_in_scope(&self.token_name(p.name));
                 }
+                self.emit_param_default_guards(params)?;
                 for inner in *body {
                     self.emit_stmt(*inner)?;
                 }
@@ -596,8 +740,10 @@ impl<'a> JsSubsetEmitter<'a> {
                     self.declare_in_scope(&key_name);
                     self.declare_in_scope(&value_name);
                 } else {
-                    self.body
-                        .push_str(&format!("for (const {} of {}) {{\n", value_name, iterable));
+                    self.body.push_str(&format!(
+                        "for (const {} of (Array.isArray({}) ? {} : Object.values(({} ?? {{}})))) {{\n",
+                        value_name, iterable, iterable, iterable
+                    ));
                     self.push_scope();
                     self.declare_in_scope(&value_name);
                 }
@@ -835,9 +981,111 @@ impl<'a> JsSubsetEmitter<'a> {
         }
     }
 
+    fn emit_enum(
+        &mut self,
+        name: &php_rs::parser::lexer::token::Token,
+        members: &[ClassMember<'_>],
+    ) -> Result<(), String> {
+        let enum_name = self.token_name(name);
+        if !self.is_declared(&enum_name) {
+            self.declare_in_scope(&enum_name);
+        }
+        let mut cases: Vec<EnumCaseDef> = Vec::new();
+        let mut methods: Vec<&ClassMember<'_>> = Vec::new();
+
+        for member in members {
+            match member {
+                ClassMember::Case { name, payload, .. } => {
+                    let case_name = self.token_name(name);
+                    let params = payload
+                        .map(|items| {
+                            items
+                                .iter()
+                                .map(|p| self.token_name(p.name))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    cases.push(EnumCaseDef {
+                        name: case_name,
+                        params,
+                    });
+                }
+                ClassMember::Method { .. } => methods.push(member),
+                _ => {
+                    return Err("enum members other than cases/methods are not supported in JS subset emitter".to_string());
+                }
+            }
+        }
+
+        self.enum_cases.insert(enum_name.clone(), cases.clone());
+
+        self.body.push_str(&format!("class {} {{\n", enum_name));
+        self.body.push_str("  constructor(__case, __payload) {\n");
+        self.body.push_str(&format!("    this.__enum = {};\n", json_string(&enum_name)));
+        self.body.push_str("    this.__case = __case;\n");
+        self.body.push_str("    if (__payload) {\n");
+        self.body.push_str("      Object.assign(this, __payload);\n");
+        self.body.push_str("    }\n");
+        self.body.push_str("  }\n");
+
+        for member in methods {
+            if let ClassMember::Method { name, params, body, .. } = member {
+                let method_name = self.token_name(name);
+                let js_params = params
+                    .iter()
+                    .map(|p| self.token_name(p.name))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let block = self.emit_method_block(params, body)?;
+                self.body
+                    .push_str(&format!("  {}({}) {{\n{}  }}\n", method_name, js_params, block));
+            }
+        }
+
+        for case in &cases {
+            if case.params.is_empty() {
+                self.body.push_str(&format!(
+                    "  static get {}() {{ return new {}({}, null); }}\n",
+                    case.name,
+                    enum_name,
+                    json_string(&case.name)
+                ));
+            } else {
+                let param_list = case.params.join(", ");
+                let payload_entries = case
+                    .params
+                    .iter()
+                    .map(|p| format!("{}: {}", json_string(p), p))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                self.body.push_str(&format!(
+                    "  static {}({}) {{ return new {}({}, {{{}}}); }}\n",
+                    case.name,
+                    param_list,
+                    enum_name,
+                    json_string(&case.name),
+                    payload_entries
+                ));
+            }
+        }
+
+        self.body.push_str("}\n");
+        Ok(())
+    }
+
     fn emit_expr(&mut self, expr: ExprId<'_>) -> Result<String, String> {
         match expr {
-            Expr::Variable { name, .. } => Ok(self.span_name(*name)),
+            Expr::Variable { name, .. } => {
+                let ident = self.span_name(*name);
+                if ident == "this" {
+                    return Ok("this".to_string());
+                }
+                if self.is_declared(&ident) {
+                    Ok(ident)
+                } else {
+                    Ok(format!("globalThis.{}", ident))
+                }
+            }
             Expr::Integer { value, .. } | Expr::Float { value, .. } => {
                 Ok(String::from_utf8_lossy(value).to_string())
             }
@@ -866,6 +1114,18 @@ impl<'a> JsSubsetEmitter<'a> {
                 left, op, right, ..
             } => {
                 let lhs = self.emit_expr(*left)?;
+                if matches!(op, BinaryOp::Instanceof) {
+                    if let Expr::Variable { name, .. } = right {
+                        let ident = self.span_name(*name);
+                        if self.struct_names.contains(&ident) {
+                            return Ok(format!(
+                                "(globalThis.__phpx_is_struct({}, {}))",
+                                lhs,
+                                json_string(&ident)
+                            ));
+                        }
+                    }
+                }
                 let rhs = self.emit_expr(*right)?;
                 let js_op = match op {
                     BinaryOp::Plus => "+",
@@ -874,7 +1134,13 @@ impl<'a> JsSubsetEmitter<'a> {
                     BinaryOp::Div => "/",
                     BinaryOp::Mod => "%",
                     BinaryOp::Pow => "**",
+                    BinaryOp::ShiftLeft => "<<",
+                    BinaryOp::ShiftRight => ">>",
+                    BinaryOp::BitAnd => "&",
+                    BinaryOp::BitOr => "|",
+                    BinaryOp::BitXor => "^",
                     BinaryOp::Concat => "+",
+                    BinaryOp::Instanceof => "instanceof",
                     BinaryOp::Eq | BinaryOp::EqEq => "===",
                     BinaryOp::EqEqEq => "===",
                     BinaryOp::NotEq => "!==",
@@ -903,59 +1169,83 @@ impl<'a> JsSubsetEmitter<'a> {
                 let body = self.emit_expr(*expr)?;
                 Ok(format!("({}) => {}", names.join(", "), body))
             }
-            Expr::Closure { params, body, .. } => {
+            Expr::Closure { params, body, is_async, .. } => {
                 let mut names = Vec::with_capacity(params.len());
                 for param in *params {
                     names.push(self.token_name(param.name));
                 }
-                let block = self.emit_stmt_block_inline(body)?;
-                Ok(format!("function({}) {{\n{} }}", names.join(", "), block))
+                let defaults = self.emit_param_default_guards_inline(params)?;
+                let mut block = self.emit_stmt_block_inline(body)?;
+                if !defaults.is_empty() {
+                    block = format!("{}{}", defaults, block);
+                }
+                let async_kw = if *is_async { "async " } else { "" };
+                Ok(format!("{}function({}) {{\n{} }}", async_kw, names.join(", "), block))
             }
             Expr::Call { func, args, .. } => {
+                if let Expr::Variable { name, .. } = func {
+                    let ident = self.span_name(*name);
+                    if ident == "func_num_args" {
+                        return Ok("globalThis.__phpx_func_num_args(arguments)".to_string());
+                    }
+                    if ident == "func_get_args" {
+                        return Ok("globalThis.__phpx_func_get_args(arguments)".to_string());
+                    }
+                    if ident == "func_get_arg" {
+                        let args_js = self.emit_call_args(args)?;
+                        if args_js.is_empty() {
+                            return Ok("globalThis.__phpx_func_get_arg(arguments, 0)".to_string());
+                        }
+                        return Ok(format!("globalThis.__phpx_func_get_arg(arguments, {})", args_js));
+                    }
+                }
                 let callee = self.emit_expr(*func)?;
                 let args_js = self.emit_call_args(args)?;
                 Ok(format!("{}({})", callee, args_js))
             }
             Expr::Assign { var, expr, .. } => {
-                if let Expr::Variable { name, .. } = *var {
-                    let js_name = self.span_name(*name);
-                    let rhs = self.emit_expr(*expr)?;
-                    Ok(format!("({} = {})", js_name, rhs))
-                } else {
-                    Err("subset emitter only supports assignment to simple variables".to_string())
+                let rhs = self.emit_expr(*expr)?;
+                match self.emit_assignment_target(*var)? {
+                    AssignmentTarget::Direct(target) => Ok(format!("({} = {})", target, rhs)),
+                    AssignmentTarget::Append(array) => Ok(format!(
+                        "(() => {{ const __arr = {}; const __val = {}; __arr.push(__val); return __val; }})()",
+                        array, rhs
+                    )),
                 }
             }
             Expr::AssignRef { var, expr, .. } => {
-                if let Expr::Variable { name, .. } = *var {
-                    let js_name = self.span_name(*name);
-                    let rhs = self.emit_expr(*expr)?;
-                    Ok(format!("({} = {})", js_name, rhs))
-                } else {
-                    Err("subset emitter only supports assignment to simple variables".to_string())
+                let rhs = self.emit_expr(*expr)?;
+                match self.emit_assignment_target(*var)? {
+                    AssignmentTarget::Direct(target) => Ok(format!("({} = {})", target, rhs)),
+                    AssignmentTarget::Append(array) => Ok(format!(
+                        "(() => {{ const __arr = {}; const __val = {}; __arr.push(__val); return __val; }})()",
+                        array, rhs
+                    )),
                 }
             }
             Expr::AssignOp { var, op, expr, .. } => {
-                if let Expr::Variable { name, .. } = *var {
-                    let js_name = self.span_name(*name);
-                    let rhs = self.emit_expr(*expr)?;
-                    let js_op = match op {
-                        php_rs::parser::ast::AssignOp::Plus => "+=",
-                        php_rs::parser::ast::AssignOp::Minus => "-=",
-                        php_rs::parser::ast::AssignOp::Mul => "*=",
-                        php_rs::parser::ast::AssignOp::Div => "/=",
-                        php_rs::parser::ast::AssignOp::Mod => "%=",
-                        php_rs::parser::ast::AssignOp::Concat => "+=",
-                        php_rs::parser::ast::AssignOp::BitAnd => "&=",
-                        php_rs::parser::ast::AssignOp::BitOr => "|=",
-                        php_rs::parser::ast::AssignOp::BitXor => "^=",
-                        php_rs::parser::ast::AssignOp::ShiftLeft => "<<=",
-                        php_rs::parser::ast::AssignOp::ShiftRight => ">>=",
-                        php_rs::parser::ast::AssignOp::Pow => "**=",
-                        php_rs::parser::ast::AssignOp::Coalesce => "??=",
-                    };
-                    Ok(format!("({} {} {})", js_name, js_op, rhs))
-                } else {
-                    Err("subset emitter only supports assignment to simple variables".to_string())
+                let rhs = self.emit_expr(*expr)?;
+                let js_op = match op {
+                    php_rs::parser::ast::AssignOp::Plus => "+=",
+                    php_rs::parser::ast::AssignOp::Minus => "-=",
+                    php_rs::parser::ast::AssignOp::Mul => "*=",
+                    php_rs::parser::ast::AssignOp::Div => "/=",
+                    php_rs::parser::ast::AssignOp::Mod => "%=",
+                    php_rs::parser::ast::AssignOp::Concat => "+=",
+                    php_rs::parser::ast::AssignOp::BitAnd => "&=",
+                    php_rs::parser::ast::AssignOp::BitOr => "|=",
+                    php_rs::parser::ast::AssignOp::BitXor => "^=",
+                    php_rs::parser::ast::AssignOp::ShiftLeft => "<<=",
+                    php_rs::parser::ast::AssignOp::ShiftRight => ">>=",
+                    php_rs::parser::ast::AssignOp::Pow => "**=",
+                    php_rs::parser::ast::AssignOp::Coalesce => "??=",
+                };
+                match self.emit_assignment_target(*var)? {
+                    AssignmentTarget::Direct(target) => Ok(format!("({} {} {})", target, js_op, rhs)),
+                    AssignmentTarget::Append(_) => Err(
+                        "assign-op on append array access is not supported in subset emitter"
+                            .to_string(),
+                    ),
                 }
             }
             Expr::PropertyFetch {
@@ -968,8 +1258,8 @@ impl<'a> JsSubsetEmitter<'a> {
                         Ok(format!("{}.{}", target_js, prop))
                     }
                     _ => {
-                        Err("dynamic property access is not supported in subset emitter"
-                            .to_string())
+                        let prop = self.emit_expr(*property)?;
+                        Ok(format!("{}[{}]", target_js, prop))
                     }
                 }
             }
@@ -1039,10 +1329,10 @@ impl<'a> JsSubsetEmitter<'a> {
                         let prop = self.span_name(*name);
                         Ok(format!("({})?.{}", target_js, prop))
                     }
-                    _ => Err(
-                        "dynamic nullsafe property access is not supported in subset emitter"
-                            .to_string(),
-                    ),
+                    _ => {
+                        let prop = self.emit_expr(*property)?;
+                        Ok(format!("({})?.[{}]", target_js, prop))
+                    }
                 }
             }
             Expr::NullsafeMethodCall {
@@ -1081,10 +1371,22 @@ impl<'a> JsSubsetEmitter<'a> {
                 }
             }
             Expr::Array { items, .. } => {
-                if items
-                    .iter()
-                    .all(|item| item.key.is_none() && !item.by_ref && !item.unpack)
-                {
+                if !items.iter().all(|item| !item.by_ref && !item.unpack) {
+                    return Err("mixed or complex array items are not supported in subset emitter"
+                        .to_string());
+                }
+
+                let mut has_keys = false;
+                let mut has_no_keys = false;
+                for item in *items {
+                    if item.key.is_some() {
+                        has_keys = true;
+                    } else {
+                        has_no_keys = true;
+                    }
+                }
+
+                if !has_keys {
                     let mut values = Vec::new();
                     for item in *items {
                         values.push(self.emit_expr(item.value)?);
@@ -1092,23 +1394,46 @@ impl<'a> JsSubsetEmitter<'a> {
                     return Ok(format!("[{}]", values.join(", ")));
                 }
 
-                if items
-                    .iter()
-                    .all(|item| item.key.is_some() && !item.by_ref && !item.unpack)
-                {
+                if !has_no_keys {
                     let mut entries = Vec::new();
+                    let mut all_static = true;
                     for item in *items {
                         let key_expr = item
                             .key
                             .ok_or_else(|| "keyed array expected key".to_string())?;
-                        let key = self.emit_static_array_key(key_expr)?;
+                        let key = match self.emit_static_array_key(key_expr) {
+                            Ok(value) => value,
+                            Err(_) => {
+                                all_static = false;
+                                break;
+                            }
+                        };
                         let value = self.emit_expr(item.value)?;
                         entries.push(format!("{}: {}", json_string(&key), value));
                     }
-                    return Ok(format!("{{{}}}", entries.join(", ")));
+                    if all_static {
+                        return Ok(format!("{{{}}}", entries.join(", ")));
+                    }
                 }
 
-                Err("mixed or complex array items are not supported in subset emitter".to_string())
+                let mut out = String::new();
+                out.push_str("(() => { const __out = []; let __idx = 0;\n");
+                let mut key_idx = 0;
+                for item in *items {
+                    if let Some(key_expr) = item.key {
+                        let key_js = self.emit_expr(key_expr)?;
+                        let value_js = self.emit_expr(item.value)?;
+                        out.push_str(&format!(
+                            "const __key{key_idx} = {key_js}; __out[__key{key_idx}] = {value_js}; if (typeof __key{key_idx} === 'number' && Number.isInteger(__key{key_idx})) {{ __idx = Math.max(__idx, __key{key_idx} + 1); }}\n",
+                        ));
+                        key_idx += 1;
+                    } else {
+                        let value_js = self.emit_expr(item.value)?;
+                        out.push_str(&format!("__out[__idx++] = {};\n", value_js));
+                    }
+                }
+                out.push_str("return __out; })()");
+                Ok(out)
             }
             Expr::ObjectLiteral { items, .. } => {
                 let mut entries = Vec::new();
@@ -1153,7 +1478,10 @@ impl<'a> JsSubsetEmitter<'a> {
                     php_rs::parser::ast::CastKind::String => format!("String({})", value),
                     php_rs::parser::ast::CastKind::Bool => format!("Boolean({})", value),
                     php_rs::parser::ast::CastKind::Array => {
-                        format!("Array.isArray({0}) ? {0} : [{0}]", value)
+                        format!(
+                            "Array.isArray({0}) ? {0} : ({0} && typeof {0} === 'object' ? Object.fromEntries(Object.entries({0})) : [{0}])",
+                            value
+                        )
                     }
                     php_rs::parser::ast::CastKind::Object => format!("({})", value),
                     _ => {
@@ -1177,18 +1505,12 @@ impl<'a> JsSubsetEmitter<'a> {
                 Ok(format!("({})", checks.join(" && ")))
             }
             Expr::PostInc { var, .. } => {
-                if let Expr::Variable { name, .. } = *var {
-                    Ok(format!("({}++)", self.span_name(*name)))
-                } else {
-                    Err("subset emitter only supports ++ on simple variables".to_string())
-                }
+                let target = self.emit_assignable_expr(*var)?;
+                Ok(format!("({}++)", target))
             }
             Expr::PostDec { var, .. } => {
-                if let Expr::Variable { name, .. } = *var {
-                    Ok(format!("({}--)", self.span_name(*name)))
-                } else {
-                    Err("subset emitter only supports -- on simple variables".to_string())
-                }
+                let target = self.emit_assignable_expr(*var)?;
+                Ok(format!("({}--)", target))
             }
             Expr::Empty { expr, .. } => {
                 let value = self.emit_expr(*expr)?;
@@ -1381,6 +1703,29 @@ impl<'a> JsSubsetEmitter<'a> {
         Ok(block)
     }
 
+    fn emit_method_block(
+        &mut self,
+        params: &[php_rs::parser::ast::Param<'_>],
+        stmts: &[StmtId<'_>],
+    ) -> Result<String, String> {
+        let saved = std::mem::take(&mut self.body);
+        self.push_scope();
+        for param in params {
+            self.declare_in_scope(&self.token_name(param.name));
+        }
+        let defaults = self.emit_param_default_guards_inline(params)?;
+        if !defaults.is_empty() {
+            self.body.push_str(&defaults);
+        }
+        for stmt in stmts {
+            self.emit_stmt(*stmt)?;
+        }
+        self.pop_scope();
+        let block = std::mem::take(&mut self.body);
+        self.body = saved;
+        Ok(block)
+    }
+
     fn emit_expr_list(&mut self, exprs: &[ExprId<'_>]) -> Result<String, String> {
         if exprs.is_empty() {
             return Ok(String::new());
@@ -1513,10 +1858,55 @@ impl<'a> JsSubsetEmitter<'a> {
 
         let mut checks = Vec::with_capacity(conditions.len());
         for cond in conditions {
+            if let Some((enum_name, case_name)) = self.enum_case_from_expr(*cond) {
+                checks.push(format!(
+                    "({} instanceof {} && {}.__case === {})",
+                    condition_js,
+                    enum_name,
+                    condition_js,
+                    json_string(&case_name)
+                ));
+                continue;
+            }
             let rhs = self.emit_expr(*cond)?;
             checks.push(format!("({} === {})", condition_js, rhs));
         }
         Ok(format!("({})", checks.join(" || ")))
+    }
+
+    fn enum_case_from_expr(&self, expr: ExprId<'_>) -> Option<(String, String)> {
+        match expr {
+            Expr::ClassConstFetch {
+                class, constant, ..
+            } => {
+                let enum_name = self.extract_static_name(*class)?;
+                let case_name = self.extract_static_name(*constant)?;
+                let cases = self.enum_cases.get(&enum_name)?;
+                if cases.iter().any(|c| c.name == case_name) {
+                    Some((enum_name, case_name))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn extract_static_name(&self, expr: ExprId<'_>) -> Option<String> {
+        match expr {
+            Expr::Variable { name, .. } => Some(self.span_name(*name)),
+            Expr::String { value, .. } => {
+                let mut bytes: &[u8] = value;
+                if bytes.len() >= 2
+                    && ((bytes[0] == b'\'' && bytes[bytes.len() - 1] == b'\'')
+                        || (bytes[0] == b'"' && bytes[bytes.len() - 1] == b'"'))
+                {
+                    bytes = &bytes[1..bytes.len() - 1];
+                }
+                Some(String::from_utf8_lossy(bytes).to_string())
+            }
+            _ => None,
+        }
     }
 
     fn emit_static_array_key(&self, expr: ExprId<'_>) -> Result<String, String> {
@@ -1539,6 +1929,55 @@ impl<'a> JsSubsetEmitter<'a> {
         }
     }
 
+    fn emit_assignable_expr(&mut self, expr: ExprId<'_>) -> Result<String, String> {
+        match expr {
+            Expr::Variable { name, .. } => Ok(self.span_name(*name)),
+            Expr::DotAccess { target, property, .. } => {
+                let target_js = self.emit_expr(*target)?;
+                let prop = self.token_text(property);
+                Ok(format!("{}.{}", target_js, prop))
+            }
+            Expr::PropertyFetch { target, property, .. } => {
+                let target_js = self.emit_expr(*target)?;
+                match *property {
+                    Expr::Variable { name, .. } => Ok(format!("{}.{}", target_js, self.span_name(*name))),
+                    _ => {
+                        let prop = self.emit_expr(*property)?;
+                        Ok(format!("{}[{}]", target_js, prop))
+                    }
+                }
+            }
+            Expr::ArrayDimFetch { array, dim, .. } => {
+                let array_js = self.emit_expr(*array)?;
+                if let Some(dim) = dim {
+                    let dim_js = self.emit_expr(*dim)?;
+                    Ok(format!("{}[{}]", array_js, dim_js))
+                } else {
+                    Err("append array access is not supported in assignable expressions".to_string())
+                }
+            }
+            _ => Err("assignment target is not supported in subset emitter".to_string()),
+        }
+    }
+
+    fn emit_assignment_target(
+        &mut self,
+        expr: ExprId<'_>,
+    ) -> Result<AssignmentTarget, String> {
+        match expr {
+            Expr::ArrayDimFetch { array, dim, .. } => {
+                let array_js = self.emit_expr(*array)?;
+                if let Some(dim) = dim {
+                    let dim_js = self.emit_expr(*dim)?;
+                    Ok(AssignmentTarget::Direct(format!("{}[{}]", array_js, dim_js)))
+                } else {
+                    Ok(AssignmentTarget::Append(array_js))
+                }
+            }
+            _ => Ok(AssignmentTarget::Direct(self.emit_assignable_expr(expr)?)),
+        }
+    }
+
     fn assignment_to_named_var(
         &mut self,
         expr: ExprId<'_>,
@@ -1550,7 +1989,7 @@ impl<'a> JsSubsetEmitter<'a> {
                     let rhs = self.emit_expr(*expr)?;
                     Ok(Some((js_name, rhs)))
                 } else {
-                    Err("subset emitter only supports assignment to simple variables".to_string())
+                    Ok(None)
                 }
             }
             _ => Ok(None),
@@ -1576,9 +2015,19 @@ impl<'a> JsSubsetEmitter<'a> {
     }
 
     fn sanitize_name(&self, raw: &str) -> String {
-        let mut name = raw.trim().trim_start_matches('$').replace('\\', "_");
+        let mut name = raw
+            .trim()
+            .trim_start_matches('$')
+            .trim_start_matches('\\')
+            .replace('\\', "_");
+        if name == "this" {
+            return "this".to_string();
+        }
         if name.is_empty() {
             name = "_".to_string();
+        }
+        if is_js_reserved_word(&name) {
+            name.push('_');
         }
         name
     }
@@ -1636,6 +2085,41 @@ impl<'a> JsSubsetEmitter<'a> {
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(name.to_string());
         }
+    }
+
+    fn emit_param_default_guards(
+        &mut self,
+        params: &[php_rs::parser::ast::Param<'_>],
+    ) -> Result<(), String> {
+        for param in params {
+            if let Some(default) = param.default {
+                let name = self.token_name(param.name);
+                let default_js = self.emit_expr(default)?;
+                self.body.push_str(&format!(
+                    "if ({} === undefined) {{ {} = {}; }}\n",
+                    name, name, default_js
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn emit_param_default_guards_inline(
+        &mut self,
+        params: &[php_rs::parser::ast::Param<'_>],
+    ) -> Result<String, String> {
+        let mut out = String::new();
+        for param in params {
+            if let Some(default) = param.default {
+                let name = self.token_name(param.name);
+                let default_js = self.emit_expr(default)?;
+                out.push_str(&format!(
+                    "if ({} === undefined) {{ {} = {}; }}\n",
+                    name, name, default_js
+                ));
+            }
+        }
+        Ok(out)
     }
 
     fn is_declared(&self, name: &str) -> bool {
@@ -1871,4 +2355,56 @@ fn emit_deka_i_runtime() -> String {
 
 fn json_string(input: &str) -> String {
     serde_json::to_string(input).unwrap_or_else(|_| "\"\"".to_string())
+}
+
+fn is_js_reserved_word(name: &str) -> bool {
+    matches!(
+        name,
+        "await"
+            | "break"
+            | "case"
+            | "catch"
+            | "class"
+            | "const"
+            | "continue"
+            | "debugger"
+            | "default"
+            | "delete"
+            | "do"
+            | "else"
+            | "enum"
+            | "export"
+            | "extends"
+            | "false"
+            | "finally"
+            | "for"
+            | "function"
+            | "if"
+            | "implements"
+            | "import"
+            | "in"
+            | "instanceof"
+            | "interface"
+            | "let"
+            | "new"
+            | "null"
+            | "package"
+            | "private"
+            | "protected"
+            | "public"
+            | "return"
+            | "static"
+            | "super"
+            | "switch"
+            | "this"
+            | "throw"
+            | "true"
+            | "try"
+            | "typeof"
+            | "var"
+            | "void"
+            | "while"
+            | "with"
+            | "yield"
+    )
 }

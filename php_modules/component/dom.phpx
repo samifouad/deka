@@ -194,9 +194,9 @@ export function Link($props) {
     return <a
         href={'' . $href}
         dataComponentLink={true}
-        dataComponentTarget={$target !== '' ? $target : false}
+        dataComponentTarget={$target !== '' ? false $target}
         dataComponentReplace={$replace}
-        dataLayout={$layout !== '' ? $layout : false}
+        dataLayout={$layout !== '' ? false $layout}
     >{$children}</a>;
 }
 
@@ -553,7 +553,7 @@ export function Hydration($props = false) {
     }
     $script = __component_build_hydration_script($config);
     $inner = { __html: $script };
-    return <script nonce={$nonce !== '' ? $nonce : false} dangerouslySetInnerHTML={$inner}></script>;
+    return <script nonce={$nonce !== '' ? false $nonce} dangerouslySetInnerHTML={$inner}></script>;
 }
 
 /// docid: phpx/component/isPartialRequest()
@@ -1382,7 +1382,7 @@ function __component_split_component_call_props($props) {
         }
         $clean->{$k} = $v
     }
-    return { call: $clean, passthrough: __component_has_keys($passthrough) ? $passthrough : false }
+    return { call: $clean, passthrough: __component_has_keys($passthrough) ? false $passthrough }
 }
 
 function __component_is_component_passthrough_prop($key): bool {
@@ -1418,7 +1418,7 @@ function __component_apply_component_passthrough($node, $passthrough) {
         $node.props = $props
         return $node
     }
-    return <span class={$class !== false ? $class : false} style={$style !== false ? $style : false}>{$node}</span>
+    return <span class={$class !== false ? false $class} style={$style !== false ? false $style}>{$node}</span>
 }
 
 function __component_has_keys($value): bool {
