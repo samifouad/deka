@@ -1,6 +1,6 @@
 # MVP2 JS Runtime Plan
 
-Status: Planned
+Status: In progress
 Owner: Runtime
 
 ## Mission
@@ -19,28 +19,28 @@ Move PHPX execution to a JS-first runtime: transpile PHPX to JS and execute via 
 
 ## Workstreams
 1. **Runtime prelude for JS execution**
-   - Provide `bridge(...)` + core helpers expected by transpiled stdlib.
-   - Map ops to existing Rust host behavior.
+   - [x] Provide `bridge(...)` + core helpers expected by transpiled stdlib.
+   - [x] Map ops to existing Rust host behavior.
 
 2. **JS module loading**
-   - ESM loader in runtime consumes transpiled JS.
-   - Cache transpiled output in `php_modules/.cache` and project `.cache`.
+   - [x] ESM loader in runtime consumes transpiled JS.
+   - [x] Cache transpiled output in project `.cache/phpx_js`.
 
 3. **Transpilation pipeline**
-   - Use PHPX -> JS emit for all modules (stdlib + user code).
-   - Ensure module graph integrity and hashing remains stable.
+   - [x] Use PHPX -> JS emit for all modules (stdlib + user code).
+   - [x] Ensure module graph integrity and hashing remains stable.
 
 4. **Dev workflow**
-   - Hot transpile on file change.
-   - Clear errors if transpile fails.
+   - [x] Hot transpile on file change (isolate cache evict + ESM reload).
+   - [ ] Clear errors if transpile fails.
 
 5. **Build workflow**
-   - `deka build` emits JS bundles for server/client.
-   - Single output file for server/client with SWC bundler.
+   - [x] `deka build` emits JS bundles for server/client.
+   - [x] Single output file for server/client with SWC bundler.
 
 6. **Compatibility + tests**
-   - Conformance tests updated to run via JS runtime.
-   - E2E tests for router + components + stdlib.
+   - [ ] Conformance tests updated to run via JS runtime.
+   - [ ] E2E tests for router + components + stdlib.
 
 ## Acceptance Criteria
 - `deka run app/main.phpx` executes through JS runtime path by default.

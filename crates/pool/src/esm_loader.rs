@@ -413,6 +413,7 @@ fn is_bare_specifier(spec: &str) -> bool {
         && !spec.starts_with('/')
         && !spec.starts_with("http://")
         && !spec.starts_with("https://")
+        && !spec.starts_with("file://")
 }
 
 fn append_entry_footer(code: ModuleSourceCode) -> ModuleSourceCode {
