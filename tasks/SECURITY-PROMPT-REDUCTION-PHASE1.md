@@ -14,7 +14,7 @@ Reduce prompt spam in `deka run/serve/task` while keeping default-deny behavior 
   - [x] `runtime-internal` (module loading, cache materialization, manifest/lockfile reads).
   - [x] `project-owned` (app code + local modules).
   - [x] `third-party` (installed packages, registry artifacts).
-- [ ] Enforce privileged bypass only for `runtime-internal` operations.
+- [x] Enforce privileged bypass only for `runtime-internal` operations.
 - [ ] Collapse repeated prompts into scoped decisions:
   - [ ] directory-level read/write grants for current process session.
   - [ ] capability-level env grants for known safe runtime keys.
