@@ -38,14 +38,18 @@ function to_assoc($value) {
 }
 
 function &__framework_request_context_store() {
-  static $active_key = ''
-  static $store = []
-  $request_key = current_request_key()
-  if ($active_key !== $request_key) {
-    $active_key = $request_key
-    $store = []
+  if (!isset($GLOBALS['__framework_request_context_active_key'])) {
+    $GLOBALS['__framework_request_context_active_key'] = ''
   }
-  return $store
+  if (!isset($GLOBALS['__framework_request_context_store'])) {
+    $GLOBALS['__framework_request_context_store'] = []
+  }
+  $request_key = current_request_key()
+  if ($GLOBALS['__framework_request_context_active_key'] !== $request_key) {
+    $GLOBALS['__framework_request_context_active_key'] = $request_key
+    $GLOBALS['__framework_request_context_store'] = []
+  }
+  return $GLOBALS['__framework_request_context_store']
 }
 
 /// docid: phpx/framework/set_request_context()
@@ -54,9 +58,9 @@ function &__framework_request_context_store() {
 ///   <ReturnType type="mixed" />
 /// </Function>
 export function set_request_context($ctx) {
-  $store = &__framework_request_context_store()
   $store = to_assoc($ctx)
-  return $store
+  $GLOBALS['__framework_request_context_store'] = $store
+  return $GLOBALS['__framework_request_context_store']
 }
 
 /// docid: phpx/framework/request_context()
@@ -66,7 +70,7 @@ export function set_request_context($ctx) {
 /// </Function>
 export function request_context() {
   $store = &__framework_request_context_store()
-  return $store
+  return $GLOBALS['__framework_request_context_store']
 }
 
 /// docid: phpx/framework/clear_request_context()
@@ -76,7 +80,7 @@ export function request_context() {
 /// </Function>
 export function clear_request_context() {
   $store = &__framework_request_context_store()
-  $store = []
+  $GLOBALS['__framework_request_context_store'] = []
   return true
 }
 
@@ -88,9 +92,9 @@ export function clear_request_context() {
 export function auth() {
   $ctx = request_context()
   if (array_key_exists('auth', $ctx)) {
-    $auth = to_assoc($ctx['auth'])
-    if (count($auth) > 0) {
-      return result_ok($auth)
+    $auth_data = to_assoc($ctx['auth'])
+    if (count($auth_data) > 0) {
+      return result_ok($auth_data)
     }
   }
   return result_err('auth missing')
@@ -106,12 +110,12 @@ export function requireAuth() {
   if (!result_is_ok($res)) {
     return result_err('unauthorized')
   }
-  $auth = $res->value
-  $user_id = array_key_exists('user_id', $auth) ? $auth['user_id'] : null
+  $auth_data = $res->value
+  $user_id = array_key_exists('user_id', $auth_data) ? $auth_data['user_id'] : null
   if ($user_id === null || $user_id === '') {
     return result_err('unauthorized')
   }
-  return result_ok($auth)
+  return result_ok($auth_data)
 }
 
 /// docid: phpx/framework/requireScope()
@@ -125,10 +129,10 @@ export function requireScope($scope) {
   if (!result_is_ok($auth_res)) {
     return $auth_res
   }
-  $auth = $auth_res->value
-  $scopes = array_key_exists('scopes', $auth) && is_array($auth['scopes']) ? $auth['scopes'] : []
+  $auth_data = $auth_res->value
+  $scopes = array_key_exists('scopes', $auth_data) && is_array($auth_data['scopes']) ? $auth_data['scopes'] : []
   if (in_array($required, $scopes, true)) {
-    return result_ok($auth)
+    return result_ok($auth_data)
   }
   return result_err('forbidden: missing scope ' . $required)
 }
@@ -138,8 +142,8 @@ export function requireScope($scope) {
 ///   <Description>PHPX standard module function `auth_snapshot` from `framework`.</Description>
 ///   <ReturnType type="mixed" />
 /// </Function>
-export function auth_snapshot($auth) {
-  $src = is_array($auth) ? $auth : (array) $auth
+export function auth_snapshot($auth_input) {
+  $src = is_array($auth_input) ? $auth_input : (array) $auth_input
   $allowed = ['user_id', 'handle', 'scopes', 'org_id', 'session_id']
   $out = []
   foreach ($allowed as $key) {

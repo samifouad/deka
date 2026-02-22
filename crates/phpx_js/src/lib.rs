@@ -359,6 +359,7 @@ struct JsSubsetEmitter<'a> {
     meta: SourceModuleMeta,
     struct_schemas: Vec<(String, String)>,
     struct_names: HashSet<String>,
+    struct_methods: HashMap<String, Vec<(String, String)>>,
     enum_cases: HashMap<String, Vec<EnumCaseDef>>,
 }
 
@@ -374,6 +375,7 @@ impl<'a> JsSubsetEmitter<'a> {
             meta,
             struct_schemas: Vec::new(),
             struct_names: HashSet::new(),
+            struct_methods: HashMap::new(),
             enum_cases: HashMap::new(),
         }
     }
@@ -494,6 +496,22 @@ impl<'a> JsSubsetEmitter<'a> {
             out.push_str("}\n\n");
         }
 
+        out.push_str("if (!globalThis.__phpxStructMethods) { globalThis.__phpxStructMethods = Object.create(null); }\n");
+        if !self.struct_methods.is_empty() {
+            for (name, methods) in &self.struct_methods {
+                out.push_str(&format!(
+                    "globalThis.__phpxStructMethods[{}] = {{ {} }};\n",
+                    json_string(name),
+                    methods
+                        .iter()
+                        .map(|(method_name, body)| format!("{}: {}", method_name, body))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+            out.push('\n');
+        }
+
         out.push_str(&self.body);
 
         if !self.main_body.is_empty() {
@@ -598,7 +616,12 @@ impl<'a> JsSubsetEmitter<'a> {
                 ..
             } => {
                 let schema = self.emit_struct_schema(*members);
-                self.struct_schemas.push((self.token_name(name), schema));
+                let struct_name = self.token_name(name);
+                self.struct_schemas.push((struct_name.clone(), schema));
+                let methods = self.emit_struct_methods(*members)?;
+                if !methods.is_empty() {
+                    self.struct_methods.insert(struct_name, methods);
+                }
                 Ok(())
             }
             Stmt::Enum { name, members, .. } => {
@@ -1197,14 +1220,49 @@ impl<'a> JsSubsetEmitter<'a> {
                 self.pop_scope();
                 Ok(format!("({}) => {}", names.join(", "), body))
             }
-            Expr::Closure { params, body, is_async, .. } => {
+            Expr::Closure {
+                params,
+                body,
+                is_async,
+                uses,
+                ..
+            } => {
                 let mut names = Vec::with_capacity(params.len());
                 for param in *params {
                     names.push(self.token_name(param.name));
                 }
                 let block = self.emit_method_block(params, body)?;
                 let async_kw = if *is_async { "async " } else { "" };
-                Ok(format!("{}function({}) {{\n{} }}", async_kw, names.join(", "), block))
+                let fn_expr = format!("{}function({}) {{\n{} }}", async_kw, names.join(", "), block);
+                if uses.is_empty() {
+                    return Ok(fn_expr);
+                }
+
+                let mut cap_params = Vec::new();
+                let mut cap_bindings = Vec::new();
+                let mut cap_args = Vec::new();
+                for item in *uses {
+                    let local = self.token_name(item.var);
+                    if local.is_empty() {
+                        continue;
+                    }
+                    let cap_name = format!("__phpx_cap_{}", local);
+                    cap_params.push(cap_name.clone());
+                    cap_bindings.push(format!("const {} = {};", local, cap_name));
+                    if self.is_declared(&local) {
+                        cap_args.push(local);
+                    } else {
+                        cap_args.push(format!("globalThis.{}", local));
+                    }
+                }
+
+                Ok(format!(
+                    "(({}) => {{\n{}\nreturn {};\n}})({})",
+                    cap_params.join(", "),
+                    cap_bindings.join("\n"),
+                    fn_expr,
+                    cap_args.join(", ")
+                ))
             }
             Expr::Call { func, args, .. } => {
                 if let Expr::Variable { name, .. } = func {
@@ -1481,11 +1539,12 @@ impl<'a> JsSubsetEmitter<'a> {
                 Ok(format!("{{{}}}", entries.join(", ")))
             }
             Expr::StructLiteral { name, fields, .. } => {
+                let struct_name = self.name_last_segment(*name);
                 let mut entries = Vec::new();
                 entries.push(format!(
                     "{}: {}",
                     json_string("__struct"),
-                    json_string(&self.name_last_segment(*name))
+                    json_string(&struct_name)
                 ));
                 for field in *fields {
                     let key = self
@@ -1495,7 +1554,11 @@ impl<'a> JsSubsetEmitter<'a> {
                     let value = self.emit_expr(field.value)?;
                     entries.push(format!("{}: {}", json_string(&key), value));
                 }
-                Ok(format!("{{{}}}", entries.join(", ")))
+                Ok(format!(
+                    "(() => {{ const __obj = {{{}}}; const __m = globalThis.__phpxStructMethods ? globalThis.__phpxStructMethods[{}] : null; if (__m) Object.assign(__obj, __m); return __obj; }})()",
+                    entries.join(", "),
+                    json_string(&struct_name)
+                ))
             }
             Expr::JsxElement {
                 name,
@@ -2185,6 +2248,32 @@ impl<'a> JsSubsetEmitter<'a> {
             }
         }
         format!("{{ kind: 'object', fields: {{ {} }} }}", fields.join(", "))
+    }
+
+    fn emit_struct_methods(
+        &mut self,
+        members: &[ClassMember<'_>],
+    ) -> Result<Vec<(String, String)>, String> {
+        let mut methods = Vec::new();
+        for member in members {
+            if let ClassMember::Method {
+                name, params, body, ..
+            } = member
+            {
+                let method_name = self.token_name(name);
+                let js_params = params
+                    .iter()
+                    .map(|p| self.token_name(p.name))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let block = self.emit_method_block(params, body)?;
+                methods.push((
+                    method_name,
+                    format!("function({}) {{\n{} }}", js_params, block),
+                ));
+            }
+        }
+        Ok(methods)
     }
 
     fn emit_type_schema(&self, ty: &AstType<'_>) -> (String, bool) {
