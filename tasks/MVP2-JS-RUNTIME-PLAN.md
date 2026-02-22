@@ -1,6 +1,6 @@
 # MVP2 JS Runtime Plan
 
-Status: In progress
+Status: Completed
 Owner: Runtime
 
 ## Mission
@@ -56,3 +56,4 @@ Move PHPX execution to a JS-first runtime: transpile PHPX to JS and execute via 
 
 ## Progress Notes
 - 2026-02-22: PHPX conformance green in `mvp2` (`59/59` via `node tests/phpx/testrunner.js`).
+- 2026-02-22: `deka init` now writes `php_modules/stdlib.json` from discovered module graph so fresh projects can run `deka build` without missing stdlib manifest errors.

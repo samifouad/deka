@@ -289,6 +289,7 @@ fn ensure_module_graph(
     }
 
     ensure_lock_module_entries(&target_root.join("deka.lock"), &lock_entries, touched)
+        .and_then(|_| ensure_stdlib_manifest(target_root, &lock_entries, touched))
 }
 
 fn parse_import_module_ids(source: &str) -> Vec<String> {
@@ -408,6 +409,27 @@ fn load_module_template_or_default(module_rel: &str) -> Option<String> {
         "core/bridge.phpx" => Some(default_core_bridge_phpx()),
         _ => None,
     }
+}
+
+fn ensure_stdlib_manifest(
+    target_root: &Path,
+    entries: &[(String, String)],
+    touched: &mut Vec<String>,
+) -> Result<(), String> {
+    let mut modules: Vec<String> = entries
+        .iter()
+        .map(|(module_id, _)| module_id.clone())
+        .collect();
+    modules.sort();
+    modules.dedup();
+
+    let path = target_root.join("php_modules").join("stdlib.json");
+    let payload = serde_json::to_string_pretty(&modules)
+        .map_err(|err| format!("failed to serialize {}: {}", path.display(), err))?;
+    std::fs::write(&path, payload)
+        .map_err(|err| format!("failed to write {}: {}", path.display(), err))?;
+    touched.push(path_display(&path));
+    Ok(())
 }
 
 fn module_cache_rel(src_rel: &str) -> String {
