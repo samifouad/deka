@@ -2100,10 +2100,12 @@ fn enforce_scope(
         if prompt_enabled() && prompt_grant(capability, target)? {
             return Ok(());
         }
+        let origin = classify_security_origin(capability, target);
         let mut message = format!(
-            "SECURITY_CAPABILITY_DENIED: capability={} target={} not allowed (re-run with explicit allow flag or configure security)",
+            "SECURITY_CAPABILITY_DENIED: capability={} target={} origin={} not allowed (re-run with explicit allow flag or configure security)",
             capability,
-            target.unwrap_or("*")
+            target.unwrap_or("*"),
+            origin
         );
         if let Some(hint) = config_hint_for_request(capability, target) {
             message.push_str(" Hint: ");
@@ -2151,9 +2153,10 @@ fn prompt_grant(
         eprintln!("[security] hint: {}", hint);
     }
     let prompt = format!(
-        "[security] allow {} on {} for this process? [y/N]: ",
+        "[security] allow {} on {} (origin={}) for this process? [y/N]: ",
         capability,
-        target.unwrap_or("*")
+        target.unwrap_or("*"),
+        classify_security_origin(capability, target)
     );
     eprint!("{}", prompt);
     let _ = std::io::stderr().flush();
@@ -2181,6 +2184,53 @@ fn prompt_grant(
         }
         Err(err) => Err(core_err(format!("security prompt failed: {}", err))),
     }
+}
+
+fn classify_security_origin(capability: &str, target: Option<&str>) -> &'static str {
+    let Some(raw_target) = target else {
+        return "unknown";
+    };
+    let target = raw_target.trim();
+    if target.is_empty() {
+        return "unknown";
+    }
+
+    if (capability == "read" || capability == "write") && is_internal_security_target(target) {
+        return "runtime-internal";
+    }
+
+    let path = std::path::Path::new(target);
+    let root = project_root();
+    if let Some(root) = root {
+        let rel = if path.is_absolute() {
+            path.strip_prefix(&root).ok().map(|p| p.to_path_buf())
+        } else {
+            Some(path.to_path_buf())
+        };
+        if let Some(rel) = rel {
+            let rel_str = rel.to_string_lossy().replace('\\', "/");
+            if rel_str.starts_with("deps/")
+                || rel_str.starts_with("vendor/")
+                || rel_str.starts_with("node_modules/")
+            {
+                return "third-party";
+            }
+            if rel_str.starts_with("app/")
+                || rel_str.starts_with("src/")
+                || rel_str.starts_with("public/")
+                || rel_str.starts_with("php_modules/")
+                || rel_str == "deka.json"
+                || rel_str == "deka.lock"
+            {
+                return "project-owned";
+            }
+        }
+    }
+
+    if path.is_absolute() {
+        return "third-party";
+    }
+    "unknown"
 }
 
 fn config_hint_for_request(capability: &str, target: Option<&str>) -> Option<String> {
