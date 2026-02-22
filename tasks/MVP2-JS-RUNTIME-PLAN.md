@@ -39,7 +39,7 @@ Move PHPX execution to a JS-first runtime: transpile PHPX to JS and execute via 
    - [x] Single output file for server/client with SWC bundler.
 
 6. **Compatibility + tests**
-   - [ ] Conformance tests updated to run via JS runtime.
+   - [x] Conformance tests updated to run via JS runtime.
    - [ ] E2E tests for router + components + stdlib.
 
 ## Acceptance Criteria
@@ -52,3 +52,6 @@ Move PHPX execution to a JS-first runtime: transpile PHPX to JS and execute via 
 - `cargo build --release -p cli`
 - PHPX conformance suite: `PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js`
 - At least one JS runtime E2E (router + stdlib JSON).
+
+## Progress Notes
+- 2026-02-22: PHPX conformance green in `mvp2` (`59/59` via `node tests/phpx/testrunner.js`).
