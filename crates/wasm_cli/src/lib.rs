@@ -79,9 +79,10 @@ fn cmd_init(context: &Context) {
         .name
         .clone()
         .unwrap_or_else(|| "module".to_string());
-    let world_name = module_name.clone();
+    let world_name = sanitize_wit_ident(&module_name);
     let crate_name = sanitize_crate_name(&module_name);
-    let package_name = format!("{}:{}", module_spec.namespace, module_name);
+    let package_namespace = sanitize_wit_ident(&module_spec.namespace);
+    let package_name = format!("{}:{}", package_namespace, world_name);
 
     if let Err(err) = write_deka_manifest(&module_path, &crate_name, &world_name) {
         stdio::error("wasm", &format!("failed to write deka.json: {err}"));
@@ -99,7 +100,12 @@ fn cmd_init(context: &Context) {
         return;
     }
 
-    if let Err(err) = write_rust_crate(&rust_dir, &crate_name, &world_name) {
+    if let Err(err) = write_rust_crate(
+        &rust_dir,
+        &crate_name,
+        &module_spec.namespace,
+        &world_name,
+    ) {
         stdio::error("wasm", &format!("failed to write rust crate: {err}"));
         return;
     }
@@ -327,6 +333,55 @@ fn sanitize_crate_name(name: &str) -> String {
     }
 }
 
+fn sanitize_wit_ident(name: &str) -> String {
+    let mut out = String::new();
+    let mut last_dash = false;
+    for ch in name.chars() {
+        let mapped = match ch {
+            'a'..='z' | '0'..='9' => ch,
+            'A'..='Z' => ch.to_ascii_lowercase(),
+            '-' | '_' | '.' | ' ' => '-',
+            _ => '-',
+        };
+        if mapped == '-' {
+            if last_dash || out.is_empty() {
+                continue;
+            }
+            last_dash = true;
+            out.push(mapped);
+        } else {
+            last_dash = false;
+            out.push(mapped);
+        }
+    }
+    while out.ends_with('-') {
+        out.pop();
+    }
+    if out.is_empty() {
+        "module".to_string()
+    } else {
+        out
+    }
+}
+
+fn sanitize_rust_ident(name: &str) -> String {
+    let mut out = String::new();
+    for ch in name.chars() {
+        let mapped = match ch {
+            'a'..='z' | '0'..='9' | '_' => ch,
+            'A'..='Z' => ch.to_ascii_lowercase(),
+            '-' | '.' | ' ' => '_',
+            _ => '_',
+        };
+        out.push(mapped);
+    }
+    if out.is_empty() {
+        "module".to_string()
+    } else {
+        out
+    }
+}
+
 fn write_deka_manifest(dir: &Path, crate_name: &str, world: &str) -> Result<(), std::io::Error> {
     let manifest = serde_json::json!({
         "module": "module.wasm",
@@ -351,13 +406,20 @@ fn write_wit_file(dir: &Path, package_name: &str, world: &str) -> Result<(), std
     std::fs::write(dir.join("module.wit"), contents)
 }
 
-fn write_rust_crate(dir: &Path, crate_name: &str, world: &str) -> Result<(), std::io::Error> {
+fn write_rust_crate(
+    dir: &Path,
+    crate_name: &str,
+    namespace: &str,
+    world: &str,
+) -> Result<(), std::io::Error> {
+    let namespace_mod = sanitize_rust_ident(namespace);
+    let world_mod = sanitize_rust_ident(world);
     let cargo = format!(
         "[package]\nname = \"{crate_name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n[dependencies]\nwit-bindgen = \"0.46\"\n\n"
     );
 
     let lib_rs = format!(
-        "use wit_bindgen::generate;\n\n\ngenerate!({{\n    path: \"../module.wit\",\n    world: \"{world}\",\n}});\n\nstruct Component;\n\nimpl Guest for Component {{\n    fn greet(name: String) -> String {{\n        format!(\"Hello, {{}}!\", name)\n    }}\n}}\n\nexport!(Component);\n"
+        "use wit_bindgen::generate;\n\n\ngenerate!({{\n    path: \"../module.wit\",\n    world: \"{world}\",\n}});\n\nstruct Component;\n\nimpl exports::{namespace_mod}::{world_mod}::api::Guest for Component {{\n    fn greet(name: String) -> String {{\n        format!(\"Hello, {{}}!\", name)\n    }}\n}}\n\nexport!(Component);\n"
     );
 
     std::fs::write(dir.join("Cargo.toml"), cargo)?;

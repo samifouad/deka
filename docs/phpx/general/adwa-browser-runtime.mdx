@@ -36,7 +36,7 @@ When blocked APIs are imported, LSP reports a `Target Capability Error` with an 
 
 ## Runtime smoke workflow
 
-Build and validate the PHP runtime wasm artifact:
+Validate the Adwa PHPX runtime adapter flow:
 
 ```sh
 scripts/test-adwa-php-runtime.sh
@@ -44,10 +44,9 @@ scripts/test-adwa-php-runtime.sh
 
 This script:
 
-1. builds `php-rs` for `wasm32-unknown-unknown` in `release`
-2. verifies the wasm artifact exists
-3. runs host-profile gating tests
-4. runs focused PHPX smoke cases (basic eval/imports/jsx/fs)
+1. builds `adwa/js`
+2. runs runtime adapter smoke coverage
+3. runs host-profile capability integration coverage
 
 Run the host-adapter bridge smoke checks:
 

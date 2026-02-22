@@ -2,7 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ADWA_JS_DIR="$ROOT_DIR/adwa/js"
+DEFAULT_ADWA_JS_DIR="$ROOT_DIR/../adwa/js"
+ADWA_JS_DIR="${ADWA_JS_DIR:-$DEFAULT_ADWA_JS_DIR}"
+if [ ! -d "$ADWA_JS_DIR" ]; then
+  ADWA_JS_DIR="$ROOT_DIR/adwa/js"
+fi
 
 if [ ! -d "$ADWA_JS_DIR/node_modules" ]; then
   echo "[adwa-host-bridge] installing adwa/js dependencies"

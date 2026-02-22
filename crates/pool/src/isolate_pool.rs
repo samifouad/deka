@@ -2176,6 +2176,45 @@ impl WorkerThread {
                             return { ok: false, error: err && err.message ? String(err.message) : String(err) };
                         }
                     };
+                    globalThis.__deka_wasm_call = (moduleId, exportName, payload) => {
+                        const name = String(moduleId || '');
+                        if (name.startsWith('__deka_')) {
+                            const kind = name.replace(/^__deka_/, '');
+                            return routeHostCall(kind, exportName, payload || {});
+                        }
+                        return { ok: false, error: `unknown host bridge module '${name}'` };
+                    };
+                    globalThis.__deka_wasm_call_async = async (moduleId, exportName, payload) => {
+                        const name = String(moduleId || '');
+                        if (name.startsWith('__deka_')) {
+                            const kind = name.replace(/^__deka_/, '');
+                            return routeHostCall(kind, exportName, payload || {});
+                        }
+                        return { ok: false, error: `unknown host bridge module '${name}'` };
+                    };
+                }
+
+                if (typeof globalThis.__dekaRuntime !== 'object') {
+                    globalThis.__dekaRuntime = {
+                        executePhpx: async function(_source, file, _props) {
+                            if (!(globalThis.__dekaPhp && typeof globalThis.__dekaPhp.runFile === 'function')) {
+                                throw new Error('runtime.executePhpx requires __dekaPhp.runFile');
+                            }
+                            const result = await globalThis.__dekaPhp.runFile(String(file || ''));
+                            const stdout = result && result.stdout ? String(result.stdout) : "";
+                            let stderr = result && result.stderr ? String(result.stderr) : "";
+                            if (!stderr && result && result.error) {
+                                stderr = String(result.error);
+                            }
+                            if (stdout) Deno.core.print(stdout, false);
+                            if (stderr) Deno.core.print(stderr, true);
+                            const ok = result && result.ok !== false;
+                            let exitCode = result && typeof result.exit_code === 'number' ? result.exit_code : 0;
+                            if (!ok && exitCode === 0) exitCode = 1;
+                            if (exitCode) globalThis.__dekaExitCode = exitCode;
+                            return result;
+                        }
+                    };
                 }
 
                 if (typeof globalThis.__dekaExecuteRequest !== 'function') {

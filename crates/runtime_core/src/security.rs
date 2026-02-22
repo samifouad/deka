@@ -23,6 +23,11 @@ pub struct OperationCapability {
 pub const OPERATION_CAPABILITY_MATRIX: &[OperationCapability] = &[
     // Registered php host ops (crates/modules_php/src/modules/php/mod.rs).
     OperationCapability {
+        op_id: "php.op_php_get_wasm",
+        capability: Capability::Wasm,
+        notes: "Load embedded php wasm runtime bytes",
+    },
+    OperationCapability {
         op_id: "php.op_php_parse_phpx_types",
         capability: Capability::Unknown,
         notes: "Compiler/type parser op; no direct host side effects expected",
@@ -301,6 +306,7 @@ pub fn capability_for_operation(op_id: &str) -> Capability {
 
 pub const KNOWN_RUNTIME_OPERATION_IDS: &[&str] = &[
     // Registered php ops.
+    "php.op_php_get_wasm",
     "php.op_php_parse_phpx_types",
     "php.op_php_read_file_sync",
     "php.op_php_write_file_sync",

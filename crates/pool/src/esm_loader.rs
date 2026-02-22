@@ -162,9 +162,23 @@ const __candidate = typeof __dekaMain.default !== \"undefined\"\n\
   : typeof __dekaMain.handler !== \"undefined\"\n\
   ? __dekaMain.handler\n\
   : __dekaMain;\n\
-if (__dekaMain && __dekaMain.phpxBuildMode === \"scaffold\") {\n\
-  throw new Error(\"[phpx-js] scaffold fallback is disabled in MVP2: \" +\n\
-    String(__dekaMain.phpxFile || \"unknown\") + \" (reason: \" + String(__dekaMain.phpxBuildReason || \"unknown\") + \")\");\n\
+if (__dekaMain && __dekaMain.phpxBuildMode === \"scaffold\" && typeof globalThis.__dekaRuntime === \"object\") {\n\
+  const __fallbackKey = String(__dekaMain.phpxFile || \"unknown\") + \":\" + String(__dekaMain.phpxBuildReason || \"unknown\");\n\
+  if (!globalThis.__dekaReportedPhpxFallback) globalThis.__dekaReportedPhpxFallback = new Set();\n\
+  if (!globalThis.__dekaReportedPhpxFallback.has(__fallbackKey)) {\n\
+    globalThis.__dekaReportedPhpxFallback.add(__fallbackKey);\n\
+    console.error(\"[phpx-js] subset transpile fallback: \" + String(__dekaMain.phpxFile || \"unknown\") + \"\\n\" +\n\
+      \"  reason: \" + String(__dekaMain.phpxBuildReason || \"unknown\") + \"\\n\" +\n\
+      \"  behavior: running via runtime fallback path for this module\\n\" +\n\
+      \"  hint: simplify unsupported syntax or check transpiler diagnostics for this file\");\n\
+  }\n\
+  const __mode = globalThis.__dekaExecMode || \"request\";\n\
+  if (__mode === \"module\" && typeof __dekaMain.runPhpx === \"function\") {\n\
+    await __dekaMain.runPhpx(globalThis.__dekaRuntime);\n\
+  }\n\
+  if (__mode !== \"module\" && typeof globalThis.__dekaPhp === \"object\" && typeof __dekaPhp.servePhp === \"function\") {\n\
+    globalThis.app = __dekaPhp.servePhp(__dekaMain.phpxFile);\n\
+  }\n\
 }\n\
 if (typeof globalThis.app === \"undefined\" && typeof __candidate !== \"undefined\") {\n\
   if (typeof __candidate === \"function\" && typeof globalThis.__dekaNodeExpressAdapter === \"function\" && (typeof __candidate.handle === \"function\" || typeof __candidate.listen === \"function\")) {\n\

@@ -13,15 +13,15 @@ fn main() {
     let src = std::env::var("PHP_WASM_PATH")
         .map(PathBuf::from)
         .unwrap_or_else(|_| php_rs_path);
-    let dest = out_dir.join("php_rs.wasm");
-    if src.exists() {
-        fs::copy(&src, &dest).expect("failed to copy php wasm binary");
-        println!("cargo:rerun-if-changed={}", src.display());
-    } else {
-        // MVP2 no longer wires the deka_php wasm runtime path; keep a placeholder
-        // artifact so include_bytes! remains valid until legacy files are removed.
-        fs::write(&dest, []).expect("failed to write placeholder php wasm binary");
+    if !src.exists() {
+        panic!(
+            "PHP wasm binary not found at {}. Build php-rs wasm or run `cargo build -p php-rs --release --target wasm32-unknown-unknown --lib --no-default-features`, or set PHP_WASM_PATH",
+            src.display()
+        );
     }
+    let dest = out_dir.join("php_rs.wasm");
+    fs::copy(&src, &dest).expect("failed to copy php wasm binary");
+    println!("cargo:rerun-if-changed={}", src.display());
     println!("cargo:rerun-if-env-changed=PHP_WASM_PATH");
 
     let protoc = protoc_bin_vendored::protoc_bin_path().expect("failed to locate protoc");

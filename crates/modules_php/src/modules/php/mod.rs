@@ -4566,6 +4566,7 @@ fn op_php_parse_wit(
 deno_core::extension!(
     php_core,
     ops = [
+        op_php_get_wasm,
         op_php_parse_phpx_types,
         op_php_read_file_sync,
         op_php_write_file_sync,
