@@ -35,12 +35,47 @@ let previewStatusEl = document.getElementById("previewStatus");
 let termFormEl = document.getElementById("termForm");
 let termInputEl = document.getElementById("termInput");
 let termPromptEl = document.getElementById("termPrompt");
+let termBlockedLineEl = document.getElementById("termBlockedLine");
+let termTabsEl = document.getElementById("termTabs");
+let termNewTabBtn = document.getElementById("termNewTabBtn");
+let termMinimizeBtn = document.getElementById("termMinimizeBtn");
+let termStdinFormEl = document.getElementById("termStdinForm");
+let termStdinInputEl = document.getElementById("termStdinInput");
 let rightPaneEl = document.getElementById("rightPane");
 let terminalPaneEl = document.getElementById("terminalPane");
 let splitXEl = document.getElementById("splitX");
 let splitExplorerEl = document.getElementById("splitExplorer");
 let splitYEl = document.getElementById("splitY");
 let helpModalEl = document.getElementById("helpModal");
+let dataBtnEl = document.getElementById("dataBtn");
+let dataModalEl = document.getElementById("dataModal");
+let dataCloseBtnEl = document.getElementById("dataCloseBtn");
+let settingsBtnEl = document.getElementById("settingsBtn");
+let settingsModalEl = document.getElementById("settingsModal");
+let settingsCloseBtnEl = document.getElementById("settingsCloseBtn");
+let settingsSummaryEl = document.getElementById("settingsSummary");
+let settingsListEl = document.getElementById("settingsList");
+let settingsRefreshBtnEl = document.getElementById("settingsRefreshBtn");
+let settingsResetDbBtnEl = document.getElementById("settingsResetDbBtn");
+let settingsResetFsBtnEl = document.getElementById("settingsResetFsBtn");
+let settingsResetAllBtnEl = document.getElementById("settingsResetAllBtn");
+let dbNameInputEl = document.getElementById("dbNameInput");
+let dbTableInputEl = document.getElementById("dbTableInput");
+let dbIdInputEl = document.getElementById("dbIdInput");
+let dbNameValueInputEl = document.getElementById("dbNameValueInput");
+let dbVersionInputEl = document.getElementById("dbVersionInput");
+let dbSqlInputEl = document.getElementById("dbSqlInput");
+let dbCreateBtnEl = document.getElementById("dbCreateBtn");
+let dbEnsureBtnEl = document.getElementById("dbEnsureBtn");
+let dbRefreshBtnEl = document.getElementById("dbRefreshBtn");
+let dbInsertBtnEl = document.getElementById("dbInsertBtn");
+let dbRunSqlBtnEl = document.getElementById("dbRunSqlBtn");
+let dbUpdateBtnEl = document.getElementById("dbUpdateBtn");
+let dbDeleteBtnEl = document.getElementById("dbDeleteBtn");
+let dbClearBtnEl = document.getElementById("dbClearBtn");
+let dbStatusEl = document.getElementById("dbStatus");
+let dbColsRowEl = document.getElementById("dbColsRow");
+let dbRowsBodyEl = document.getElementById("dbRowsBody");
 
 let monacoEditor = null;
 let monacoApi = null;
@@ -51,7 +86,9 @@ let phpStdoutBuffer = "";
 let phpStderrBuffer = "";
 let phpRuntimeWasmBytesCache = null;
 let shellContainer = null;
+let foregroundProcess = null;
 let terminalVisible = true;
+let terminalMinimized = false;
 let explorerWidth = 280;
 const commandHistory = [];
 let historyIndex = 0;
@@ -65,6 +102,7 @@ const AUTORUN_DEBOUNCE_MS = 220;
 const lspBase = `${window.location.protocol}//${window.location.hostname}:${window.PHPX_LSP_PORT || "8531"}`;
 const DEMO_ROOT = "/home/user/demo";
 const DEMO_ENTRY = `${DEMO_ROOT}/app/home.phpx`;
+const DB_MIRROR_DIR = `${DEMO_ROOT}/.db`;
 const DEFAULT_CWD = DEMO_ROOT;
 const BASE_FS_DIRS = [
   "/bin",
@@ -74,6 +112,10 @@ const BASE_FS_DIRS = [
   "/home/user",
   "/home/user/demo",
   "/home/user/demo/app",
+  "/home/user/demo/.db",
+  "/php_modules",
+  "/__global",
+  "/__global/php_modules",
   "/tmp",
   "/etc",
   "/var",
@@ -99,6 +141,7 @@ const serverState = {
   mode: "php",
   port: 8530,
   path: "/",
+  foregroundTerminalId: null,
 };
 const runtimePortState = {
   url: "",
@@ -134,8 +177,17 @@ const defaultSource = [
 const remapBundledProjectFiles = (files, root) => {
   const out = {};
   for (const [rawPath, content] of Object.entries(files || {})) {
-    const rel = String(rawPath || "").replace(/^\/+/, "");
-    if (!rel) continue;
+    const key = String(rawPath || "").trim();
+    if (!key) continue;
+    if (key.startsWith("/php_modules/") || key.startsWith("/__global/php_modules/")) {
+      const normalized = normalizePath(key);
+      out[normalized] = content;
+      // Mirror module trees under the demo root so the explorer and
+      // project-local runtime checks can resolve php_modules as expected.
+      out[normalizePath(`${root}${normalized}`)] = content;
+      continue;
+    }
+    const rel = key.replace(/^\/+/, "");
     out[normalizePath(`${root}/${rel}`)] = content;
   }
   return out;
@@ -176,11 +228,155 @@ for (const dir of BASE_FS_DIRS) {
   vfs.mkdir(dir);
 }
 
+
+const EXPANDED_FOLDERS_STORAGE_KEY = "adwa.explorer.expanded.v1";
+const VFS_SNAPSHOT_KEY = "adwa.vfs.snapshot.v1";
+
+
+
+
+const bytesToBase64 = (bytes) => {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+};
+
+const base64ToBytes = (encoded) => {
+  const bin = atob(String(encoded || ""));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+  return out;
+};
+
+
+const loadVfsSnapshot = () => {
+  try {
+    const raw = localStorage.getItem(VFS_SNAPSHOT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const dirs = Array.isArray(parsed.dirs) ? parsed.dirs.filter((d) => typeof d === "string") : [];
+    const files = parsed.files && typeof parsed.files === "object" ? parsed.files : {};
+    return { dirs, files };
+  } catch {
+    return null;
+  }
+};
+
+const applyVfsSnapshot = (snap) => {
+  if (!snap) return false;
+  const dirs = new Set(["/"]);
+  for (const d of snap.dirs || []) {
+    if (typeof d === "string" && d.startsWith("/")) dirs.add(normalizePath(d));
+  }
+  const files = new Map();
+  for (const [path, encoded] of Object.entries(snap.files || {})) {
+    if (typeof path !== "string" || !path.startsWith("/")) continue;
+    if (typeof encoded !== "string") continue;
+    const normalized = normalizePath(path);
+    let decoded;
+    try {
+      decoded = base64ToBytes(encoded);
+    } catch {
+      decoded = new TextEncoder().encode(String(encoded));
+    }
+    files.set(normalized, decoded);
+    const parent = dirname(normalized);
+    let current = "";
+    for (const part of parent.split("/").filter(Boolean)) {
+      current = current + "/" + part;
+      dirs.add(current || "/");
+    }
+  }
+  vfs.files = files;
+  vfs.dirs = dirs;
+  return true;
+};
+
+const ensureBundledProjectSeed = () => {
+  const mergedFiles = {
+    ...BASE_FS_FILES,
+    ...bundledProjectTree,
+    "/README.txt": "ADWA browser playground\\nUse terminal: ls, cd, pwd, open, cat, run\\n",
+    "/main.phpx": defaultSource,
+    [DEMO_ENTRY]: defaultSource,
+  };
+  for (const dir of BASE_FS_DIRS) {
+    if (!statPath(dir)) vfs.mkdir(dir);
+  }
+  for (const [path, content] of Object.entries(mergedFiles)) {
+    if (!statPath(path)) {
+      vfs.writeFile(path, new TextEncoder().encode(String(content)));
+    }
+  }
+  // Older snapshots may not include the mirrored local module root.
+  const localModuleDir = normalizePath(`${DEMO_ROOT}/php_modules`);
+  if (!statPath(localModuleDir) && statPath("/php_modules")) {
+    vfs.mkdir(localModuleDir);
+  }
+};
+
+const saveVfsSnapshot = () => {
+  try {
+    const files = {};
+    for (const filePath of vfs.listFiles()) {
+      files[filePath] = bytesToBase64(vfs.readFile(filePath));
+    }
+    const payload = {
+      dirs: vfs.listDirs(),
+      files,
+    };
+    localStorage.setItem(VFS_SNAPSHOT_KEY, JSON.stringify(payload));
+  } catch {}
+};
+
+const wrapVfsPersistence = () => {
+  let timer = null;
+  const schedule = () => {
+    if (timer != null) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      saveVfsSnapshot();
+    }, 120);
+  };
+  const bindWrap = (name) => {
+    const original = vfs[name].bind(vfs);
+    vfs[name] = (...args) => {
+      const out = original(...args);
+      schedule();
+      return out;
+    };
+  };
+  bindWrap("writeFile");
+  bindWrap("mkdir");
+  bindWrap("rm");
+  bindWrap("rename");
+  window.addEventListener("beforeunload", () => {
+    if (timer != null) clearTimeout(timer);
+    saveVfsSnapshot();
+  });
+};
+
+applyVfsSnapshot(loadVfsSnapshot());
+ensureBundledProjectSeed();
+wrapVfsPersistence();
+
 let currentFile = configuredServeEntry;
 let cwd = DEFAULT_CWD;
 let explorerRoot = DEFAULT_CWD;
 const openTabs = [{ path: currentFile, pinned: true }];
-const EXPANDED_FOLDERS_STORAGE_KEY = "adwa.explorer.expanded.v1";
+
+const createTerminalSession = (cwdPath, index = 1) => ({
+  id: `t${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+  label: `Terminal ${index}`,
+  cwd: normalizePath(cwdPath || DEFAULT_CWD),
+  history: [],
+  historyIndex: 0,
+  logText: "",
+});
+
+let terminalSessions = [createTerminalSession(DEFAULT_CWD, 1)];
+let activeTerminalSessionId = terminalSessions[0].id;
 const loadExpandedFolders = () => {
   try {
     const raw = localStorage.getItem(EXPANDED_FOLDERS_STORAGE_KEY);
@@ -213,6 +409,104 @@ try {
   openTabs[0].path = currentFile;
 }
 
+const getActiveTerminalSession = () => {
+  const found = terminalSessions.find((tab) => tab.id === activeTerminalSessionId);
+  return found || terminalSessions[0] || null;
+};
+
+const isActiveTerminalBlocked = () => {
+  if (!foregroundProcess) return false;
+  if (!serverState.foregroundTerminalId) return true;
+  return serverState.foregroundTerminalId === activeTerminalSessionId;
+};
+
+const syncActiveTerminalSessionState = () => {
+  const active = getActiveTerminalSession();
+  if (!active) return;
+  active.cwd = normalizePath(cwd || DEFAULT_CWD);
+  active.history = [...commandHistory];
+  active.historyIndex = historyIndex;
+  if (logEl) active.logText = logEl.textContent || "";
+};
+
+const applyTerminalSession = (tabId) => {
+  syncActiveTerminalSessionState();
+  const next = terminalSessions.find((tab) => tab.id === tabId);
+  if (!next) return;
+  activeTerminalSessionId = next.id;
+  cwd = normalizePath(next.cwd || DEFAULT_CWD);
+  projectEnv.PWD = cwd;
+  commandHistory.length = 0;
+  commandHistory.push(...(next.history || []));
+  historyIndex = Number.isFinite(next.historyIndex) ? next.historyIndex : commandHistory.length;
+  if (logEl) logEl.textContent = next.logText || "";
+  setPrompt();
+  setTerminalBlocked(isActiveTerminalBlocked(), false);
+  renderTerminalTabs();
+};
+
+const addTerminalSession = (cwdPath) => {
+  syncActiveTerminalSessionState();
+  const nextIndex = terminalSessions.length + 1;
+  const tab = createTerminalSession(cwdPath || cwd || DEFAULT_CWD, nextIndex);
+  terminalSessions.push(tab);
+  applyTerminalSession(tab.id);
+};
+
+const closeTerminalSession = (tabId) => {
+  if (terminalSessions.length <= 1) return;
+  syncActiveTerminalSessionState();
+  const idx = terminalSessions.findIndex((tab) => tab.id === tabId);
+  if (idx < 0) return;
+  const wasActive = terminalSessions[idx].id === activeTerminalSessionId;
+  terminalSessions.splice(idx, 1);
+  const removedOwnedForeground = Boolean(foregroundProcess) && serverState.foregroundTerminalId === tabId;
+  if (wasActive) {
+    const fallback = terminalSessions[Math.max(0, idx - 1)] || terminalSessions[0];
+    if (fallback) {
+      if (removedOwnedForeground) serverState.foregroundTerminalId = fallback.id;
+      applyTerminalSession(fallback.id);
+    }
+  } else if (removedOwnedForeground) {
+    serverState.foregroundTerminalId = terminalSessions[0]?.id || null;
+  }
+  renderTerminalTabs();
+};
+
+const renderTerminalTabs = () => {
+  if (!(termTabsEl instanceof HTMLElement)) return;
+  termTabsEl.innerHTML = "";
+  terminalSessions.forEach((tab) => {
+    const wrap = document.createElement("div");
+    wrap.className = `termTab${tab.id === activeTerminalSessionId ? " active" : ""}`;
+    wrap.title = tab.cwd;
+
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "termTabOpen";
+    openBtn.textContent = tab.label;
+    openBtn.addEventListener("click", () => applyTerminalSession(tab.id));
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "termTabClose";
+    closeBtn.textContent = "x";
+    closeBtn.setAttribute("aria-label", `Close ${tab.label}`);
+    closeBtn.disabled = terminalSessions.length <= 1;
+    closeBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      closeTerminalSession(tab.id);
+    });
+
+    wrap.appendChild(openBtn);
+    wrap.appendChild(closeBtn);
+    termTabsEl.appendChild(wrap);
+  });
+};
+
+renderTerminalTabs();
+
 const log = (message = "") => {
   if (!logEl) return;
   const raw = String(message);
@@ -232,26 +526,66 @@ const log = (message = "") => {
 const resetLog = (message) => {
   if (!logEl) return;
   logEl.textContent = String(message ?? "");
+  syncActiveTerminalSessionState();
 };
 
 const setPrompt = () => {
   if (!termPromptEl) return;
-  if (serverState.running) {
+  if (termInputEl instanceof HTMLInputElement && termInputEl.disabled) {
     termPromptEl.textContent = "";
     return;
   }
   termPromptEl.textContent = `${cwd} $`;
+  const active = getActiveTerminalSession();
+  if (active) active.cwd = normalizePath(cwd || DEFAULT_CWD);
 };
 
-const setTerminalBlocked = (blocked) => {
-  if (!(termInputEl instanceof HTMLInputElement)) return;
-  termInputEl.disabled = blocked;
-  termInputEl.classList.toggle("blocked", blocked);
-  if (!blocked) {
-    setTimeout(() => {
+const setTerminalBlocked = (blocked, allowStdin = false) => {
+  const isBlocked = Boolean(blocked);
+  const showStdin = isBlocked && Boolean(allowStdin);
+  const showBlockedLine = isBlocked && !showStdin;
+
+  if (termInputEl instanceof HTMLInputElement) {
+    termInputEl.disabled = isBlocked;
+    termInputEl.classList.toggle("blocked", isBlocked);
+  }
+  if (termFormEl instanceof HTMLFormElement) {
+    termFormEl.classList.toggle("hidden", isBlocked);
+    termFormEl.hidden = isBlocked;
+  }
+  if (termStdinFormEl instanceof HTMLFormElement) {
+    termStdinFormEl.classList.toggle("hidden", !showStdin);
+    termStdinFormEl.hidden = !showStdin;
+  }
+  if (termBlockedLineEl instanceof HTMLElement) {
+    termBlockedLineEl.classList.toggle("hidden", !showBlockedLine);
+    termBlockedLineEl.hidden = !showBlockedLine;
+  }
+  if (termStdinInputEl instanceof HTMLInputElement) {
+    termStdinInputEl.disabled = !showStdin;
+  }
+  setPrompt();
+  setTimeout(() => {
+    if (showStdin && termStdinInputEl instanceof HTMLInputElement) {
+      termStdinInputEl.focus();
+      termStdinInputEl.setSelectionRange(termStdinInputEl.value.length, termStdinInputEl.value.length);
+      return;
+    }
+    if (!isBlocked && termInputEl instanceof HTMLInputElement) {
       termInputEl.focus();
       termInputEl.setSelectionRange(termInputEl.value.length, termInputEl.value.length);
-    }, 0);
+    }
+  }, 0);
+};
+
+const setTerminalMinimized = (minimized) => {
+  terminalMinimized = Boolean(minimized);
+  if (rightPaneEl instanceof HTMLElement) {
+    rightPaneEl.classList.toggle("terminalMinimized", terminalMinimized);
+  }
+  if (termMinimizeBtn instanceof HTMLButtonElement) {
+    termMinimizeBtn.textContent = terminalMinimized ? "▴" : "▾";
+    termMinimizeBtn.title = terminalMinimized ? "Expand terminal" : "Minimize terminal";
   }
 };
 
@@ -299,7 +633,7 @@ const setServePreviewStatus = (path = null) => {
     setPreviewStatus(`serve ${runtimePortState.url}${activePath}`);
     return;
   }
-  setPreviewStatus(`serve :${serverState.port}`);
+  setPreviewStatus("run mode");
 };
 
 const stripAnsi = (value) => String(value).replace(/\u001b\[[0-9;]*m/g, "");
@@ -672,18 +1006,25 @@ const isMacLike = () =>
 const showFileTree = (open) => {
   if (!(appShellEl instanceof HTMLElement)) return;
   const visible = Boolean(open);
+  const desktop = window.innerWidth > 960;
   appShellEl.classList.toggle("explorerCollapsed", !visible);
-  if (window.innerWidth > 960 && visible) {
-    appShellEl.style.gridTemplateColumns = `56px ${Math.round(explorerWidth)}px 6px 1fr`;
+
+  if (desktop) {
+    if (visible) {
+      appShellEl.style.gridTemplateColumns = `56px ${Math.round(explorerWidth)}px 6px 1fr`;
+    } else {
+      appShellEl.style.gridTemplateColumns = "56px 0 0 1fr";
+    }
+    return;
   }
-  if (!visible || window.innerWidth <= 960) {
-    appShellEl.style.gridTemplateColumns = "";
-  }
+
+  appShellEl.style.gridTemplateColumns = "56px 1fr";
 };
 
 const toggleFileTree = () => {
   if (!(appShellEl instanceof HTMLElement)) return;
-  appShellEl.classList.toggle("explorerCollapsed");
+  const nextVisible = appShellEl.classList.contains("explorerCollapsed");
+  showFileTree(nextVisible);
 };
 
 const setTerminalVisible = (visible) => {
@@ -806,6 +1147,362 @@ const setHelpOpen = (open) => {
 const toggleHelp = () => {
   if (!(helpModalEl instanceof HTMLElement)) return;
   setHelpOpen(!helpModalEl.classList.contains("open"));
+};
+
+const setDataOpen = (open) => {
+  if (!(dataModalEl instanceof HTMLElement)) return;
+  dataModalEl.classList.toggle("open", Boolean(open));
+};
+
+const toggleData = () => {
+  if (!(dataModalEl instanceof HTMLElement)) return;
+  setDataOpen(!dataModalEl.classList.contains("open"));
+};
+
+const setSettingsOpen = (open) => {
+  if (!(settingsModalEl instanceof HTMLElement)) return;
+  settingsModalEl.classList.toggle("open", Boolean(open));
+};
+
+const settingsSetInfo = (summary, lines = []) => {
+  if (settingsSummaryEl instanceof HTMLElement) settingsSummaryEl.textContent = String(summary || "");
+  if (settingsListEl instanceof HTMLElement) {
+    settingsListEl.innerHTML = "";
+    for (const line of lines) {
+      const li = document.createElement("li");
+      li.textContent = String(line);
+      settingsListEl.appendChild(li);
+    }
+  }
+};
+
+const refreshSettings = () => {
+  const dbNames = (() => {
+    try { return dbListDatabases(); } catch { return []; }
+  })();
+  const snapshotRaw = localStorage.getItem(VFS_SNAPSHOT_KEY);
+  const snapshotBytes = snapshotRaw ? snapshotRaw.length : 0;
+  const lines = [
+    "databases: " + (dbNames.length ? dbNames.join(", ") : "none"),
+    "open db handles: " + String((() => { try { return Number(dbBridgeCall("stats", {}).active_handles || 0); } catch { return 0; } })()),
+    "vfs files: " + vfs.listFiles().length,
+    "vfs dirs: " + vfs.listDirs().length,
+    "vfs snapshot: " + (snapshotRaw ? (snapshotBytes + " bytes") : "none"),
+  ];
+  settingsSetInfo("Browser-backed runtime state.", lines);
+};
+
+const dbInputValue = (el, fallback = "") => {
+  if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) return String(fallback || "");
+  return String(el.value || fallback || "").trim();
+};
+
+const dbSafeIdent = (value, fallback) => {
+  const raw = String(value || fallback || "").trim();
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return raw;
+  throw new Error("invalid SQL identifier: " + raw);
+};
+
+const dbSetStatus = (message, isError = false) => {
+  if (!(dbStatusEl instanceof HTMLElement)) return;
+  dbStatusEl.textContent = String(message || "");
+  dbStatusEl.classList.toggle("error", Boolean(isError));
+};
+
+const dbEscape = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const dbRenderRows = (rows) => {
+  if (!(dbRowsBodyEl instanceof HTMLElement)) return;
+  dbRowsBodyEl.innerHTML = "";
+  const list = Array.isArray(rows) ? rows : [];
+  const cols = list.length
+    ? Array.from(list.reduce((set, row) => {
+        Object.keys(row || {}).forEach((k) => set.add(k));
+        return set;
+      }, new Set()))
+    : ["id", "name", "version"];
+
+  if (dbColsRowEl instanceof HTMLElement) {
+    dbColsRowEl.innerHTML = cols.map((col) => "<th>" + dbEscape(col) + "</th>").join("");
+  }
+
+  if (!list.length) {
+    dbRowsBodyEl.innerHTML = "<tr><td colspan=\"" + cols.length + "\" class=\"empty\">no rows</td></tr>";
+    return;
+  }
+  for (const row of list) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = cols.map((col) => "<td>" + dbEscape(row?.[col]) + "</td>").join("");
+    dbRowsBodyEl.appendChild(tr);
+  }
+};
+
+const dbBridgeCall = (action, payload = {}) => {
+  if (!bridgeRef || typeof bridgeRef.call !== "function") throw new Error("bridge is not ready");
+  const out = bridgeRef.call({ kind: "db", action, payload });
+  if (!out || !out.ok) {
+    throw new Error(out?.error || ("db " + action + " failed"));
+  }
+  const value = out.value;
+  if (value && typeof value === "object" && value.ok === false) {
+    throw new Error(String(value.error || ("db " + action + " error")));
+  }
+  return value || {};
+};
+
+const warmSqliteEngine = () => {
+  try {
+    const opened = dbBridgeCall("open", {
+      driver: "sqlite",
+      config: { database: "__adwa_warmup__" },
+    });
+    if (opened.handle) {
+      try { dbBridgeCall("close", { handle: opened.handle }); } catch {}
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("initializing")) {
+      setTimeout(warmSqliteEngine, 80);
+    }
+  }
+};
+
+const dbListDatabases = () => {
+  const result = dbBridgeCall("list", {});
+  const names = Array.isArray(result.databases) ? result.databases : [];
+  return names.map((name) => String(name));
+};
+
+const dbToFileName = (dbName) =>
+  String(dbName || "db")
+    .replace(/[^A-Za-z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "db";
+
+const syncDbMirrorFiles = (dbNames) => {
+  const names = Array.isArray(dbNames) ? dbNames : [];
+  try {
+    vfs.mkdir(DB_MIRROR_DIR, { recursive: true });
+  } catch {}
+
+  let existing = [];
+  try {
+    existing = vfs.readdir(DB_MIRROR_DIR).map((name) => normalizePath(DB_MIRROR_DIR + "/" + name));
+  } catch {
+    existing = [];
+  }
+
+  const desired = new Set(names.map((name) => normalizePath(DB_MIRROR_DIR + "/" + dbToFileName(name) + ".sqlite")));
+
+  for (const file of existing) {
+    if (!desired.has(file)) {
+      try { vfs.rm(file, { recursive: false, force: true }); } catch {}
+    }
+  }
+
+  for (const file of desired) {
+    if (!statPath(file)) {
+      const body = "-- ADWA sqlite mirror placeholder\n-- real storage: browser localStorage\n";
+      vfs.writeFile(file, new TextEncoder().encode(body));
+    }
+  }
+};
+
+const withDbHandle = (fn) => {
+  const dbName = dbInputValue(dbNameInputEl, "adwa_demo") || "adwa_demo";
+  const opened = dbBridgeCall("open", {
+    driver: "sqlite",
+    config: { database: dbName },
+  });
+  const handle = opened.handle;
+  if (!handle) throw new Error("db open returned no handle");
+  try {
+    return fn(handle);
+  } finally {
+    try { dbBridgeCall("close", { handle }); } catch {}
+  }
+};
+
+const dbCreateDatabase = () => {
+  const dbName = dbInputValue(dbNameInputEl, "adwa_demo") || "adwa_demo";
+  const opened = dbBridgeCall("open", {
+    driver: "sqlite",
+    config: { database: dbName },
+  });
+  if (opened.handle) {
+    try { dbBridgeCall("close", { handle: opened.handle }); } catch {}
+  }
+  dbSetStatus("database " + dbName + " created");
+  const names = dbListDatabases();
+  syncDbMirrorFiles(names);
+  renderFileTree();
+  dbInitModal();
+};
+
+const dbEnsureTable = () => {
+  const table = dbSafeIdent(dbInputValue(dbTableInputEl, "packages"), "packages");
+  withDbHandle((handle) => {
+    dbBridgeCall("exec", {
+      handle,
+      sql: "create table if not exists " + table + " (id int, name text, version text)",
+      params: [],
+    });
+  });
+  dbSetStatus("table " + table + " ready");
+};
+
+const dbRefreshRows = () => {
+  const table = dbSafeIdent(dbInputValue(dbTableInputEl, "packages"), "packages");
+  let rows = [];
+  try {
+    withDbHandle((handle) => {
+      const result = dbBridgeCall("query", {
+        handle,
+        sql: "select id, name, version from " + table + " order by id asc limit 200",
+        params: [],
+      });
+      rows = Array.isArray(result.rows) ? result.rows : [];
+    });
+    dbRenderRows(rows);
+    dbSetStatus("loaded " + rows.length + " row(s) from " + table);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.toLowerCase().includes("no such table")) {
+      dbRenderRows([]);
+      dbSetStatus("table " + table + " not found. Click Ensure Table.");
+      return;
+    }
+    throw err;
+  }
+};
+
+const dbInsertRow = () => {
+  const table = dbSafeIdent(dbInputValue(dbTableInputEl, "packages"), "packages");
+  const idRaw = dbInputValue(dbIdInputEl, "");
+  const id = idRaw === "" ? null : Number(idRaw);
+  const name = dbInputValue(dbNameValueInputEl, "item");
+  const version = dbInputValue(dbVersionInputEl, "0.1.0");
+  withDbHandle((handle) => {
+    dbBridgeCall("exec", {
+      handle,
+      sql: "insert into " + table + " (id, name, version) values (?, ?, ?)",
+      params: [Number.isFinite(id) ? id : null, name, version],
+    });
+  });
+  dbSetStatus("inserted row");
+  dbRefreshRows();
+};
+
+const dbUpdateRow = () => {
+  const table = dbSafeIdent(dbInputValue(dbTableInputEl, "packages"), "packages");
+  const id = Number(dbInputValue(dbIdInputEl, ""));
+  if (!Number.isFinite(id)) throw new Error("ID is required for update");
+  const name = dbInputValue(dbNameValueInputEl, "item");
+  const version = dbInputValue(dbVersionInputEl, "0.1.0");
+  withDbHandle((handle) => {
+    dbBridgeCall("exec", {
+      handle,
+      sql: "update " + table + " set name = ?, version = ? where id = ?",
+      params: [name, version, id],
+    });
+  });
+  dbSetStatus("updated id=" + id);
+  dbRefreshRows();
+};
+
+const dbDeleteRow = () => {
+  const table = dbSafeIdent(dbInputValue(dbTableInputEl, "packages"), "packages");
+  const id = Number(dbInputValue(dbIdInputEl, ""));
+  if (!Number.isFinite(id)) throw new Error("ID is required for delete");
+  withDbHandle((handle) => {
+    dbBridgeCall("exec", {
+      handle,
+      sql: "delete from " + table + " where id = ?",
+      params: [id],
+    });
+  });
+  dbSetStatus("deleted id=" + id);
+  dbRefreshRows();
+};
+
+const dbClearRows = () => {
+  const table = dbSafeIdent(dbInputValue(dbTableInputEl, "packages"), "packages");
+  withDbHandle((handle) => {
+    dbBridgeCall("exec", {
+      handle,
+      sql: "delete from " + table,
+      params: [],
+    });
+  });
+  dbSetStatus("cleared " + table);
+  dbRefreshRows();
+};
+
+const dbRunSql = () => {
+  const sql = dbInputValue(dbSqlInputEl, "");
+  if (!sql) throw new Error("SQL is required");
+  let rows = [];
+  let affectedRows = 0;
+  withDbHandle((handle) => {
+    if (/^\s*select\b/i.test(sql)) {
+      const result = dbBridgeCall("query", { handle, sql, params: [] });
+      rows = Array.isArray(result.rows) ? result.rows : [];
+      return;
+    }
+    const execResult = dbBridgeCall("exec", { handle, sql, params: [] });
+    affectedRows = Number(execResult.affected_rows || 0);
+  });
+  if (/^\s*select\b/i.test(sql)) {
+    dbRenderRows(rows);
+    dbSetStatus("query returned " + rows.length + " row(s)");
+  } else {
+    dbSetStatus("statement applied; affected_rows=" + affectedRows);
+    try { dbRefreshRows(); } catch {}
+  }
+};
+
+const dbInitModal = () => {
+const resetFsSnapshot = () => {
+  localStorage.removeItem(VFS_SNAPSHOT_KEY);
+  location.reload();
+};
+
+const resetAllBrowserState = () => {
+  try { dbBridgeCall("reset", {}); } catch {}
+  localStorage.removeItem(VFS_SNAPSHOT_KEY);
+  location.reload();
+};
+
+  const names = dbListDatabases();
+  syncDbMirrorFiles(names);
+  renderFileTree();
+  const dbName = dbInputValue(dbNameInputEl, "adwa_demo") || "adwa_demo";
+  if (!names.length) {
+    dbRenderRows([]);
+    dbSetStatus("no databases found. Click Create DB to start.");
+    return;
+  }
+  if (!names.includes(dbName) && dbNameInputEl instanceof HTMLInputElement) {
+    dbNameInputEl.value = names[0];
+  }
+  try {
+    dbRefreshRows();
+  } catch (err) {
+    dbSetStatus(err instanceof Error ? err.message : String(err), true);
+  }
+};
+
+const runDbAction = (action) => {
+  try {
+    action();
+  } catch (err) {
+    dbSetStatus(err instanceof Error ? err.message : String(err), true);
+  }
 };
 
 const focusEditor = () => {
@@ -1062,66 +1759,42 @@ const readPreviewPathFromLocation = () => {
 };
 
 const runServedPath = async (path, opts = {}) => {
-  if (!serverState.running) return;
   const nextPath = normalizeServePath(path || serverState.path || "/");
-  const result = await runPhpxEntry(serverState.entry, nextPath);
-  writeRunResult(result);
   serverState.path = nextPath;
   setPreviewPath(nextPath);
   setServePreviewStatus(nextPath);
   if (opts.pushHistory !== false) {
     history.pushState({ previewPath: nextPath }, "", buildPreviewHistoryUrl(nextPath));
   }
+  if (!serverState.entry) return;
+  const result = await runPhpxEntry(serverState.entry, nextPath);
+  writeRunResult(result);
 };
 
-const startVirtualServer = async (entryFile, port = 8530, mode = "php") => {
-  await syncAllVfsToShell();
-  const resolved = resolveFromCwd(entryFile || configuredServeEntry || "app/home.phpx");
-  try {
-    const stat = vfs.stat(resolved);
-    if (stat.fileType !== "file") {
-      log(`deka serve: not a file: ${resolved}`);
-      return;
-    }
-  } catch {
-    log(`deka serve: file not found: ${resolved}`);
-    return;
-  }
-  serverState.running = true;
-  serverState.entry = resolved;
-  serverState.mode = String(mode || configuredServeMode || "php");
-  serverState.port = port;
-  serverState.path = readPreviewPathFromLocation();
-  runtimePortState.url = "";
-  runtimePortState.port = 0;
-  setPreviewStatus(`serve :${port} (${serverState.mode})`);
-  setPreviewPath(serverState.path);
-  history.replaceState(
-    { previewPath: serverState.path },
-    "",
-    buildPreviewHistoryUrl(serverState.path)
-  );
-  log(`[handler] loaded ${resolved} [mode=${serverState.mode}]`);
-  log(`[listen] http://localhost:${port}`);
-  await runServedPath(serverState.path, { pushHistory: false });
-};
-
-const stopVirtualServer = async (opts = {}) => {
-  if (!serverState.running) return;
+const interruptForegroundProcess = async (opts = {}) => {
+  if (!foregroundProcess) return;
   const interrupted = Boolean(opts.interrupted);
+  const proc = foregroundProcess;
   if (shellContainer && typeof shellContainer.signalForeground === "function") {
     try {
       await shellContainer.signalForeground(interrupted ? 2 : 15);
     } catch {}
   }
-  serverState.running = false;
-  runtimePortState.url = "";
-  runtimePortState.port = 0;
-  setTerminalBlocked(false);
-  setPrompt();
-  setPreviewStatus("run mode");
-  history.replaceState({}, "", "?demo=phpx#/");
-  log("[serve] stopped");
+
+  // Fallback teardown when host runtime does not emit port-closed promptly.
+  // Keeps terminal/process UX unblocked under Ctrl+C semantics.
+  if (foregroundProcess === proc) {
+    foregroundProcess = null;
+    serverState.foregroundTerminalId = null;
+    if (runtimePortState.url) {
+      runtimePortState.url = "";
+      runtimePortState.port = 0;
+    }
+    serverState.running = false;
+    setPreviewStatus("run mode");
+    setTerminalBlocked(false, false);
+    setPrompt();
+  }
 };
 
 const runDekaFile = async (entryFile) => {
@@ -1475,7 +2148,7 @@ const attachPreviewFrameNavigation = () => {
   if (!doc || doc.__adwaNavBound) return;
   doc.__adwaNavBound = true;
   doc.addEventListener("click", (event) => {
-    if (!serverState.running) return;
+    if (!runtimePortState.url) return;
     const target = event.target;
     if (!(target instanceof Element)) return;
     const anchor = target.closest("a[href]");
@@ -1499,8 +2172,8 @@ const executeRun = async (fromAuto = false) => {
   runInFlight = true;
   if (runBtn instanceof HTMLButtonElement) runBtn.disabled = true;
   try {
-    if (serverState.running) {
-      await runServedPath(serverState.path || "/", { pushHistory: false });
+    if (runtimePortState.url) {
+      await runServedPath(serverState.path || "/", { pushHistory: false, reload: true });
     } else {
       await runPhpxScript();
     }
@@ -1695,18 +2368,74 @@ const runShellCommand = async (line) => {
   const [cmd, ...rest] = cmdLine.split(/\s+/);
   const arg = rest.join(" ");
   const runProcessAndRender = async (proc, cmdName, argv) => {
-    const status = await proc.exit();
-    let { stdout, stderr } = await readProcessOutputAfterExit(proc);
-    if (stdout.trim()) log(stdout.trimEnd());
-    if (stderr.trim()) log(`[stderr]\n${stderr.trimEnd()}`);
-    if (status.code !== 0 && !stderr.trim()) {
-      log(`[exit ${status.code}]`);
+    const finalize = async (status) => {
+      const early = await readProcessOutput(proc);
+      const late = await readProcessOutputAfterExit(proc);
+      const stdout = `${early.stdout || ""}${late.stdout || ""}`;
+      const stderr = `${early.stderr || ""}${late.stderr || ""}`;
+      if (stdout.trim()) log(stdout.trimEnd());
+      if (stderr.trim()) log(`[stderr]
+${stderr.trimEnd()}`);
+      if (status && status.code !== 0 && !stderr.trim() && !stdout.trim()) {
+        log(`[exit ${status.code}]`);
+      }
+      if (foregroundProcess === proc) {
+        foregroundProcess = null;
+        if (!runtimePortState.url) {
+          serverState.running = false;
+          serverState.foregroundTerminalId = null;
+          setPreviewStatus("run mode");
+        }
+        setTerminalBlocked(isActiveTerminalBlocked(), false);
+        setPrompt();
+      }
+      renderFileTree();
+    };
+
+    foregroundProcess = proc;
+    serverState.foregroundTerminalId = activeTerminalSessionId;
+    setTerminalBlocked(isActiveTerminalBlocked(), false);
+    setPrompt();
+
+    try {
+      const status = await proc.exit();
+      await finalize(status);
+      return;
+    } catch (err) {
+      const message = String(err instanceof Error ? err.message : err || "");
+      if (!message.toLowerCase().includes("busy") && !message.toLowerCase().includes("still running")) {
+        log(`[stderr]
+${message}`);
+        await finalize({ code: 1 });
+        return;
+      }
     }
-    renderFileTree();
+
+    log("[foreground] process running (Ctrl+C to stop)");
+    const monitor = async () => {
+      while (true) {
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        try {
+          const status = await proc.exit();
+          await finalize(status);
+          return;
+        } catch (err) {
+          const message = String(err instanceof Error ? err.message : err || "").toLowerCase();
+          if (message.includes("busy") || message.includes("still running")) {
+            continue;
+          }
+          log(`[stderr]
+${String(err instanceof Error ? err.message : err)}`);
+          await finalize({ code: 1 });
+          return;
+        }
+      }
+    };
+    void monitor();
   };
 
-  if (serverState.running && cmd !== "deka") {
-    log("[busy] deka serve is running (Ctrl+C to stop)");
+  if (foregroundProcess && isActiveTerminalBlocked()) {
+    log("[busy] foreground process is running in this terminal (Ctrl+C to stop)");
     return;
   }
 
@@ -1755,118 +2484,12 @@ const runShellCommand = async (line) => {
     return;
   }
   if (cmd === "deka") {
-    const sub = rest[0] || "";
-    const printDekaHelp = () => {
-      log("deka commands:");
-      log("  deka help");
-      log("  deka init");
-      log("  deka run <file>");
-      log("  deka serve [entry] [--port N] [--mode php|phpx]");
-      log("  deka stop");
-      log("  deka status");
-    };
-    if (!sub || sub === "help" || sub === "--help" || sub === "-h") {
-      printDekaHelp();
+    if (!shellContainer) {
+      log("terminal runtime not ready");
       return;
     }
-    if (sub === "init") {
-      const force = rest.includes("--force");
-      const target = "/deka.json";
-      let exists = false;
-      try {
-        exists = vfs.stat(target).fileType === "file";
-      } catch {
-        exists = false;
-      }
-      if (exists && !force) {
-        log("deka init: /deka.json already exists (use --force to overwrite)");
-        return;
-      }
-      const template = {
-        serve: {
-          entry: "app/home.phpx",
-          mode: "php",
-        },
-        scripts: {
-          dev: "deka serve --dev",
-        },
-      };
-      const bytes = new TextEncoder().encode(`${JSON.stringify(template, null, 2)}\n`);
-      vfs.writeFile(target, bytes);
-      commandManifestCache = null;
-      if (shellContainer) {
-        await syncPathToShell(target, bytes);
-      }
-      renderFileTree();
-      log("created /deka.json");
-      return;
-    }
-    if (sub === "run") {
-      const entry = rest[1] || currentFile;
-      await runDekaFile(entry);
-      return;
-    }
-    if (sub === "serve") {
-      if (serverState.running) {
-        log("[serve] already running (Ctrl+C to stop)");
-        return;
-      }
-      let entry = configuredServeEntry || currentFile;
-      let port = 8530;
-      let mode = configuredServeMode || "php";
-      for (let i = 1; i < rest.length; i += 1) {
-        const token = rest[i];
-        if (!token) continue;
-        if (token === "--port") {
-          const val = Number(rest[i + 1] || "8530");
-          if (Number.isFinite(val) && val > 0) port = Math.floor(val);
-          i += 1;
-          continue;
-        }
-        if (token === "--mode") {
-          mode = String(rest[i + 1] || mode);
-          i += 1;
-          continue;
-        }
-        if (!token.startsWith("-")) {
-          entry = token;
-        }
-      }
-      if (!shellContainer) {
-        log("terminal runtime not ready");
-        return;
-      }
-      const proc = await shellContainer.spawn(
-        "deka",
-        ["serve", entry, "--port", String(port), "--mode", String(mode)],
-        { cwd }
-      );
-      const { stdout, stderr } = await readProcessOutput(proc);
-      if (stdout.trim()) log(stdout.trimEnd());
-      if (stderr.trim()) log(`[stderr]\n${stderr.trimEnd()}`);
-      if (shellContainer && typeof shellContainer.setForegroundPid === "function") {
-        await shellContainer.setForegroundPid(proc.pid());
-      }
-      setTerminalBlocked(true);
-      setPrompt();
-      log("[serve] foreground process running (Ctrl+C to stop)");
-      await startVirtualServer(entry, port, mode);
-      return;
-    }
-    if (sub === "stop") {
-      await stopVirtualServer({ interrupted: false });
-      return;
-    }
-    if (sub === "status") {
-      if (serverState.running) {
-        log(`[serve] running entry=${serverState.entry} port=${serverState.port} path=${serverState.path}`);
-      } else {
-        log("[serve] stopped");
-      }
-      return;
-    }
-    log(`deka: unsupported subcommand '${sub}'`);
-    printDekaHelp();
+    const proc = await shellContainer.spawn("deka", rest, { cwd });
+    await runProcessAndRender(proc, "deka", rest);
     return;
   }
 
@@ -2010,22 +2633,31 @@ const boot = async () => {
   await initShellContainer();
   if (shellContainer) {
     const onServerReady = (event) => {
-      if (!serverState.running) return;
       const eventPort = Number(event?.port || 0);
-      if (!eventPort || eventPort !== Number(serverState.port || 0)) return;
+      if (!eventPort) return;
       runtimePortState.port = eventPort;
-      runtimePortState.url = String(event?.url || "");
+      runtimePortState.url = `http://localhost:${eventPort}`;
+      serverState.running = true;
+      serverState.port = eventPort;
+      if (!serverState.path) {
+        serverState.path = readPreviewPathFromLocation();
+      }
+      setPreviewPath(serverState.path || "/");
       setServePreviewStatus(serverState.path || "/");
+      void runServedPath(serverState.path || "/", { pushHistory: false, reload: true });
     };
     const onPortClosed = (event) => {
       const eventPort = Number(event?.port || 0);
-      const activePort = Number(runtimePortState.port || serverState.port || 0);
-      if (!eventPort || !activePort || eventPort !== activePort) return;
+      if (!eventPort) return;
+      if (runtimePortState.port && eventPort !== Number(runtimePortState.port)) return;
       runtimePortState.url = "";
       runtimePortState.port = 0;
-      if (serverState.running) {
-        setServePreviewStatus(serverState.path || "/");
-      }
+      serverState.running = false;
+      serverState.foregroundTerminalId = null;
+      foregroundProcess = null;
+      setTerminalBlocked(false, false);
+      setPrompt();
+      setPreviewStatus("run mode");
     };
     shellContainer.on("server-ready", onServerReady);
     shellContainer.on("port-closed", onPortClosed);
@@ -2092,7 +2724,7 @@ const boot = async () => {
       fs: true,
       net: false,
       processEnv: true,
-      db: false,
+      db: true,
       wasmImports: true,
     },
     stdio: {
@@ -2112,6 +2744,7 @@ const boot = async () => {
   setPreviewPath("/");
   initSplitters();
   scheduleDiagnostics();
+  warmSqliteEngine();
 
   if (runBtn instanceof HTMLButtonElement) {
     runBtn.addEventListener("click", async () => {
@@ -2141,11 +2774,25 @@ const boot = async () => {
     });
   }
 
+  if (termNewTabBtn instanceof HTMLButtonElement) {
+    termNewTabBtn.addEventListener("click", () => {
+      addTerminalSession(cwd || DEFAULT_CWD);
+      renderTerminalTabs();
+      setTerminalBlocked(isActiveTerminalBlocked(), false);
+    });
+  }
+
+  if (termMinimizeBtn instanceof HTMLButtonElement) {
+    termMinimizeBtn.addEventListener("click", () => {
+      setTerminalMinimized(!terminalMinimized);
+    });
+  }
+
   const previewNavigate = async () => {
     const raw = previewInputEl instanceof HTMLInputElement ? previewInputEl.value : "/";
     const next = normalizeServePath(raw || "/");
-    if (!serverState.running) {
-      log("preview navigation requires `deka serve`");
+    if (!runtimePortState.url) {
+      log("preview navigation requires an active server endpoint");
       return;
     }
     await runServedPath(next, { pushHistory: true });
@@ -2167,7 +2814,7 @@ const boot = async () => {
 
   window.addEventListener("popstate", async (event) => {
     const path = event?.state?.previewPath || readPreviewPathFromLocation();
-    if (!path || !serverState.running) return;
+    if (!path || !runtimePortState.url) return;
     await runServedPath(path, { pushHistory: false });
   });
 
@@ -2178,10 +2825,20 @@ const boot = async () => {
       termInputEl.value = "";
       if (value.trim()) commandHistory.push(value.trim());
       historyIndex = commandHistory.length;
+      syncActiveTerminalSessionState();
       await runShellCommand(value);
+      syncActiveTerminalSessionState();
+      renderTerminalTabs();
     });
 
     termInputEl.addEventListener("keydown", (event) => {
+      const interruptChord = event.ctrlKey;
+      if (interruptChord && ((event.key || "").toLowerCase() === "c" || event.code === "KeyC") && foregroundProcess) {
+        event.preventDefault();
+        log("^C");
+        void interruptForegroundProcess({ interrupted: true });
+        return;
+      }
       if (termInputEl.disabled) return;
       if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
       if (!commandHistory.length) return;
@@ -2197,12 +2854,113 @@ const boot = async () => {
         termInputEl.value = commandHistory[historyIndex] ?? "";
       }
       termInputEl.setSelectionRange(termInputEl.value.length, termInputEl.value.length);
+      syncActiveTerminalSessionState();
     });
   }
+
+  if (termStdinFormEl instanceof HTMLFormElement && termStdinInputEl instanceof HTMLInputElement) {
+    termStdinFormEl.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const value = termStdinInputEl.value;
+      termStdinInputEl.value = "";
+      if (!value.trim()) return;
+      if (foregroundProcess && typeof foregroundProcess.write === "function") {
+        try {
+          await foregroundProcess.write(`${value}
+`);
+        } catch {}
+      }
+      log(value);
+      syncActiveTerminalSessionState();
+    });
+
+    termStdinInputEl.addEventListener("keydown", (event) => {
+      const interruptChord = event.ctrlKey;
+      if (interruptChord && ((event.key || "").toLowerCase() === "c" || event.code === "KeyC") && foregroundProcess) {
+        event.preventDefault();
+        log("^C");
+        void interruptForegroundProcess({ interrupted: true });
+      }
+    });
+  }
+
+  setTerminalBlocked(isActiveTerminalBlocked(), false);
+  setTerminalMinimized(false);
+  renderTerminalTabs();
 
   if (helpModalEl instanceof HTMLElement) {
     helpModalEl.addEventListener("click", (event) => {
       if (event.target === helpModalEl) setHelpOpen(false);
+    });
+  }
+
+  if (dataBtnEl instanceof HTMLButtonElement) {
+    dataBtnEl.addEventListener("click", () => {
+      const wasOpen = dataModalEl instanceof HTMLElement && dataModalEl.classList.contains("open");
+      toggleData();
+      if (!wasOpen) runDbAction(dbInitModal);
+    });
+  }
+  if (dataCloseBtnEl instanceof HTMLButtonElement) {
+    dataCloseBtnEl.addEventListener("click", () => setDataOpen(false));
+  }
+  if (dataModalEl instanceof HTMLElement) {
+    dataModalEl.addEventListener("click", (event) => {
+      if (event.target === dataModalEl) setDataOpen(false);
+    });
+  }
+  if (settingsBtnEl instanceof HTMLButtonElement) {
+    settingsBtnEl.addEventListener("click", () => {
+      setSettingsOpen(true);
+      refreshSettings();
+    });
+  }
+  if (settingsCloseBtnEl instanceof HTMLButtonElement) {
+    settingsCloseBtnEl.addEventListener("click", () => setSettingsOpen(false));
+  }
+  if (settingsModalEl instanceof HTMLElement) {
+    settingsModalEl.addEventListener("click", (event) => {
+      if (event.target === settingsModalEl) setSettingsOpen(false);
+    });
+  }
+  if (settingsRefreshBtnEl instanceof HTMLButtonElement) settingsRefreshBtnEl.addEventListener("click", refreshSettings);
+  if (settingsResetDbBtnEl instanceof HTMLButtonElement) {
+    settingsResetDbBtnEl.addEventListener("click", () => {
+      runDbAction(() => {
+        dbBridgeCall("reset", {});
+        syncDbMirrorFiles([]);
+        renderFileTree();
+        refreshSettings();
+        dbSetStatus("all databases reset");
+      });
+    });
+  }
+  if (settingsResetFsBtnEl instanceof HTMLButtonElement) {
+    settingsResetFsBtnEl.addEventListener("click", () => {
+      if (!window.confirm("Reset filesystem snapshot and reload?")) return;
+      resetFsSnapshot();
+    });
+  }
+  if (settingsResetAllBtnEl instanceof HTMLButtonElement) {
+    settingsResetAllBtnEl.addEventListener("click", () => {
+      if (!window.confirm("Reset all browser runtime state and reload?")) return;
+      resetAllBrowserState();
+    });
+  }
+  if (dbCreateBtnEl instanceof HTMLButtonElement) dbCreateBtnEl.addEventListener("click", () => runDbAction(dbCreateDatabase));
+  if (dbEnsureBtnEl instanceof HTMLButtonElement) dbEnsureBtnEl.addEventListener("click", () => runDbAction(dbEnsureTable));
+  if (dbRefreshBtnEl instanceof HTMLButtonElement) dbRefreshBtnEl.addEventListener("click", () => runDbAction(dbRefreshRows));
+  if (dbInsertBtnEl instanceof HTMLButtonElement) dbInsertBtnEl.addEventListener("click", () => runDbAction(dbInsertRow));
+  if (dbUpdateBtnEl instanceof HTMLButtonElement) dbUpdateBtnEl.addEventListener("click", () => runDbAction(dbUpdateRow));
+  if (dbDeleteBtnEl instanceof HTMLButtonElement) dbDeleteBtnEl.addEventListener("click", () => runDbAction(dbDeleteRow));
+  if (dbClearBtnEl instanceof HTMLButtonElement) dbClearBtnEl.addEventListener("click", () => runDbAction(dbClearRows));
+  if (dbRunSqlBtnEl instanceof HTMLButtonElement) dbRunSqlBtnEl.addEventListener("click", () => runDbAction(dbRunSql));
+  if (dbSqlInputEl instanceof HTMLTextAreaElement) {
+    dbSqlInputEl.addEventListener("keydown", (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        runDbAction(dbRunSql);
+      }
     });
   }
 
@@ -2221,16 +2979,18 @@ const boot = async () => {
       target instanceof HTMLTextAreaElement ||
       (target instanceof HTMLElement && target.isContentEditable);
 
-    if (serverState.running && event.key.toLowerCase() === "c" && ctrlLike) {
+    const interruptChord = event.ctrlKey;
+    if (foregroundProcess && interruptChord && (((event.key || "").toLowerCase() === "c") || event.code === "KeyC")) {
       event.preventDefault();
       log("^C");
-      void stopVirtualServer({ interrupted: true });
+      void interruptForegroundProcess({ interrupted: true });
       return;
     }
 
     if (event.key === "Escape") {
       showFileTree(false);
       setHelpOpen(false);
+      setDataOpen(false);
       return;
     }
 
