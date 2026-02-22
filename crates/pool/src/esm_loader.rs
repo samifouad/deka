@@ -20,6 +20,7 @@ use phpx_js::build_stdlib_prelude;
 use phpx_js::compile_phpx_source_to_js;
 use phpx_js::parse_source_module_meta;
 use phpx_js::SourceModuleMeta;
+use runtime_core::module_spec::{is_bare_module_specifier, module_spec_aliases};
 
 #[derive(Clone)]
 pub struct PhpxEsmLoader {
@@ -369,6 +370,7 @@ fn is_stdlib_module_spec(spec: &str) -> bool {
         || spec.starts_with("deka/")
         || spec.starts_with("encoding/")
         || spec.starts_with("db/")
+        || spec.starts_with("@deka/")
         || matches!(
             spec,
             "json"
@@ -389,16 +391,16 @@ fn is_stdlib_module_spec(spec: &str) -> bool {
 }
 
 fn resolve_module_file(modules_dir: &Path, spec: &str) -> Option<PathBuf> {
-    let mut candidates = vec![
-        modules_dir.join(format!("{}.phpx", spec)),
-        modules_dir.join(format!("{}.php", spec)),
-        modules_dir.join(spec).join("index.phpx"),
-        modules_dir.join(spec).join("index.php"),
-        modules_dir.join(spec).join("index.js"),
-    ];
-
-    if spec.ends_with(".phpx") || spec.ends_with(".php") || spec.ends_with(".js") {
-        candidates.insert(0, modules_dir.join(spec));
+    let mut candidates = Vec::new();
+    for alias in module_spec_aliases(spec) {
+        candidates.push(modules_dir.join(format!("{}.phpx", alias)));
+        candidates.push(modules_dir.join(format!("{}.php", alias)));
+        candidates.push(modules_dir.join(alias.as_str()).join("index.phpx"));
+        candidates.push(modules_dir.join(alias.as_str()).join("index.php"));
+        candidates.push(modules_dir.join(alias.as_str()).join("index.js"));
+        if alias.ends_with(".phpx") || alias.ends_with(".php") || alias.ends_with(".js") {
+            candidates.push(modules_dir.join(alias));
+        }
     }
 
     candidates.into_iter().find(|path| path.is_file())
@@ -406,12 +408,17 @@ fn resolve_module_file(modules_dir: &Path, spec: &str) -> Option<PathBuf> {
 
 fn resolve_phpx_module_spec(project_root: &Path, specifier: &str) -> Option<PathBuf> {
     let modules_dir = project_root.join("php_modules");
-    let base = if specifier.starts_with("@user/") {
-        modules_dir.join("@user").join(specifier.trim_start_matches("@user/"))
-    } else {
-        modules_dir.join(specifier)
-    };
-    resolve_with_candidates(&base)
+    for alias in module_spec_aliases(specifier) {
+        let base = if alias.starts_with("@user/") {
+            modules_dir.join("@user").join(alias.trim_start_matches("@user/"))
+        } else {
+            modules_dir.join(alias)
+        };
+        if let Some(resolved) = resolve_with_candidates(&base) {
+            return Some(resolved);
+        }
+    }
+    None
 }
 
 fn resolve_import_path(
@@ -457,13 +464,7 @@ fn resolve_with_candidates(target: &Path) -> Option<PathBuf> {
 }
 
 fn is_bare_specifier(spec: &str) -> bool {
-    !spec.is_empty()
-        && !spec.starts_with("./")
-        && !spec.starts_with("../")
-        && !spec.starts_with('/')
-        && !spec.starts_with("http://")
-        && !spec.starts_with("https://")
-        && !spec.starts_with("file://")
+    is_bare_module_specifier(spec)
 }
 
 fn append_entry_footer(code: ModuleSourceCode) -> ModuleSourceCode {

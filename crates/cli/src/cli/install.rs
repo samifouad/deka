@@ -1,6 +1,7 @@
 use anyhow::Result;
 use core::{CommandSpec, Context, FlagSpec, ParamSpec, Registry};
 use pm::{InstallPayload, run_install};
+use runtime_core::module_spec::canonical_php_package_spec;
 use std::path::PathBuf;
 use stdio;
 
@@ -181,13 +182,13 @@ fn resolve_php_spec(raw: &str) -> Result<String> {
         ));
     }
 
-    match trimmed {
-        "json" | "jwt" => Ok(format!("@deka/{}", trimmed)),
-        _ => Err(anyhow::anyhow!(
-            "unscoped php package `{}` is not allowed. use @scope/name (or stdlib alias like json/jwt)",
-            trimmed
-        )),
+    if let Some(mapped) = canonical_php_package_spec(trimmed) {
+        return Ok(mapped);
     }
+    Err(anyhow::anyhow!(
+        "unscoped php package `{}` is not allowed. use @scope/name (bare names map to @deka/*)",
+        trimmed
+    ))
 }
 
 fn is_valid_scoped_name(spec: &str) -> bool {

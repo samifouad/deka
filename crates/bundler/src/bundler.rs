@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use runtime_core::module_spec::module_spec_aliases;
 use swc_bundler::{BundleKind, Bundler, Config, Hook, Load, ModuleData, ModuleType};
 use swc_common::{
     FileName, GLOBALS, Globals, Mark, SourceMap, comments::SingleThreadedComments, sync::Lrc,
@@ -796,12 +797,17 @@ impl DekaResolver {
     }
 
     fn resolve_php_module(&self, specifier: &str) -> Option<PathBuf> {
-        let base = if specifier.starts_with("@user/") {
-            self.php_modules.join("@user").join(specifier.trim_start_matches("@user/"))
-        } else {
-            self.php_modules.join(specifier)
-        };
-        resolve_with_candidates(&base)
+        for alias in module_spec_aliases(specifier) {
+            let base = if alias.starts_with("@user/") {
+                self.php_modules.join("@user").join(alias.trim_start_matches("@user/"))
+            } else {
+                self.php_modules.join(alias)
+            };
+            if let Some(path) = resolve_with_candidates(&base) {
+                return Some(path);
+            }
+        }
+        None
     }
 }
 

@@ -16,6 +16,7 @@ tokio = { workspace = true, features = ["full"] }
 tracing = "0.1"
 deka-stdio = { path = "../stdio", package = "stdio" }
 phpx_js = { path = "../phpx_js" }
+runtime_core = { path = "../runtime_core" }
 
 # Validation
 swc_common = { workspace = true }

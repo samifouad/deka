@@ -9,6 +9,7 @@ use crate::{
     spec::{Ecosystem, parse_hinted_spec, parse_package_spec},
 };
 use anyhow::{Context, Result, bail, anyhow};
+use runtime_core::module_spec::canonical_php_package_spec;
 use runtime_core::security_policy::{RuleList, SecurityPolicy, parse_deka_security_policy};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
@@ -507,13 +508,13 @@ fn normalize_php_spec(spec: &str) -> Result<String> {
             trimmed
         );
     }
-    match trimmed {
-        "json" | "jwt" => Ok(format!("@deka/{}", trimmed)),
-        _ => bail!(
-            "unscoped php package `{}` is not allowed. use @scope/name (or stdlib alias json/jwt)",
-            trimmed
-        ),
+    if let Some(mapped) = canonical_php_package_spec(trimmed) {
+        return Ok(mapped);
     }
+    bail!(
+        "unscoped php package `{}` is not allowed. use @scope/name (bare names map to @deka/*)",
+        trimmed
+    )
 }
 
 fn is_valid_scoped_name(spec: &str) -> bool {

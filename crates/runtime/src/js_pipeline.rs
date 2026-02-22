@@ -7,6 +7,7 @@ use bundler::{bundle_virtual_entry, BundleOptions, VirtualSource};
 use phpx_js::{
     build_stdlib_prelude, compile_phpx_source_to_js, parse_source_module_meta, SourceModuleMeta,
 };
+use runtime_core::module_spec::{is_bare_module_specifier, module_spec_aliases};
 
 pub fn build_phpx_handler_bundle(handler_path: &str) -> Result<String, String> {
     let input_path = Path::new(handler_path);
@@ -153,6 +154,7 @@ fn is_stdlib_module_spec(spec: &str) -> bool {
         || spec.starts_with("deka/")
         || spec.starts_with("encoding/")
         || spec.starts_with("db/")
+        || spec.starts_with("@deka/")
         || matches!(
             spec,
             "json"
@@ -173,25 +175,20 @@ fn is_stdlib_module_spec(spec: &str) -> bool {
 }
 
 fn resolve_module_file(modules_dir: &Path, spec: &str) -> Option<PathBuf> {
-    let mut candidates = vec![
-        modules_dir.join(format!("{}.phpx", spec)),
-        modules_dir.join(format!("{}.php", spec)),
-        modules_dir.join(spec).join("index.phpx"),
-        modules_dir.join(spec).join("index.php"),
-    ];
-
-    if spec.ends_with(".phpx") || spec.ends_with(".php") {
-        candidates.insert(0, modules_dir.join(spec));
+    let mut candidates = Vec::new();
+    for alias in module_spec_aliases(spec) {
+        candidates.push(modules_dir.join(format!("{}.phpx", alias)));
+        candidates.push(modules_dir.join(format!("{}.php", alias)));
+        candidates.push(modules_dir.join(alias.as_str()).join("index.phpx"));
+        candidates.push(modules_dir.join(alias.as_str()).join("index.php"));
+        if alias.ends_with(".phpx") || alias.ends_with(".php") {
+            candidates.push(modules_dir.join(alias));
+        }
     }
 
     candidates.into_iter().find(|path| path.is_file())
 }
 
 fn is_bare_specifier(spec: &str) -> bool {
-    !spec.is_empty()
-        && !spec.starts_with("./")
-        && !spec.starts_with("../")
-        && !spec.starts_with('/')
-        && !spec.starts_with("http://")
-        && !spec.starts_with("https://")
+    is_bare_module_specifier(spec)
 }
