@@ -1,4 +1,5 @@
 use bumpalo::Bump;
+use bundler::{bundle_virtual_entry, BundleOptions, VirtualSource};
 use core::{CommandSpec, Context, ParamSpec, Registry};
 use modules_php::compiler_api::compile_phpx;
 use modules_php::validation::format_multiple_errors;
@@ -9,6 +10,7 @@ use php_rs::parser::ast::{
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 const COMMAND: CommandSpec = CommandSpec {
     name: "build",
@@ -21,6 +23,16 @@ const COMMAND: CommandSpec = CommandSpec {
 
 pub fn register(registry: &mut Registry) {
     registry.add_command(COMMAND);
+    registry.add_flag(core::FlagSpec {
+        name: "--bundle",
+        aliases: &[],
+        description: "bundle emitted JS into a single file (in-memory, no intermediate files)",
+    });
+    registry.add_flag(core::FlagSpec {
+        name: "--minify",
+        aliases: &[],
+        description: "minify bundled output (only with --bundle)",
+    });
     registry.add_param(ParamSpec {
         name: "--out",
         description: "output JavaScript file path",
@@ -53,7 +65,11 @@ fn run_single_file_build(context: &Context, input: &str) -> Result<(), String> {
 
     let input_path = PathBuf::from(input);
     let output_path = resolve_output_path(output_arg(context), &input_path)?;
-    build_single_file_to_path(&input_path, &output_path)?;
+    if bundle_enabled(context) {
+        build_single_file_bundle_to_path(&input_path, &output_path, minify_enabled(context))?;
+    } else {
+        build_single_file_to_path(&input_path, &output_path)?;
+    }
 
     stdio::success(&format!(
         "built {} -> {}",
@@ -80,6 +96,8 @@ fn run_web_project_build(context: &Context) -> Result<(), String> {
     let entry_source = fs::read_to_string(&entry_path)
         .map_err(|err| format!("failed to read {}: {}", entry_path.display(), err))?;
     let hydration_enabled = has_hydration_component(&entry_source);
+    let bundle = bundle_enabled(context);
+    let minify = minify_enabled(context);
 
     let dist_root = project_root.join("dist");
     let dist_client = dist_root.join("client");
@@ -104,24 +122,30 @@ fn run_web_project_build(context: &Context) -> Result<(), String> {
             .map_err(|err| format!("failed to create {}: {}", dist_assets.display(), err))?;
 
         let client_js = dist_assets.join("main.js");
-        build_single_file_to_path(&entry_path, &client_js)?;
-
-        let assets_importmap = dist_assets.join("importmap.json");
-        let client_importmap = dist_client.join("importmap.json");
-        if assets_importmap.is_file() {
-            fs::copy(&assets_importmap, &client_importmap).map_err(|err| {
-                format!(
-                    "failed to copy {} -> {}: {}",
-                    assets_importmap.display(),
-                    client_importmap.display(),
-                    err
-                )
-            })?;
+        if bundle {
+            build_single_file_bundle_to_path(&entry_path, &client_js, minify)?;
+        } else {
+            build_single_file_to_path(&entry_path, &client_js)?;
         }
 
-        inject_web_bootstrap_tags(&with_app, true)
+        if !bundle {
+            let assets_importmap = dist_assets.join("importmap.json");
+            let client_importmap = dist_client.join("importmap.json");
+            if assets_importmap.is_file() {
+                fs::copy(&assets_importmap, &client_importmap).map_err(|err| {
+                    format!(
+                        "failed to copy {} -> {}: {}",
+                        assets_importmap.display(),
+                        client_importmap.display(),
+                        err
+                    )
+                })?;
+            }
+        }
+
+        inject_web_bootstrap_tags(&with_app, true, bundle)
     } else {
-        inject_web_bootstrap_tags(&with_app, false)
+        inject_web_bootstrap_tags(&with_app, false, bundle)
     };
 
     fs::write(&client_index, final_index)
@@ -138,7 +162,12 @@ fn run_web_project_build(context: &Context) -> Result<(), String> {
         if src.is_file() {
             let dst = dist_server.join(file);
             fs::copy(&src, &dst).map_err(|err| {
-                format!("failed to copy {} -> {}: {}", src.display(), dst.display(), err)
+                format!(
+                    "failed to copy {} -> {}: {}",
+                    src.display(),
+                    dst.display(),
+                    err
+                )
             })?;
         }
     }
@@ -148,7 +177,11 @@ fn run_web_project_build(context: &Context) -> Result<(), String> {
         project_root.display(),
         dist_client.display(),
         dist_server.display(),
-        if hydration_enabled { "enabled" } else { "disabled" }
+        if hydration_enabled {
+            "enabled"
+        } else {
+            "disabled"
+        }
     ));
     Ok(())
 }
@@ -161,6 +194,14 @@ fn output_arg(context: &Context) -> Option<String> {
         .or_else(|| context.args.params.get("-o"))
         .or_else(|| context.args.params.get("--outdir"))
         .cloned()
+}
+
+fn bundle_enabled(context: &Context) -> bool {
+    context.args.flags.get("--bundle").copied().unwrap_or(false)
+}
+
+fn minify_enabled(context: &Context) -> bool {
+    context.args.flags.get("--minify").copied().unwrap_or(false)
 }
 
 fn resolve_output_path(out: Option<String>, input_path: &Path) -> Result<PathBuf, String> {
@@ -193,7 +234,10 @@ fn emit_import_map_json(meta: &SourceModuleMeta, output_path: &Path) -> String {
         }
 
         if !imports.contains_key(spec) && !is_covered_by_prefix_map(&imports, spec) {
-            imports.insert(spec.to_string(), default_import_target_for(spec, output_path));
+            imports.insert(
+                spec.to_string(),
+                default_import_target_for(spec, output_path),
+            );
         }
     }
 
@@ -204,9 +248,15 @@ fn emit_import_map_json(meta: &SourceModuleMeta, output_path: &Path) -> String {
 fn default_import_map() -> BTreeMap<String, String> {
     BTreeMap::from([
         ("@/".to_string(), "/".to_string()),
-        ("component/".to_string(), "/php_modules/component/".to_string()),
+        (
+            "component/".to_string(),
+            "/php_modules/component/".to_string(),
+        ),
         ("deka/".to_string(), "/php_modules/deka/".to_string()),
-        ("encoding/".to_string(), "/php_modules/encoding/".to_string()),
+        (
+            "encoding/".to_string(),
+            "/php_modules/encoding/".to_string(),
+        ),
         ("db/".to_string(), "/php_modules/db/".to_string()),
     ])
 }
@@ -249,10 +299,7 @@ fn resolve_project_root(input_path: &Path) -> Result<PathBuf, String> {
     let start = if input_path.is_dir() {
         input_path.to_path_buf()
     } else {
-        input_path
-            .parent()
-            .unwrap_or(Path::new("."))
-            .to_path_buf()
+        input_path.parent().unwrap_or(Path::new(".")).to_path_buf()
     };
 
     for dir in start.ancestors() {
@@ -363,13 +410,27 @@ fn resolve_module_file(modules_dir: &Path, spec: &str) -> Option<PathBuf> {
 
 fn load_deka_json(project_root: &Path) -> Result<serde_json::Value, String> {
     let deka_path = project_root.join("deka.json");
-    let raw = fs::read_to_string(&deka_path)
-        .map_err(|err| format!("failed to read {}: {}", project_root.join("deka.json").display(), err))?;
-    serde_json::from_str(&raw).map_err(|err| format!("invalid {}: {}", project_root.join("deka.json").display(), err))
+    let raw = fs::read_to_string(&deka_path).map_err(|err| {
+        format!(
+            "failed to read {}: {}",
+            project_root.join("deka.json").display(),
+            err
+        )
+    })?;
+    serde_json::from_str(&raw).map_err(|err| {
+        format!(
+            "invalid {}: {}",
+            project_root.join("deka.json").display(),
+            err
+        )
+    })
 }
 
 fn ensure_web_project_layout(project_root: &Path) -> Result<(), String> {
-    let required_files = [project_root.join("deka.json"), project_root.join("deka.lock")];
+    let required_files = [
+        project_root.join("deka.json"),
+        project_root.join("deka.lock"),
+    ];
     for file in &required_files {
         if !file.is_file() {
             return Err(format!("missing required file: {}", file.display()));
@@ -456,8 +517,10 @@ fn resolve_web_entry(project_root: &Path) -> Result<PathBuf, String> {
 }
 
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
-    fs::create_dir_all(dst).map_err(|err| format!("failed to create {}: {}", dst.display(), err))?;
-    let entries = fs::read_dir(src).map_err(|err| format!("failed to read {}: {}", src.display(), err))?;
+    fs::create_dir_all(dst)
+        .map_err(|err| format!("failed to create {}: {}", dst.display(), err))?;
+    let entries =
+        fs::read_dir(src).map_err(|err| format!("failed to read {}: {}", src.display(), err))?;
 
     for entry in entries {
         let entry = entry.map_err(|err| format!("read_dir entry error: {}", err))?;
@@ -488,7 +551,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn inject_web_bootstrap_tags(index_html: &str, hydration_enabled: bool) -> String {
+fn inject_web_bootstrap_tags(index_html: &str, hydration_enabled: bool, bundle_enabled: bool) -> String {
     let import_map_tag = r#"<script type="importmap" src="/importmap.json"></script>"#;
     let module_tag = r#"<script type="module" src="/assets/main.js"></script>"#;
 
@@ -500,7 +563,9 @@ fn inject_web_bootstrap_tags(index_html: &str, hydration_enabled: bool) -> Strin
         return out;
     }
 
-    if !out.contains(import_map_tag) {
+    if bundle_enabled {
+        out = out.replace(import_map_tag, "");
+    } else if !out.contains(import_map_tag) {
         if out.contains("</head>") {
             out = out.replace("</head>", &format!("  {}\n</head>", import_map_tag));
         } else {
@@ -595,7 +660,61 @@ fn inject_app_html(index_html: &str, app_html: &str) -> String {
     out
 }
 
+struct JsBuildOutput {
+    js: String,
+    meta: SourceModuleMeta,
+    project_root: PathBuf,
+}
+
 fn build_single_file_to_path(input_path: &Path, output_path: &Path) -> Result<(), String> {
+    let output = build_single_file_to_string(input_path)?;
+
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("failed to create {}: {}", parent.display(), err))?;
+    }
+
+    fs::write(output_path, output.js)
+        .map_err(|err| format!("failed to write {}: {}", output_path.display(), err))?;
+
+    let import_map_path = resolve_import_map_path(output_path);
+    let import_map = emit_import_map_json(&output.meta, output_path);
+    fs::write(&import_map_path, import_map)
+        .map_err(|err| format!("failed to write {}: {}", import_map_path.display(), err))?;
+
+    Ok(())
+}
+
+fn build_single_file_bundle_to_path(
+    input_path: &Path,
+    output_path: &Path,
+    minify: bool,
+) -> Result<(), String> {
+    let output = build_single_file_to_string(input_path)?;
+    let entry_path = fs::canonicalize(input_path)
+        .map_err(|err| format!("failed to resolve {}: {}", input_path.display(), err))?;
+    let provider = Arc::new(PhpxBundleProvider::new(entry_path.clone(), output.js.clone()));
+    let bundle = bundle_virtual_entry(
+        &entry_path,
+        BundleOptions {
+            project_root: output.project_root,
+            minify,
+        },
+        provider,
+    )?;
+
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("failed to create {}: {}", parent.display(), err))?;
+    }
+
+    fs::write(output_path, bundle)
+        .map_err(|err| format!("failed to write {}: {}", output_path.display(), err))?;
+
+    Ok(())
+}
+
+fn build_single_file_to_string(input_path: &Path) -> Result<JsBuildOutput, String> {
     let input = input_path
         .to_str()
         .ok_or_else(|| format!("invalid utf-8 path: {}", input_path.display()))?;
@@ -607,36 +726,72 @@ fn build_single_file_to_path(input_path: &Path, output_path: &Path) -> Result<()
     let project_root = resolve_project_root(input_path)?;
     ensure_project_layout(&project_root, &meta)?;
 
+    let js = compile_phpx_source_to_js(&source, input, meta.clone())?;
+
+    Ok(JsBuildOutput {
+        js,
+        meta,
+        project_root,
+    })
+}
+
+fn compile_phpx_source_to_js(
+    source: &str,
+    input: &str,
+    meta: SourceModuleMeta,
+) -> Result<String, String> {
     let arena = Bump::new();
-    let result = compile_phpx(&source, input, &arena);
+    let result = compile_phpx(source, input, &arena);
     if !result.errors.is_empty() {
-        let formatted = format_multiple_errors(&source, input, &result.errors, &result.warnings);
+        let formatted = format_multiple_errors(source, input, &result.errors, &result.warnings);
         return Err(formatted);
     }
 
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("failed to create {}: {}", parent.display(), err))?;
-    }
-
     let js = if let Some(program) = result.ast {
-        match emit_js_from_ast(&program, source.as_bytes(), meta.clone()) {
+        match emit_js_from_ast(&program, source.as_bytes(), meta) {
             Ok(emitted) => emitted,
-            Err(reason) => emit_js_scaffold_with_reason(&source, input, &reason),
+            Err(reason) => emit_js_scaffold_with_reason(source, input, &reason),
         }
     } else {
-        emit_js_scaffold_with_reason(&source, input, "no AST available after validation")
+        emit_js_scaffold_with_reason(source, input, "no AST available after validation")
     };
 
-    fs::write(output_path, js)
-        .map_err(|err| format!("failed to write {}: {}", output_path.display(), err))?;
+    Ok(js)
+}
 
-    let import_map_path = resolve_import_map_path(output_path);
-    let import_map = emit_import_map_json(&meta, output_path);
-    fs::write(&import_map_path, import_map)
-        .map_err(|err| format!("failed to write {}: {}", import_map_path.display(), err))?;
+struct PhpxBundleProvider {
+    entry_path: PathBuf,
+    entry_source: String,
+}
 
-    Ok(())
+impl PhpxBundleProvider {
+    fn new(entry_path: PathBuf, entry_source: String) -> Self {
+        Self {
+            entry_path,
+            entry_source,
+        }
+    }
+}
+
+impl VirtualSource for PhpxBundleProvider {
+    fn load_virtual(&self, path: &Path) -> Result<Option<String>, String> {
+        if path == self.entry_path {
+            return Ok(Some(self.entry_source.clone()));
+        }
+
+        if path.extension().and_then(|ext| ext.to_str()) != Some("phpx") {
+            return Ok(None);
+        }
+
+        let input = path
+            .to_str()
+            .ok_or_else(|| format!("invalid utf-8 path: {}", path.display()))?;
+        let source =
+            fs::read_to_string(path).map_err(|err| format!("failed to read {}: {}", input, err))?;
+        let meta = parse_source_module_meta(&source);
+        let js = compile_phpx_source_to_js(&source, input, meta)?;
+        Ok(Some(js))
+    }
 }
 
 fn emit_js_from_ast(
@@ -928,7 +1083,11 @@ impl<'a> JsSubsetEmitter<'a> {
         if !deka_i_locals.is_empty() {
             out.push_str("const __phpxTypeRegistry = {};\n\n");
             for (name, schema) in &self.struct_schemas {
-                out.push_str(&format!("__phpxTypeRegistry[{}] = {};\n", json_string(name), schema));
+                out.push_str(&format!(
+                    "__phpxTypeRegistry[{}] = {};\n",
+                    json_string(name),
+                    schema
+                ));
             }
             out.push('\n');
             out.push_str(&emit_deka_i_runtime());
@@ -993,9 +1152,9 @@ impl<'a> JsSubsetEmitter<'a> {
             Stmt::Class { .. }
             | Stmt::Trait { .. }
             | Stmt::Interface { .. }
-            | Stmt::Enum { .. } => Err(
-                "class-like declarations are not supported in JS subset emitter".to_string(),
-            ),
+            | Stmt::Enum { .. } => {
+                Err("class-like declarations are not supported in JS subset emitter".to_string())
+            }
             Stmt::TypeAlias { .. } => {
                 Err("type aliases are not supported in JS subset emitter".to_string())
             }
@@ -1012,7 +1171,8 @@ impl<'a> JsSubsetEmitter<'a> {
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                let exported = self.scopes.len() == 1 && self.meta.exported_functions.contains(&fn_name);
+                let exported =
+                    self.scopes.len() == 1 && self.meta.exported_functions.contains(&fn_name);
                 if exported {
                     self.body
                         .push_str(&format!("export function {}({}) {{\n", fn_name, js_params));
@@ -1070,7 +1230,9 @@ impl<'a> JsSubsetEmitter<'a> {
                 self.body.push_str("}\n");
                 Ok(())
             }
-            Stmt::While { condition, body, .. } => {
+            Stmt::While {
+                condition, body, ..
+            } => {
                 let cond = self.emit_expr(*condition)?;
                 self.body.push_str(&format!("while ({}) {{\n", cond));
                 self.push_scope();
@@ -1132,7 +1294,9 @@ impl<'a> JsSubsetEmitter<'a> {
                 self.body.push_str("}\n");
                 Ok(())
             }
-            Stmt::DoWhile { body, condition, .. } => {
+            Stmt::DoWhile {
+                body, condition, ..
+            } => {
                 self.body.push_str("do {\n");
                 self.push_scope();
                 for inner in *body {
@@ -1168,14 +1332,16 @@ impl<'a> JsSubsetEmitter<'a> {
                 for item in *consts {
                     let name = self.token_name(item.name);
                     let value = self.emit_expr(item.value)?;
-                    self.body.push_str(&format!("const {} = {};\n", name, value));
+                    self.body
+                        .push_str(&format!("const {} = {};\n", name, value));
                     self.declare_in_scope(&name);
                 }
                 Ok(())
             }
             Stmt::Global { vars, .. } => {
                 if !vars.is_empty() {
-                    self.body.push_str("// global declarations are no-ops in JS subset mode\n");
+                    self.body
+                        .push_str("// global declarations are no-ops in JS subset mode\n");
                 }
                 Ok(())
             }
@@ -1193,15 +1359,16 @@ impl<'a> JsSubsetEmitter<'a> {
                     };
 
                     if let Some(raw_name) = self.extract_static_var_name(target_expr) {
-                        let var_name =
-                            self.sanitize_name(raw_name.split('=').next().unwrap_or(raw_name.as_str()));
+                        let var_name = self
+                            .sanitize_name(raw_name.split('=').next().unwrap_or(raw_name.as_str()));
                         let init = if let Some(default) = init_expr {
                             self.emit_expr(default)?
                         } else {
                             "undefined".to_string()
                         };
                         if !self.is_declared(&var_name) {
-                            self.body.push_str(&format!("let {} = {};\n", var_name, init));
+                            self.body
+                                .push_str(&format!("let {} = {};\n", var_name, init));
                             self.declare_in_scope(&var_name);
                         } else {
                             self.body.push_str(&format!("{} = {};\n", var_name, init));
@@ -1217,7 +1384,8 @@ impl<'a> JsSubsetEmitter<'a> {
             Stmt::Unset { vars, .. } => {
                 for var in *vars {
                     let target = self.emit_expr(*var)?;
-                    self.body.push_str(&format!("{} = {};\n", target, "undefined"));
+                    self.body
+                        .push_str(&format!("{} = {};\n", target, "undefined"));
                 }
                 Ok(())
             }
@@ -1288,7 +1456,11 @@ impl<'a> JsSubsetEmitter<'a> {
                 if let Some(first_catch) = catches.first() {
                     let err_name = if let Some(var) = first_catch.var {
                         let name = self.token_name(var);
-                        if name.is_empty() { "err".to_string() } else { name }
+                        if name.is_empty() {
+                            "err".to_string()
+                        } else {
+                            name
+                        }
                     } else {
                         "err".to_string()
                     };
@@ -1338,7 +1510,8 @@ impl<'a> JsSubsetEmitter<'a> {
             }
             Stmt::InlineHtml { value, .. } => {
                 let text = String::from_utf8_lossy(value);
-                self.body.push_str(&format!("// inline html: {}\n", text.replace('\n', "\\n")));
+                self.body
+                    .push_str(&format!("// inline html: {}\n", text.replace('\n', "\\n")));
                 Ok(())
             }
             Stmt::Nop { .. } => Ok(()),
@@ -1364,7 +1537,10 @@ impl<'a> JsSubsetEmitter<'a> {
                     UnaryOp::PreInc => "++",
                     UnaryOp::PreDec => "--",
                     _ => {
-                        return Err(format!("unsupported unary operator in subset emitter: {:?}", op));
+                        return Err(format!(
+                            "unsupported unary operator in subset emitter: {:?}",
+                            op
+                        ));
                     }
                 };
                 Ok(format!("({}{})", js_op, value))
@@ -1394,14 +1570,15 @@ impl<'a> JsSubsetEmitter<'a> {
                     BinaryOp::Or | BinaryOp::LogicalOr => "||",
                     BinaryOp::Coalesce => "??",
                     _ => {
-                        return Err(format!("unsupported binary operator in subset emitter: {:?}", op));
+                        return Err(format!(
+                            "unsupported binary operator in subset emitter: {:?}",
+                            op
+                        ));
                     }
                 };
                 Ok(format!("({} {} {})", lhs, js_op, rhs))
             }
-            Expr::ArrowFunction {
-                params, expr, ..
-            } => {
+            Expr::ArrowFunction { params, expr, .. } => {
                 let mut names = Vec::with_capacity(params.len());
                 for param in *params {
                     names.push(self.token_name(param.name));
@@ -1473,7 +1650,10 @@ impl<'a> JsSubsetEmitter<'a> {
                         let prop = self.span_name(*name);
                         Ok(format!("{}.{}", target_js, prop))
                     }
-                    _ => Err("dynamic property access is not supported in subset emitter".to_string()),
+                    _ => {
+                        Err("dynamic property access is not supported in subset emitter"
+                            .to_string())
+                    }
                 }
             }
             Expr::MethodCall {
@@ -1487,8 +1667,8 @@ impl<'a> JsSubsetEmitter<'a> {
                     Expr::Variable { name, .. } => self.span_name(*name),
                     _ => {
                         return Err(
-                            "dynamic method calls are not supported in subset emitter".to_string(),
-                        )
+                            "dynamic method calls are not supported in subset emitter".to_string()
+                        );
                     }
                 };
                 let args_js = self.emit_call_args(args)?;
@@ -1507,7 +1687,7 @@ impl<'a> JsSubsetEmitter<'a> {
                         return Err(
                             "dynamic static method calls are not supported in subset emitter"
                                 .to_string(),
-                        )
+                        );
                     }
                 };
                 let args_js = self.emit_call_args(args)?;
@@ -1523,7 +1703,7 @@ impl<'a> JsSubsetEmitter<'a> {
                         return Err(
                             "dynamic class constant access is not supported in subset emitter"
                                 .to_string(),
-                        )
+                        );
                     }
                 };
                 Ok(format!("{}.{}", class_js, const_name))
@@ -1561,7 +1741,7 @@ impl<'a> JsSubsetEmitter<'a> {
                         return Err(
                             "dynamic nullsafe method calls are not supported in subset emitter"
                                 .to_string(),
-                        )
+                        );
                     }
                 };
                 let args_js = self.emit_call_args(args)?;
@@ -1584,7 +1764,10 @@ impl<'a> JsSubsetEmitter<'a> {
                 }
             }
             Expr::Array { items, .. } => {
-                if items.iter().all(|item| item.key.is_none() && !item.by_ref && !item.unpack) {
+                if items
+                    .iter()
+                    .all(|item| item.key.is_none() && !item.by_ref && !item.unpack)
+                {
                     let mut values = Vec::new();
                     for item in *items {
                         values.push(self.emit_expr(item.value)?);
@@ -1592,7 +1775,10 @@ impl<'a> JsSubsetEmitter<'a> {
                     return Ok(format!("[{}]", values.join(", ")));
                 }
 
-                if items.iter().all(|item| item.key.is_some() && !item.by_ref && !item.unpack) {
+                if items
+                    .iter()
+                    .all(|item| item.key.is_some() && !item.by_ref && !item.unpack)
+                {
                     let mut entries = Vec::new();
                     for item in *items {
                         let key_expr = item
@@ -1626,7 +1812,10 @@ impl<'a> JsSubsetEmitter<'a> {
                     json_string(&self.name_last_segment(*name))
                 ));
                 for field in *fields {
-                    let key = self.token_text(field.name).trim_start_matches('$').to_string();
+                    let key = self
+                        .token_text(field.name)
+                        .trim_start_matches('$')
+                        .to_string();
                     let value = self.emit_expr(field.value)?;
                     entries.push(format!("{}: {}", json_string(&key), value));
                 }
@@ -1646,9 +1835,16 @@ impl<'a> JsSubsetEmitter<'a> {
                     php_rs::parser::ast::CastKind::Float => format!("Number({})", value),
                     php_rs::parser::ast::CastKind::String => format!("String({})", value),
                     php_rs::parser::ast::CastKind::Bool => format!("Boolean({})", value),
-                    php_rs::parser::ast::CastKind::Array => format!("Array.isArray({0}) ? {0} : [{0}]", value),
+                    php_rs::parser::ast::CastKind::Array => {
+                        format!("Array.isArray({0}) ? {0} : [{0}]", value)
+                    }
                     php_rs::parser::ast::CastKind::Object => format!("({})", value),
-                    _ => return Err(format!("unsupported cast kind in subset emitter: {:?}", kind)),
+                    _ => {
+                        return Err(format!(
+                            "unsupported cast kind in subset emitter: {:?}",
+                            kind
+                        ));
+                    }
                 };
                 Ok(lowered)
             }
@@ -1708,18 +1904,18 @@ impl<'a> JsSubsetEmitter<'a> {
                     Ok("(() => { throw new Error(\"exit\"); })()".to_string())
                 }
             }
-            Expr::ShellExec { .. } => Err(
-                "shell execution is not supported in JS subset emitter".to_string(),
-            ),
+            Expr::ShellExec { .. } => {
+                Err("shell execution is not supported in JS subset emitter".to_string())
+            }
             Expr::Yield { .. } => {
                 Err("yield expressions are not supported in JS subset emitter".to_string())
             }
-            Expr::AnonymousClass { .. } => Err(
-                "anonymous classes are not supported in JS subset emitter".to_string(),
-            ),
-            Expr::VariadicPlaceholder { .. } => Err(
-                "variadic placeholder is not supported in JS subset emitter".to_string(),
-            ),
+            Expr::AnonymousClass { .. } => {
+                Err("anonymous classes are not supported in JS subset emitter".to_string())
+            }
+            Expr::VariadicPlaceholder { .. } => {
+                Err("variadic placeholder is not supported in JS subset emitter".to_string())
+            }
             Expr::Error { .. } => {
                 Err("parser error expression reached JS subset emitter".to_string())
             }
@@ -1732,7 +1928,11 @@ impl<'a> JsSubsetEmitter<'a> {
                     php_rs::parser::ast::IncludeKind::Require => "require",
                     php_rs::parser::ast::IncludeKind::RequireOnce => "require_once",
                 };
-                Ok(format!("__phpx_include({}, {})", path, json_string(kind_name)))
+                Ok(format!(
+                    "__phpx_include({}, {})",
+                    path,
+                    json_string(kind_name)
+                ))
             }
             Expr::MagicConst { kind, .. } => {
                 let lowered = match kind {
@@ -1773,7 +1973,10 @@ impl<'a> JsSubsetEmitter<'a> {
             Expr::Match {
                 condition, arms, ..
             } => self.emit_match_expr(*condition, arms),
-            other => Err(format!("unsupported expression in subset emitter: {:?}", other)),
+            other => Err(format!(
+                "unsupported expression in subset emitter: {:?}",
+                other
+            )),
         }
     }
 
@@ -1837,7 +2040,11 @@ impl<'a> JsSubsetEmitter<'a> {
         };
 
         let props_expr = format!("{{{}}}", props.join(", "));
-        let fn_name = if child_values.len() > 1 { "jsxs" } else { "jsx" };
+        let fn_name = if child_values.len() > 1 {
+            "jsxs"
+        } else {
+            "jsx"
+        };
 
         Ok(format!("{}({}, {})", fn_name, tag_expr, props_expr))
     }
@@ -1938,8 +2145,10 @@ impl<'a> JsSubsetEmitter<'a> {
             return Ok(format!("{{{}}}", entries.join(", ")));
         }
 
-        Err("mixed positional/named/unpack call arguments are not supported in subset emitter"
-            .to_string())
+        Err(
+            "mixed positional/named/unpack call arguments are not supported in subset emitter"
+                .to_string(),
+        )
     }
 
     fn emit_match_expr(
@@ -2004,11 +2213,16 @@ impl<'a> JsSubsetEmitter<'a> {
             }
             Expr::Integer { value, .. } => Ok(String::from_utf8_lossy(value).to_string()),
             Expr::Variable { name, .. } => Ok(self.span_name(*name)),
-            _ => Err("array key must be static string/int/identifier in subset emitter".to_string()),
+            _ => {
+                Err("array key must be static string/int/identifier in subset emitter".to_string())
+            }
         }
     }
 
-    fn assignment_to_named_var(&mut self, expr: ExprId<'_>) -> Result<Option<(String, String)>, String> {
+    fn assignment_to_named_var(
+        &mut self,
+        expr: ExprId<'_>,
+    ) -> Result<Option<(String, String)>, String> {
         match expr {
             Expr::Assign { var, expr, .. } | Expr::AssignRef { var, expr, .. } => {
                 if let Expr::Variable { name, .. } = *var {
@@ -2137,14 +2351,20 @@ impl<'a> JsSubsetEmitter<'a> {
             AstType::Name(_) => ("{ kind: 'object' }".to_string(), false),
             AstType::Nullable(inner) => {
                 let (inner_schema, _) = self.emit_type_schema(inner);
-                (format!("{{ kind: 'optional', inner: {} }}", inner_schema), true)
+                (
+                    format!("{{ kind: 'optional', inner: {} }}", inner_schema),
+                    true,
+                )
             }
             AstType::Union(parts) => {
                 let schemas = parts
                     .iter()
                     .map(|part| self.emit_type_schema(part).0)
                     .collect::<Vec<_>>();
-                (format!("{{ kind: 'union', anyOf: [{}] }}", schemas.join(", ")), false)
+                (
+                    format!("{{ kind: 'union', anyOf: [{}] }}", schemas.join(", ")),
+                    false,
+                )
             }
             AstType::Intersection(_parts) => ("{ kind: 'object' }".to_string(), false),
             AstType::ObjectShape(shape_fields) => {
@@ -2156,11 +2376,18 @@ impl<'a> JsSubsetEmitter<'a> {
                             "{}: {{ schema: {}, optional: {} }}",
                             json_string(&self.token_name(field.name)),
                             inner,
-                            if field.optional || opt { "true" } else { "false" }
+                            if field.optional || opt {
+                                "true"
+                            } else {
+                                "false"
+                            }
                         )
                     })
                     .collect::<Vec<_>>();
-                (format!("{{ kind: 'object', fields: {{ {} }} }}", fields.join(", ")), false)
+                (
+                    format!("{{ kind: 'object', fields: {{ {} }} }}", fields.join(", ")),
+                    false,
+                )
             }
             AstType::Applied { base, args } => {
                 if let AstType::Simple(tok) = *base {
@@ -2868,7 +3095,6 @@ class User {}
         assert!(err.contains("class-like declarations are not supported"));
     }
 
-
     #[test]
     fn project_root_requires_deka_json() {
         let tmp = tempfile::tempdir().expect("tmp");
@@ -2917,15 +3143,45 @@ class User {}
         let tmp = tempfile::tempdir().expect("tmp");
         std::fs::write(tmp.path().join("deka.json"), "{}").expect("deka.json");
         std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
-        std::fs::create_dir_all(tmp.path().join("php_modules").join("encoding")).expect("encoding dir");
+        std::fs::create_dir_all(tmp.path().join("php_modules").join("encoding"))
+            .expect("encoding dir");
         std::fs::write(
-            tmp.path().join("php_modules").join("encoding").join("json.phpx"),
+            tmp.path()
+                .join("php_modules")
+                .join("encoding")
+                .join("json.phpx"),
             "export function parse($v: string): object { return {} }",
         )
         .expect("json.phpx");
         let source = "---\nimport { parse } from 'encoding/json'\n---\n<div />\n";
         let meta = parse_source_module_meta(source);
         ensure_project_layout(tmp.path(), &meta).expect("layout should pass");
+    }
+
+    #[test]
+    fn build_bundle_emits_single_file() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::fs::write(tmp.path().join("deka.json"), "{}").expect("deka.json");
+        std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
+
+        let app_dir = tmp.path().join("app");
+        std::fs::create_dir_all(&app_dir).expect("app dir");
+        std::fs::write(
+            app_dir.join("util.phpx"),
+            "export function shout($text: string): string { return $text . \"!\" }",
+        )
+        .expect("util.phpx");
+        std::fs::write(
+            app_dir.join("main.phpx"),
+            "import { shout } from './util.phpx'\n\necho shout(\"ok\")\n",
+        )
+        .expect("main.phpx");
+
+        let output_path = tmp.path().join("bundle.js");
+        build_single_file_bundle_to_path(&app_dir.join("main.phpx"), &output_path, false)
+            .expect("bundle");
+        let output = std::fs::read_to_string(&output_path).expect("bundle output");
+        assert!(!output.contains("import {"));
     }
 
     #[test]
@@ -2939,7 +3195,11 @@ class User {}
         std::fs::write(tmp.path().join("deka.lock"), "{}").expect("deka.lock");
         std::fs::create_dir_all(tmp.path().join("app")).expect("app");
         std::fs::create_dir_all(tmp.path().join("public")).expect("public");
-        std::fs::write(tmp.path().join("public").join("index.html"), "<html></html>").expect("index");
+        std::fs::write(
+            tmp.path().join("public").join("index.html"),
+            "<html></html>",
+        )
+        .expect("index");
 
         let err = ensure_web_project_layout(tmp.path()).expect_err("deka.php should be required");
         assert!(err.contains("php_modules/deka.php"));
@@ -2957,8 +3217,13 @@ class User {}
         std::fs::create_dir_all(tmp.path().join("app")).expect("app");
         std::fs::create_dir_all(tmp.path().join("public")).expect("public");
         std::fs::create_dir_all(tmp.path().join("php_modules")).expect("php_modules");
-        std::fs::write(tmp.path().join("public").join("index.html"), "<html></html>").expect("index");
-        std::fs::write(tmp.path().join("php_modules").join("deka.php"), "<?php ?>").expect("deka.php");
+        std::fs::write(
+            tmp.path().join("public").join("index.html"),
+            "<html></html>",
+        )
+        .expect("index");
+        std::fs::write(tmp.path().join("php_modules").join("deka.php"), "<?php ?>")
+            .expect("deka.php");
 
         let err = ensure_web_project_layout(tmp.path()).expect_err("type should be required");
         assert!(err.contains("type=\"serve\""));
@@ -2976,8 +3241,13 @@ class User {}
         std::fs::create_dir_all(tmp.path().join("app")).expect("app");
         std::fs::create_dir_all(tmp.path().join("public")).expect("public");
         std::fs::create_dir_all(tmp.path().join("php_modules")).expect("php_modules");
-        std::fs::write(tmp.path().join("public").join("index.html"), "<html></html>").expect("index");
-        std::fs::write(tmp.path().join("php_modules").join("deka.php"), "<?php ?>").expect("deka.php");
+        std::fs::write(
+            tmp.path().join("public").join("index.html"),
+            "<html></html>",
+        )
+        .expect("index");
+        std::fs::write(tmp.path().join("php_modules").join("deka.php"), "<?php ?>")
+            .expect("deka.php");
 
         ensure_web_project_layout(tmp.path()).expect("web layout should pass");
     }
@@ -3032,6 +3302,4 @@ import { y } from 'https://cdn.example/x.js'
         assert!(!imports.contains_key("./local.js"));
         assert!(!imports.contains_key("https://cdn.example/x.js"));
     }
-
-
 }

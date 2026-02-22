@@ -14,6 +14,8 @@ use swc_ecma_transforms_base::helpers::Helpers;
 use swc_ecma_transforms_base::resolver;
 use swc_ecma_transforms_react::{Options as JsxOptions, Runtime as JsxRuntime, react};
 use swc_ecma_transforms_typescript::strip;
+use swc_ecma_minifier::optimize;
+use swc_ecma_minifier::option::{CompressOptions, MangleOptions, MinifyOptions};
 
 use crate::css_bundler::{self, CssAsset};
 
@@ -25,6 +27,101 @@ pub struct JsBundle {
     pub code: String,
     pub css: Option<String>,
     pub assets: Vec<CssAsset>,
+}
+
+pub struct BundleOptions {
+    pub project_root: PathBuf,
+    pub minify: bool,
+}
+
+pub trait VirtualSource: Send + Sync {
+    fn load_virtual(&self, path: &Path) -> Result<Option<String>, String>;
+}
+
+pub fn bundle_virtual_entry(
+    entry_path: &Path,
+    options: BundleOptions,
+    provider: Arc<dyn VirtualSource>,
+) -> Result<String, String> {
+    let cm: Lrc<SourceMap> = Default::default();
+    let globals = Globals::new();
+    let loader = VirtualLoader {
+        cm: cm.clone(),
+        css_collector: Arc::new(Mutex::new(CssCollector::default())),
+        provider,
+    };
+    let resolver = DekaResolver::new(options.project_root)?;
+
+    let mut bundler = Bundler::new(
+        &globals,
+        cm.clone(),
+        loader,
+        resolver,
+        Config {
+            require: false,
+            disable_inliner: false,
+            disable_hygiene: false,
+            disable_fixer: false,
+            disable_dce: false,
+            external_modules: Vec::new(),
+            module: ModuleType::Es,
+        },
+        Box::new(NoopHook),
+    );
+
+    let mut entries = HashMap::new();
+    entries.insert("entry".to_string(), FileName::Real(entry_path.to_path_buf()));
+
+    let bundles = GLOBALS
+        .set(&globals, || bundler.bundle(entries))
+        .map_err(|err| err.to_string())?;
+    let bundle = bundles
+        .into_iter()
+        .find(|bundle| matches!(bundle.kind, BundleKind::Named { .. }))
+        .ok_or_else(|| "Failed to find bundled output".to_string())?;
+
+    let module = if options.minify {
+        let top_level_mark = Mark::new();
+        let unresolved_mark = Mark::new();
+        let minify_options = MinifyOptions {
+            compress: Some(CompressOptions::default()),
+            mangle: Some(MangleOptions::default()),
+            ..Default::default()
+        };
+
+        match optimize(
+            Program::Module(bundle.module),
+            cm.clone(),
+            None,
+            None,
+            &minify_options,
+            &swc_ecma_minifier::option::ExtraOptions {
+                unresolved_mark,
+                top_level_mark,
+                mangle_name_cache: Default::default(),
+            },
+        ) {
+            Program::Module(module) => module,
+            _ => return Err("Minifier returned non-module output".to_string()),
+        }
+    } else {
+        bundle.module
+    };
+
+    let mut buf = Vec::new();
+    {
+        let mut emitter = Emitter {
+            cfg: swc_ecma_codegen::Config::default(),
+            comments: None,
+            cm: cm.clone(),
+            wr: JsWriter::new(cm.clone(), "\n", &mut buf, None),
+        };
+        emitter
+            .emit_module(&module)
+            .map_err(|err| err.to_string())?;
+    }
+
+    String::from_utf8(buf).map_err(|err| err.to_string())
 }
 
 pub fn bundle_browser(entry: &str) -> Result<String, String> {
@@ -332,6 +429,168 @@ impl FsLoader {
     }
 }
 
+struct VirtualLoader {
+    cm: Lrc<SourceMap>,
+    css_collector: Arc<Mutex<CssCollector>>,
+    provider: Arc<dyn VirtualSource>,
+}
+
+impl Load for VirtualLoader {
+    fn load(&self, file: &FileName) -> Result<ModuleData, anyhow::Error> {
+        let (source, path) = match file {
+            FileName::Real(path) => {
+                if let Some(source) = self
+                    .provider
+                    .load_virtual(path)
+                    .map_err(|err| anyhow::Error::msg(err))?
+                {
+                    (source, Some(path.clone()))
+                } else if path.extension().and_then(|ext| ext.to_str()) == Some("css") {
+                    let (source, module_path) = self.load_css_module(path)?;
+                    (source, module_path)
+                } else {
+                    let source = std::fs::read_to_string(path).map_err(|err| {
+                        anyhow::Error::msg(format!("Failed to read {}: {}", path.display(), err))
+                    })?;
+                    (source, Some(path.clone()))
+                }
+            }
+            FileName::Custom(name) if name == "deka:react" => (REACT_SOURCE.to_string(), None),
+            FileName::Custom(name) if name == "deka:react-dom-client" => {
+                (REACT_DOM_CLIENT_SOURCE.to_string(), None)
+            }
+            FileName::Custom(name) if name == "deka:react-jsx-runtime" => {
+                (REACT_JSX_RUNTIME_SOURCE.to_string(), None)
+            }
+            other => anyhow::bail!("Unsupported file name: {other:?}"),
+        };
+
+        let file_name = match file {
+            FileName::Real(path) => FileName::Real(path.clone()),
+            FileName::Custom(name) => FileName::Custom(name.clone()),
+            other => other.clone(),
+        };
+        let fm = self.cm.new_source_file(file_name.into(), source);
+        let syntax = match path {
+            Some(ref path) => syntax_for_path(path),
+            None => Syntax::Es(EsSyntax {
+                jsx: false,
+                export_default_from: true,
+                import_attributes: true,
+                ..Default::default()
+            }),
+        };
+
+        let lexer = Lexer::new(syntax, EsVersion::Es2022, StringInput::from(&*fm), None);
+        let mut parser = Parser::new_from(lexer);
+        let module = parser
+            .parse_module()
+            .map_err(|err| anyhow::Error::msg(format!("{:?}", err)))?;
+
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let mut program = Program::Module(module);
+        let mut pass = resolver(unresolved_mark, top_level_mark, false);
+        pass.process(&mut program);
+
+        if path
+            .as_ref()
+            .map_or(false, |path| is_typescript(path.as_path()))
+        {
+            let mut pass = strip(unresolved_mark, top_level_mark);
+            pass.process(&mut program);
+        }
+
+        if path.as_ref().map_or(false, |path| is_jsx(path.as_path())) {
+            let mut options = JsxOptions::default();
+            options.runtime = Some(JsxRuntime::Automatic);
+            options.import_source = Some("react".into());
+            let mut pass = react(
+                self.cm.clone(),
+                Some(SingleThreadedComments::default()),
+                options,
+                top_level_mark,
+                unresolved_mark,
+            );
+            pass.process(&mut program);
+        }
+
+        let module = match program {
+            Program::Module(module) => module,
+            Program::Script(_) => anyhow::bail!("Unexpected script output when bundling module"),
+        };
+
+        Ok(ModuleData {
+            fm,
+            module,
+            helpers: Helpers::new(false),
+        })
+    }
+}
+
+impl VirtualLoader {
+    fn load_css_module(&self, path: &PathBuf) -> Result<(String, Option<PathBuf>), anyhow::Error> {
+        let mut collector = self
+            .css_collector
+            .lock()
+            .map_err(|_| anyhow::Error::msg("CSS collector lock failed"))?;
+        let already_seen = collector.seen.contains(path);
+        if !already_seen {
+            collector.seen.insert(path.clone());
+            let css_modules = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.ends_with(".module.css"))
+                .unwrap_or(false);
+            let bundle = css_bundler::bundle_css(&path.display().to_string(), css_modules, true)
+                .map_err(|err| anyhow::Error::msg(err))?;
+            collector.entries.push(CssEntry {
+                code: bundle.code,
+                assets: bundle.assets,
+            });
+
+            let module_source = if css_modules {
+                let exports = bundle.exports.unwrap_or_default();
+                let serialized = serde_json::to_string(&exports)
+                    .map_err(|err| anyhow::Error::msg(err.to_string()))?;
+                let mut lines = Vec::new();
+                lines.push(format!("const styles = {};", serialized));
+                lines.push("export default styles;".to_string());
+                for key in exports.keys() {
+                    append_named_exports(&mut lines, key)?;
+                }
+                lines.join("\n")
+            } else {
+                "export default {};".to_string()
+            };
+
+            return Ok((module_source, None));
+        }
+
+        let css_modules = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.ends_with(".module.css"))
+            .unwrap_or(false);
+        if css_modules {
+            let bundle = css_bundler::bundle_css(&path.display().to_string(), true, true)
+                .map_err(|err| anyhow::Error::msg(err))?;
+            let exports = bundle.exports.unwrap_or_default();
+            let serialized = serde_json::to_string(&exports)
+                .map_err(|err| anyhow::Error::msg(err.to_string()))?;
+            let mut lines = Vec::new();
+            lines.push(format!("const styles = {};", serialized));
+            lines.push("export default styles;".to_string());
+            for key in exports.keys() {
+                append_named_exports(&mut lines, key)?;
+            }
+            return Ok((lines.join("\n"), None));
+        }
+
+        Ok(("export default {};".to_string(), None))
+    }
+}
+
 struct FsResolver {
     root: PathBuf,
 }
@@ -456,6 +715,12 @@ impl Hook for NoopHook {
 
 fn syntax_for_path(path: &Path) -> Syntax {
     match path.extension().and_then(|ext| ext.to_str()).unwrap_or("") {
+        "phpx" => Syntax::Es(EsSyntax {
+            jsx: false,
+            export_default_from: true,
+            import_attributes: true,
+            ..Default::default()
+        }),
         "ts" => Syntax::Typescript(TsSyntax {
             tsx: false,
             decorators: false,
@@ -487,6 +752,7 @@ fn syntax_for_path(path: &Path) -> Syntax {
 
 fn is_typescript(path: &Path) -> bool {
     match path.extension().and_then(|ext| ext.to_str()) {
+        Some("phpx") => false,
         Some("ts") | Some("tsx") => true,
         _ => false,
     }
@@ -497,6 +763,165 @@ fn is_jsx(path: &Path) -> bool {
         Some("tsx") | Some("jsx") => true,
         _ => false,
     }
+}
+
+struct DekaResolver {
+    root: PathBuf,
+    php_modules: PathBuf,
+}
+
+impl DekaResolver {
+    fn new(project_root: PathBuf) -> Result<Self, String> {
+        let php_modules = project_root.join("php_modules");
+        Ok(Self {
+            root: project_root,
+            php_modules,
+        })
+    }
+
+    fn resolve_from_node_modules(&self, start_dir: &Path, specifier: &str) -> Option<PathBuf> {
+        let mut current = start_dir;
+        loop {
+            let node_modules = current.join("node_modules");
+            if node_modules.is_dir() {
+                return Some(node_modules.join(specifier));
+            }
+            current = current.parent()?;
+        }
+    }
+
+    fn resolve_php_module(&self, specifier: &str) -> Option<PathBuf> {
+        let base = if specifier.starts_with("@user/") {
+            self.php_modules.join("@user").join(specifier.trim_start_matches("@user/"))
+        } else {
+            self.php_modules.join(specifier)
+        };
+        resolve_with_candidates(&base)
+    }
+}
+
+impl Resolve for DekaResolver {
+    fn resolve(&self, base: &FileName, specifier: &str) -> Result<Resolution, anyhow::Error> {
+        if specifier == "react" {
+            return Ok(Resolution {
+                filename: FileName::Custom("deka:react".to_string()),
+                slug: None,
+            });
+        }
+        if specifier == "react-dom/client" {
+            return Ok(Resolution {
+                filename: FileName::Custom("deka:react-dom-client".to_string()),
+                slug: None,
+            });
+        }
+        if specifier == "react/jsx-runtime" {
+            return Ok(Resolution {
+                filename: FileName::Custom("deka:react-jsx-runtime".to_string()),
+                slug: None,
+            });
+        }
+        if specifier == "deka/jsx-runtime" {
+            return Ok(Resolution {
+                filename: FileName::Custom("deka:react-jsx-runtime".to_string()),
+                slug: None,
+            });
+        }
+
+        let base_path = match base {
+            FileName::Real(path) => path.clone(),
+            _ => self.root.clone(),
+        };
+        let base_dir = base_path.parent().unwrap_or_else(|| self.root.as_path());
+
+        if specifier.starts_with("@/") {
+            let target = self.root.join(specifier.trim_start_matches("@/"));
+            if let Some(candidate) = resolve_with_candidates(&target) {
+                return Ok(Resolution {
+                    filename: FileName::Real(candidate),
+                    slug: None,
+                });
+            }
+        }
+
+        if let Some(mapped) = match specifier {
+            spec if spec.starts_with("component/") => Some(self.php_modules.join(spec)),
+            spec if spec.starts_with("encoding/") => Some(self.php_modules.join(spec)),
+            spec if spec.starts_with("deka/") => Some(self.php_modules.join(spec)),
+            spec if spec.starts_with("db/") => Some(self.php_modules.join(spec)),
+            spec if spec.starts_with("core/") => Some(self.php_modules.join(spec)),
+            _ => None,
+        } {
+            if let Some(candidate) = resolve_with_candidates(&mapped) {
+                return Ok(Resolution {
+                    filename: FileName::Real(candidate),
+                    slug: None,
+                });
+            }
+        }
+
+        if let Some(candidate) = self.resolve_php_module(specifier) {
+            return Ok(Resolution {
+                filename: FileName::Real(candidate),
+                slug: None,
+            });
+        }
+
+        let is_node_module = !specifier.starts_with("./")
+            && !specifier.starts_with("../")
+            && !specifier.starts_with('/')
+            && !specifier.starts_with("@/");
+
+        let mut target = if specifier.starts_with('/') {
+            PathBuf::from(specifier)
+        } else if is_node_module {
+            if let Some(resolved) = self.resolve_from_node_modules(base_dir, specifier) {
+                resolved
+            } else {
+                base_dir.join(specifier)
+            }
+        } else {
+            base_dir.join(specifier)
+        };
+
+        if let Some(candidate) = resolve_with_candidates(&target) {
+            target = candidate;
+        }
+
+        if target.is_file() {
+            return Ok(Resolution {
+                filename: FileName::Real(target),
+                slug: None,
+            });
+        }
+
+        anyhow::bail!("Unable to resolve {specifier} from {base:?}")
+    }
+}
+
+fn resolve_with_candidates(target: &Path) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if target.extension().is_none() {
+        candidates.push(target.with_extension("phpx"));
+        candidates.push(target.with_extension("ts"));
+        candidates.push(target.with_extension("tsx"));
+        candidates.push(target.with_extension("jsx"));
+        candidates.push(target.with_extension("js"));
+        candidates.push(target.with_extension("mjs"));
+        candidates.push(target.join("index.phpx"));
+        candidates.push(target.join("index.ts"));
+        candidates.push(target.join("index.tsx"));
+        candidates.push(target.join("index.jsx"));
+        candidates.push(target.join("index.js"));
+        candidates.push(target.join("index.mjs"));
+    }
+    candidates.push(target.to_path_buf());
+
+    for candidate in candidates {
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
 }
 
 fn append_named_exports(lines: &mut Vec<String>, key: &str) -> Result<(), anyhow::Error> {
@@ -598,7 +1023,6 @@ mod tests {
 /// Phase 2 will add dependency tracking for smarter invalidation.
 pub fn bundle_browser_assets_cached(entry: &str, cache: &mut crate::cache::ModuleCache) -> Result<JsBundle, String> {
     use std::fs;
-    use std::time::SystemTime;
 
     if !cache.is_enabled() {
         // Cache disabled, just call through
