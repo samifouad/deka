@@ -16,6 +16,7 @@ use deno_core::ResolutionKind;
 use deno_core::resolve_import;
 use deno_error::JsErrorBox;
 
+use phpx_js::build_stdlib_prelude;
 use phpx_js::compile_phpx_source_to_js;
 use phpx_js::parse_source_module_meta;
 use phpx_js::SourceModuleMeta;
@@ -42,9 +43,13 @@ impl PhpxEsmLoader {
             .map_err(|_| JsErrorBox::generic("invalid entry wrapper path"))?;
         let prelude_specifier = ModuleSpecifier::from_file_path(entry_prelude_path(&project_root))
             .map_err(|_| JsErrorBox::generic("invalid prelude path"))?;
-        let prelude_source =
-            "if (!globalThis.panic) { globalThis.panic = (msg) => { throw new Error(String(msg)); }; }\n"
-                .to_string();
+        let prelude_source = build_stdlib_prelude(&project_root).unwrap_or_else(|err| {
+            format!(
+                "if (!globalThis.panic) {{ globalThis.panic = (msg) => {{ throw new Error(String(msg)); }}; }}\n\
+// stdlib prelude failed: {}\n",
+                err.replace('\n', " ")
+            )
+        });
         Ok(Self {
             project_root,
             cache_dir,
@@ -157,6 +162,15 @@ const __candidate = typeof __dekaMain.default !== \"undefined\"\n\
   ? __dekaMain.handler\n\
   : __dekaMain;\n\
 if (__dekaMain && __dekaMain.phpxBuildMode === \"scaffold\" && typeof globalThis.__dekaRuntime === \"object\") {\n\
+  const __fallbackKey = String(__dekaMain.phpxFile || \"unknown\") + \":\" + String(__dekaMain.phpxBuildReason || \"unknown\");\n\
+  if (!globalThis.__dekaReportedPhpxFallback) globalThis.__dekaReportedPhpxFallback = new Set();\n\
+  if (!globalThis.__dekaReportedPhpxFallback.has(__fallbackKey)) {\n\
+    globalThis.__dekaReportedPhpxFallback.add(__fallbackKey);\n\
+    console.error(\"[phpx-js] subset transpile fallback: \" + String(__dekaMain.phpxFile || \"unknown\") + \"\\n\" +\n\
+      \"  reason: \" + String(__dekaMain.phpxBuildReason || \"unknown\") + \"\\n\" +\n\
+      \"  behavior: running via runtime fallback path for this module\\n\" +\n\
+      \"  hint: simplify unsupported syntax or check transpiler diagnostics for this file\");\n\
+  }\n\
   const __mode = globalThis.__dekaExecMode || \"request\";\n\
   if (__mode === \"module\" && typeof __dekaMain.runPhpx === \"function\") {\n\
     await __dekaMain.runPhpx(globalThis.__dekaRuntime);\n\

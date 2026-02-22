@@ -32,7 +32,7 @@ Move PHPX execution to a JS-first runtime: transpile PHPX to JS and execute via 
 
 4. **Dev workflow**
    - [x] Hot transpile on file change (isolate cache evict + ESM reload).
-   - [ ] Clear errors if transpile fails.
+   - [x] Clear errors if transpile fails.
 
 5. **Build workflow**
    - [x] `deka build` emits JS bundles for server/client.
