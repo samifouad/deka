@@ -24,7 +24,7 @@ Reduce prompt spam in `deka run/serve/task` while keeping default-deny behavior 
   - [x] short risk note.
 - [ ] Add regression tests:
   - [x] fresh init + `deka task dev` boots without interactive prompt cascade.
-  - [ ] userland package access still prompts/denies correctly when not allowed.
+  - [x] userland package access still prompts/denies correctly when not allowed.
   - [x] third-party module remains denied by default without explicit rule.
 
 ## Exit Criteria
