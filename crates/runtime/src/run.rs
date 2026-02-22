@@ -101,7 +101,14 @@ async fn run_async(context: &Context) -> Result<(), String> {
     let _ = std::fs::read_to_string(&normalized)
         .map_err(|err| format!("Failed to read handler from {}: {}", normalized, err))?;
 
-    let handler_code = build_phpx_handler_bundle(&normalized)?;
+    let use_esm = std::env::var("DEKA_RUNTIME_ESM")
+        .map(|value| value != "0" && value != "false")
+        .unwrap_or(true);
+    let handler_code = if use_esm {
+        String::new()
+    } else {
+        build_phpx_handler_bundle(&normalized)?
+    };
 
     let runtime_cfg = runtime_config::RuntimeConfig::load();
     let mut pool_config = PoolConfig::from_env();
@@ -142,6 +149,7 @@ async fn run_async(context: &Context) -> Result<(), String> {
             handler_key,
             RequestData {
                 handler_code,
+                handler_entry: Some(normalized.clone()),
                 request_value,
                 request_parts: None,
                 mode: execution_mode,

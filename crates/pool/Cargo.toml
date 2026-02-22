@@ -7,6 +7,7 @@ edition = "2024"
 nanoid = { workspace = true }
 core_affinity = { workspace = true }
 deno_core = { workspace = true }
+deno_error = { workspace = true }
 libc = "0.2"
 num_cpus = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -14,6 +15,7 @@ serde_json = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = "0.1"
 deka-stdio = { path = "../stdio", package = "stdio" }
+phpx_js = { path = "../phpx_js" }
 
 # Validation
 swc_common = { workspace = true }

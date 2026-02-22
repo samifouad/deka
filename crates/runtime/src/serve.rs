@@ -135,7 +135,19 @@ async fn serve_async(context: &Context) -> Result<(), String> {
             .unwrap_or(&handler_path),
     );
 
-    let handler_code = build_handler_code(&handler_path, &resolved)?;
+    let use_esm = matches!(resolved.mode, runtime_config::ServeMode::Php)
+        && std::env::var("DEKA_RUNTIME_ESM")
+            .map(|value| value != "0" && value != "false")
+            .unwrap_or(true);
+    let handler_code = if use_esm {
+        String::new()
+    } else {
+        build_handler_code(&handler_path, &resolved)?
+    };
+    let handler_entry = match resolved.mode {
+        runtime_config::ServeMode::Php => Some(handler_path.clone()),
+        _ => None,
+    };
 
     let perf_request_value = serde_json::json!({
         "url": "http://localhost/",
@@ -148,6 +160,7 @@ async fn serve_async(context: &Context) -> Result<(), String> {
     let state = Arc::new(RuntimeState {
         engine: Arc::clone(&engine),
         handler_code,
+        handler_entry,
         handler_key,
         perf_mode,
         perf_request_value,

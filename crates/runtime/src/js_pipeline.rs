@@ -74,7 +74,7 @@ impl VirtualSource for PhpxBundleProvider {
     }
 }
 
-fn resolve_project_root(input_path: &Path) -> Result<PathBuf, String> {
+pub fn resolve_project_root(input_path: &Path) -> Result<PathBuf, String> {
     let start = if input_path.is_dir() {
         input_path.to_path_buf()
     } else {
@@ -93,7 +93,7 @@ fn resolve_project_root(input_path: &Path) -> Result<PathBuf, String> {
     ))
 }
 
-fn ensure_project_layout(project_root: &Path, meta: &SourceModuleMeta) -> Result<(), String> {
+pub fn ensure_project_layout(project_root: &Path, meta: &SourceModuleMeta) -> Result<(), String> {
     let lock_path = project_root.join("deka.lock");
     if !lock_path.is_file() {
         return Err(format!(

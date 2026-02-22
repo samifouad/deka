@@ -32,7 +32,7 @@ members = [
 deno_core = "0.385.0"
 deno_napi = "0.162.0"
 deno_permissions = "0.90.0"
-deno_error = "0.7.3"
+deno_error = "0.7.1"
 
 # Async Runtime
 tokio = { version = "1.41", features = ["full"] }

@@ -14,6 +14,7 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -23,8 +24,8 @@ use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use deno_core::{
-    Extension, JsRuntime, ModuleCodeString, OpMetricsEvent, OpMetricsFactoryFn, OpMetricsFn,
-    RuntimeOptions, serde_v8,
+    Extension, JsRuntime, ModuleCodeString, ModuleSpecifier, OpMetricsEvent, OpMetricsFactoryFn,
+    OpMetricsFn, RuntimeOptions, serde_v8,
 };
 use nanoid::nanoid;
 
@@ -54,6 +55,7 @@ thread_local! {
 }
 
 use crate::validation;
+use crate::esm_loader::{PhpxEsmLoader, entry_wrapper_path, resolve_project_root};
 
 // ========== OS-level Thread CPU Time ==========
 
@@ -251,6 +253,7 @@ impl HandlerKey {
 #[derive(Clone)]
 pub struct RequestData {
     pub handler_code: String,
+    pub handler_entry: Option<String>,
     pub request_value: serde_json::Value,
     pub request_parts: Option<RequestParts>,
     pub mode: ExecutionMode,
@@ -1174,6 +1177,7 @@ struct WarmIsolate {
     state: IsolateState,
     op_metrics: Option<Rc<OpTimingTracker>>,
     handler_loaded: bool,
+    entry_specifier: Option<ModuleSpecifier>,
 }
 
 // ========== Worker Thread ==========
@@ -1393,11 +1397,37 @@ impl WorkerThread {
         }
 
         // Compute source hash for cache validation
-        let source_hash = Self::hash_source(&request.request_data.handler_code);
+        let source_hash = if request.request_data.handler_code.trim().is_empty() {
+            if let Some(entry) = request.request_data.handler_entry.as_ref() {
+                match std::fs::read_to_string(entry) {
+                    Ok(contents) => Self::hash_source(&contents),
+                    Err(_) => Self::hash_source(entry),
+                }
+            } else {
+                Self::hash_source("")
+            }
+        } else {
+            Self::hash_source(&request.request_data.handler_code)
+        };
         let key = request.handler_key.clone();
 
         // Check cache and get/create isolate
-        let (cache_hit, warm_time) = self.ensure_isolate(&key, source_hash).await;
+        let (cache_hit, warm_time) = match self
+            .ensure_isolate(&key, source_hash, request.request_data.handler_entry.as_deref())
+            .await
+        {
+            Ok(value) => value,
+            Err(err) => {
+                return IsolateResponse {
+                    success: false,
+                    error: Some(err),
+                    result: None,
+                    warm_time_us: 0,
+                    total_time_us: 0,
+                    cache_hit: false,
+                };
+            }
+        };
 
         let isolate_id = self
             .isolates
@@ -1655,7 +1685,8 @@ impl WorkerThread {
         &mut self,
         key: &HandlerKey,
         source_hash: u64,
-    ) -> (bool, std::time::Duration) {
+        handler_entry: Option<&str>,
+    ) -> Result<(bool, std::time::Duration), String> {
         let start = Instant::now();
 
         // Check if we have a valid cached isolate
@@ -1670,7 +1701,7 @@ impl WorkerThread {
                     isolate.last_used = Instant::now();
                     isolate.request_count += 1;
                 }
-                return (true, start.elapsed());
+                return Ok((true, start.elapsed()));
             } else {
                 // Handler was redeployed - invalidate
                 tracing::debug!(
@@ -1700,16 +1731,26 @@ impl WorkerThread {
             }
 
             // Create new warm isolate
-            let isolate = self.create_warm_isolate(source_hash);
-            self.isolates.insert(key.clone(), isolate);
-            self.lru_order.push(key.clone());
+            match self.create_warm_isolate(source_hash, handler_entry) {
+                Ok(isolate) => {
+                    self.isolates.insert(key.clone(), isolate);
+                    self.lru_order.push(key.clone());
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
         }
 
-        (false, start.elapsed())
+        Ok((false, start.elapsed()))
     }
 
     /// Create a new warm isolate
-    fn create_warm_isolate(&self, source_hash: u64) -> WarmIsolate {
+    fn create_warm_isolate(
+        &self,
+        source_hash: u64,
+        handler_entry: Option<&str>,
+    ) -> Result<WarmIsolate, String> {
         let extensions = (self.extensions_provider)();
         let isolate_id = format!("isolate_{}", nanoid!(10, &ID_ALPHABET));
 
@@ -1718,15 +1759,30 @@ impl WorkerThread {
         } else {
             None
         };
+        let (module_loader, entry_specifier) = if let Some(entry) = handler_entry {
+            let entry_path = Path::new(entry).to_path_buf();
+            let project_root = resolve_project_root(&entry_path)?;
+            let wrapper_path = entry_wrapper_path(&project_root);
+            let wrapper_specifier = ModuleSpecifier::from_file_path(&wrapper_path)
+                .map_err(|_| "invalid entry wrapper path".to_string())?;
+            let loader =
+                PhpxEsmLoader::new(project_root, entry_path).map_err(|err| err.to_string())?;
+            let loader: Rc<dyn deno_core::ModuleLoader> = Rc::new(loader);
+            (Some(loader), Some(wrapper_specifier))
+        } else {
+            (None, None)
+        };
+
         let runtime = JsRuntime::new(RuntimeOptions {
             extensions,
             op_metrics_factory_fn: op_metrics
                 .as_ref()
                 .map(|metrics| metrics.clone().op_metrics_factory_fn()),
+            module_loader,
             ..Default::default()
         });
 
-        WarmIsolate {
+        Ok(WarmIsolate {
             isolate_id,
             runtime,
             last_used: Instant::now(),
@@ -1741,7 +1797,8 @@ impl WorkerThread {
             state: IsolateState::Idle,
             op_metrics,
             handler_loaded: false,
-        }
+            entry_specifier,
+        })
     }
 
     /// Execute a request in the warm isolate
@@ -2319,90 +2376,99 @@ impl WorkerThread {
             );
         }
 
-        // Execute the handler - transform import/export statements
-        // Replace ES6 import with global access
-        let handler_code = request
-            .request_data
-            .handler_code
-            .replace(
-                "import { Router, cors, logger, prettyJSON } from 'deka/router'",
-                "const { Router, cors, logger, prettyJSON } = globalThis.__dekaRouter;",
-            )
-            .replace(
-                "import { Router, cors, logger, prettyJSON } from \"deka/router\"",
-                "const { Router, cors, logger, prettyJSON } = globalThis.__dekaRouter;",
-            )
-            .replace(
-                "import { Router } from 'deka/router'",
-                "const { Router } = globalThis.__dekaRouter;",
-            )
-            .replace(
-                "import { Router } from \"deka/router\"",
-                "const { Router } = globalThis.__dekaRouter;",
-            )
-            .replace(
-                "import { Database, Statement } from 'deka/sqlite'",
-                "const { Database, Statement } = globalThis.__dekaSqlite;",
-            )
-            .replace(
-                "import { Database, Statement } from \"deka/sqlite\"",
-                "const { Database, Statement } = globalThis.__dekaSqlite;",
-            )
-            .replace(
-                "import { Database } from 'deka/sqlite'",
-                "const { Database } = globalThis.__dekaSqlite;",
-            )
-            .replace(
-                "import { Database } from \"deka/sqlite\"",
-                "const { Database } = globalThis.__dekaSqlite;",
-            )
-            .replace(
-                "import { t4, T4Client, T4File, write } from 'deka/t4'",
-                "const { t4, T4Client, T4File, write } = globalThis.__dekaT4;",
-            )
-            .replace(
-                "import { t4, T4Client, T4File, write } from \"deka/t4\"",
-                "const { t4, T4Client, T4File, write } = globalThis.__dekaT4;",
-            )
-            .replace(
-                "import { t4 } from 'deka/t4'",
-                "const { t4 } = globalThis.__dekaT4;",
-            )
-            .replace(
-                "import { t4 } from \"deka/t4\"",
-                "const { t4 } = globalThis.__dekaT4;",
-            )
-            .replace(
-                "import { Mesh, IsolatePool, Isolate, serve } from 'deka'",
-                "const { Mesh, IsolatePool, Isolate, serve } = globalThis.__deka;",
-            )
-            .replace(
-                "import { Mesh, IsolatePool, Isolate, serve } from \"deka\"",
-                "const { Mesh, IsolatePool, Isolate, serve } = globalThis.__deka;",
-            )
-            // Remove export default statement - we'll capture 'app' variable directly
-            .replace("export default app", "// export default app")
-            .replace("export default ", "const __dekaDefault = ");
+        let use_esm = request.request_data.handler_entry.is_some()
+            && std::env::var("DEKA_RUNTIME_ESM")
+                .map(|value| value != "0" && value != "false")
+                .unwrap_or(true);
 
-        let handler_code = handler_code;
+        let wrapped_handler_code = if !use_esm {
+            // Execute the handler - transform import/export statements
+            // Replace ES6 import with global access
+            let handler_code = request
+                .request_data
+                .handler_code
+                .replace(
+                    "import { Router, cors, logger, prettyJSON } from 'deka/router'",
+                    "const { Router, cors, logger, prettyJSON } = globalThis.__dekaRouter;",
+                )
+                .replace(
+                    "import { Router, cors, logger, prettyJSON } from \"deka/router\"",
+                    "const { Router, cors, logger, prettyJSON } = globalThis.__dekaRouter;",
+                )
+                .replace(
+                    "import { Router } from 'deka/router'",
+                    "const { Router } = globalThis.__dekaRouter;",
+                )
+                .replace(
+                    "import { Router } from \"deka/router\"",
+                    "const { Router } = globalThis.__dekaRouter;",
+                )
+                .replace(
+                    "import { Database, Statement } from 'deka/sqlite'",
+                    "const { Database, Statement } = globalThis.__dekaSqlite;",
+                )
+                .replace(
+                    "import { Database, Statement } from \"deka/sqlite\"",
+                    "const { Database, Statement } = globalThis.__dekaSqlite;",
+                )
+                .replace(
+                    "import { Database } from 'deka/sqlite'",
+                    "const { Database } = globalThis.__dekaSqlite;",
+                )
+                .replace(
+                    "import { Database } from \"deka/sqlite\"",
+                    "const { Database } = globalThis.__dekaSqlite;",
+                )
+                .replace(
+                    "import { t4, T4Client, T4File, write } from 'deka/t4'",
+                    "const { t4, T4Client, T4File, write } = globalThis.__dekaT4;",
+                )
+                .replace(
+                    "import { t4, T4Client, T4File, write } from \"deka/t4\"",
+                    "const { t4, T4Client, T4File, write } = globalThis.__dekaT4;",
+                )
+                .replace(
+                    "import { t4 } from 'deka/t4'",
+                    "const { t4 } = globalThis.__dekaT4;",
+                )
+                .replace(
+                    "import { t4 } from \"deka/t4\"",
+                    "const { t4 } = globalThis.__dekaT4;",
+                )
+                .replace(
+                    "import { Mesh, IsolatePool, Isolate, serve } from 'deka'",
+                    "const { Mesh, IsolatePool, Isolate, serve } = globalThis.__deka;",
+                )
+                .replace(
+                    "import { Mesh, IsolatePool, Isolate, serve } from \"deka\"",
+                    "const { Mesh, IsolatePool, Isolate, serve } = globalThis.__deka;",
+                )
+                // Remove export default statement - we'll capture 'app' variable directly
+                .replace("export default app", "// export default app")
+                .replace("export default ", "const __dekaDefault = ");
 
-        let wrapped_handler_code = format!(
-            "(function() {{\n{}\nif (typeof globalThis.app === 'undefined') {{ if (typeof __dekaDefault !== 'undefined') {{ if (typeof __dekaDefault === 'function' && typeof globalThis.__dekaNodeExpressAdapter === 'function' && (typeof __dekaDefault.handle === 'function' || typeof __dekaDefault.listen === 'function')) {{ globalThis.app = globalThis.__dekaNodeExpressAdapter(__dekaDefault); }} else if (__dekaDefault && typeof __dekaDefault === 'object' && !__dekaDefault.__dekaServer && (typeof __dekaDefault.fetch === 'function' || typeof __dekaDefault.routes === 'object')) {{ globalThis.app = globalThis.__deka.serve(__dekaDefault); }} else {{ globalThis.app = __dekaDefault; }} }} else if (typeof app !== 'undefined') {{ if (typeof app === 'function' && typeof globalThis.__dekaNodeExpressAdapter === 'function' && (typeof app.handle === 'function' || typeof app.listen === 'function')) {{ globalThis.app = globalThis.__dekaNodeExpressAdapter(app); }} else {{ globalThis.app = app; }} }} }}\n}})();",
-            handler_code
-        );
-
-        let setup_code = "globalThis.app = undefined; globalThis.Deka = globalThis.Deka || {};";
-        if let Err(err) = isolate
-            .runtime
-            .execute_script("setup.js", ModuleCodeString::from(setup_code.to_string()))
-        {
-            isolate.active_requests = 0;
-            isolate.state = IsolateState::Idle;
-            return (
-                ExecutionOutcome::Err(format!("Setup failed: {}", err)),
-                ExecutionProfile::empty(),
+            let wrapped = format!(
+                "(function() {{\n{}\nif (typeof globalThis.app === 'undefined') {{ if (typeof __dekaDefault !== 'undefined') {{ if (typeof __dekaDefault === 'function' && typeof globalThis.__dekaNodeExpressAdapter === 'function' && (typeof __dekaDefault.handle === 'function' || typeof __dekaDefault.listen === 'function')) {{ globalThis.app = globalThis.__dekaNodeExpressAdapter(__dekaDefault); }} else if (__dekaDefault && typeof __dekaDefault === 'object' && !__dekaDefault.__dekaServer && (typeof __dekaDefault.fetch === 'function' || typeof __dekaDefault.routes === 'object')) {{ globalThis.app = globalThis.__deka.serve(__dekaDefault); }} else {{ globalThis.app = __dekaDefault; }} }} else if (typeof app !== 'undefined') {{ if (typeof app === 'function' && typeof globalThis.__dekaNodeExpressAdapter === 'function' && (typeof app.handle === 'function' || typeof app.listen === 'function')) {{ globalThis.app = globalThis.__dekaNodeExpressAdapter(app); }} else {{ globalThis.app = app; }} }} }}\n}})();",
+                handler_code
             );
-        }
+
+            let setup_code = "globalThis.app = undefined; globalThis.Deka = globalThis.Deka || {};";
+            if let Err(err) = isolate
+                .runtime
+                .execute_script("setup.js", ModuleCodeString::from(setup_code.to_string()))
+            {
+                isolate.active_requests = 0;
+                isolate.state = IsolateState::Idle;
+                return (
+                    ExecutionOutcome::Err(format!("Setup failed: {}", err)),
+                    ExecutionProfile::empty(),
+                );
+            }
+
+            Some(wrapped)
+        } else {
+            None
+        };
 
         if let Err(err) = set_request_globals(
             &mut isolate.runtime,
@@ -2418,30 +2484,30 @@ impl WorkerThread {
             );
         }
 
-        if use_code_cache {
-            let source_hash = Self::hash_source(&request.request_data.handler_code);
-            if let Err(err) = Self::compile_handler(
-                &mut isolate.runtime,
-                code_cache,
-                source_hash,
-                &wrapped_handler_code,
-            ) {
-                isolate.active_requests = 0;
-                isolate.state = IsolateState::Idle;
-                let formatted = validation::format_runtime_syntax_error(
-                    &err,
-                    &request.request_data.handler_code,
-                    &key.name,
-                );
-                return (
-                    ExecutionOutcome::Err(formatted.unwrap_or(err)),
-                    ExecutionProfile::empty(),
-                );
-            }
-        } else {
-            if let Err(err) = isolate
+        if let Some(wrapped_handler_code) = wrapped_handler_code.as_ref() {
+            if use_code_cache {
+                let source_hash = Self::hash_source(&request.request_data.handler_code);
+                if let Err(err) = Self::compile_handler(
+                    &mut isolate.runtime,
+                    code_cache,
+                    source_hash,
+                    wrapped_handler_code,
+                ) {
+                    isolate.active_requests = 0;
+                    isolate.state = IsolateState::Idle;
+                    let formatted = validation::format_runtime_syntax_error(
+                        &err,
+                        &request.request_data.handler_code,
+                        &key.name,
+                    );
+                    return (
+                        ExecutionOutcome::Err(formatted.unwrap_or(err)),
+                        ExecutionProfile::empty(),
+                    );
+                }
+            } else if let Err(err) = isolate
                 .runtime
-                .execute_script("handler.js", ModuleCodeString::from(wrapped_handler_code))
+                .execute_script("handler.js", ModuleCodeString::from(wrapped_handler_code.to_string()))
             {
                 let raw = err.to_string();
                 if parse_exit_code(&raw).is_none() {
@@ -2460,6 +2526,53 @@ impl WorkerThread {
                         ExecutionProfile::empty(),
                     );
                 }
+            }
+        } else if use_esm {
+            if !isolate.handler_loaded {
+                let spec = match isolate.entry_specifier.as_ref() {
+                    Some(spec) => spec,
+                    None => {
+                        isolate.active_requests = 0;
+                        isolate.state = IsolateState::Idle;
+                        return (
+                            ExecutionOutcome::Err("missing module entry specifier".to_string()),
+                            ExecutionProfile::empty(),
+                        );
+                    }
+                };
+                let module_id = match isolate.runtime.load_main_es_module(spec).await {
+                    Ok(id) => id,
+                    Err(err) => {
+                        isolate.active_requests = 0;
+                        isolate.state = IsolateState::Idle;
+                        return (
+                            ExecutionOutcome::Err(format!("Failed to load module: {}", err)),
+                            ExecutionProfile::empty(),
+                        );
+                    }
+                };
+                let eval = isolate.runtime.mod_evaluate(module_id);
+                if let Err(err) = isolate
+                    .runtime
+                    .run_event_loop(deno_core::PollEventLoopOptions::default())
+                    .await
+                {
+                    isolate.active_requests = 0;
+                    isolate.state = IsolateState::Idle;
+                    return (
+                        ExecutionOutcome::Err(format!("Module event loop failed: {}", err)),
+                        ExecutionProfile::empty(),
+                    );
+                }
+                if let Err(err) = eval.await {
+                    isolate.active_requests = 0;
+                    isolate.state = IsolateState::Idle;
+                    return (
+                        ExecutionOutcome::Err(format!("Module evaluation failed: {}", err)),
+                        ExecutionProfile::empty(),
+                    );
+                }
+                isolate.handler_loaded = true;
             }
         }
 

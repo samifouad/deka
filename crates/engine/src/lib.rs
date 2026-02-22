@@ -16,6 +16,7 @@ pub use introspect_archive::IntrospectArchive;
 pub struct RuntimeState {
     pub engine: Arc<engine::RuntimeEngine>,
     pub handler_code: String,
+    pub handler_entry: Option<String>,
     pub handler_key: HandlerKey,
     pub perf_mode: bool,
     pub perf_request_value: serde_json::Value,
