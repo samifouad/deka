@@ -68,6 +68,7 @@ impl TypeSyntaxValidator<'_> {
                 let expected = match base_last {
                     "Option" => Some(1),
                     "Result" => Some(2),
+                    "Promise" => Some(1),
                     "array" | "Array" => Some(1),
                     _ => None,
                 };
@@ -89,7 +90,7 @@ impl TypeSyntaxValidator<'_> {
                         ErrorKind::TypeError,
                         type_span(base),
                         format!("Unsupported generic base type '{}'.", base_last),
-                        "Use Option<T>, Result<T, E>, or array<T>.",
+                        "Use Option<T>, Result<T, E>, Promise<T>, or array<T>.",
                     );
                 }
             }

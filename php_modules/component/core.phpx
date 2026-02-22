@@ -13,13 +13,17 @@ struct Context {
 }
 
 function &__component_context_stack() {
-    static $stack = [];
-    return $stack;
+    if (!isset($GLOBALS['__component_context_stack'])) {
+        $GLOBALS['__component_context_stack'] = [];
+    }
+    return $GLOBALS['__component_context_stack'];
 }
 
 function &__component_context_next_id() {
-    static $next = 1;
-    return $next;
+    if (!isset($GLOBALS['__component_context_next_id'])) {
+        $GLOBALS['__component_context_next_id'] = 1;
+    }
+    return $GLOBALS['__component_context_next_id'];
 }
 
 /// docid: phpx/component/jsx()

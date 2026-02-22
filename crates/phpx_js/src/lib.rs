@@ -400,6 +400,8 @@ impl<'a> JsSubsetEmitter<'a> {
         out.push_str("if (!globalThis.strlen) { globalThis.strlen = (value) => String(value ?? '').length; }\n");
         out.push_str("if (!globalThis.count) { globalThis.count = (value) => { if (Array.isArray(value) || typeof value === 'string') return value.length; if (value && typeof value === 'object') return Object.keys(value).length; return 0; }; }\n");
         out.push_str("if (!globalThis.time) { globalThis.time = () => Math.floor(Date.now() / 1000); }\n");
+        out.push_str("if (!globalThis.getenv) { globalThis.getenv = (name) => { const key = String(name ?? ''); const env = globalThis.process && globalThis.process.env ? globalThis.process.env : null; if (!env || !Object.prototype.hasOwnProperty.call(env, key)) return false; const value = env[key]; return value === undefined || value === null ? false : String(value); }; }\n");
+        out.push_str("if (!globalThis.is_promise) { globalThis.is_promise = (value) => Boolean(value && typeof value === 'object' && typeof value.then === 'function'); }\n");
         out.push_str("if (!globalThis.GLOBALS || typeof globalThis.GLOBALS !== 'object') { globalThis.GLOBALS = {}; }\n");
         out.push_str("if (typeof globalThis.JSON_ERROR_NONE !== 'number') { globalThis.JSON_ERROR_NONE = 0; }\n");
         out.push_str("if (typeof globalThis.JSON_ERROR_DEPTH !== 'number') { globalThis.JSON_ERROR_DEPTH = 1; }\n");
@@ -429,7 +431,7 @@ impl<'a> JsSubsetEmitter<'a> {
         out.push_str("if (!globalThis.__deka_symbol_exists) { globalThis.__deka_symbol_exists = (name) => { const key = String(name); return Object.prototype.hasOwnProperty.call(globalThis.__phpx_symbol_table, key); }; }\n");
         out.push_str("if (!globalThis.__phpx_array_cursor) { globalThis.__phpx_array_cursor = new WeakMap(); }\n");
         out.push_str("if (!globalThis.__deka_array_cursor) { globalThis.__deka_array_cursor = (arr, action) => { if (!arr || (typeof arr !== 'object' && !Array.isArray(arr))) return null; const map = globalThis.__phpx_array_cursor; let state = map.get(arr); if (!state) { state = { idx: 0 }; map.set(arr, state); } const keys = Object.keys(arr); if (keys.length === 0) return null; const clamp = () => { if (state.idx < 0) state.idx = 0; if (state.idx >= keys.length) state.idx = keys.length - 1; }; switch (String(action)) { case 'reset': state.idx = 0; break; case 'end': state.idx = keys.length - 1; break; case 'next': state.idx += 1; if (state.idx >= keys.length) return null; break; case 'prev': state.idx -= 1; if (state.idx < 0) return null; break; case 'pos': case 'current': break; case 'key': break; default: return null; } clamp(); const key = keys[state.idx]; if (String(action) === 'key') return key; return arr[key]; }; }\n\n");
-        out.push_str("if (!globalThis.is_array || !globalThis.is_array.__deka_polyfill) { const __isArray = (value) => Array.isArray(value) || (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype); __isArray.__deka_polyfill = true; globalThis.is_array = __isArray; }\n\n");
+        out.push_str("if (!globalThis.is_array || !globalThis.is_array.__deka_polyfill) { const __isArray = (value) => { if (Array.isArray(value)) return true; if (!(value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype)) return false; if (Object.prototype.hasOwnProperty.call(value, '__struct')) return false; return true; }; __isArray.__deka_polyfill = true; globalThis.is_array = __isArray; }\n\n");
 
         let mut imports = self.meta.imports.clone();
         if self.uses_jsx_runtime {
@@ -799,9 +801,21 @@ impl<'a> JsSubsetEmitter<'a> {
                 Ok(())
             }
             Stmt::Global { vars, .. } => {
-                if !vars.is_empty() {
-                    self.body
-                        .push_str("// global declarations are no-ops in JS subset mode\n");
+                for var in *vars {
+                    if let Expr::Variable { name, .. } = *var {
+                        let local = self.span_name(*name);
+                        if local.is_empty() {
+                            continue;
+                        }
+                        if !self.is_declared(&local) {
+                            self.declare_in_scope(&local);
+                            self.body
+                                .push_str(&format!("let {} = globalThis.{};\n", local, local));
+                        } else {
+                            self.body
+                                .push_str(&format!("{} = globalThis.{};\n", local, local));
+                        }
+                    }
                 }
                 Ok(())
             }
@@ -959,11 +973,20 @@ impl<'a> JsSubsetEmitter<'a> {
             }
             Stmt::Expression { expr, .. } => {
                 if let Some((name, rhs)) = self.assignment_to_named_var(*expr)? {
+                    let top_level = self.scopes.len() == 1;
                     if !self.is_declared(&name) {
                         self.declare_in_scope(&name);
                         self.body.push_str(&format!("let {} = {};\n", name, rhs));
+                        if top_level {
+                            self.body
+                                .push_str(&format!("globalThis.{} = {};\n", name, name));
+                        }
                     } else {
                         self.body.push_str(&format!("{} = {};\n", name, rhs));
+                        if top_level {
+                            self.body
+                                .push_str(&format!("globalThis.{} = {};\n", name, name));
+                        }
                     }
                 } else {
                     let value = self.emit_expr(*expr)?;
@@ -1166,7 +1189,12 @@ impl<'a> JsSubsetEmitter<'a> {
                 for param in *params {
                     names.push(self.token_name(param.name));
                 }
+                self.push_scope();
+                for param in *params {
+                    self.declare_in_scope(&self.token_name(param.name));
+                }
                 let body = self.emit_expr(*expr)?;
+                self.pop_scope();
                 Ok(format!("({}) => {}", names.join(", "), body))
             }
             Expr::Closure { params, body, is_async, .. } => {
@@ -1174,11 +1202,7 @@ impl<'a> JsSubsetEmitter<'a> {
                 for param in *params {
                     names.push(self.token_name(param.name));
                 }
-                let defaults = self.emit_param_default_guards_inline(params)?;
-                let mut block = self.emit_stmt_block_inline(body)?;
-                if !defaults.is_empty() {
-                    block = format!("{}{}", defaults, block);
-                }
+                let block = self.emit_method_block(params, body)?;
                 let async_kw = if *is_async { "async " } else { "" };
                 Ok(format!("{}function({}) {{\n{} }}", async_kw, names.join(", "), block))
             }
@@ -1359,7 +1383,17 @@ impl<'a> JsSubsetEmitter<'a> {
             } => {
                 let target_js = self.emit_expr(*target)?;
                 let prop = self.token_text(property);
-                Ok(format!("{}.{}", target_js, prop))
+                if let Some(raw) = prop.strip_prefix('$') {
+                    let name = self.sanitize_name(raw);
+                    let value = if self.is_declared(&name) {
+                        name
+                    } else {
+                        format!("globalThis.{}", name)
+                    };
+                    Ok(format!("{}[{}]", target_js, value))
+                } else {
+                    Ok(format!("{}.{}", target_js, prop))
+                }
             }
             Expr::ArrayDimFetch { array, dim, .. } => {
                 let array_js = self.emit_expr(*array)?;

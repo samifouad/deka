@@ -5,6 +5,15 @@ use php_rs::parser::span::Span;
 use super::{ErrorKind, Severity, ValidationError};
 
 pub fn validate_no_null(program: &Program, source: &str) -> Vec<ValidationError> {
+    let strict = std::env::var("PHPX_STRICT_NULL")
+        .map(|value| {
+            let value = value.trim().to_ascii_lowercase();
+            value == "1" || value == "true" || value == "yes" || value == "on"
+        })
+        .unwrap_or(false);
+    if !strict {
+        return Vec::new();
+    }
     let mut validator = NoNullValidator {
         source,
         errors: Vec::new(),

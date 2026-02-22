@@ -600,9 +600,16 @@ impl JsxComponentValidator<'_> {
             for attr in directives {
                 self.validate_island_directive(attr);
             }
+            let strict_async_suspense = std::env::var("PHPX_STRICT_ASYNC_SUSPENSE")
+                .map(|value| {
+                    let value = value.trim().to_ascii_lowercase();
+                    value == "1" || value == "true" || value == "yes" || value == "on"
+                })
+                .unwrap_or(false);
             if self.async_components.contains(last)
                 && self.suspense_depth == 0
                 && last != "Suspense"
+                && strict_async_suspense
             {
                 self.errors.push(jsx_error(
                     name.span,

@@ -2162,8 +2162,20 @@ impl WorkerThread {
                         return { ok: false, error: `unknown bridge kind '${kind}'` };
                     };
 
-                    globalThis.__bridge = (kind, action, payload) => routeHostCall(String(kind || ''), String(action || ''), payload || {});
-                    globalThis.__bridge_async = async (kind, action, payload) => routeHostCall(String(kind || ''), String(action || ''), payload || {});
+                    globalThis.__bridge = (kind, action, payload) => {
+                        try {
+                            return routeHostCall(String(kind || ''), String(action || ''), payload || {});
+                        } catch (err) {
+                            return { ok: false, error: err && err.message ? String(err.message) : String(err) };
+                        }
+                    };
+                    globalThis.__bridge_async = async (kind, action, payload) => {
+                        try {
+                            return routeHostCall(String(kind || ''), String(action || ''), payload || {});
+                        } catch (err) {
+                            return { ok: false, error: err && err.message ? String(err.message) : String(err) };
+                        }
+                    };
                     globalThis.__deka_wasm_call = (moduleId, exportName, payload) => {
                         const name = String(moduleId || '');
                         if (name.startsWith('__deka_')) {
