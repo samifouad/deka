@@ -10,19 +10,19 @@ Reduce prompt spam in `deka run/serve/task` while keeping default-deny behavior 
 ## Task List
 - [x] Stabilize `deka init` so a fresh project boots reliably with current security defaults.
 - [x] Tighten `deka init` security defaults to remove broad allow warnings (`read=.` / `env=*` / `wasm=*`).
-- [ ] Classify permission checks by origin:
+- [x] Classify permission checks by origin:
   - [x] `runtime-internal` (module loading, cache materialization, manifest/lockfile reads).
   - [x] `project-owned` (app code + local modules).
   - [x] `third-party` (installed packages, registry artifacts).
 - [x] Enforce privileged bypass only for `runtime-internal` operations.
-- [ ] Collapse repeated prompts into scoped decisions:
+- [x] Collapse repeated prompts into scoped decisions:
   - [x] directory-level read/write grants for current process session.
   - [x] capability-level env grants for known safe runtime keys.
-- [ ] Improve denial errors with structured suggestions:
+- [x] Improve denial errors with structured suggestions:
   - [x] exact `deka.json` path/key to edit.
   - [x] minimal allow rule to unblock.
   - [x] short risk note.
-- [ ] Add regression tests:
+- [x] Add regression tests:
   - [x] fresh init + `deka task dev` boots without interactive prompt cascade.
   - [x] userland package access still prompts/denies correctly when not allowed.
   - [x] third-party module remains denied by default without explicit rule.

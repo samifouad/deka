@@ -2023,8 +2023,8 @@ fn is_internal_security_target(target: &str) -> bool {
 #[cfg(test)]
 mod security_rule_tests {
     use super::{
-        RuleList, is_internal_security_target, is_runtime_safe_env_key, match_rule_item,
-        prompt_scope_key, rule_allows, rule_denies,
+        RuleList, classify_security_origin, is_internal_security_target, is_runtime_safe_env_key,
+        match_rule_item, prompt_scope_key, rule_allows, rule_denies,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -2095,6 +2095,14 @@ mod security_rule_tests {
         assert_eq!(
             prompt_scope_key("env", Some("DATABASE_URL")),
             "env::DATABASE_URL"
+        );
+    }
+
+    #[test]
+    fn relative_deps_classifies_as_third_party() {
+        assert_eq!(
+            classify_security_origin("read", Some("./deps/evil.txt")),
+            "third-party"
         );
     }
 }
@@ -2281,7 +2289,7 @@ fn classify_security_origin(capability: &str, target: Option<&str>) -> &'static 
             Some(path.to_path_buf())
         };
         if let Some(rel) = rel {
-            let rel_str = rel.to_string_lossy().replace('\\', "/");
+            let rel_str = normalize_rel_like(&rel.to_string_lossy().replace('\\', "/"));
             if rel_str.starts_with("deps/")
                 || rel_str.starts_with("vendor/")
                 || rel_str.starts_with("node_modules/")
@@ -2370,7 +2378,7 @@ fn suggest_read_rule(target: &str, project_kind: ProjectKind) -> Option<String> 
     let root = project_root()?;
     let path = std::path::Path::new(target);
     let rel = path.strip_prefix(&root).ok().unwrap_or(path);
-    let rel_str = rel.to_string_lossy();
+    let rel_str = normalize_rel_like(&rel.to_string_lossy());
     if rel_str.starts_with("deps/") {
         return Some("security.allow.read = [\"./deps\"]".to_string());
     }
@@ -2399,7 +2407,7 @@ fn suggest_write_rule(target: &str, project_kind: ProjectKind) -> Option<String>
     let root = project_root()?;
     let path = std::path::Path::new(target);
     let rel = path.strip_prefix(&root).ok().unwrap_or(path);
-    let rel_str = rel.to_string_lossy();
+    let rel_str = normalize_rel_like(&rel.to_string_lossy());
     if rel_str.starts_with("php_modules/.cache") {
         return Some("security.allow.write = [\"./php_modules/.cache\"]".to_string());
     }
@@ -2607,7 +2615,7 @@ fn rule_items_for_path(target: &str, _project_kind: ProjectKind, is_read: bool) 
         .as_ref()
         .and_then(|root| path.strip_prefix(root).ok())
         .unwrap_or(path);
-    let rel_str = rel.to_string_lossy().replace('\\', "/");
+    let rel_str = normalize_rel_like(&rel.to_string_lossy().replace('\\', "/"));
 
     let item = if rel_str.starts_with("php_modules/.cache") {
         "./php_modules/.cache".to_string()
@@ -2632,6 +2640,15 @@ fn rule_items_for_path(target: &str, _project_kind: ProjectKind, is_read: bool) 
     };
 
     vec![item]
+}
+
+fn normalize_rel_like(input: &str) -> String {
+    let normalized = input.replace('\\', "/");
+    let mut out = normalized.trim().to_string();
+    while out.starts_with("./") {
+        out = out[2..].to_string();
+    }
+    out
 }
 
 fn enforce_read(target: Option<&str>) -> Result<(), deno_core::error::CoreError> {
