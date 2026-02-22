@@ -53,7 +53,10 @@ Move PHPX execution to a JS-first runtime: transpile PHPX to JS and execute via 
 - PHPX conformance suite: `PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js`
 - At least one JS runtime E2E (router + stdlib JSON).
 - `scripts/e2e-js-runtime-router-components-stdlib.sh`
+- `scripts/e2e-mvp2-run-serve-build.sh`
+- `scripts/e2e-js-runtime-fallback-diagnostics.sh`
 
 ## Progress Notes
 - 2026-02-22: PHPX conformance green in `mvp2` (`59/59` via `node tests/phpx/testrunner.js`).
 - 2026-02-22: `deka init` now writes `php_modules/stdlib.json` from discovered module graph so fresh projects can run `deka build` without missing stdlib manifest errors.
+- 2026-02-22: Added smoke coverage scripts for run/serve/build and fallback diagnostics.

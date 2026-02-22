@@ -2024,7 +2024,7 @@ fn is_internal_security_target(target: &str) -> bool {
 mod security_rule_tests {
     use super::{
         RuleList, classify_security_origin, is_internal_security_target, is_runtime_safe_env_key,
-        match_rule_item, prompt_scope_key, rule_allows, rule_denies,
+        match_rule_item, normalize_rel_like, prompt_scope_key, rule_allows, rule_denies,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -2104,6 +2104,26 @@ mod security_rule_tests {
             classify_security_origin("read", Some("./deps/evil.txt")),
             "third-party"
         );
+    }
+
+    #[test]
+    fn relative_app_classifies_as_project_owned() {
+        assert_eq!(
+            classify_security_origin("read", Some("./app/main.phpx")),
+            "project-owned"
+        );
+    }
+
+    #[test]
+    fn normalize_rel_like_strips_dot_prefixes() {
+        assert_eq!(normalize_rel_like("./deps/../deps/file.txt"), "deps/../deps/file.txt");
+        assert_eq!(normalize_rel_like("././app/main.phpx"), "app/main.phpx");
+    }
+
+    #[test]
+    fn prompt_scope_key_collapses_read_paths_to_directory_rule() {
+        let key = prompt_scope_key("read", Some("./deps/evil.txt"));
+        assert_eq!(key, "read::./deps");
     }
 }
 
