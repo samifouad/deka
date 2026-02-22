@@ -177,7 +177,7 @@ fn example_for_warning(path: &str, project_kind: ProjectKind) -> Option<String> 
     let example = match (project_kind, capability) {
         (ProjectKind::Php, "read") => "security.allow.read = [\"./php_modules\"]",
         (ProjectKind::Php, "write") => "security.allow.write = [\"./php_modules/.cache\"]",
-        (ProjectKind::Php, "wasm") => "security.allow.wasm = [\"php_rs.wasm\"]",
+        (ProjectKind::Php, "wasm") => "security.allow.wasm = [\"module.wasm\"]",
         (ProjectKind::Php, "net") => "security.allow.net = [\"localhost:5432\"]",
         (ProjectKind::Php, "env") => "security.allow.env = [\"DATABASE_URL\"]",
         (ProjectKind::Php, "run") => "security.allow.run = [\"git\"]",
@@ -222,7 +222,7 @@ fn example_patch_for_warning(path: &str, project_kind: ProjectKind) -> Option<St
     let entries = match (project_kind, capability) {
         (ProjectKind::Php, "read") => vec!["./php_modules"],
         (ProjectKind::Php, "write") => vec!["./php_modules/.cache"],
-        (ProjectKind::Php, "wasm") => vec!["php_rs.wasm"],
+        (ProjectKind::Php, "wasm") => vec!["module.wasm"],
         (ProjectKind::Php, "net") => vec!["localhost:5432"],
         (ProjectKind::Php, "env") => vec!["DATABASE_URL"],
         (ProjectKind::Php, "run") => vec!["git"],

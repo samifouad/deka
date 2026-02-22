@@ -463,7 +463,7 @@ fn path_display(path: &Path) -> String {
 
 fn default_deka_json(name: &str) -> String {
     format!(
-        "{{\n  \"name\": \"{}\",\n  \"type\": \"serve\",\n  \"serve\": {{ \"entry\": \"app/main.phpx\" }},\n  \"tasks\": {{ \"dev\": \"deka serve --dev\" }},\n  \"security\": {{\n    \"allow\": {{\n      \"read\": [\"./app\", \"./php_modules\", \"./deka.json\", \"./deka.lock\", \"./public\"],\n      \"write\": [\"./.cache\", \"./php_modules/.cache\", \"./deka.lock\"],\n      \"wasm\": [\"php_rs.wasm\"],\n      \"env\": [\"PORT\"]\n    }}\n  }}\n}}\n",
+        "{{\n  \"name\": \"{}\",\n  \"type\": \"serve\",\n  \"serve\": {{ \"entry\": \"app/main.phpx\" }},\n  \"tasks\": {{ \"dev\": \"deka serve --dev\" }},\n  \"security\": {{\n    \"allow\": {{\n      \"read\": [\"./app\", \"./php_modules\", \"./deka.json\", \"./deka.lock\", \"./public\"],\n      \"write\": [\"./.cache\", \"./php_modules/.cache\", \"./deka.lock\"],\n      \"env\": [\"PORT\"]\n    }}\n  }}\n}}\n",
         name
     )
 }

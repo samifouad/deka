@@ -468,7 +468,7 @@ fn broad_allow_hint(path: &str) -> Option<String> {
         return Some("Prefer explicit drivers like \"postgres\" or \"sqlite\".".to_string());
     }
     if path.ends_with(".wasm") {
-        return Some("Prefer explicit modules like \"php_rs.wasm\".".to_string());
+        return Some("Prefer explicit modules like \"module.wasm\".".to_string());
     }
     None
 }
@@ -485,7 +485,7 @@ fn weak_allow_warning(path: &str, item: &str) -> Option<String> {
         "env" => "Prefer explicit vars like \"DATABASE_URL\".",
         "run" => "Prefer explicit binaries like \"git\" or \"deka\".",
         "db" => "Prefer explicit drivers like \"postgres\" or \"sqlite\".",
-        "wasm" => "Prefer explicit modules like \"php_rs.wasm\".",
+        "wasm" => "Prefer explicit modules like \"module.wasm\".",
         _ => return None,
     };
     Some(format!("Rule item \"{}\" is very broad. {}", item, hint))
