@@ -32,6 +32,7 @@ pub struct JsBundle {
 pub struct BundleOptions {
     pub project_root: PathBuf,
     pub minify: bool,
+    pub iife: bool,
 }
 
 pub trait VirtualSource: Send + Sync {
@@ -64,7 +65,11 @@ pub fn bundle_virtual_entry(
             disable_fixer: false,
             disable_dce: false,
             external_modules: Vec::new(),
-            module: ModuleType::Es,
+            module: if options.iife {
+                ModuleType::Iife
+            } else {
+                ModuleType::Es
+            },
         },
         Box::new(NoopHook),
     );

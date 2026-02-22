@@ -1,0 +1,193 @@
+use std::collections::BTreeSet;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use bundler::{bundle_virtual_entry, BundleOptions, VirtualSource};
+use phpx_js::{compile_phpx_source_to_js, parse_source_module_meta, SourceModuleMeta};
+
+pub fn build_phpx_handler_bundle(handler_path: &str) -> Result<String, String> {
+    let input_path = Path::new(handler_path);
+    let input = input_path
+        .to_str()
+        .ok_or_else(|| format!("invalid utf-8 path: {}", input_path.display()))?;
+
+    let source = fs::read_to_string(input_path)
+        .map_err(|err| format!("failed to read {}: {}", input_path.display(), err))?;
+    let meta = parse_source_module_meta(&source);
+
+    let project_root = resolve_project_root(input_path)?;
+    ensure_project_layout(&project_root, &meta)?;
+
+    let entry_js = compile_phpx_source_to_js(&source, input, meta)?;
+    let entry_path = fs::canonicalize(input_path)
+        .map_err(|err| format!("failed to resolve {}: {}", input_path.display(), err))?;
+
+    let provider = Arc::new(PhpxBundleProvider::new(entry_path.clone(), entry_js));
+    bundle_virtual_entry(
+        &entry_path,
+        BundleOptions {
+            project_root,
+            minify: false,
+            iife: true,
+        },
+        provider,
+    )
+}
+
+struct PhpxBundleProvider {
+    entry_path: PathBuf,
+    entry_source: String,
+}
+
+impl PhpxBundleProvider {
+    fn new(entry_path: PathBuf, entry_source: String) -> Self {
+        Self {
+            entry_path,
+            entry_source,
+        }
+    }
+}
+
+impl VirtualSource for PhpxBundleProvider {
+    fn load_virtual(&self, path: &Path) -> Result<Option<String>, String> {
+        if path == self.entry_path {
+            return Ok(Some(self.entry_source.clone()));
+        }
+
+        if path.extension().and_then(|ext| ext.to_str()) != Some("phpx") {
+            return Ok(None);
+        }
+
+        let input = path
+            .to_str()
+            .ok_or_else(|| format!("invalid utf-8 path: {}", path.display()))?;
+        let source =
+            fs::read_to_string(path).map_err(|err| format!("failed to read {}: {}", input, err))?;
+        let meta = parse_source_module_meta(&source);
+        let js = compile_phpx_source_to_js(&source, input, meta)?;
+        Ok(Some(js))
+    }
+}
+
+fn resolve_project_root(input_path: &Path) -> Result<PathBuf, String> {
+    let start = if input_path.is_dir() {
+        input_path.to_path_buf()
+    } else {
+        input_path.parent().unwrap_or(Path::new(".")).to_path_buf()
+    };
+
+    for dir in start.ancestors() {
+        if dir.join("deka.json").is_file() {
+            return Ok(dir.to_path_buf());
+        }
+    }
+
+    Err(format!(
+        "deka run requires a deka.json project root (searched from {})",
+        input_path.display()
+    ))
+}
+
+fn ensure_project_layout(project_root: &Path, meta: &SourceModuleMeta) -> Result<(), String> {
+    let lock_path = project_root.join("deka.lock");
+    if !lock_path.is_file() {
+        return Err(format!(
+            "deka run requires deka.lock at project root: {}",
+            lock_path.display()
+        ));
+    }
+
+    let stdlib_imports = collect_stdlib_imports(meta);
+    if stdlib_imports.is_empty() {
+        return Ok(());
+    }
+
+    let modules_dir = project_root.join("php_modules");
+    if !modules_dir.is_dir() {
+        return Err(format!(
+            "deka run requires php_modules/ at project root when using stdlib imports ({})",
+            stdlib_imports.join(", ")
+        ));
+    }
+
+    let mut missing = Vec::new();
+    for spec in stdlib_imports {
+        if resolve_module_file(&modules_dir, &spec).is_none() {
+            missing.push(spec);
+        }
+    }
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "missing stdlib modules under {}: {}",
+            modules_dir.display(),
+            missing.join(", ")
+        ))
+    }
+}
+
+fn collect_stdlib_imports(meta: &SourceModuleMeta) -> Vec<String> {
+    let mut seen = BTreeSet::new();
+    for decl in &meta.imports {
+        let spec = decl.from.trim();
+        if is_stdlib_module_spec(spec) {
+            seen.insert(spec.to_string());
+        }
+    }
+    seen.into_iter().collect()
+}
+
+fn is_stdlib_module_spec(spec: &str) -> bool {
+    if !is_bare_specifier(spec) || spec.starts_with("@user/") {
+        return false;
+    }
+
+    spec.starts_with("component/")
+        || spec.starts_with("deka/")
+        || spec.starts_with("encoding/")
+        || spec.starts_with("db/")
+        || matches!(
+            spec,
+            "json"
+                | "postgres"
+                | "mysql"
+                | "sqlite"
+                | "bytes"
+                | "buffer"
+                | "tcp"
+                | "tls"
+                | "fs"
+                | "crypto"
+                | "jwt"
+                | "cookies"
+                | "auth"
+                | "db"
+        )
+}
+
+fn resolve_module_file(modules_dir: &Path, spec: &str) -> Option<PathBuf> {
+    let mut candidates = vec![
+        modules_dir.join(format!("{}.phpx", spec)),
+        modules_dir.join(format!("{}.php", spec)),
+        modules_dir.join(spec).join("index.phpx"),
+        modules_dir.join(spec).join("index.php"),
+    ];
+
+    if spec.ends_with(".phpx") || spec.ends_with(".php") {
+        candidates.insert(0, modules_dir.join(spec));
+    }
+
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+fn is_bare_specifier(spec: &str) -> bool {
+    !spec.is_empty()
+        && !spec.starts_with("./")
+        && !spec.starts_with("../")
+        && !spec.starts_with('/')
+        && !spec.starts_with("http://")
+        && !spec.starts_with("https://")
+}

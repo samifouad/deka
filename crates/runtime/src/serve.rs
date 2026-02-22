@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
+use crate::js_pipeline::build_phpx_handler_bundle;
 use crate::security::resolve_security_policy;
 use core::Context;
 use engine::{RuntimeEngine, RuntimeState, config as runtime_config, set_engine};
@@ -16,7 +17,6 @@ use pool::validation::{PoolWorkers, extract_pool_options};
 use pool::{HandlerKey, PoolConfig};
 use runtime_core::env::{flag_or_env_truthy_with, set_dev_flag_with, set_handler_path_with};
 use runtime_core::modules::ensure_phpx_module_root_env_with;
-use runtime_core::php_pipeline::build_serve_handler_code;
 use runtime_core::validation::validate_phpx_handler_with;
 use stdio as stdio_log;
 use transport::{
@@ -135,7 +135,7 @@ async fn serve_async(context: &Context) -> Result<(), String> {
             .unwrap_or(&handler_path),
     );
 
-    let handler_code = build_handler_code(&handler_path, &resolved);
+    let handler_code = build_handler_code(&handler_path, &resolved)?;
 
     let perf_request_value = serde_json::json!({
         "url": "http://localhost/",
@@ -280,9 +280,12 @@ fn configure_pools(
     (server_pool_config, user_pool_config)
 }
 
-fn build_handler_code(handler_path: &str, resolved: &runtime_config::ResolvedHandler) -> String {
+fn build_handler_code(
+    handler_path: &str,
+    resolved: &runtime_config::ResolvedHandler,
+) -> Result<String, String> {
     match resolved.mode {
-        runtime_config::ServeMode::Php => build_serve_handler_code(handler_path),
+        runtime_config::ServeMode::Php => build_phpx_handler_bundle(handler_path),
         runtime_config::ServeMode::Static => {
             let listing = resolved.config.directory_listing.unwrap_or(true);
             let static_path = std::path::Path::new(handler_path);
@@ -301,7 +304,7 @@ fn build_handler_code(handler_path: &str, resolved: &runtime_config::ResolvedHan
                     .to_string();
                 (root, default_file)
             };
-            build_static_handler_code(&root, &default_file, listing)
+            Ok(build_static_handler_code(&root, &default_file, listing))
         }
     }
 }

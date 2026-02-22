@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::env::init_env;
 use crate::extensions::extensions_for_mode;
+use crate::js_pipeline::build_phpx_handler_bundle;
 use crate::security::resolve_security_policy;
 use core::Context;
 use engine::{RuntimeEngine, config as runtime_config, set_engine};
@@ -15,7 +16,6 @@ use runtime_core::handler::{
     handler_input_with, is_html_entry, is_php_entry, normalize_handler_path_with,
 };
 use runtime_core::modules::ensure_phpx_module_root_env_with;
-use runtime_core::php_pipeline::build_run_handler_code;
 use runtime_core::process::parse_exit_code;
 use runtime_core::validation::validate_phpx_handler_with;
 
@@ -101,7 +101,7 @@ async fn run_async(context: &Context) -> Result<(), String> {
     let _ = std::fs::read_to_string(&normalized)
         .map_err(|err| format!("Failed to read handler from {}: {}", normalized, err))?;
 
-    let handler_code = build_run_handler_code(&normalized);
+    let handler_code = build_phpx_handler_bundle(&normalized)?;
 
     let runtime_cfg = runtime_config::RuntimeConfig::load();
     let mut pool_config = PoolConfig::from_env();

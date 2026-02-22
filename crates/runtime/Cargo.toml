@@ -13,6 +13,8 @@ pool = { path = "../pool" }
 transport = { path = "../transport" }
 stdio = { path = "../stdio" }
 modules_php = { path = "../modules_php" }
+phpx_js = { path = "../phpx_js" }
+bundler = { path = "../bundler" }
 deno_core = { workspace = true }
 notify = { workspace = true }
 num_cpus = { workspace = true }

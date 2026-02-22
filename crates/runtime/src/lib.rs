@@ -2,6 +2,7 @@ use core::Context;
 
 mod env;
 mod extensions;
+mod js_pipeline;
 mod run;
 mod security;
 mod serve;

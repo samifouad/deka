@@ -570,6 +570,7 @@ dependencies = [
  "introspect",
  "modules_php",
  "php-rs",
+ "phpx_js",
  "phpx_lsp",
  "pm",
  "postgres",
@@ -3090,6 +3091,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "phpx_js"
+version = "0.1.0"
+dependencies = [
+ "bumpalo",
+ "modules_php",
+ "php-rs",
+ "serde_json",
+]
+
+[[package]]
 name = "phpx_lsp"
 version = "0.1.0"
 dependencies = [
@@ -3766,6 +3777,7 @@ dependencies = [
 name = "runtime"
 version = "0.1.0"
 dependencies = [
+ "bundler",
  "core",
  "deno_core",
  "engine",
@@ -3773,6 +3785,7 @@ dependencies = [
  "modules_php",
  "notify",
  "num_cpus",
+ "phpx_js",
  "platform",
  "platform_server",
  "pool",
