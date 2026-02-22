@@ -1,5 +1,6 @@
 use core::{CommandSpec, Context, Registry};
 use serde_json::{Map, Value};
+use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use stdio::{error as stdio_error, raw};
 
@@ -123,119 +124,20 @@ pub fn cmd(context: &Context) {
         touched.push(path_display(&deka_php));
     }
 
-    if let Err(err) = ensure_file(
-        &php_modules.join("component").join("core.phpx"),
-        load_module_template("component/core.phpx").unwrap_or_else(default_component_core_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_file(
-        &php_modules.join("component").join("dom.phpx"),
-        load_module_template("component/dom.phpx").unwrap_or_else(default_component_dom_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-    if let Err(err) = ensure_file(
-        &php_modules.join("component").join("router.phpx"),
-        load_module_template("component/router.phpx").unwrap_or_else(default_component_router_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_file(
-        &php_modules.join("encoding").join("json").join("index.phpx"),
-        load_module_template("encoding/json/index.phpx")
-            .unwrap_or_else(default_encoding_json_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_file(
-        &php_modules.join("fs").join("index.phpx"),
-        load_module_template("fs/index.phpx").unwrap_or_else(default_fs_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_file(
-        &php_modules.join("time").join("index.phpx"),
-        load_module_template("time/index.phpx").unwrap_or_else(default_time_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_file(
-        &php_modules.join("core").join("result.phpx"),
-        load_module_template("core/result.phpx").unwrap_or_else(default_core_result_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_file(
-        &php_modules.join("core").join("byte.phpx"),
-        load_module_template("core/byte.phpx").unwrap_or_else(default_core_byte_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_file(
-        &php_modules.join("core").join("bytes.phpx"),
-        load_module_template("core/bytes.phpx").unwrap_or_else(default_core_bytes_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_file(
-        &php_modules.join("core").join("num.phpx"),
-        load_module_template("core/num.phpx").unwrap_or_else(default_core_num_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_file(
-        &php_modules.join("core").join("bridge.phpx"),
-        load_module_template("core/bridge.phpx").unwrap_or_else(default_core_bridge_phpx),
-        &mut touched,
-    ) {
-        stdio_error("init", &err);
-        return;
-    }
-
-    if let Err(err) = ensure_lock_module_entries(
-        &target.join("deka.lock"),
+    if let Err(err) = ensure_module_graph(
+        &target,
         &[
-            ("component/core", "php_modules/component/core.phpx"),
-            ("component/dom", "php_modules/component/dom.phpx"),
-            ("component/router", "php_modules/component/router.phpx"),
-            ("encoding/json", "php_modules/encoding/json/index.phpx"),
-            ("fs", "php_modules/fs/index.phpx"),
-            ("time", "php_modules/time/index.phpx"),
-            ("core/result", "php_modules/core/result.phpx"),
-            ("core/byte", "php_modules/core/byte.phpx"),
-            ("core/bytes", "php_modules/core/bytes.phpx"),
-            ("core/num", "php_modules/core/num.phpx"),
-            ("core/bridge", "php_modules/core/bridge.phpx"),
+            "component/core",
+            "component/dom",
+            "component/router",
+            "encoding/json",
+            "fs",
+            "time",
+            "core/result",
+            "core/byte",
+            "core/bytes",
+            "core/num",
+            "core/bridge",
         ],
         &mut touched,
     ) {
@@ -270,7 +172,7 @@ fn ensure_file(path: &Path, content: String, touched: &mut Vec<String>) -> Resul
 
 fn ensure_lock_module_entries(
     lock_path: &Path,
-    entries: &[(&str, &str)],
+    entries: &[(String, String)],
     touched: &mut Vec<String>,
 ) -> Result<(), String> {
     let mut doc = if lock_path.exists() {
@@ -313,7 +215,7 @@ fn ensure_lock_module_entries(
 
     let mut changed = false;
     for (module_id, src_rel) in entries {
-        if modules_obj.contains_key(*module_id) {
+        if modules_obj.contains_key(module_id.as_str()) {
             continue;
         }
         let cache_rel = module_cache_rel(src_rel);
@@ -325,7 +227,7 @@ fn ensure_lock_module_entries(
             "deps": [],
             "exports": []
         });
-        modules_obj.insert((*module_id).to_string(), entry);
+        modules_obj.insert(module_id.to_string(), entry);
         changed = true;
     }
 
@@ -338,6 +240,174 @@ fn ensure_lock_module_entries(
     }
 
     Ok(())
+}
+
+fn ensure_module_graph(
+    target_root: &Path,
+    seed_module_ids: &[&str],
+    touched: &mut Vec<String>,
+) -> Result<(), String> {
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut queue: VecDeque<(String, String)> = VecDeque::new();
+    let mut lock_entries: Vec<(String, String)> = Vec::new();
+
+    for module_id in seed_module_ids {
+        if let Some(module_rel) = resolve_module_rel(module_id) {
+            queue.push_back(((*module_id).to_string(), module_rel));
+        }
+    }
+
+    while let Some((module_id, module_rel)) = queue.pop_front() {
+        if !seen.insert(module_rel.clone()) {
+            continue;
+        }
+        let Some(content) = load_module_template_or_default(&module_rel) else {
+            return Err(format!(
+                "missing module template for '{}' ({})",
+                module_id, module_rel
+            ));
+        };
+
+        ensure_file(
+            &target_root.join("php_modules").join(&module_rel),
+            content.clone(),
+            touched,
+        )?;
+        lock_entries.push((module_id.clone(), format!("php_modules/{}", module_rel)));
+
+        for dep in parse_import_module_ids(&content) {
+            if dep.starts_with("./") || dep.starts_with("../") {
+                if let Some(dep_rel) = resolve_relative_module_rel(&module_rel, &dep) {
+                    queue.push_back((module_id_from_rel(&dep_rel), dep_rel));
+                }
+                continue;
+            }
+            if let Some(dep_rel) = resolve_module_rel(&dep) {
+                queue.push_back((dep, dep_rel));
+            }
+        }
+    }
+
+    ensure_lock_module_entries(&target_root.join("deka.lock"), &lock_entries, touched)
+}
+
+fn parse_import_module_ids(source: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("import ") {
+            continue;
+        }
+        let Some(from_idx) = trimmed.find(" from ") else {
+            continue;
+        };
+        let rest = trimmed[from_idx + " from ".len()..].trim_start();
+        let mut chars = rest.chars();
+        let Some(quote) = chars.next() else {
+            continue;
+        };
+        if quote != '\'' && quote != '"' {
+            continue;
+        }
+        let rem = &rest[quote.len_utf8()..];
+        let Some(end_idx) = rem.find(quote) else {
+            continue;
+        };
+        let module_id = rem[..end_idx].trim();
+        if !module_id.is_empty() {
+            out.push(module_id.to_string());
+        }
+    }
+    out
+}
+
+fn resolve_module_rel(module_id: &str) -> Option<String> {
+    let normalized = module_id.trim();
+    if normalized.is_empty()
+        || normalized.starts_with("./")
+        || normalized.starts_with("../")
+        || normalized.starts_with('/')
+    {
+        return None;
+    }
+
+    for rel in [
+        format!("{}.phpx", normalized),
+        format!("{}/index.phpx", normalized),
+    ] {
+        if load_module_template_or_default(&rel).is_some() {
+            return Some(rel);
+        }
+    }
+    None
+}
+
+fn resolve_relative_module_rel(base_module_rel: &str, dep: &str) -> Option<String> {
+    let base_parent = Path::new(base_module_rel).parent()?.to_path_buf();
+    let mut joined = base_parent.join(dep);
+    if joined.extension().is_none() {
+        let mut with_ext = joined.clone();
+        with_ext.set_extension("phpx");
+        if load_module_template_or_default(&path_to_rel_string(&with_ext)).is_some() {
+            return Some(path_to_rel_string(&with_ext));
+        }
+        joined = joined.join("index.phpx");
+        if load_module_template_or_default(&path_to_rel_string(&joined)).is_some() {
+            return Some(path_to_rel_string(&joined));
+        }
+        return None;
+    }
+    let rel = path_to_rel_string(&joined);
+    if load_module_template_or_default(&rel).is_some() {
+        return Some(rel);
+    }
+    None
+}
+
+fn path_to_rel_string(path: &Path) -> String {
+    let mut normalized = PathBuf::new();
+    for comp in path.components() {
+        use std::path::Component;
+        match comp {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            _ => normalized.push(comp.as_os_str()),
+        }
+    }
+    normalized.to_string_lossy().replace('\\', "/")
+}
+
+fn module_id_from_rel(module_rel: &str) -> String {
+    let mut rel = module_rel.to_string();
+    if rel.ends_with(".phpx") {
+        rel.truncate(rel.len() - 5);
+    }
+    if let Some(stripped) = rel.strip_suffix("/index") {
+        return stripped.to_string();
+    }
+    rel
+}
+
+fn load_module_template_or_default(module_rel: &str) -> Option<String> {
+    if let Some(content) = load_module_template(module_rel) {
+        return Some(content);
+    }
+    match module_rel {
+        "component/core.phpx" => Some(default_component_core_phpx()),
+        "component/dom.phpx" => Some(default_component_dom_phpx()),
+        "component/router.phpx" => Some(default_component_router_phpx()),
+        "encoding/json/index.phpx" => Some(default_encoding_json_phpx()),
+        "fs/index.phpx" => Some(default_fs_phpx()),
+        "time/index.phpx" => Some(default_time_phpx()),
+        "core/result.phpx" => Some(default_core_result_phpx()),
+        "core/byte.phpx" => Some(default_core_byte_phpx()),
+        "core/bytes.phpx" => Some(default_core_bytes_phpx()),
+        "core/num.phpx" => Some(default_core_num_phpx()),
+        "core/bridge.phpx" => Some(default_core_bridge_phpx()),
+        _ => None,
+    }
 }
 
 fn module_cache_rel(src_rel: &str) -> String {
@@ -371,7 +441,7 @@ fn path_display(path: &Path) -> String {
 
 fn default_deka_json(name: &str) -> String {
     format!(
-        "{{\n  \"name\": \"{}\",\n  \"type\": \"serve\",\n  \"serve\": {{ \"entry\": \"app/main.phpx\" }},\n  \"scripts\": {{ \"dev\": \"deka serve --dev\" }},\n  \"security\": {{\n    \"allow\": {{\n      \"read\": [\".\"],\n      \"write\": [\".cache\", \"php_modules/.cache\"],\n      \"wasm\": [\"*\"],\n      \"env\": [\"*\"],\n      \"db\": [\"stats\"]\n    }}\n  }}\n}}\n",
+        "{{\n  \"name\": \"{}\",\n  \"type\": \"serve\",\n  \"serve\": {{ \"entry\": \"app/main.phpx\" }},\n  \"tasks\": {{ \"dev\": \"deka serve --dev\" }},\n  \"security\": {{\n    \"allow\": {{\n      \"read\": [\".\"],\n      \"write\": [\".cache\", \"php_modules/.cache\"],\n      \"wasm\": [\"*\"],\n      \"env\": [\"*\"],\n      \"db\": [\"stats\"]\n    }}\n  }}\n}}\n",
         name
     )
 }
@@ -381,7 +451,7 @@ fn default_deka_lock_json() -> String {
 }
 
 fn default_main_phpx() -> &'static str {
-    "import { Router } from 'component/router';\n\necho Router();\n"
+    "$app = function($req) {\n    return \"<!doctype html><html><body><h1>Deka App</h1><p>Project initialized. Edit <code>app/main.phpx</code>.</p></body></html>\";\n};\n"
 }
 
 fn default_app_page_phpx() -> &'static str {
@@ -670,14 +740,14 @@ fn default_core_bridge_phpx() -> String {
     if (function_exists('__bridge')) {
         return \__bridge($kind, $action, $payload);
     }
-    return \__deka_wasm_call('__deka_' . ('' . $kind), '' . $action, $payload);
+    panic('core/bridge: __bridge is not available in this runtime');
 }
 
 export async function bridge_async($kind, $action, $payload = {}): Promise<mixed> {
     if (function_exists('__bridge_async')) {
         return await \__bridge_async($kind, $action, $payload);
     }
-    return await \__deka_wasm_call_async('__deka_' . ('' . $kind), '' . $action, $payload);
+    panic('core/bridge_async: __bridge_async is not available in this runtime');
 }
 "#
         .to_string()

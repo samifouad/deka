@@ -1,0 +1,31 @@
+# Security Prompt Reduction (Phase 1)
+
+## Goal
+Reduce prompt spam in `deka run/serve/task` while keeping default-deny behavior for userland code.
+
+## Scope
+- Focus on startup/runtime internal operations first (read/write/env/wasm noise).
+- Do not weaken third-party/user module protections.
+
+## Task List
+- [x] Stabilize `deka init` so a fresh project boots reliably with current security defaults.
+- [ ] Classify permission checks by origin:
+  - [ ] `runtime-internal` (module loading, cache materialization, manifest/lockfile reads).
+  - [ ] `project-owned` (app code + local modules).
+  - [ ] `third-party` (installed packages, registry artifacts).
+- [ ] Enforce privileged bypass only for `runtime-internal` operations.
+- [ ] Collapse repeated prompts into scoped decisions:
+  - [ ] directory-level read/write grants for current process session.
+  - [ ] capability-level env grants for known safe runtime keys.
+- [ ] Improve denial errors with structured suggestions:
+  - [ ] exact `deka.json` path/key to edit.
+  - [ ] minimal allow rule to unblock.
+  - [ ] short risk note.
+- [ ] Add regression tests:
+  - [ ] fresh init + `deka task dev` boots without interactive prompt cascade.
+  - [ ] userland package access still prompts/denies correctly when not allowed.
+  - [ ] third-party module remains denied by default without explicit rule.
+
+## Exit Criteria
+- `deka init` project runs with a single startup flow and no per-file prompt flood.
+- Security boundaries remain strict for non-internal code paths.
