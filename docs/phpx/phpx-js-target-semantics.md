@@ -20,6 +20,14 @@ PHPX still enforces its language-specific guarantees at compile time:
 
 This means emitted JS is the runtime source of truth, not PHP compatibility emulation.
 
+## Runtime (MVP2)
+
+`deka run` and `deka serve` execute PHPX through the JS runtime as ESM:
+- Transpile on demand in dev and cache output under `.cache/phpx_js/`.
+- Resolve stdlib imports from `php_modules/`.
+- Entry modules should set a top-level `app` variable or export
+  `default`/`app`/`handler`; the runtime maps that value to `globalThis.app`.
+
 ## What stays PHPX-specific
 
 - Type declarations (`interface`, `type`, struct/type rules) remain compile-time constraints.
