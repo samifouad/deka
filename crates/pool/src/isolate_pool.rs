@@ -1905,6 +1905,68 @@ impl WorkerThread {
                     };
                 }
 
+                if (typeof globalThis.is_array !== 'function') {
+                    globalThis.is_array = function(value) {
+                        return Array.isArray(value);
+                    };
+                }
+                if (typeof globalThis.is_string !== 'function') {
+                    globalThis.is_string = function(value) {
+                        return typeof value === 'string';
+                    };
+                }
+                if (typeof globalThis.is_int !== 'function') {
+                    globalThis.is_int = function(value) {
+                        return typeof value === 'number' && Number.isInteger(value);
+                    };
+                }
+                if (typeof globalThis.is_float !== 'function') {
+                    globalThis.is_float = function(value) {
+                        return typeof value === 'number' && !Number.isNaN(value) && !Number.isInteger(value);
+                    };
+                }
+                if (typeof globalThis.is_bool !== 'function') {
+                    globalThis.is_bool = function(value) {
+                        return typeof value === 'boolean';
+                    };
+                }
+                if (typeof globalThis.is_object !== 'function') {
+                    globalThis.is_object = function(value) {
+                        return value !== null && typeof value === 'object' && !Array.isArray(value);
+                    };
+                }
+                if (typeof globalThis.is_numeric !== 'function') {
+                    globalThis.is_numeric = function(value) {
+                        if (typeof value === 'number') {
+                            return !Number.isNaN(value) && Number.isFinite(value);
+                        }
+                        if (typeof value === 'string') {
+                            if (value.trim() === '') return false;
+                            const num = Number(value);
+                            return !Number.isNaN(num) && Number.isFinite(num);
+                        }
+                        return false;
+                    };
+                }
+                if (typeof globalThis.is_callable !== 'function') {
+                    globalThis.is_callable = function(value) {
+                        return typeof value === 'function';
+                    };
+                }
+                if (typeof globalThis.gettype !== 'function') {
+                    globalThis.gettype = function(value) {
+                        if (value === null || value === undefined) return 'NULL';
+                        if (Array.isArray(value)) return 'array';
+                        const t = typeof value;
+                        if (t === 'string') return 'string';
+                        if (t === 'boolean') return 'boolean';
+                        if (t === 'number') return Number.isInteger(value) ? 'integer' : 'double';
+                        if (t === 'object') return 'object';
+                        if (t === 'function') return 'object';
+                        return 'unknown';
+                    };
+                }
+
                 if (typeof globalThis.__bridge !== 'function') {
                     const ops = (Deno && Deno.core && Deno.core.ops) ? Deno.core.ops : {};
                     const routeHostCall = (kind, action, payload) => {
