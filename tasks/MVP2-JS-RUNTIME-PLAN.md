@@ -40,7 +40,7 @@ Move PHPX execution to a JS-first runtime: transpile PHPX to JS and execute via 
 
 6. **Compatibility + tests**
    - [x] Conformance tests updated to run via JS runtime.
-   - [ ] E2E tests for router + components + stdlib.
+   - [x] E2E tests for router + components + stdlib.
 
 ## Acceptance Criteria
 - `deka run app/main.phpx` executes through JS runtime path by default.
@@ -52,6 +52,7 @@ Move PHPX execution to a JS-first runtime: transpile PHPX to JS and execute via 
 - `cargo build --release -p cli`
 - PHPX conformance suite: `PHPX_BIN=target/release/cli PHPX_BIN_ARGS=run bun tests/phpx/testrunner.js`
 - At least one JS runtime E2E (router + stdlib JSON).
+- `scripts/e2e-js-runtime-router-components-stdlib.sh`
 
 ## Progress Notes
 - 2026-02-22: PHPX conformance green in `mvp2` (`59/59` via `node tests/phpx/testrunner.js`).
