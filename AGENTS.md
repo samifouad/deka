@@ -2,11 +2,11 @@
 
 ## Canonical Repo Policy (non-negotiable)
 
-- **ACTIVE IMPLEMENTATION REPO:** `~/Projects/deka/mvp`
+- **ACTIVE IMPLEMENTATION REPO:** `~/Projects/deka/mvp2`
 - **ARCHIVE SOURCE REPO (read-only):** `~/Projects/deka/deka-ARCHIVE`
 - **Browser host substrate repo:** `~/Projects/deka/adwa`
 
-You must only implement, test, and commit runtime/CLI/LSP MVP work in `~/Projects/deka/mvp`.
+You must only implement, test, and commit runtime/CLI/LSP MVP work in `~/Projects/deka/mvp2`.
 
 `~/Projects/deka/deka-ARCHIVE` is migration source only.
 Do not run active task work there.
@@ -66,7 +66,7 @@ Do not add Node/Bun compatibility work in this mission.
 - Use `scripts/build-release-manifest.sh` to produce release artifacts + `target/release/deka-manifest.json`.
 - Use `scripts/verify-release-manifest.sh` to fail fast on stale/mismatched `cli` and `php_rs.wasm` artifacts.
 - Keep local PATH wiring pinned to this repo's release binaries:
-  - `~/.local/bin/deka -> ~/Projects/deka/mvp/target/release/cli`
+  - `~/.local/bin/deka -> ~/Projects/deka/mvp2/target/release/cli`
   - Do not wire a separate `phpx_lsp` binary; use `deka lsp`.
 
 ADWA runtime/UI changes (current script names still use `adwa`):

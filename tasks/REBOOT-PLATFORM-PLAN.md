@@ -108,19 +108,19 @@ Deferred (post-MVP):
 
 ## Migration Audit (Archive -> MVP)
 
-Backported into `mvp`:
+Backported into `mvp2`:
 
 - [x] Runtime/CLI: honor explicit CLI args before embedded VFS auto-serve path.
 - [x] Runtime Serve: honor `--port` override in listener binding.
 - [x] PHPX parser: enforce explicit parameter typing in user mode.
 - [x] CLI DB generator: emit parser-safe typed params under strict PHPX rules.
-- [x] Canonical repo policy: `mvp` active, `deka-ARCHIVE` read-only.
-- [x] Missing ADWA docs/tasks synced into `mvp`.
+- [x] Canonical repo policy: `mvp2` active, `mvp-ARCHIVE` read-only.
+- [x] Missing ADWA docs/tasks synced into `mvp2`.
 
 Still pending backport review:
 
-- [x] LSP import/export diagnostics + completion parity set from archive commits, without pulling unfinished `phpx_lsp_core` split into `mvp`.
-- [x] Any remaining ADWA command-runtime parity commits that are not already present in `mvp` runtime path.
+- [x] LSP import/export diagnostics + completion parity set from archive commits, without pulling unfinished `phpx_lsp_core` split into `mvp2`.
+- [x] Any remaining ADWA command-runtime parity commits that are not already present in `mvp2` runtime path.
 
 Verification notes (2026-02-14):
 - `cargo test -p phpx_lsp --release -- --nocapture` (import/export diagnostics + completion tests green)
