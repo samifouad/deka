@@ -5,25 +5,17 @@ syntax additions we have introduced or locked in. It is meant to help future
 contributors quickly understand the current behavior.
 
 ## File types + runtime behavior
-- `.php`: Classic PHP. Module semantics only if the file starts with `import`.
+- `.php`: Not supported in MVP2 (reserved for future or archived legacy usage).
 - `.phpx`: PHPX mode is always on. Import/export is required for cross-module use.
 - `.d.phpx`: Typed stub files (used for WASM/WIT stubs and IDE/typing only).
 
-Runtime notes:
-- `php_modules/deka.php` is auto-included by the runtime.
-- Request prelude (superglobals, headers, body, etc.) is shared between `.php` and `.phpx`.
-- Run mode is CLI-like (`PHP_SAPI=cli`, minimal `$_SERVER`, `argv/argc`).
-- Serve mode is web-like (`PHP_SAPI=cli-server`, CGI-style `$_SERVER`, request timing, headers).
-- Module prelude diverges: `.phpx` (or `.php` with top-level `import`) adds module
-  registry, import wrappers, unused-import checks, and JSX auto-runtime injection.
-- `.phpx` entry files execute inside `namespace __phpx_entry` to avoid leaking globals;
-  the runtime injects a global prelude block (`namespace { ... }`) followed by an
-  entry namespace block that contains the import wrappers plus user code.
-- PHPX modules are compiled into per-module namespaces and register their
-  exports with `__phpx_register`.
-- `phpx_import($moduleId, $name)` loads a module and returns an export.
-- A hand-maintained stdlib map is used for `.php` compatibility; `.phpx` should
-  import stdlib functions explicitly.
+Runtime notes (MVP2 JS runtime):
+- `.php` is not supported in MVP2; only `.phpx` executes.
+- `deka run`/`deka serve` transpile PHPX to JS and execute it as ESM.
+- The ESM loader resolves stdlib imports from `php_modules/`.
+- Dev mode transpiles on demand and caches JS output under `.cache/phpx_js/`.
+- Entry modules should either set a top-level `app` variable or export
+  `default`/`app`/`handler`; the runtime maps that value to `globalThis.app`.
 
 ## JS target semantics (`deka build`)
 - JS target runtime behavior is JavaScript-first by design.
