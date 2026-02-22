@@ -9,6 +9,7 @@ Reduce prompt spam in `deka run/serve/task` while keeping default-deny behavior 
 
 ## Task List
 - [x] Stabilize `deka init` so a fresh project boots reliably with current security defaults.
+- [x] Tighten `deka init` security defaults to remove broad allow warnings (`read=.` / `env=*` / `wasm=*`).
 - [ ] Classify permission checks by origin:
   - [ ] `runtime-internal` (module loading, cache materialization, manifest/lockfile reads).
   - [ ] `project-owned` (app code + local modules).
