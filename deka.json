@@ -3,9 +3,37 @@
   "version": "0.0.0",
   "security": {
     "allow": {
-      "read": true,
+      "read": [
+        "./tests",
+        "./php_modules",
+        "./crates",
+        "./deka.lock",
+        "./deka.json",
+        "./scripts",
+        "./examples",
+        "./docs",
+        "./target"
+      ],
       "write": [".cache", "php_modules/.cache"],
-      "wasm": true
+      "wasm": ["php_rs.wasm"],
+      "env": [
+        "PHPX_DB_SMOKE",
+        "DB_HOST",
+        "DB_PORT",
+        "DB_NAME",
+        "DB_USER",
+        "DB_PASSWORD",
+        "MYSQL_HOST",
+        "MYSQL_PORT",
+        "MYSQL_DB",
+        "MYSQL_USER",
+        "MYSQL_PASSWORD",
+        "SQLITE_PATH",
+        "PHPX_NET_SMOKE",
+        "NET_HOST",
+        "NET_PORT",
+        "PHPX_TLS_SMOKE"
+      ]
     }
   }
 }
