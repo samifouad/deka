@@ -189,18 +189,6 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         });
     }
 
-    // Convention: if an app/ folder exists, default to PHP app routing mode.
-    // This takes precedence over serve.entry when serving a directory.
-    let app_dir = abs_path.join("app");
-    if app_dir.is_dir() {
-        return Ok(ResolvedHandler {
-            path: abs_path.clone(),
-            directory: handler_dir,
-            mode: serve_config.mode.clone().unwrap_or(ServeMode::Php),
-            config: serve_config,
-        });
-    }
-
     if let Some(ref entry) = serve_config.entry {
         let entry_path = if Path::new(entry).is_absolute() {
             PathBuf::from(entry)
@@ -220,6 +208,17 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
             path: entry_path,
             directory: handler_dir,
             mode,
+            config: serve_config,
+        });
+    }
+
+    // Convention: if an app/ folder exists, default to PHP app routing mode.
+    let app_dir = abs_path.join("app");
+    if app_dir.is_dir() {
+        return Ok(ResolvedHandler {
+            path: abs_path.clone(),
+            directory: handler_dir,
+            mode: serve_config.mode.clone().unwrap_or(ServeMode::Php),
             config: serve_config,
         });
     }
@@ -318,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    fn directory_with_app_prefers_router_over_serve_entry() {
+    fn directory_with_app_respects_serve_entry() {
         let dir = temp_dir("deka_handler_entry");
         let configured = dir.join("main.phpx");
         fs::write(&configured, "<?php echo 'main';").expect("write configured");
@@ -328,10 +327,9 @@ mod tests {
         fs::write(dir.join("serve.json"), r#"{"entry":"main.phpx"}"#).expect("write config");
 
         let resolved = resolve_handler_path(dir.to_str().expect("path")).expect("resolve");
-        assert!(resolved.path.is_dir());
         let resolved_canon = resolved.path.canonicalize().expect("resolved canonicalize");
-        let dir_canon = dir.canonicalize().expect("dir canonicalize");
-        assert_eq!(resolved_canon, dir_canon);
+        let configured_canon = configured.canonicalize().expect("configured canonicalize");
+        assert_eq!(resolved_canon, configured_canon);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 // Minimal PHP runtime module - no Node.js compatibility
 // This provides only the essentials for PHP execution
 
-const { op_php_read_file_sync, op_php_read_env, op_php_cwd, op_php_file_exists, op_php_path_resolve } = Deno.core.ops;
+const { op_php_read_file_sync, op_php_read_env, op_php_cwd, op_php_file_exists, op_php_path_resolve, op_php_set_privileged } = Deno.core.ops;
 
 // Basic console implementation
 const console = {
@@ -120,6 +120,30 @@ if (!globalThis.process.env) {
 }
 if (!globalThis.process.cwd) {
   globalThis.process.cwd = () => op_php_cwd();
+}
+
+function withPrivileged(fn) {
+  if (!op_php_set_privileged) {
+    return fn();
+  }
+  op_php_set_privileged(1);
+  try {
+    return fn();
+  } finally {
+    op_php_set_privileged(0);
+  }
+}
+
+function privilegedReadFileSync(path, encoding) {
+  return withPrivileged(() => globalThis.fs.readFileSync(path, encoding));
+}
+
+function privilegedWriteFileSync(path, data, encoding) {
+  return withPrivileged(() => globalThis.fs.writeFileSync(path, data, encoding));
+}
+
+function privilegedMkdirSync(path, options) {
+  return withPrivileged(() => globalThis.fs.mkdirSync(path, options));
 }
 
 // Basic URLSearchParams implementation

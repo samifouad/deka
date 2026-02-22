@@ -29,9 +29,9 @@
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::env;
-use std::sync::OnceLock;
 #[cfg(target_arch = "wasm32")]
 use std::sync::Mutex;
+use std::sync::OnceLock;
 
 mod terrace_font;
 

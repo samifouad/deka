@@ -182,7 +182,9 @@ pub struct ServerNet;
 
 impl Net for ServerNet {
     fn fetch_bytes(&self, _url: &str, _method: &str, _body: Option<&[u8]>) -> Result<Vec<u8>> {
-        Err(anyhow!("server net adapter fetch not implemented in MVP scaffold"))
+        Err(anyhow!(
+            "server net adapter fetch not implemented in MVP scaffold"
+        ))
     }
 }
 
@@ -222,10 +224,7 @@ impl Ports for ServerPorts {
 }
 
 pub fn extensions_for_php_server() -> Vec<Extension> {
-    let mut extensions = vec![
-        permissions_extension(),
-        deno_napi::deno_napi::init(None),
-    ];
+    let mut extensions = vec![permissions_extension(), deno_napi::deno_napi::init(None)];
     extensions.extend(modules_php::extensions());
     extensions
 }

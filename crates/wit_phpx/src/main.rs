@@ -4,7 +4,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use wit_parser::{Function, FunctionKind, Resolve, Results, Type, TypeDefKind, TypeId, World, WorldItem, WorldKey};
+use wit_parser::{
+    Function, FunctionKind, Resolve, Results, Type, TypeDefKind, TypeId, World, WorldItem, WorldKey,
+};
 
 #[derive(Debug, Clone, Copy)]
 enum RecordMode {
@@ -128,7 +130,8 @@ fn default_output_path(input: &Path) -> PathBuf {
 
 fn emit_stub(resolve: &Resolve, world: &World, args: &Args) -> Result<String> {
     let mut type_names = collect_type_names(resolve, world, args.interface_prefix);
-    let exported_types = collect_exported_types(resolve, world, &mut type_names, args.interface_prefix);
+    let exported_types =
+        collect_exported_types(resolve, world, &mut type_names, args.interface_prefix);
 
     let mut out = String::new();
     out.push_str("<?php\n");
@@ -143,7 +146,13 @@ fn emit_stub(resolve: &Resolve, world: &World, args: &Args) -> Result<String> {
         }
     ));
 
-    emit_type_defs(resolve, &exported_types, args.record_mode, &type_names, &mut out);
+    emit_type_defs(
+        resolve,
+        &exported_types,
+        args.record_mode,
+        &type_names,
+        &mut out,
+    );
     emit_function_decls(resolve, world, args.interface_prefix, &type_names, &mut out);
 
     Ok(out)
@@ -313,10 +322,7 @@ fn emit_type_defs(
             }
             TypeDefKind::Option(inner) => {
                 let inner_ty = render_type(resolve, inner, type_names);
-                out.push_str(&format!(
-                    "export type {} = {}|null;\n\n",
-                    name, inner_ty
-                ));
+                out.push_str(&format!("export type {} = {}|null;\n\n", name, inner_ty));
             }
             TypeDefKind::Result(res) => {
                 let ok = res
@@ -336,10 +342,7 @@ fn emit_type_defs(
             }
             TypeDefKind::List(inner) => {
                 let inner_ty = render_type(resolve, inner, type_names);
-                out.push_str(&format!(
-                    "export type {} = array<{}>;\n\n",
-                    name, inner_ty
-                ));
+                out.push_str(&format!("export type {} = array<{}>;\n\n", name, inner_ty));
             }
             TypeDefKind::Type(inner) => {
                 let inner_ty = render_type(resolve, inner, type_names);
@@ -417,7 +420,11 @@ fn emit_function(
                 let fields = named
                     .iter()
                     .map(|(name, ty)| {
-                        format!("{}: {}", sanitize_ident(name), render_type(resolve, ty, type_names))
+                        format!(
+                            "{}: {}",
+                            sanitize_ident(name),
+                            render_type(resolve, ty, type_names)
+                        )
                     })
                     .collect::<Vec<_>>()
                     .join(", ");

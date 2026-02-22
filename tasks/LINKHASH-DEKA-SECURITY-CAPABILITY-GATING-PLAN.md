@@ -4,11 +4,11 @@ Goal: add a Deno-inspired permission model for Deka with deterministic policy en
 
 ## Policy Model
 
-Config key: `deka.security`
+Config key: `security`
 
 Default security posture:
 - deny sensitive operations by default
-- only allow through explicit CLI flags or `deka.security` policy
+- only allow through explicit CLI flags or `security` policy
 - `deny` rules always override `allow`
 
 Primary capability groups:
@@ -61,11 +61,11 @@ MVP policy behavior:
 - `--allow-run=<list>` is preferred and should be highlighted as best practice
 - `--deny-run` always takes precedence over `--allow-run`
 
-## `deka.security` Schema (MVP)
+## `security` Schema (MVP)
 
 ```json
 {
-  "deka.security": {
+  "security": {
     "allow": {
       "read": ["./src", "./migrations"],
       "write": ["./.cache"],
@@ -89,7 +89,7 @@ MVP policy behavior:
 
 Effective policy computation:
 1. defaults (deny)
-2. project config `deka.security`
+2. project config `security`
 3. CLI allow flags
 4. CLI deny flags
 5. `--allow-all` (except explicit deny, if we keep deny-precedence globally)
@@ -138,9 +138,9 @@ At package preflight/publish:
 - [ ] Commit: `feat(security): add canonical operation capability matrix`
 
 ### Task 2: Policy & Schema
-- [x] Define `deka.security` schema + parser in CLI/runtime shared code.
+- [x] Define `security` schema + parser in CLI/runtime shared code.
 - [x] Add validation + diagnostics for invalid policy entries.
-- [ ] Commit: `feat(security): add deka.security policy schema and parser`
+- [ ] Commit: `feat(security): add security policy schema and parser`
 
 ### Task 3: CLI Flags
 - [x] Add allow/deny security flags to `deka run`, `deka dev`, `deka serve`, and relevant test flows.
@@ -189,7 +189,7 @@ At package preflight/publish:
 - [ ] Commit: `test(security): add capability gating coverage`
 
 ### Task 11: Docs
-- [x] Document `deka.security` schema and examples.
+- [x] Document `security` schema and examples.
 - [x] Document subprocess escalation model and recommended `--allow-run=<list>` usage.
 - [x] Document dynamic execution default deny.
 - [ ] Commit: `docs(security): document capability gating model and run/dynamic risks`

@@ -18,7 +18,7 @@
       "modules": {
         "component/core": {
           "src": "php_modules/component/core.phpx",
-          "hash": "sha256:e82f93f42c8cf4406fa0890d673f902aee72a2e25323d4f1514e4a51e343341d",
+          "hash": "sha256:96dee767a818011cf2e97eb1753a10a47274c99b008584cc9346e7b9d918d514",
           "cache": "php_modules/.cache/phpx/component/core.php",
           "compiler": "phpx-cache-v3",
           "deps": [],
@@ -40,7 +40,7 @@
         },
         "component/dom": {
           "src": "php_modules/component/dom.phpx",
-          "hash": "sha256:606df5a487531eea9fc3b860e845d927a6c1ec815e825e72414fb22640229169",
+          "hash": "sha256:ddd233a97eff6b9472486f586aac952bfad4d61a784457036d7c69771aa7461b",
           "cache": "php_modules/.cache/phpx/component/dom.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -57,7 +57,8 @@
             "renderPartialResponse",
             "Link",
             "Hydration",
-            "isPartialRequest"
+            "isPartialRequest",
+            "handleServerIslandRequest"
           ]
         },
         "json": {
@@ -79,7 +80,7 @@
         },
         "core/num": {
           "src": "php_modules/core/num.phpx",
-          "hash": "sha256:5f9c6553ddf78dc899e56b124b99274f55986c9c21bd6a630e9574fcc45c9ffc",
+          "hash": "sha256:75557237a255a840e9cb69f8bf0bafaadf412861b14cf4046699a08d9105762f",
           "cache": "php_modules/.cache/phpx/core/num.php",
           "compiler": "phpx-cache-v3",
           "deps": [],
@@ -90,7 +91,7 @@
         },
         "core/byte": {
           "src": "php_modules/core/byte.phpx",
-          "hash": "sha256:345ed51e8ff79620faaf941cef2e6359644263475826eb5a78e2003dd7a004d3",
+          "hash": "sha256:4cc27231ede5e53bfa861b60058f2db735ccc3792c93bca86189f6e7c1048477",
           "cache": "php_modules/.cache/phpx/core/byte.php",
           "compiler": "phpx-cache-v3",
           "deps": [],
@@ -123,7 +124,7 @@
         },
         "core/result": {
           "src": "php_modules/core/result.phpx",
-          "hash": "sha256:c138f94b55755045e7575843cb791ef653ed1089dd6c6dac0adcde228ae3f3d6",
+          "hash": "sha256:137c16bed6e5345ad53a850f38f2c72922bad977ca927e9f09e1fa13eb8879a0",
           "cache": "php_modules/.cache/phpx/core/result.php",
           "compiler": "phpx-cache-v3",
           "deps": [],
@@ -2357,26 +2358,39 @@
         },
         "db": {
           "src": "php_modules/db/index.phpx",
-          "hash": "sha256:95680fa964d1d63e2d087b349cd84a8be68b0b8d43fbd1cde2aa6c0c660afb07",
+          "hash": "sha256:ff9fa58c5cb4e3d2f2fd6c54f5cb2f91482d5609c0b920a8a1aab09f7bffaae7",
           "cache": "php_modules/.cache/phpx/db/index.php",
-          "compiler": "phpx-cache-v1",
+          "compiler": "phpx-cache-v3",
           "deps": [
             "core/result",
             "core/bridge"
           ],
           "exports": [
-            "open",
-            "open_handle",
-            "query",
+            "openSync",
+            "openHandleSync",
+            "querySync",
             "rows",
-            "query_one",
-            "exec",
+            "queryOneSync",
+            "execSync",
             "affected_rows",
+            "beginSync",
+            "commitSync",
+            "rollbackSync",
+            "closeSync",
+            "statsSync",
+            "open",
+            "openHandle",
+            "query",
+            "queryOne",
+            "exec",
             "begin",
             "commit",
             "rollback",
             "close",
-            "stats"
+            "stats",
+            "open_handle",
+            "query_one",
+            "affectedRows"
           ]
         },
         "sqlite": {
@@ -2445,7 +2459,7 @@
         },
         "encoding/json": {
           "src": "php_modules/encoding/json/index.phpx",
-          "hash": "sha256:ae524c9e0f91cec16997788acd2b69b0bc991db065ba213c4e135dd7f2eca7c7",
+          "hash": "sha256:1263b2a506528bd5d6d0762ab8bd3b558835af1b897de4860cf646a8e44d4dae",
           "cache": "php_modules/.cache/phpx/encoding/json/index.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -2511,25 +2525,33 @@
         },
         "tcp": {
           "src": "php_modules/tcp/index.phpx",
-          "hash": "sha256:314fc5ba02fd333d535da94213f20db99c4cc71d04510d0c2d22e9123be6f726",
+          "hash": "sha256:7b8e53d913e50e99dcc28219cf4362a3e90286885be073982bb8f2466d9f8838",
           "cache": "php_modules/.cache/phpx/tcp/index.php",
-          "compiler": "phpx-cache-v1",
+          "compiler": "phpx-cache-v3",
           "deps": [
             "core/result",
             "core/bridge"
           ],
           "exports": [
+            "connectSync",
+            "readSync",
+            "readExactSync",
+            "writeSync",
+            "setDeadlineSync",
+            "closeSync",
             "connect",
-            "tcp_connect",
             "read",
+            "readExact",
+            "write",
+            "setDeadline",
+            "close",
+            "tcp_connect",
             "tcp_read",
             "read_exact",
             "tcp_read_exact",
-            "write",
             "tcp_write",
             "set_deadline",
             "tcp_set_deadline",
-            "close",
             "tcp_close"
           ]
         },
@@ -2545,9 +2567,9 @@
         },
         "db/mysql": {
           "src": "php_modules/db/mysql/index.phpx",
-          "hash": "sha256:bf460594baa38caee197f85aa44c4f1e3941fa73b37cd55ba622806a410468b6",
+          "hash": "sha256:5f64791cf5784bd451f5239ed3debaea057e2ff26c712bad524e475004319470",
           "cache": "php_modules/.cache/phpx/db/mysql/index.php",
-          "compiler": "phpx-cache-v1",
+          "compiler": "phpx-cache-v3",
           "deps": [
             "core/result",
             "db",
@@ -2555,52 +2577,79 @@
             "core/bytes"
           ],
           "exports": [
+            "connectSync",
+            "querySync",
+            "queryOneSync",
+            "execSync",
+            "beginSync",
+            "commitSync",
+            "rollbackSync",
+            "closeSync",
             "connect",
             "query",
-            "query_one",
+            "queryOne",
             "exec",
             "begin",
             "commit",
             "rollback",
-            "close"
+            "close",
+            "query_one"
           ]
         },
         "db/postgres": {
           "src": "php_modules/db/postgres/index.phpx",
-          "hash": "sha256:e752dd0e8595c1926f7ed53b009bb809716338b7a4069c624253a22d0da3d945",
+          "hash": "sha256:fc8eda0df33ad06e81fbaf7a8f1caf1344cdee9bad59e2b06b1a66693e55fb74",
           "cache": "php_modules/.cache/phpx/db/postgres/index.php",
-          "compiler": "phpx-cache-v1",
+          "compiler": "phpx-cache-v3",
           "deps": [
             "db"
           ],
           "exports": [
+            "connectSync",
+            "querySync",
+            "queryOneSync",
+            "execSync",
+            "beginSync",
+            "commitSync",
+            "rollbackSync",
+            "closeSync",
             "connect",
             "query",
-            "query_one",
+            "queryOne",
             "exec",
             "begin",
             "commit",
             "rollback",
-            "close"
+            "close",
+            "query_one"
           ]
         },
         "db/sqlite": {
           "src": "php_modules/db/sqlite/index.phpx",
-          "hash": "sha256:e5a24f45dafe82b82917a5ab43deaffb17c85186823ae0a52db360adcacb03d9",
+          "hash": "sha256:ac40002a9d78e8283119bdea7c9ba385951921da8078f4590e2753764fba9029",
           "cache": "php_modules/.cache/phpx/db/sqlite/index.php",
-          "compiler": "phpx-cache-v1",
+          "compiler": "phpx-cache-v3",
           "deps": [
             "db"
           ],
           "exports": [
+            "connectSync",
+            "querySync",
+            "queryOneSync",
+            "execSync",
+            "beginSync",
+            "commitSync",
+            "rollbackSync",
+            "closeSync",
             "connect",
             "query",
-            "query_one",
+            "queryOne",
             "exec",
             "begin",
             "commit",
             "rollback",
-            "close"
+            "close",
+            "query_one"
           ]
         },
         "tls": {
@@ -2650,12 +2699,15 @@
         },
         "core/bridge": {
           "src": "php_modules/core/bridge.phpx",
-          "hash": "sha256:2efb6d046cda3db74e5ecfc288b0241da26723d80ffe929c524758cde0e8055a",
+          "hash": "sha256:42189f196032b81f8050c680790cededb532857c798c45d0650a5d59135cbddc",
           "cache": "php_modules/.cache/phpx/core/bridge.php",
           "compiler": "phpx-cache-v3",
-          "deps": [],
+          "deps": [
+            "component/core"
+          ],
           "exports": [
-            "bridge"
+            "bridge",
+            "bridge_async"
           ]
         },
         "fs": {
@@ -2726,6 +2778,23 @@
             "hmac_sha256_bytes",
             "secure_compare",
             "uuid_v4"
+          ]
+        },
+        "time": {
+          "src": "php_modules/time/index.phpx",
+          "hash": "sha256:38925f5fe2b19a5742a3b05a4b872e4bd4d8b14b36dd519283da317e98378833",
+          "cache": "php_modules/.cache/phpx/time/index.php",
+          "compiler": "phpx-cache-v3",
+          "deps": [
+            "core/bridge",
+            "component/core"
+          ],
+          "exports": [
+            "now_ms",
+            "sleep_ms",
+            "sleep",
+            "sleep_async",
+            "sleep_seconds_async"
           ]
         }
       }

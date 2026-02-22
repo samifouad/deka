@@ -1,7 +1,7 @@
 /*
-TEST: db facade contract for postgres wrapper (connect/query/query_one/close)
+TEST: db facade contract for postgres wrapper (connectSync/querySync/query_one/closeSync)
 */
-import { connect, query, query_one, close } from 'db/postgres'
+import { connectSync, querySync, query_one, closeSync } from 'db/postgres'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
@@ -15,25 +15,25 @@ $database = getenv('DB_NAME') ?: 'linkhash_registry'
 $user = getenv('DB_USER') ?: 'postgres'
 $password = getenv('DB_PASSWORD') ?: 'postgres'
 
-$conn = connect({ host: $host, port: $port, database: $database, user: $user, password: $password })
+$conn = connectSync({ host: $host, port: $port, database: $database, user: $user, password: $password })
 if (!result_is_ok($conn)) {
-    echo "ERR connect\n"
+    echo "ERR connectSync\n"
     return
 }
 
 $h = $conn->value
-$many = query($h, 'select count(*) as c from packages', [])
+$many = querySync($h, 'select count(*) as c from packages', [])
 $one = query_one($h, 'select count(*) as c from packages', [])
 $sum = query_one($h, 'select $1::int + $2::int as s', [2, 3])
-close($h)
+closeSync($h)
 
 if (!result_is_ok($many) || !result_is_ok($one) || !result_is_ok($sum)) {
-    echo "ERR query\n"
+    echo "ERR querySync\n"
     return
 }
 
 if (intval($sum->value['s']) !== 5) {
-    echo "ERR query\n"
+    echo "ERR querySync\n"
     return
 }
 

@@ -241,7 +241,10 @@ impl Net for BrowserNet {
                 url
             ));
         }
-        Err(anyhow!("network blocked by browser adapter policy: {}", url))
+        Err(anyhow!(
+            "network blocked by browser adapter policy: {}",
+            url
+        ))
     }
 }
 

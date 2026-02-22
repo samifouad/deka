@@ -166,8 +166,7 @@ pub fn copy_package(source: &Path, destination: &Path) -> Result<()> {
     }
 
     // Use hardlinks for instant "copying" - like Bun does
-    hardlink_dir(source, destination)
-        .context("failed to link package")
+    hardlink_dir(source, destination).context("failed to link package")
 }
 
 fn hardlink_dir(source: &Path, destination: &Path) -> Result<()> {
@@ -208,9 +207,7 @@ fn try_clonefile(source: &Path, destination: &Path) -> bool {
     };
 
     // clonefile(2) - creates a copy-on-write clone on APFS
-    unsafe {
-        libc::clonefile(src.as_ptr(), dst.as_ptr(), 0) == 0
-    }
+    unsafe { libc::clonefile(src.as_ptr(), dst.as_ptr(), 0) == 0 }
 }
 
 #[cfg(not(target_os = "macos"))]

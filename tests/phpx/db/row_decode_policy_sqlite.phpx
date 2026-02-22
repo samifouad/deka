@@ -2,21 +2,21 @@
 TEST: db facade preserves native scalar row values across drivers.
 This test uses sqlite for deterministic no-network execution.
 */
-import { connect, query_one, close } from 'db/sqlite'
+import { connectSync, query_one, closeSync } from 'db/sqlite'
 import { result_is_ok } from 'core/result'
 
 $path = '/tmp/deka_phpx_row_decode.sqlite'
-$conn = connect({ path: $path })
+$conn = connectSync({ path: $path })
 if (!result_is_ok($conn)) {
-    echo "ERR connect\n"
+    echo "ERR connectSync\n"
     return
 }
 
 $row = query_one($conn->value, 'select 7 as i, 3.5 as f, null as n', [])
-close($conn->value)
+closeSync($conn->value)
 
 if (!result_is_ok($row)) {
-    echo "ERR query\n"
+    echo "ERR querySync\n"
     return
 }
 

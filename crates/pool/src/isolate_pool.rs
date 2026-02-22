@@ -2230,7 +2230,11 @@ impl WorkerThread {
             }
         }
 
-        let heap_before_bytes = isolate.runtime.v8_isolate().get_heap_statistics().used_heap_size();
+        let heap_before_bytes = isolate
+            .runtime
+            .v8_isolate()
+            .get_heap_statistics()
+            .used_heap_size();
 
         // Track CPU time for this execution
         let cpu_start = get_thread_cpu_time();
@@ -2300,7 +2304,10 @@ impl WorkerThread {
         };
         let exec_script_ms = exec_start.elapsed().as_millis() as u64;
 
-        if matches!(request.request_data.mode, ExecutionMode::Request | ExecutionMode::Module) {
+        if matches!(
+            request.request_data.mode,
+            ExecutionMode::Request | ExecutionMode::Module
+        ) {
             // Run event loop to complete async operations
             {
                 deno_core::scope!(scope, &mut isolate.runtime);
@@ -2625,8 +2632,8 @@ fn set_request_globals(
         };
         obj.set(scope, body_key.into(), body_val);
 
-        let request_key =
-            v8::String::new(scope, "__requestData").ok_or_else(|| "request data key".to_string())?;
+        let request_key = v8::String::new(scope, "__requestData")
+            .ok_or_else(|| "request data key".to_string())?;
         global.set(scope, request_key.into(), obj.into());
     } else {
         let request_key = v8::String::new(scope, "__requestData")

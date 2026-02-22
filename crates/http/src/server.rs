@@ -7,43 +7,72 @@ use crate::fast::serve_http_fast;
 use crate::listener::bind_reuseport;
 use crate::router::app_router;
 
-pub async fn serve_http(state: Arc<RuntimeState>, port: u16, listeners: usize, perf_mode: bool) {
+pub async fn serve_http(
+    state: Arc<RuntimeState>,
+    port: u16,
+    listeners: usize,
+    perf_mode: bool,
+) -> Result<(), String> {
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("🚀 Deka Runtime listening on {}", addr);
     tracing::info!("📦 Loaded modules: deka, postgres, docker, router, t4, sqlite");
 
     let listener_count = listeners.max(1);
     if listener_count == 1 {
-        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .map_err(|err| format_bind_error(addr, &err.to_string()))?;
         if perf_mode {
             serve_http_fast(listener, state).await;
-        } else {
-            let app = app_router(Arc::clone(&state));
-            axum::serve(listener, app).await.unwrap();
+            return Ok(());
         }
-        return;
+
+        let app = app_router(Arc::clone(&state));
+        axum::serve(listener, app)
+            .await
+            .map_err(|err| format!("HTTP server exited with error: {}", err))?;
+        return Ok(());
+    }
+
+    let mut bound_listeners = Vec::with_capacity(listener_count);
+    for _ in 0..listener_count {
+        let listener = bind_reuseport(addr).map_err(|err| format_bind_error(addr, &err))?;
+        bound_listeners.push(listener);
     }
 
     let mut handles = Vec::with_capacity(listener_count);
-    for _ in 0..listener_count {
-        let listener = bind_reuseport(addr)
-            .unwrap_or_else(|err| panic!("Failed to bind reuseport listener: {}", err));
+    for listener in bound_listeners {
         let state = Arc::clone(&state);
         if perf_mode {
             handles.push(tokio::spawn(async move {
                 serve_http_fast(listener, state).await;
+                Ok::<(), String>(())
             }));
         } else {
             let app = app_router(Arc::clone(&state));
             handles.push(tokio::spawn(async move {
-                if let Err(err) = axum::serve(listener, app).await {
-                    tracing::error!("HTTP listener exited: {}", err);
-                }
+                axum::serve(listener, app)
+                    .await
+                    .map_err(|err| format!("HTTP listener exited: {}", err))
             }));
         }
     }
 
     for handle in handles {
-        let _ = handle.await;
+        match handle.await {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => return Err(err),
+            Err(err) => return Err(format!("HTTP listener task failed: {}", err)),
+        }
     }
+
+    Ok(())
+}
+
+fn format_bind_error(addr: SocketAddr, err: &str) -> String {
+    let mut message = format!("failed to bind HTTP listener on {}: {}", addr, err);
+    if err.to_ascii_lowercase().contains("address already in use") {
+        message.push_str(". Port is already in use. Stop the existing process or pass --port <n>.");
+    }
+    message
 }

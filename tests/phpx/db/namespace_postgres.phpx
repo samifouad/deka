@@ -1,7 +1,7 @@
 /*
 TEST: canonical db/postgres module path resolves and behaves like legacy postgres module
 */
-import { connect, query_one, close } from 'db/postgres'
+import { connectSync, query_one, closeSync } from 'db/postgres'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
@@ -15,18 +15,18 @@ $database = getenv('DB_NAME') ?: 'linkhash_registry'
 $user = getenv('DB_USER') ?: 'postgres'
 $password = getenv('DB_PASSWORD') ?: 'postgres'
 
-$conn = connect({ host: $host, port: $port, database: $database, user: $user, password: $password })
+$conn = connectSync({ host: $host, port: $port, database: $database, user: $user, password: $password })
 if (!result_is_ok($conn)) {
-    echo "ERR connect\n"
+    echo "ERR connectSync\n"
     return
 }
 
 $h = $conn->value
 $row = query_one($h, 'select count(*) as c from packages', [])
-close($h)
+closeSync($h)
 
 if (!result_is_ok($row)) {
-    echo "ERR query\n"
+    echo "ERR querySync\n"
     return
 }
 

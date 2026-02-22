@@ -77,7 +77,10 @@ fn get_ui_path(filename: &str) -> PathBuf {
     // Get the path to the introspect crate's ui directory
     // This assumes the crate is in deka/crates/introspect
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    PathBuf::from(manifest_dir).join("src").join("ui").join(filename)
+    PathBuf::from(manifest_dir)
+        .join("src")
+        .join("ui")
+        .join(filename)
 }
 
 // Default command - launch the TUI
@@ -85,14 +88,22 @@ pub fn cmd_default(context: &Context) {
     let ui_path = get_ui_path("introspect-ui.tsx");
 
     if !ui_path.exists() {
-        stdio::error("introspect", &format!("TUI file not found: {}", ui_path.display()));
+        stdio::error(
+            "introspect",
+            &format!("TUI file not found: {}", ui_path.display()),
+        );
         std::process::exit(1);
     }
 
     // Build arguments for the TUI
     let mut args = Vec::new();
 
-    if let Some(runtime) = context.args.params.get("--runtime").or_else(|| context.args.params.get("-r")) {
+    if let Some(runtime) = context
+        .args
+        .params
+        .get("--runtime")
+        .or_else(|| context.args.params.get("-r"))
+    {
         args.push("--runtime".to_string());
         args.push(runtime.clone());
     }
@@ -120,24 +131,42 @@ pub fn cmd_top(context: &Context) {
     let cli_path = get_ui_path("cli.ts");
 
     if !cli_path.exists() {
-        stdio::error("introspect", &format!("cli.ts not found: {}", cli_path.display()));
+        stdio::error(
+            "introspect",
+            &format!("cli.ts not found: {}", cli_path.display()),
+        );
         std::process::exit(1);
     }
 
     // Build arguments for introspectTop
     let mut args = vec!["top".to_string()];
 
-    if let Some(runtime) = context.args.params.get("--runtime").or_else(|| context.args.params.get("-r")) {
+    if let Some(runtime) = context
+        .args
+        .params
+        .get("--runtime")
+        .or_else(|| context.args.params.get("-r"))
+    {
         args.push("--runtime".to_string());
         args.push(runtime.clone());
     }
 
-    if let Some(sort) = context.args.params.get("--sort").or_else(|| context.args.params.get("-s")) {
+    if let Some(sort) = context
+        .args
+        .params
+        .get("--sort")
+        .or_else(|| context.args.params.get("-s"))
+    {
         args.push("--sort".to_string());
         args.push(sort.clone());
     }
 
-    if let Some(limit) = context.args.params.get("--limit").or_else(|| context.args.params.get("-l")) {
+    if let Some(limit) = context
+        .args
+        .params
+        .get("--limit")
+        .or_else(|| context.args.params.get("-l"))
+    {
         args.push("--limit".to_string());
         args.push(limit.clone());
     }
@@ -154,13 +183,21 @@ pub fn cmd_workers(context: &Context) {
     let cli_path = get_ui_path("cli.ts");
 
     if !cli_path.exists() {
-        stdio::error("introspect", &format!("cli.ts not found: {}", cli_path.display()));
+        stdio::error(
+            "introspect",
+            &format!("cli.ts not found: {}", cli_path.display()),
+        );
         std::process::exit(1);
     }
 
     let mut args = vec!["workers".to_string()];
 
-    if let Some(runtime) = context.args.params.get("--runtime").or_else(|| context.args.params.get("-r")) {
+    if let Some(runtime) = context
+        .args
+        .params
+        .get("--runtime")
+        .or_else(|| context.args.params.get("-r"))
+    {
         args.push("--runtime".to_string());
         args.push(runtime.clone());
     }
@@ -177,7 +214,10 @@ pub fn cmd_inspect(context: &Context) {
     let cli_path = get_ui_path("cli.ts");
 
     if !cli_path.exists() {
-        stdio::error("introspect", &format!("cli.ts not found: {}", cli_path.display()));
+        stdio::error(
+            "introspect",
+            &format!("cli.ts not found: {}", cli_path.display()),
+        );
         std::process::exit(1);
     }
 
@@ -189,7 +229,12 @@ pub fn cmd_inspect(context: &Context) {
 
     let mut args = vec!["inspect".to_string(), handler];
 
-    if let Some(runtime) = context.args.params.get("--runtime").or_else(|| context.args.params.get("-r")) {
+    if let Some(runtime) = context
+        .args
+        .params
+        .get("--runtime")
+        .or_else(|| context.args.params.get("-r"))
+    {
         args.push("--runtime".to_string());
         args.push(runtime.clone());
     }
@@ -206,7 +251,10 @@ pub fn cmd_kill(context: &Context) {
     let cli_path = get_ui_path("cli.ts");
 
     if !cli_path.exists() {
-        stdio::error("introspect", &format!("cli.ts not found: {}", cli_path.display()));
+        stdio::error(
+            "introspect",
+            &format!("cli.ts not found: {}", cli_path.display()),
+        );
         std::process::exit(1);
     }
 
@@ -218,7 +266,12 @@ pub fn cmd_kill(context: &Context) {
 
     let mut args = vec!["kill".to_string(), handler];
 
-    if let Some(runtime) = context.args.params.get("--runtime").or_else(|| context.args.params.get("-r")) {
+    if let Some(runtime) = context
+        .args
+        .params
+        .get("--runtime")
+        .or_else(|| context.args.params.get("-r"))
+    {
         args.push("--runtime".to_string());
         args.push(runtime.clone());
     }

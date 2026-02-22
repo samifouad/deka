@@ -208,7 +208,12 @@ async fn render_hmr_payload(
     reload_payload(changed_paths)
 }
 
-fn build_patch_from_snapshot(path: &str, changed_paths: &[String], selector: &str, html: &str) -> String {
+fn build_patch_from_snapshot(
+    path: &str,
+    changed_paths: &[String],
+    selector: &str,
+    html: &str,
+) -> String {
     let snapshots = HMR_SNAPSHOTS.get_or_init(|| Mutex::new(HashMap::new()));
     let new_map = collect_deka_nodes(html);
     let new_islands = collect_islands(html);
@@ -251,7 +256,10 @@ fn build_patch_from_snapshot(path: &str, changed_paths: &[String], selector: &st
                             }));
                         }
                     }
-                } else if structure_changed && !prev.island_html.is_empty() && !new_islands.is_empty() {
+                } else if structure_changed
+                    && !prev.island_html.is_empty()
+                    && !new_islands.is_empty()
+                {
                     let mut changed_islands = Vec::new();
                     let mut islands_stable = true;
                     for id in prev.island_html.keys() {
@@ -272,7 +280,8 @@ fn build_patch_from_snapshot(path: &str, changed_paths: &[String], selector: &st
                             }
                         }
                     }
-                    if islands_stable && !changed_islands.is_empty() && changed_islands.len() <= 16 {
+                    if islands_stable && !changed_islands.is_empty() && changed_islands.len() <= 16
+                    {
                         changed_islands.sort();
                         for id in changed_islands {
                             if let Some(next_html) = new_islands.get(&id) {
@@ -384,11 +393,7 @@ fn read_tag_name(fragment: &str) -> Option<String> {
             break;
         }
     }
-    if out.is_empty() {
-        None
-    } else {
-        Some(out)
-    }
+    if out.is_empty() { None } else { Some(out) }
 }
 
 fn collect_deka_nodes(container_html: &str) -> HashMap<String, String> {
@@ -744,7 +749,10 @@ mod tests {
         let json = parse(&payload);
         assert_eq!(json["ops"].as_array().map(|v| v.len()), Some(1));
         assert_eq!(json["ops"][0]["selector"], "[data-deka-island-id=\"i2\"]");
-        assert_eq!(json["ops"][0]["html"], "<section data-deka-id=\"b2\">B2</section>");
+        assert_eq!(
+            json["ops"][0]["html"],
+            "<section data-deka-id=\"b2\">B2</section>"
+        );
     }
 
     #[test]

@@ -53,20 +53,20 @@ impl VFS {
     }
 
     /// Add a file to the VFS
-    pub fn add_file(&mut self, path: String, content: Vec<u8>, file_type: String, compressed: bool) {
+    pub fn add_file(
+        &mut self,
+        path: String,
+        content: Vec<u8>,
+        file_type: String,
+        compressed: bool,
+    ) {
         let metadata = FileMetadata {
             size: content.len() as u64,
             file_type,
             compressed,
         };
 
-        self.files.insert(
-            path,
-            FileEntry {
-                content,
-                metadata,
-            },
-        );
+        self.files.insert(path, FileEntry { content, metadata });
     }
 
     /// Get a file from the VFS

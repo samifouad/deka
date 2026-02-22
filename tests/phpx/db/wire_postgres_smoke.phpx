@@ -1,7 +1,7 @@
 /*
-TEST: postgres wire-only smoke (fallback_native=false) supports parameterized query
+TEST: postgres wire-only smoke (fallback_native=false) supports parameterized querySync
 */
-import { connect, query_one, close } from 'db/postgres'
+import { connectSync, query_one, closeSync } from 'db/postgres'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
@@ -18,16 +18,16 @@ $cfg = {
     fallback_native: false
 }
 
-$conn = connect($cfg)
+$conn = connectSync($cfg)
 if (!result_is_ok($conn)) {
-    echo "ERR connect\n"
+    echo "ERR connectSync\n"
     return
 }
 
 $res = query_one($conn->value, 'select $1::int + $2::int as s', [4, 5])
-close($conn->value)
+closeSync($conn->value)
 if (!result_is_ok($res)) {
-    echo "ERR query\n"
+    echo "ERR querySync\n"
     return
 }
 if (!is_string($res->value['s'])) {

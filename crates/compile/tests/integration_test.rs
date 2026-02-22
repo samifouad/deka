@@ -21,8 +21,8 @@ fn test_full_compile_cycle() {
     let vfs_bytes = vfs.to_bytes().unwrap();
 
     // Find runtime binary
-    let runtime_binary = BinaryEmbedder::find_runtime_binary()
-        .expect("Could not find runtime binary");
+    let runtime_binary =
+        BinaryEmbedder::find_runtime_binary().expect("Could not find runtime binary");
 
     // Create output path
     let output_path = temp_dir.path().join("test-app");
@@ -37,8 +37,7 @@ fn test_full_compile_cycle() {
     assert!(output_path.exists());
 
     // Extract VFS from compiled binary
-    let (extracted_vfs_bytes, metadata) = extract_vfs(&output_path)
-        .expect("Failed to extract VFS");
+    let (extracted_vfs_bytes, metadata) = extract_vfs(&output_path).expect("Failed to extract VFS");
 
     // Verify metadata
     assert_eq!(metadata.entry_point, "test.js");
@@ -65,11 +64,16 @@ fn test_binary_permissions() {
 
         let temp_dir = tempdir().unwrap();
         let mut vfs = VFS::new("app.js".to_string(), RuntimeMode::Server);
-        vfs.add_file("app.js".to_string(), b"test".to_vec(), "js".to_string(), false);
+        vfs.add_file(
+            "app.js".to_string(),
+            b"test".to_vec(),
+            "js".to_string(),
+            false,
+        );
         let vfs_bytes = vfs.to_bytes().unwrap();
 
-        let runtime_binary = BinaryEmbedder::find_runtime_binary()
-            .expect("Could not find runtime binary");
+        let runtime_binary =
+            BinaryEmbedder::find_runtime_binary().expect("Could not find runtime binary");
 
         let output_path = temp_dir.path().join("test-app");
         let embedder = BinaryEmbedder::new(runtime_binary);

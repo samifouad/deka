@@ -2,9 +2,9 @@
 TEST: PostgreSQL smoke test for PHPX postgres module.
 Mode:
 - Default: prints SKIP unless PHPX_DB_SMOKE=1.
-- Smoke: when enabled, connects to local Docker Postgres and runs a simple query.
+- Smoke: when enabled, connects to local Docker Postgres and runs a simple querySync.
 */
-import { connect, query, close } from 'db/postgres'
+import { connectSync, querySync, closeSync } from 'db/postgres'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
@@ -18,7 +18,7 @@ $database = getenv('DB_NAME') ?: 'linkhash_registry'
 $user = getenv('DB_USER') ?: 'postgres'
 $password = getenv('DB_PASSWORD') ?: 'postgres'
 
-$conn = connect({
+$conn = connectSync({
     host: $host,
     port: $port,
     database: $database,
@@ -27,15 +27,15 @@ $conn = connect({
 })
 
 if (!result_is_ok($conn)) {
-    echo "ERR connect\n"
+    echo "ERR connectSync\n"
     return
 }
 
-$rows = query($conn->value, 'select count(*) as c from packages', [])
-close($conn->value)
+$rows = querySync($conn->value, 'select count(*) as c from packages', [])
+closeSync($conn->value)
 
 if (!result_is_ok($rows)) {
-    echo "ERR query\n"
+    echo "ERR querySync\n"
     return
 }
 

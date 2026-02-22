@@ -53,6 +53,7 @@ Scope: PHPX language/runtime/LSP (not regular `.php`)
 
 - [x] `fs`: async default + `*Sync` pair (`readFile`/`readFileSync`, etc.).
 - [x] `db/*`: async default + `*Sync` pair.
+- [x] Verified with dedicated fixtures: `async_postgres_smoke`, `async_mysql_smoke`, `async_sqlite_smoke` plus sync contract/namespace/wire tests.
 - [x] `net`: async default + `*Sync` pair where meaningful.
 - [x] Keep PHP-facing APIs sync-only.
 - [x] Tests: API parity and behavior consistency.

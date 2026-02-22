@@ -43,11 +43,7 @@ where
     env_set(key, value);
 }
 
-pub fn set_dev_flag_with<Get, Set>(
-    enabled: bool,
-    env_get: &Get,
-    env_set: &mut Set,
-)
+pub fn set_dev_flag_with<Get, Set>(enabled: bool, env_get: &Get, env_set: &mut Set)
 where
     Get: Fn(&str) -> Option<String>,
     Set: FnMut(&str, &str),
@@ -57,11 +53,7 @@ where
     }
 }
 
-pub fn set_handler_path_with<Get, Set>(
-    handler_path: &str,
-    env_get: &Get,
-    env_set: &mut Set,
-)
+pub fn set_handler_path_with<Get, Set>(handler_path: &str, env_get: &Get, env_set: &mut Set)
 where
     Get: Fn(&str) -> Option<String>,
     Set: FnMut(&str, &str),
@@ -77,11 +69,7 @@ where
     set_if_absent_with("LOG_LEVEL", "error", env_get, env_set);
 }
 
-pub fn set_runtime_args_with<Set, Bin>(
-    extra_args: &[String],
-    env_set: &mut Set,
-    bin_name: &Bin,
-)
+pub fn set_runtime_args_with<Set, Bin>(extra_args: &[String], env_set: &mut Set, bin_name: &Bin)
 where
     Set: FnMut(&str, &str),
     Bin: Fn() -> Option<String>,

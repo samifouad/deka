@@ -143,8 +143,7 @@ impl DekaConfig {
         let contents = std::fs::read_to_string(&config_path)
             .map_err(|e| format!("Failed to read deka.json: {}", e))?;
 
-        serde_json::from_str(&contents)
-            .map_err(|e| format!("Failed to parse deka.json: {}", e))
+        serde_json::from_str(&contents).map_err(|e| format!("Failed to parse deka.json: {}", e))
     }
 }
 

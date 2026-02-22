@@ -91,7 +91,10 @@ pub fn register(registry: &mut Registry) {
 }
 
 fn cmd_auth(_context: &Context) {
-    stdio::log("auth", "available subcommands: signup, login, logout, whoami");
+    stdio::log(
+        "auth",
+        "available subcommands: signup, login, logout, whoami",
+    );
 }
 
 fn cmd_signup(context: &Context) {
@@ -171,7 +174,11 @@ fn cmd_signup(context: &Context) {
                 .unwrap_or(false)
             {
                 stdio::log("auth", "email verification required before publish");
-            } else if body.get("dev_bypass").and_then(|v| v.as_bool()).unwrap_or(false) {
+            } else if body
+                .get("dev_bypass")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
                 stdio::warn_simple("verification bypassed in dev mode");
             }
         }
@@ -308,7 +315,11 @@ fn is_valid_username(username: &str) -> bool {
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
 }
 
-fn login_with_password(registry_url: &str, username: &str, password: &str) -> anyhow::Result<String> {
+fn login_with_password(
+    registry_url: &str,
+    username: &str,
+    password: &str,
+) -> anyhow::Result<String> {
     let endpoint = format!("{}/api/auth/login", registry_url.trim_end_matches('/'));
     let payload = serde_json::json!({
         "username_or_email": username,

@@ -79,7 +79,8 @@ impl Context {
                     .iter()
                     .any(|cmd| cmd == "test" || cmd == "self")
                 {
-                    let resolved = resolve_handler_path(".").map_err(ContextError::HandlerResolve)?;
+                    let resolved =
+                        resolve_handler_path(".").map_err(ContextError::HandlerResolve)?;
                     let static_config = StaticServeConfig::load(&resolved.directory);
                     let serve_config_path = resolved.directory.join("serve.json");
                     HandlerContext {

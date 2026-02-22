@@ -55,8 +55,7 @@ pub fn notify_hmr_changed(paths: &[String]) {
 pub async fn serve(state: Arc<RuntimeState>, target: ListenConfig) -> Result<(), String> {
     match target {
         ListenConfig::Http(options) => {
-            http::serve_http(state, options.port, options.listeners, options.perf_mode).await;
-            Ok(())
+            http::serve_http(state, options.port, options.listeners, options.perf_mode).await
         }
         ListenConfig::Unix(options) => http::unix::serve_unix(state, &options.path).await,
         ListenConfig::Ws(options) => ws::serve_ws(state, options).await,

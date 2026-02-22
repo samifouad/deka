@@ -2,28 +2,29 @@ use bumpalo::Bump;
 use modules_php::compiler_api::compile_phpx;
 use modules_php::validation::{Severity, ValidationError, ValidationWarning};
 use php_rs::parser::ast::{
-    BinaryOp, ClassKind, ClassMember, Expr, ExprId, Name, ObjectKey, Param, Program, Stmt,
-    StmtId, Type,
+    BinaryOp, ClassKind, ClassMember, Expr, ExprId, Name, ObjectKey, Param, Program, Stmt, StmtId,
+    Type,
 };
-use php_rs::phpx::typeck::{ExternalFunctionSig, Type as PhpType};
 use php_rs::parser::lexer::token::Token;
 use php_rs::parser::span::Span;
-use tower_lsp::lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams, CompletionResponse, Diagnostic,
-    DiagnosticOptions, DiagnosticServerCapabilities, DocumentDiagnosticParams, DocumentDiagnosticReport,
-    DocumentDiagnosticReportResult, FullDocumentDiagnosticReport, RelatedFullDocumentDiagnosticReport,
-    DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams, Documentation,
-    DocumentSymbol, DocumentSymbolParams, Hover, HoverContents, InitializeParams, InitializeResult,
-    InitializedParams, InsertTextFormat, Location, MarkupContent, MarkupKind, MessageType, OneOf,
-    Position, Range, ReferenceParams, RenameParams, ServerCapabilities, SymbolKind,
-    TextDocumentSyncCapability, TextDocumentSyncKind, TextEdit, Url, WorkspaceEdit,
-};
-use tower_lsp::{Client, LanguageServer, LspService, Server};
+use php_rs::phpx::typeck::{ExternalFunctionSig, Type as PhpType};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tower_lsp::lsp_types::{
+    CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams, CompletionResponse,
+    Diagnostic, DiagnosticOptions, DiagnosticServerCapabilities, DiagnosticSeverity,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, DocumentDiagnosticParams,
+    DocumentDiagnosticReport, DocumentDiagnosticReportResult, DocumentSymbol, DocumentSymbolParams,
+    Documentation, FullDocumentDiagnosticReport, Hover, HoverContents, InitializeParams,
+    InitializeResult, InitializedParams, InsertTextFormat, Location, MarkupContent, MarkupKind,
+    MessageType, OneOf, Position, Range, ReferenceParams, RelatedFullDocumentDiagnosticReport,
+    RenameParams, ServerCapabilities, SymbolKind, TextDocumentSyncCapability, TextDocumentSyncKind,
+    TextEdit, Url, WorkspaceEdit,
+};
+use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 struct Backend {
     _client: Client,
@@ -129,7 +130,10 @@ fn should_skip_template_html_diagnostic(error: &ValidationError) -> bool {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
-    async fn initialize(&self, params: InitializeParams) -> tower_lsp::jsonrpc::Result<InitializeResult> {
+    async fn initialize(
+        &self,
+        params: InitializeParams,
+    ) -> tower_lsp::jsonrpc::Result<InitializeResult> {
         let target_mode = TargetMode::from_initialize_params(&params);
         *self.target_mode.write().await = target_mode;
         let mut roots = Vec::new();
@@ -153,7 +157,9 @@ impl LanguageServer for Backend {
 
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+                text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                    TextDocumentSyncKind::FULL,
+                )),
                 hover_provider: Some(true.into()),
                 completion_provider: Some(CompletionOptions {
                     trigger_characters: Some(vec![
@@ -166,12 +172,14 @@ impl LanguageServer for Backend {
                     ]),
                     ..CompletionOptions::default()
                 }),
-                diagnostic_provider: Some(DiagnosticServerCapabilities::Options(DiagnosticOptions {
-                    identifier: Some("phpx".to_string()),
-                    inter_file_dependencies: true,
-                    workspace_diagnostics: false,
-                    work_done_progress_options: Default::default(),
-                })),
+                diagnostic_provider: Some(DiagnosticServerCapabilities::Options(
+                    DiagnosticOptions {
+                        identifier: Some("phpx".to_string()),
+                        inter_file_dependencies: true,
+                        workspace_diagnostics: false,
+                        work_done_progress_options: Default::default(),
+                    },
+                )),
                 definition_provider: Some(OneOf::Left(true)),
                 document_symbol_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
@@ -231,9 +239,11 @@ impl LanguageServer for Backend {
 
         let uri = params.text_document.uri;
         let text = params.text_document.text;
-        self.documents.write().await.insert(uri.clone(), text.clone());
-        self.validate_document(uri, &text)
-            .await;
+        self.documents
+            .write()
+            .await
+            .insert(uri.clone(), text.clone());
+        self.validate_document(uri, &text).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -251,11 +261,17 @@ impl LanguageServer for Backend {
             .map(|change| change.text.as_str())
             .unwrap_or("")
             .to_string();
-        self.documents.write().await.insert(uri.clone(), text.clone());
+        self.documents
+            .write()
+            .await
+            .insert(uri.clone(), text.clone());
         self.validate_document(uri, &text).await;
     }
 
-    async fn hover(&self, params: tower_lsp::lsp_types::HoverParams) -> tower_lsp::jsonrpc::Result<Option<Hover>> {
+    async fn hover(
+        &self,
+        params: tower_lsp::lsp_types::HoverParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<Hover>> {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
         let Some(text) = self.get_document(&uri).await else {
@@ -310,7 +326,10 @@ impl LanguageServer for Backend {
         }))
     }
 
-    async fn completion(&self, params: CompletionParams) -> tower_lsp::jsonrpc::Result<Option<CompletionResponse>> {
+    async fn completion(
+        &self,
+        params: CompletionParams,
+    ) -> tower_lsp::jsonrpc::Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
         let Some(text) = self.get_document(&uri).await else {
@@ -388,20 +407,27 @@ impl LanguageServer for Backend {
         });
 
         if let Some(loc) = location {
-            return Ok(Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(loc)));
+            return Ok(Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(
+                loc,
+            )));
         }
 
         let workspace_roots = self.workspace_roots.read().await.clone();
         if let Some(word) = word_at_offset(text.as_bytes(), offset) {
-            if let Some(loc) = definition_for_imported_symbol(&text, &file_path, &word, &workspace_roots) {
+            if let Some(loc) =
+                definition_for_imported_symbol(&text, &file_path, &word, &workspace_roots)
+            {
                 return Ok(Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(
                     loc,
                 )));
             }
         }
 
-        if let Some(loc) = definition_for_import_module(&text, &file_path, offset, &workspace_roots) {
-            return Ok(Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(loc)));
+        if let Some(loc) = definition_for_import_module(&text, &file_path, offset, &workspace_roots)
+        {
+            return Ok(Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(
+                loc,
+            )));
         }
 
         Ok(None)
@@ -504,8 +530,7 @@ impl LanguageServer for Backend {
         }
 
         if let Some(module_spec) = import_module_at_offset(&text, offset) {
-            let changes =
-                collect_module_rename_edits(&roots, &uri, &text, &module_spec, &new_name);
+            let changes = collect_module_rename_edits(&roots, &uri, &text, &module_spec, &new_name);
             if !changes.is_empty() {
                 return Ok(Some(WorkspaceEdit {
                     changes: Some(changes),
@@ -547,7 +572,12 @@ pub async fn run_stdio() -> anyhow::Result<()> {
 }
 
 fn diagnostic_from_error(_file_path: &str, _source: &str, error: &ValidationError) -> Diagnostic {
-    let rendered = diagnostic_message(error.kind.as_str(), &error.message, &error.help_text, error.suggestion.as_deref());
+    let rendered = diagnostic_message(
+        error.kind.as_str(),
+        &error.message,
+        &error.help_text,
+        error.suggestion.as_deref(),
+    );
     Diagnostic {
         range: diagnostic_range(error.line, error.column, error.underline_length),
         severity: Some(severity_to_lsp(error.severity)),
@@ -583,7 +613,12 @@ fn diagnostic_from_warning(
     }
 }
 
-fn diagnostic_message(kind: &str, message: &str, help_text: &str, suggestion: Option<&str>) -> String {
+fn diagnostic_message(
+    kind: &str,
+    message: &str,
+    help_text: &str,
+    suggestion: Option<&str>,
+) -> String {
     let mut out = String::new();
     out.push_str(kind);
     out.push_str(": ");
@@ -825,7 +860,11 @@ impl SymbolIndex {
                 let mut out = format!("```php\nstruct {}\n", strukt.name);
                 for field in &strukt.fields {
                     let ty = field.ty.clone().unwrap_or_else(|| "mixed".to_string());
-                    out.push_str(&format!("  ${}: {}\n", field.name.trim_start_matches('$'), ty));
+                    out.push_str(&format!(
+                        "  ${}: {}\n",
+                        field.name.trim_start_matches('$'),
+                        ty
+                    ));
                 }
                 out.push_str("```");
                 return Some(out);
@@ -833,7 +872,11 @@ impl SymbolIndex {
             for field in &strukt.fields {
                 if span_contains(field.span, offset) {
                     let ty = field.ty.clone().unwrap_or_else(|| "mixed".to_string());
-                    return Some(format!("```php\n${}: {}\n```", field.name.trim_start_matches('$'), ty));
+                    return Some(format!(
+                        "```php\n${}: {}\n```",
+                        field.name.trim_start_matches('$'),
+                        ty
+                    ));
                 }
             }
         }
@@ -1161,14 +1204,23 @@ impl SymbolIndex {
         if let Some(alias) = self.type_aliases.iter().find(|alias| alias.name == ty) {
             return self.fields_for_type(alias.ty.trim());
         }
-        if let Some(inner) = ty.strip_prefix("Option<").and_then(|value| value.strip_suffix('>')) {
+        if let Some(inner) = ty
+            .strip_prefix("Option<")
+            .and_then(|value| value.strip_suffix('>'))
+        {
             return self.fields_for_type(inner.trim());
         }
-        if let Some(inner) = ty.strip_prefix("Result<").and_then(|value| value.strip_suffix('>')) {
+        if let Some(inner) = ty
+            .strip_prefix("Result<")
+            .and_then(|value| value.strip_suffix('>'))
+        {
             let first = inner.split(',').next().unwrap_or(inner).trim();
             return self.fields_for_type(first);
         }
-        if let Some(inner) = ty.strip_prefix("Object<{").and_then(|value| value.strip_suffix("}>")) {
+        if let Some(inner) = ty
+            .strip_prefix("Object<{")
+            .and_then(|value| value.strip_suffix("}>"))
+        {
             let mut fields = Vec::new();
             for part in inner.split(',') {
                 let part = part.trim();
@@ -1228,14 +1280,23 @@ impl SymbolIndex {
         if let Some(alias) = self.type_aliases.iter().find(|alias| alias.name == ty) {
             return self.fields_for_type_with_types(alias.ty.trim());
         }
-        if let Some(inner) = ty.strip_prefix("Option<").and_then(|value| value.strip_suffix('>')) {
+        if let Some(inner) = ty
+            .strip_prefix("Option<")
+            .and_then(|value| value.strip_suffix('>'))
+        {
             return self.fields_for_type_with_types(inner.trim());
         }
-        if let Some(inner) = ty.strip_prefix("Result<").and_then(|value| value.strip_suffix('>')) {
+        if let Some(inner) = ty
+            .strip_prefix("Result<")
+            .and_then(|value| value.strip_suffix('>'))
+        {
             let first = inner.split(',').next().unwrap_or(inner).trim();
             return self.fields_for_type_with_types(first);
         }
-        if let Some(inner) = ty.strip_prefix("Object<{").and_then(|value| value.strip_suffix("}>")) {
+        if let Some(inner) = ty
+            .strip_prefix("Object<{")
+            .and_then(|value| value.strip_suffix("}>"))
+        {
             let mut fields = Vec::new();
             for part in inner.split(',') {
                 let part = part.trim();
@@ -1243,11 +1304,7 @@ impl SymbolIndex {
                     continue;
                 }
                 let mut segments = part.split(':');
-                let name = segments
-                    .next()
-                    .unwrap_or(part)
-                    .trim()
-                    .trim_end_matches('?');
+                let name = segments.next().unwrap_or(part).trim().trim_end_matches('?');
                 let ty = segments.next().map(|t| t.trim().to_string());
                 if !name.is_empty() {
                     fields.push((name.to_string(), ty));
@@ -1272,7 +1329,9 @@ fn collect_stmt(stmt: StmtId, source: &[u8], index: &mut SymbolIndex) {
         Stmt::Expression { expr, .. } => {
             collect_vars_in_expr(expr, source, &mut index.globals);
         }
-        Stmt::Return { expr: Some(expr), .. } => {
+        Stmt::Return {
+            expr: Some(expr), ..
+        } => {
             collect_vars_in_expr(expr, source, &mut index.globals);
         }
         Stmt::Function {
@@ -1285,8 +1344,13 @@ fn collect_stmt(stmt: StmtId, source: &[u8], index: &mut SymbolIndex) {
             ..
         } => {
             let fn_name = token_text(source, name);
-            let signature =
-                format_function_signature(fn_name.as_str(), params, *return_type, source, *is_async);
+            let signature = format_function_signature(
+                fn_name.as_str(),
+                params,
+                *return_type,
+                source,
+                *is_async,
+            );
             let mut vars = Vec::new();
             for param in *params {
                 let param_name = token_text(source, param.name);
@@ -1366,7 +1430,12 @@ fn collect_stmt(stmt: StmtId, source: &[u8], index: &mut SymbolIndex) {
                 fields,
             });
         }
-        Stmt::Enum { name, members, span: _, .. } => {
+        Stmt::Enum {
+            name,
+            members,
+            span: _,
+            ..
+        } => {
             let enum_name = token_text(source, name);
             let mut cases = Vec::new();
             for member in *members {
@@ -1436,8 +1505,14 @@ fn collect_vars_in_block(body: &[StmtId], source: &[u8], vars: &mut Vec<VarInfo>
     for stmt in body {
         match stmt {
             Stmt::Expression { expr, .. } => collect_vars_in_expr(expr, source, vars),
-            Stmt::Return { expr: Some(expr), .. } => collect_vars_in_expr(expr, source, vars),
-            Stmt::If { then_block, else_block, .. } => {
+            Stmt::Return {
+                expr: Some(expr), ..
+            } => collect_vars_in_expr(expr, source, vars),
+            Stmt::If {
+                then_block,
+                else_block,
+                ..
+            } => {
                 collect_vars_in_block(then_block, source, vars);
                 if let Some(block) = else_block {
                     collect_vars_in_block(block, source, vars);
@@ -1447,7 +1522,9 @@ fn collect_vars_in_block(body: &[StmtId], source: &[u8], vars: &mut Vec<VarInfo>
             | Stmt::DoWhile { body, .. }
             | Stmt::For { body, .. }
             | Stmt::Foreach { body, .. }
-            | Stmt::Block { statements: body, .. } => {
+            | Stmt::Block {
+                statements: body, ..
+            } => {
                 collect_vars_in_block(body, source, vars);
             }
             _ => {}
@@ -1505,25 +1582,39 @@ fn collect_vars_in_expr(expr: ExprId, source: &[u8], vars: &mut Vec<VarInfo>) {
                 collect_vars_in_expr(dim, source, vars);
             }
         }
-        Expr::PropertyFetch { target, property, .. } => {
+        Expr::PropertyFetch {
+            target, property, ..
+        } => {
             collect_vars_in_expr(target, source, vars);
             collect_vars_in_expr(property, source, vars);
         }
-        Expr::MethodCall { target, method, args, .. } => {
+        Expr::MethodCall {
+            target,
+            method,
+            args,
+            ..
+        } => {
             collect_vars_in_expr(target, source, vars);
             collect_vars_in_expr(method, source, vars);
             for arg in *args {
                 collect_vars_in_expr(arg.value, source, vars);
             }
         }
-        Expr::StaticCall { class, method, args, .. } => {
+        Expr::StaticCall {
+            class,
+            method,
+            args,
+            ..
+        } => {
             collect_vars_in_expr(class, source, vars);
             collect_vars_in_expr(method, source, vars);
             for arg in *args {
                 collect_vars_in_expr(arg.value, source, vars);
             }
         }
-        Expr::ClassConstFetch { class, constant, .. } => {
+        Expr::ClassConstFetch {
+            class, constant, ..
+        } => {
             collect_vars_in_expr(class, source, vars);
             collect_vars_in_expr(constant, source, vars);
         }
@@ -1533,7 +1624,12 @@ fn collect_vars_in_expr(expr: ExprId, source: &[u8], vars: &mut Vec<VarInfo>) {
                 collect_vars_in_expr(arg.value, source, vars);
             }
         }
-        Expr::Ternary { condition, if_true, if_false, .. } => {
+        Expr::Ternary {
+            condition,
+            if_true,
+            if_false,
+            ..
+        } => {
             collect_vars_in_expr(condition, source, vars);
             if let Some(expr) = if_true {
                 collect_vars_in_expr(expr, source, vars);
@@ -1808,7 +1904,6 @@ fn annotation_name_at_offset(source: &str, offset: usize) -> Option<String> {
     Some(String::from_utf8_lossy(&bytes[start..end]).to_string())
 }
 
-
 fn definition_for_import_module(
     source: &str,
     file_path: &str,
@@ -1825,8 +1920,14 @@ fn definition_for_import_module(
                 return Some(Location {
                     uri,
                     range: Range {
-                        start: Position { line: 0, character: 0 },
-                        end: Position { line: 0, character: 0 },
+                        start: Position {
+                            line: 0,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: 0,
+                            character: 0,
+                        },
                     },
                 });
             }
@@ -1849,11 +1950,16 @@ fn definition_for_imported_symbol(
         let root = find_php_modules_root(Path::new(file_path), workspace_roots)?;
         let path = resolve_module_file(&root, &import.from, import.is_wasm)?;
         let module_source = fs::read_to_string(&path).ok()?;
-        let range = export_range_for_symbol(&module_source, &import.imported)
-            .unwrap_or(Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 0 },
-            });
+        let range = export_range_for_symbol(&module_source, &import.imported).unwrap_or(Range {
+            start: Position {
+                line: 0,
+                character: 0,
+            },
+            end: Position {
+                line: 0,
+                character: 0,
+            },
+        });
         let uri = Url::from_file_path(path).ok()?;
         return Some(Location { uri, range });
     }
@@ -1883,7 +1989,13 @@ fn export_range_for_symbol(source: &str, symbol: &str) -> Option<Range> {
                 } else {
                     (spec, spec)
                 };
-                let name = if symbol == local { local } else if symbol == imported { imported } else { continue };
+                let name = if symbol == local {
+                    local
+                } else if symbol == imported {
+                    imported
+                } else {
+                    continue;
+                };
                 if let Some(col) = line.find(name) {
                     let span = Span::new(offset + col, offset + col + name.len());
                     return Some(span_to_range(span, &line_index));
@@ -1962,7 +2074,10 @@ fn parse_imports(source: &str) -> Vec<ImportInfo> {
         if trimmed.starts_with("import ") {
             let is_wasm = line.contains(" as wasm");
             let module_info = parse_module_path_with_span(line, offset);
-            let mut rest = trimmed.strip_prefix("import").unwrap_or(trimmed).trim_start();
+            let mut rest = trimmed
+                .strip_prefix("import")
+                .unwrap_or(trimmed)
+                .trim_start();
             let mut default_name: Option<&str> = None;
             let mut spec_part: Option<&str> = None;
 
@@ -2010,19 +2125,16 @@ fn parse_imports(source: &str) -> Vec<ImportInfo> {
                             cursor += spec.len() + 1;
                             continue;
                         }
-                        let (imported, local) = if let Some((left, right)) = spec_trim.split_once(" as ") {
-                            (left.trim(), right.trim())
-                        } else {
-                            (spec_trim, spec_trim)
-                        };
-                        let local_pos = line[cursor..]
-                            .find(local)
-                            .map(|idx| cursor + idx);
+                        let (imported, local) =
+                            if let Some((left, right)) = spec_trim.split_once(" as ") {
+                                (left.trim(), right.trim())
+                            } else {
+                                (spec_trim, spec_trim)
+                            };
+                        let local_pos = line[cursor..].find(local).map(|idx| cursor + idx);
                         if let Some(local_pos) = local_pos {
-                            let span = Span::new(
-                                offset + local_pos,
-                                offset + local_pos + local.len(),
-                            );
+                            let span =
+                                Span::new(offset + local_pos, offset + local_pos + local.len());
                             if let Some((module, module_span)) = module_info.clone() {
                                 imports.push(ImportInfo {
                                     imported: imported.to_string(),
@@ -2270,7 +2382,10 @@ fn completion_for_import(
             let root = find_php_modules_root(Path::new(file_path), workspace_roots)?;
             let is_wasm = line_text.contains(" as wasm");
             let exports = module_exports(&root, &module_spec, is_wasm)?;
-            let prefix_start = line_text[..rel].rfind(',').map(|idx| idx + 1).unwrap_or(open + 1);
+            let prefix_start = line_text[..rel]
+                .rfind(',')
+                .map(|idx| idx + 1)
+                .unwrap_or(open + 1);
             let raw_prefix = line_text[prefix_start..rel].trim();
             let prefix = raw_prefix
                 .split_whitespace()
@@ -2447,7 +2562,10 @@ fn completion_for_annotation(source: &str, offset: usize) -> Option<Vec<Completi
     let prefix = &source[line_start..offset.min(source.len())];
     let at = prefix.rfind('@')?;
     let typed = &prefix[at + 1..];
-    if typed.chars().any(|ch| !(ch == '_' || ch.is_ascii_alphanumeric())) {
+    if typed
+        .chars()
+        .any(|ch| !(ch == '_' || ch.is_ascii_alphanumeric()))
+    {
         return None;
     }
 
@@ -2495,9 +2613,18 @@ fn annotation_catalog() -> Vec<(&'static str, &'static str)> {
     vec![
         ("id", "Primary key marker. No arguments."),
         ("unique", "Unique constraint marker. No arguments."),
-        ("autoIncrement", "Auto-increment marker. Requires an `int` field."),
-        ("index", "Secondary index marker. Optional string index name argument."),
-        ("map", "Column mapping marker. Requires a string column name."),
+        (
+            "autoIncrement",
+            "Auto-increment marker. Requires an `int` field.",
+        ),
+        (
+            "index",
+            "Secondary index marker. Optional string index name argument.",
+        ),
+        (
+            "map",
+            "Column mapping marker. Requires a string column name.",
+        ),
         ("default", "Default value marker. Requires one argument."),
         (
             "relation",
@@ -2654,15 +2781,7 @@ fn jsx_attr_default_value(ty: Option<&str>) -> &'static str {
 fn builtin_completion_items() -> Vec<CompletionItem> {
     let mut items = Vec::new();
     for name in [
-        "Option",
-        "Result",
-        "Promise",
-        "Object",
-        "array",
-        "int",
-        "string",
-        "bool",
-        "float",
+        "Option", "Result", "Promise", "Object", "array", "int", "string", "bool", "float",
     ] {
         items.push(CompletionItem {
             label: name.to_string(),
@@ -2849,7 +2968,11 @@ fn list_project_modules(project_root: &Path) -> Vec<String> {
     for entry in entries.flatten() {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') || name == "php_modules" || name == "target" || name == "node_modules" {
+        if name.starts_with('.')
+            || name == "php_modules"
+            || name == "target"
+            || name == "node_modules"
+        {
             continue;
         }
         if path.is_dir() {
@@ -3034,7 +3157,10 @@ fn collect_phpx_files(root: &Path) -> Vec<PathBuf> {
 }
 
 fn should_skip_dir(path: &Path) -> bool {
-    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
     name.starts_with('.')
         || name == "node_modules"
         || name == "target"
@@ -3117,7 +3243,10 @@ mod tests {
     #[test]
     fn target_mode_defaults_to_server() {
         let params = InitializeParams::default();
-        assert_eq!(TargetMode::from_initialize_params(&params), TargetMode::Server);
+        assert_eq!(
+            TargetMode::from_initialize_params(&params),
+            TargetMode::Server
+        );
     }
 
     #[test]
@@ -3128,7 +3257,10 @@ mod tests {
                 "target": "adwa"
             }
         }));
-        assert_eq!(TargetMode::from_initialize_params(&params), TargetMode::Adwa);
+        assert_eq!(
+            TargetMode::from_initialize_params(&params),
+            TargetMode::Adwa
+        );
     }
 
     #[test]
@@ -3137,7 +3269,11 @@ mod tests {
         let diagnostics = target_capability_diagnostics(source, TargetMode::Adwa);
         assert_eq!(diagnostics.len(), 1, "diagnostics={diagnostics:?}");
         let first = &diagnostics[0];
-        assert!(first.message.contains("db/postgres"), "message={}", first.message);
+        assert!(
+            first.message.contains("db/postgres"),
+            "message={}",
+            first.message
+        );
         assert!(first.message.contains("help:"), "message={}", first.message);
         assert_eq!(
             first.code,
@@ -3197,13 +3333,8 @@ mod tests {
         fs::write(&file_b, src_b).expect("write b");
 
         let uri_a = Url::from_file_path(&file_a).expect("uri a");
-        let edits = collect_symbol_rename_edits(
-            std::slice::from_ref(&dir),
-            &uri_a,
-            src_a,
-            "$foo",
-            "$bar",
-        );
+        let edits =
+            collect_symbol_rename_edits(std::slice::from_ref(&dir), &uri_a, src_a, "$foo", "$bar");
         let uri_b = Url::from_file_path(&file_b).expect("uri b");
         assert_eq!(edits.get(&uri_a).map(|v| v.len()), Some(1));
         assert_eq!(edits.get(&uri_b).map(|v| v.len()), Some(2));
@@ -3220,12 +3351,7 @@ mod tests {
         fs::write(&file_b, src_b).expect("write b");
 
         let uri_a = Url::from_file_path(&file_a).expect("uri a");
-        let refs = collect_reference_locations(
-            std::slice::from_ref(&dir),
-            &uri_a,
-            src_a,
-            "$user",
-        );
+        let refs = collect_reference_locations(std::slice::from_ref(&dir), &uri_a, src_a, "$user");
         assert_eq!(refs.len(), 3);
     }
 
@@ -3270,7 +3396,8 @@ mod tests {
         fs::create_dir_all(&project).expect("mkdir project");
         fs::write(&file, "import { x } from 'core/result'").expect("write file");
 
-        let resolved = find_php_modules_root(&file, std::slice::from_ref(&workspace)).expect("resolve modules");
+        let resolved = find_php_modules_root(&file, std::slice::from_ref(&workspace))
+            .expect("resolve modules");
         assert_eq!(resolved, php_modules);
     }
 
@@ -3290,11 +3417,22 @@ mod tests {
 
         let source = fs::read_to_string(&file).expect("read main");
         let offset = source.find("sta").expect("sta") + 3;
-        let items = completion_for_import(&source, file.to_str().expect("file"), offset, std::slice::from_ref(&workspace))
-            .expect("completion");
+        let items = completion_for_import(
+            &source,
+            file.to_str().expect("file"),
+            offset,
+            std::slice::from_ref(&workspace),
+        )
+        .expect("completion");
         let labels: Vec<String> = items.into_iter().map(|item| item.label).collect();
-        assert!(labels.iter().any(|label| label == "stats"), "labels={labels:?}");
-        assert!(labels.iter().any(|label| label == "status"), "labels={labels:?}");
+        assert!(
+            labels.iter().any(|label| label == "stats"),
+            "labels={labels:?}"
+        );
+        assert!(
+            labels.iter().any(|label| label == "status"),
+            "labels={labels:?}"
+        );
     }
 
     #[test]
@@ -3308,10 +3446,18 @@ mod tests {
         let source = "import { sta from 'db'\n";
 
         let offset = source.find("sta").expect("sta") + 3;
-        let items = completion_for_import(source, file.to_str().expect("file"), offset, std::slice::from_ref(&workspace))
-            .expect("completion");
+        let items = completion_for_import(
+            source,
+            file.to_str().expect("file"),
+            offset,
+            std::slice::from_ref(&workspace),
+        )
+        .expect("completion");
         let labels: Vec<String> = items.into_iter().map(|item| item.label).collect();
-        assert!(labels.iter().any(|label| label == "stats"), "labels={labels:?}");
+        assert!(
+            labels.iter().any(|label| label == "stats"),
+            "labels={labels:?}"
+        );
     }
 
     #[test]
@@ -3350,11 +3496,19 @@ mod tests {
             ..SymbolIndex::default()
         };
         let offset = source.find("/>").expect("/>");
-        let items = completion_for_jsx_props(&index, source.as_bytes(), offset).expect("completion");
+        let items =
+            completion_for_jsx_props(&index, source.as_bytes(), offset).expect("completion");
         let labels: Vec<String> = items.into_iter().map(|item| item.label).collect();
-        assert!(labels.iter().any(|label| label == "name"), "labels={labels:?}");
-        assert!(labels.iter().any(|label| label == "title"), "labels={labels:?}");
-        let items = completion_for_jsx_props(&index, source.as_bytes(), offset).expect("completion");
+        assert!(
+            labels.iter().any(|label| label == "name"),
+            "labels={labels:?}"
+        );
+        assert!(
+            labels.iter().any(|label| label == "title"),
+            "labels={labels:?}"
+        );
+        let items =
+            completion_for_jsx_props(&index, source.as_bytes(), offset).expect("completion");
         let name_item = items
             .iter()
             .find(|item| item.label == "name")
@@ -3399,10 +3553,17 @@ mod tests {
             ..SymbolIndex::default()
         };
         let offset = source.find("/>").expect("/>");
-        let items = completion_for_jsx_props(&index, source.as_bytes(), offset).expect("completion");
+        let items =
+            completion_for_jsx_props(&index, source.as_bytes(), offset).expect("completion");
         let labels: Vec<String> = items.into_iter().map(|item| item.label).collect();
-        assert!(!labels.iter().any(|label| label == "name"), "labels={labels:?}");
-        assert!(labels.iter().any(|label| label == "title"), "labels={labels:?}");
+        assert!(
+            !labels.iter().any(|label| label == "name"),
+            "labels={labels:?}"
+        );
+        assert!(
+            labels.iter().any(|label| label == "title"),
+            "labels={labels:?}"
+        );
     }
 
     #[test]
@@ -3416,8 +3577,11 @@ mod tests {
         let source = "import { stat } from 'db'\n";
         fs::write(&file, source).expect("write main");
 
-        let diagnostics =
-            unresolved_import_diagnostics(source, file.to_str().expect("file"), std::slice::from_ref(&workspace));
+        let diagnostics = unresolved_import_diagnostics(
+            source,
+            file.to_str().expect("file"),
+            std::slice::from_ref(&workspace),
+        );
         assert_eq!(diagnostics.len(), 1, "diagnostics={diagnostics:?}");
         assert!(diagnostics[0].message.contains("no export named 'stat'"));
         assert_eq!(
@@ -3439,8 +3603,11 @@ mod tests {
         let source = "import { stats as stat } from 'db'\n";
         fs::write(&file, source).expect("write main");
 
-        let diagnostics =
-            unresolved_import_diagnostics(source, file.to_str().expect("file"), std::slice::from_ref(&workspace));
+        let diagnostics = unresolved_import_diagnostics(
+            source,
+            file.to_str().expect("file"),
+            std::slice::from_ref(&workspace),
+        );
         assert!(diagnostics.is_empty(), "diagnostics={diagnostics:?}");
     }
 
@@ -3461,9 +3628,9 @@ function FullName({ $name }: NameProps): string {
             .map(|error| diagnostic_from_error("/tmp/props.phpx", source, error).message)
             .collect();
         assert!(
-            diag_messages.iter().any(|m| {
-                m.contains("Destructured parameter") && m.contains("use interface")
-            }),
+            diag_messages
+                .iter()
+                .any(|m| { m.contains("Destructured parameter") && m.contains("use interface") }),
             "messages={diag_messages:?}"
         );
     }
@@ -3520,9 +3687,9 @@ function fullName($name: string): string {
         let result = compile_phpx(source, "/tmp/var_typo.phpx", &arena);
         let messages: Vec<String> = result.errors.iter().map(|e| e.message.clone()).collect();
         assert!(
-            messages
-                .iter()
-                .any(|m| m.contains("Unknown variable '$nam'") && m.contains("did you mean '$name'")),
+            messages.iter().any(
+                |m| m.contains("Unknown variable '$nam'") && m.contains("did you mean '$name'")
+            ),
             "messages={messages:?}"
         );
     }
@@ -3554,7 +3721,8 @@ function FullName($props: NameProps): string {
         assert!(
             messages
                 .iter()
-                .any(|m| m.contains("Missing required prop 'name'") && m.contains("component 'FullName'")),
+                .any(|m| m.contains("Missing required prop 'name'")
+                    && m.contains("component 'FullName'")),
             "messages={messages:?}"
         );
     }

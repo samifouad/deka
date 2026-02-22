@@ -59,11 +59,7 @@ fn load_serve_from_deka_json(path: &std::path::Path) -> Option<ServeConfig> {
         match serde_json::from_value::<ServeConfig>(serve.clone()) {
             Ok(config) => return Some(config),
             Err(err) => {
-                tracing::warn!(
-                    "Failed to parse {}.serve: {}",
-                    path.display(),
-                    err
-                );
+                tracing::warn!("Failed to parse {}.serve: {}", path.display(), err);
                 return None;
             }
         }
@@ -153,18 +149,6 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         });
     }
 
-    // Convention: if an app/ folder exists, default to PHP app routing mode.
-    // This takes precedence over serve.entry when serving a directory.
-    let app_dir = abs_path.join("app");
-    if app_dir.is_dir() {
-        return Ok(ResolvedHandler {
-            path: abs_path,
-            mode: serve_config.mode.clone().unwrap_or(ServeMode::Php),
-            config: serve_config,
-        });
-    }
-
-    // Directory input can use config entry defaults when no app router exists.
     if let Some(ref entry) = serve_config.entry {
         let entry_path = if std::path::Path::new(entry).is_absolute() {
             PathBuf::from(entry)
@@ -183,6 +167,16 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
         return Ok(ResolvedHandler {
             path: entry_path,
             mode,
+            config: serve_config,
+        });
+    }
+
+    // Convention: if an app/ folder exists, default to PHP app routing mode.
+    let app_dir = abs_path.join("app");
+    if app_dir.is_dir() {
+        return Ok(ResolvedHandler {
+            path: abs_path,
+            mode: serve_config.mode.clone().unwrap_or(ServeMode::Php),
             config: serve_config,
         });
     }
@@ -211,11 +205,7 @@ pub fn resolve_handler_path(path: &str) -> Result<ResolvedHandler, String> {
     }
 
     // Directory: search for index files in priority order
-    let index_files = [
-        "index.php",
-        "index.phpx",
-        "index.html",
-    ];
+    let index_files = ["index.php", "index.phpx", "index.html"];
 
     for index_file in &index_files {
         let index_path = abs_path.join(index_file);
@@ -383,9 +373,8 @@ mod tests {
         dir
     }
 
-
     #[test]
-    fn app_directory_precedes_serve_entry_for_directory_input() {
+    fn app_directory_respects_serve_entry_for_directory_input() {
         let dir = temp_dir("deka_engine_app_over_entry");
         let app_dir = dir.join("app");
         fs::create_dir_all(&app_dir).expect("mkdir app");
@@ -394,8 +383,9 @@ mod tests {
         fs::write(dir.join("serve.json"), r#"{"entry":"main.phpx"}"#).expect("write config");
 
         let resolved = resolve_handler_path(dir.to_str().expect("path")).expect("resolve");
-        assert!(resolved.path.is_dir());
-        assert!(matches!(resolved.mode, ServeMode::Php));
+        let resolved_canon = resolved.path.canonicalize().expect("resolved canonicalize");
+        let configured_canon = dir.join("main.phpx").canonicalize().expect("configured canonicalize");
+        assert_eq!(resolved_canon, configured_canon);
     }
 
     #[test]

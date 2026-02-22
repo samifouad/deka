@@ -1,6 +1,6 @@
-use crate::vfs::{VFS, RuntimeMode};
-use flate2::write::GzEncoder;
+use crate::vfs::{RuntimeMode, VFS};
 use flate2::Compression;
+use flate2::write::GzEncoder;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -19,7 +19,11 @@ impl Embedder {
     pub fn new(root: PathBuf) -> Self {
         Self {
             root,
-            include: vec!["**/*.js".to_string(), "**/*.ts".to_string(), "**/*.php".to_string()],
+            include: vec![
+                "**/*.js".to_string(),
+                "**/*.ts".to_string(),
+                "**/*.php".to_string(),
+            ],
             exclude: vec![
                 "node_modules/**".to_string(),
                 "target/**".to_string(),
@@ -58,8 +62,8 @@ impl Embedder {
             return Ok(());
         }
 
-        let entries = fs::read_dir(dir)
-            .map_err(|e| format!("Failed to read directory {:?}: {}", dir, e))?;
+        let entries =
+            fs::read_dir(dir).map_err(|e| format!("Failed to read directory {:?}: {}", dir, e))?;
 
         for entry in entries {
             let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
@@ -105,8 +109,8 @@ impl Embedder {
     /// Embed a single file into VFS
     fn embed_file(&self, path: &Path, vfs: &mut VFS) -> Result<(), String> {
         // Read file contents
-        let content = fs::read(path)
-            .map_err(|e| format!("Failed to read file {:?}: {}", path, e))?;
+        let content =
+            fs::read(path).map_err(|e| format!("Failed to read file {:?}: {}", path, e))?;
 
         // Get relative path from root
         let relative_path = path

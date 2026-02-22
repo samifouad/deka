@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, parse::Parse, ItemFn, LitStr};
+use syn::{parse::Parse, parse_macro_input, ItemFn, LitStr};
 
 #[proc_macro_attribute]
 pub fn export_json(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -31,12 +31,16 @@ pub fn deka_export_json(input: TokenStream) -> TokenStream {
     }
     impl Parse for IdentList {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            let items = syn::punctuated::Punctuated::<syn::Ident, syn::Token![,]>::parse_terminated(input)?;
+            let items =
+                syn::punctuated::Punctuated::<syn::Ident, syn::Token![,]>::parse_terminated(input)?;
             Ok(Self { items })
         }
     }
 
-    let list = parse_macro_input!(input as IdentList).items.into_iter().collect::<Vec<_>>();
+    let list = parse_macro_input!(input as IdentList)
+        .items
+        .into_iter()
+        .collect::<Vec<_>>();
 
     let names: Vec<LitStr> = list
         .iter()

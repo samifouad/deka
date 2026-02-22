@@ -1,7 +1,7 @@
 /*
 TEST: mysql wire mode hard-errors unsupported parameter types (no native fallback for type errors)
 */
-import { connect, query_one, close } from 'db/mysql'
+import { connectSync, query_one, closeSync } from 'db/mysql'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
@@ -18,14 +18,14 @@ $cfg = {
     fallback_native: false
 }
 
-$conn = connect($cfg)
+$conn = connectSync($cfg)
 if (!result_is_ok($conn)) {
-    echo "ERR connect\n"
+    echo "ERR connectSync\n"
     return
 }
 
 $res = query_one($conn->value, 'select ? as v', [{ a: 1 }])
-close($conn->value)
+closeSync($conn->value)
 
 if (result_is_ok($res)) {
     echo "ERR expected\n"

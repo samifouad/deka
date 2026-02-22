@@ -5,8 +5,8 @@ use std::sync::Arc;
 use deno_core::Extension;
 use deno_permissions::{
     AllowRunDescriptor, AllowRunDescriptorParseResult, DenyRunDescriptor, EnvDescriptor,
-    FfiDescriptor, ImportDescriptor, NetDescriptor, PathQueryDescriptor, PathResolveError,
-    PathDescriptor, PermissionDescriptorParser, PermissionsContainer, ReadDescriptor,
+    FfiDescriptor, ImportDescriptor, NetDescriptor, PathDescriptor, PathQueryDescriptor,
+    PathResolveError, PermissionDescriptorParser, PermissionsContainer, ReadDescriptor,
     RunDescriptorParseError, RunQueryDescriptor, SpecialFilePathQueryDescriptor, SysDescriptor,
     WriteDescriptor,
 };

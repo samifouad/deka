@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::{Write, Read};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 /// Magic bytes to identify VFS data in the binary
@@ -183,14 +183,16 @@ impl BinaryEmbedder {
             }
         }
 
-        Err("Could not find runtime binary. Please build the project first with 'cargo build'".to_string())
+        Err(
+            "Could not find runtime binary. Please build the project first with 'cargo build'"
+                .to_string(),
+        )
     }
 }
 
 /// Extract VFS data from a compiled binary
 pub fn extract_vfs(binary_path: &Path) -> Result<(Vec<u8>, BinaryMetadata), String> {
-    let mut file = File::open(binary_path)
-        .map_err(|e| format!("Failed to open binary: {}", e))?;
+    let mut file = File::open(binary_path).map_err(|e| format!("Failed to open binary: {}", e))?;
 
     // Read the entire file
     let mut contents = Vec::new();

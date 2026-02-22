@@ -1,17 +1,17 @@
-pub mod vfs;
-pub mod embed;
 pub mod binary;
 pub mod config;
+pub mod embed;
+pub mod vfs;
 
 pub use config::{DekaConfig, WindowConfig};
 
-use core::Context;
-use stdio as stdio_log;
-use embed::Embedder;
 use binary::BinaryEmbedder;
-use vfs::RuntimeMode;
+use core::Context;
+use embed::Embedder;
 use std::env;
 use std::path::PathBuf;
+use stdio as stdio_log;
+use vfs::RuntimeMode;
 
 pub fn run(context: &Context) {
     // Check if --desktop and --bundle flags are set
@@ -51,22 +51,39 @@ pub fn run(context: &Context) {
                 Ok(vfs) => {
                     stdio_log::log(
                         "compile",
-                        &format!("Embedded {} files ({} bytes)", vfs.file_count(), vfs.total_size())
+                        &format!(
+                            "Embedded {} files ({} bytes)",
+                            vfs.file_count(),
+                            vfs.total_size()
+                        ),
                     );
 
                     // Serialize VFS to bytes
                     match vfs.to_bytes() {
                         Ok(vfs_bytes) => {
-                            stdio_log::log("compile", &format!("VFS size: {} bytes", vfs_bytes.len()));
+                            stdio_log::log(
+                                "compile",
+                                &format!("VFS size: {} bytes", vfs_bytes.len()),
+                            );
 
                             // Find the runtime binary
                             stdio_log::log("compile", "Locating runtime binary...");
                             match BinaryEmbedder::find_runtime_binary() {
                                 Ok(runtime_path) => {
-                                    stdio_log::log("compile", &format!("Found runtime binary: {}", runtime_path.display()));
+                                    stdio_log::log(
+                                        "compile",
+                                        &format!(
+                                            "Found runtime binary: {}",
+                                            runtime_path.display()
+                                        ),
+                                    );
 
                                     // Determine output path
-                                    let output_name = if is_desktop { "deka-desktop" } else { "deka-app" };
+                                    let output_name = if is_desktop {
+                                        "deka-desktop"
+                                    } else {
+                                        "deka-app"
+                                    };
                                     let output_path = current_dir.join(output_name);
 
                                     // Embed VFS into binary
@@ -77,37 +94,95 @@ pub fn run(context: &Context) {
                                         Ok(_) => {
                                             // If bundling, create platform-specific bundle
                                             if is_bundle && is_desktop {
-                                                match create_macos_bundle(&current_dir, &output_path, app_name) {
+                                                match create_macos_bundle(
+                                                    &current_dir,
+                                                    &output_path,
+                                                    app_name,
+                                                ) {
                                                     Ok(bundle_path) => {
-                                                        stdio_log::log("compile", "✓ Compilation successful!");
-                                                        stdio_log::log("compile", &format!("  Bundle: {}", bundle_path.display()));
+                                                        stdio_log::log(
+                                                            "compile",
+                                                            "✓ Compilation successful!",
+                                                        );
+                                                        stdio_log::log(
+                                                            "compile",
+                                                            &format!(
+                                                                "  Bundle: {}",
+                                                                bundle_path.display()
+                                                            ),
+                                                        );
                                                         stdio_log::log("compile", "");
-                                                        stdio_log::log("compile", &format!("Run with: open {}", bundle_path.display()));
+                                                        stdio_log::log(
+                                                            "compile",
+                                                            &format!(
+                                                                "Run with: open {}",
+                                                                bundle_path.display()
+                                                            ),
+                                                        );
                                                     }
                                                     Err(e) => {
-                                                        stdio_log::error("compile", &format!("Failed to create bundle: {}", e));
-                                                        stdio_log::log("compile", "✓ Binary created successfully (without bundle)");
-                                                        stdio_log::log("compile", &format!("  Output: {}", output_path.display()));
+                                                        stdio_log::error(
+                                                            "compile",
+                                                            &format!(
+                                                                "Failed to create bundle: {}",
+                                                                e
+                                                            ),
+                                                        );
+                                                        stdio_log::log(
+                                                            "compile",
+                                                            "✓ Binary created successfully (without bundle)",
+                                                        );
+                                                        stdio_log::log(
+                                                            "compile",
+                                                            &format!(
+                                                                "  Output: {}",
+                                                                output_path.display()
+                                                            ),
+                                                        );
                                                     }
                                                 }
                                             } else {
-                                                stdio_log::log("compile", "✓ Compilation successful!");
-                                                stdio_log::log("compile", &format!("  Output: {}", output_path.display()));
-                                                stdio_log::log("compile", &format!("  Size: {} bytes",
-                                                    std::fs::metadata(&output_path).map(|m| m.len()).unwrap_or(0)
-                                                ));
+                                                stdio_log::log(
+                                                    "compile",
+                                                    "✓ Compilation successful!",
+                                                );
+                                                stdio_log::log(
+                                                    "compile",
+                                                    &format!("  Output: {}", output_path.display()),
+                                                );
+                                                stdio_log::log(
+                                                    "compile",
+                                                    &format!(
+                                                        "  Size: {} bytes",
+                                                        std::fs::metadata(&output_path)
+                                                            .map(|m| m.len())
+                                                            .unwrap_or(0)
+                                                    ),
+                                                );
                                                 stdio_log::log("compile", "");
-                                                stdio_log::log("compile", &format!("Run with: ./{}", output_name));
+                                                stdio_log::log(
+                                                    "compile",
+                                                    &format!("Run with: ./{}", output_name),
+                                                );
                                             }
                                         }
                                         Err(e) => {
-                                            stdio_log::error("compile", &format!("Failed to embed binary: {}", e));
+                                            stdio_log::error(
+                                                "compile",
+                                                &format!("Failed to embed binary: {}", e),
+                                            );
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    stdio_log::error("compile", &format!("Failed to find runtime binary: {}", e));
-                                    stdio_log::error("compile", "Please build the project first with: cargo build");
+                                    stdio_log::error(
+                                        "compile",
+                                        &format!("Failed to find runtime binary: {}", e),
+                                    );
+                                    stdio_log::error(
+                                        "compile",
+                                        "Please build the project first with: cargo build",
+                                    );
                                 }
                             }
                         }
@@ -122,7 +197,10 @@ pub fn run(context: &Context) {
             }
         }
         None => {
-            stdio_log::error("compile", "No entry point found. Looking for app.php, index.php, or index.phpx");
+            stdio_log::error(
+                "compile",
+                "No entry point found. Looking for app.php, index.php, or index.phpx",
+            );
         }
     }
 }
@@ -168,12 +246,11 @@ fn create_macos_bundle(
     // Move binary to MacOS directory
     let binary_name = name.to_lowercase().replace(" ", "-");
     let dest_binary = macos_dir.join(&binary_name);
-    fs::copy(binary_path, &dest_binary)
-        .map_err(|e| format!("Failed to copy binary: {}", e))?;
+    fs::copy(binary_path, &dest_binary).map_err(|e| format!("Failed to copy binary: {}", e))?;
 
     // Make binary executable
-    let metadata = fs::metadata(&dest_binary)
-        .map_err(|e| format!("Failed to get binary metadata: {}", e))?;
+    let metadata =
+        fs::metadata(&dest_binary).map_err(|e| format!("Failed to get binary metadata: {}", e))?;
     let mut permissions = metadata.permissions();
     permissions.set_mode(0o755);
     fs::set_permissions(&dest_binary, permissions)
@@ -193,7 +270,8 @@ fn create_macos_bundle(
 
 /// Generate Info.plist content for macOS bundle
 fn generate_info_plist(app_name: &str, executable_name: &str) -> String {
-    format!(r#"<?xml version="1.0" encoding="UTF-8"?>
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -217,5 +295,7 @@ fn generate_info_plist(app_name: &str, executable_name: &str) -> String {
     <string>public.app-category.utilities</string>
 </dict>
 </plist>
-"#, app_name, app_name, executable_name, executable_name)
+"#,
+        app_name, app_name, executable_name, executable_name
+    )
 }

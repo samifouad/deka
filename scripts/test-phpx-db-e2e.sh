@@ -18,7 +18,7 @@ publish_docs() {
     exit 1
   fi
   echo "[docs] publishing docs -> ${DEKA_DOCS_OUT}"
-  node "${REPO_ROOT}/scripts/publish-docs.js" --scan "${REPO_ROOT}" --out "${DEKA_DOCS_OUT}"
+  node "${REPO_ROOT}/scripts/publish-docs.js" --manual "${REPO_ROOT}/docs/phpx" --scan "${REPO_ROOT}" --sections phpx --version latest --out "${DEKA_DOCS_OUT}" --force
 }
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -38,7 +38,7 @@ DB_NAME="${DB_NAME:-linkhash_registry}"
 DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-postgres}"
 PHPX_BIN="${PHPX_BIN:-target/release/cli}"
-PHPX_BIN_ARGS="${PHPX_BIN_ARGS:-run}"
+PHPX_BIN_ARGS="${PHPX_BIN_ARGS:-}"
 
 cleanup() {
   docker rm -f "$POSTGRES_CONTAINER" >/dev/null 2>&1 || true
@@ -111,7 +111,7 @@ DB_PASSWORD="$DB_PASSWORD" \
 PHPX_BIN="$PHPX_BIN" \
 PHPX_BIN_ARGS="$PHPX_BIN_ARGS" \
 bun tests/phpx/testrunner.js tests/phpx/db \
-  --skip=tests/phpx/db/mysql_smoke.phpx,tests/phpx/db/wire_mysql_smoke.phpx,tests/phpx/db/wire_mysql_param_type_error.phpx,tests/phpx/db/contract_mysql.phpx
+  --skip=tests/phpx/db/mysql_smoke.phpx,tests/phpx/db/async_mysql_smoke.phpx,tests/phpx/db/wire_mysql_smoke.phpx,tests/phpx/db/wire_mysql_param_type_error.phpx,tests/phpx/db/contract_mysql.phpx
 
 publish_docs
 

@@ -24,7 +24,7 @@ publish_docs() {
     exit 1
   fi
   echo "[docs] publishing docs -> ${DEKA_DOCS_OUT}"
-  node "${ROOT_DIR}/scripts/publish-docs.js" --scan "${ROOT_DIR}" --out "${DEKA_DOCS_OUT}"
+  node "${ROOT_DIR}/scripts/publish-docs.js" --manual "${ROOT_DIR}/docs/phpx" --scan "${ROOT_DIR}" --sections phpx --version latest --out "${DEKA_DOCS_OUT}" --force
 }
 
 run_case() {

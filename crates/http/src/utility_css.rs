@@ -36,7 +36,11 @@ fn inject_utility_css_with_config(html: &str, config: UtilityCssConfig) -> Strin
     if css.is_empty() {
         return html.to_string();
     }
-    let preflight = if config.preflight { preflight_css() } else { "" };
+    let preflight = if config.preflight {
+        preflight_css()
+    } else {
+        ""
+    };
     let style = format!("<style id=\"{}\">{}{}</style>", MARKER, preflight, css);
     if let Some(idx) = html.rfind("</head>") {
         let mut out = String::with_capacity(html.len() + style.len());
@@ -408,7 +412,9 @@ fn preflight_css() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{UtilityCssConfig, collect_classes, inject_utility_css, inject_utility_css_with_config};
+    use super::{
+        UtilityCssConfig, collect_classes, inject_utility_css, inject_utility_css_with_config,
+    };
 
     #[test]
     fn injects_style_for_basic_classes() {

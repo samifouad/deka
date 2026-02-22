@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use crate::RuntimeState;
 use crate::envelope::{RequestEnvelope, ResponseEnvelope};
-use pool::{ExecutionMode, RequestData};
 use pool::RequestParts;
+use pool::{ExecutionMode, RequestData};
 
 async fn execute_request_data(
     state: Arc<RuntimeState>,

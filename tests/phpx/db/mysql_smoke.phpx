@@ -2,9 +2,9 @@
 TEST: MySQL smoke test for PHPX mysql module.
 Mode:
 - Default: prints SKIP unless PHPX_DB_SMOKE=1.
-- Smoke: when enabled and MySQL is reachable, runs a simple count query.
+- Smoke: when enabled and MySQL is reachable, runs a simple count querySync.
 */
-import { connect, query, close } from 'db/mysql'
+import { connectSync, querySync, closeSync } from 'db/mysql'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
@@ -18,7 +18,7 @@ $database = getenv('MYSQL_DB') ?: 'test'
 $user = getenv('MYSQL_USER') ?: 'root'
 $password = getenv('MYSQL_PASSWORD') ?: ''
 
-$conn = connect({
+$conn = connectSync({
     host: $host,
     port: $port,
     database: $database,
@@ -27,16 +27,16 @@ $conn = connect({
 })
 
 if (!result_is_ok($conn)) {
-    echo "ERR connect\n"
+    echo "ERR connectSync\n"
     return
 }
 
 $handle = $conn->value
-$rows = query($handle, 'select 1 as c', [])
-close($handle)
+$rows = querySync($handle, 'select 1 as c', [])
+closeSync($handle)
 
 if (!result_is_ok($rows)) {
-    echo "ERR query\n"
+    echo "ERR querySync\n"
     return
 }
 

@@ -2066,6 +2066,9 @@ function buildModuleTypeInfo(source, filePath, moduleId) {
     if (typeof op_php_parse_phpx_types !== 'function') {
         return null;
     }
+    if (moduleId && moduleId.startsWith('@/')) {
+        return null;
+    }
     const compiled = compilePhpxSourceForTypes(source, moduleId);
     try {
         const typeInfo = op_php_parse_phpx_types(compiled.code, filePath);
@@ -2700,10 +2703,16 @@ function writeDekaLock(lockPath, lock) {
     const json = JSON.stringify(lock, null, 2) + "\n";
     privilegedWriteFileSync(lockPath, json, 'utf8', 'lock:write');
 }
-function resolveModuleCachePath(modulesRoot, relPath) {
+function resolveModuleCachePath(modulesRoot, relPath, moduleId = '') {
     let cacheRel = relPath;
+    if (moduleId && moduleId.startsWith('@/')) {
+        cacheRel = moduleId.slice(2);
+    }
     if (cacheRel.endsWith('.phpx')) {
-        cacheRel = cacheRel.slice(0, -5) + '.php';
+        cacheRel = cacheRel.slice(0, -5);
+    }
+    if (!cacheRel.endsWith('.php')) {
+        cacheRel = cacheRel + '.php';
     }
     return globalThis.path.resolve(modulesRoot, '.cache', 'phpx', cacheRel);
 }
@@ -2733,7 +2742,7 @@ function buildLazyModuleRegistry(modules, entryPath) {
             if (spec.kind === 'wasm') continue;
             if (!deps.includes(spec.from)) deps.push(spec.from);
         }
-        const cachePath = resolveModuleCachePath(modulesRoot, module.relPath || '');
+        const cachePath = resolveModuleCachePath(modulesRoot, module.relPath || '', module.moduleId || '');
         const cacheRel = globalThis.path.relative(projectRoot, cachePath).replace(/\\/g, '/');
         const srcRel = globalThis.path.relative(projectRoot, module.filePath).replace(/\\/g, '/');
         const cacheEntry = lock.php.cache.modules[module.moduleId];

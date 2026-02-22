@@ -139,11 +139,11 @@ export function Router($props = false) {
     $page_module_id = route_field($resolved, 'module_id');
     $page_exports = load_module_exports($page_module_id);
     if ($page_exports === false) {
-        return router_error("Missing page module export for " . $page_module_id);
+        return router_error("Missing page module for " . $page_module_id);
     }
     $Page = export_field($page_exports, 'Page');
     if (!is_callable($Page)) {
-        return router_error("Missing export 'Page' in " . $page_module_id);
+        return router_error("Missing symbol 'Page' in " . $page_module_id);
     }
 
     $route_props = {
@@ -159,11 +159,11 @@ export function Router($props = false) {
             $layout_module_id = $layout_modules[$i];
             $layout_exports = load_module_exports($layout_module_id);
             if ($layout_exports === false) {
-                return router_error("Missing layout module export for " . $layout_module_id);
+                return router_error("Missing layout module for " . $layout_module_id);
             }
             $Layout = export_field($layout_exports, 'Layout');
             if (!is_callable($Layout)) {
-                return router_error("Missing export 'Layout' in " . $layout_module_id);
+                return router_error("Missing symbol 'Layout' in " . $layout_module_id);
             }
             $node = $Layout({
                 children: $node,
@@ -276,35 +276,61 @@ function is_api_route($segments) {
 
 function sort_routes(&$pages, &$layouts, &$apis) {
     if (is_array($pages)) {
-        usort($pages, function($a, $b) {
-            $a_tokens = route_tokens($a);
-            $b_tokens = route_tokens($b);
-            $a_score = route_specificity($a_tokens);
-            $b_score = route_specificity($b_tokens);
-            if ($a_score !== $b_score) return $a_score > $b_score ? -1 : 1;
-            $a_len = is_array($a_tokens) ? count($a_tokens) : 0;
-            $b_len = is_array($b_tokens) ? count($b_tokens) : 0;
-            if ($a_len !== $b_len) return $a_len > $b_len ? -1 : 1;
-            return 0;
-        });
+        $n = count($pages);
+        for ($i = 0; $i < $n - 1; $i++) {
+            for ($j = $i + 1; $j < $n; $j++) {
+                $a = $pages[$i];
+                $b = $pages[$j];
+                $a_tokens = route_tokens($a);
+                $b_tokens = route_tokens($b);
+                $a_score = route_specificity($a_tokens);
+                $b_score = route_specificity($b_tokens);
+                $a_len = is_array($a_tokens) ? count($a_tokens) : 0;
+                $b_len = is_array($b_tokens) ? count($b_tokens) : 0;
+                $swap = false;
+                if ($a_score < $b_score) {
+                    $swap = true;
+                } else if ($a_score === $b_score && $a_len < $b_len) {
+                    $swap = true;
+                }
+                if ($swap) {
+                    $pages[$i] = $b;
+                    $pages[$j] = $a;
+                }
+            }
+        }
     }
     if (is_array($layouts)) {
-        usort($layouts, function($a, $b) {
-            $a_len = is_array(route_tokens($a)) ? count(route_tokens($a)) : 0;
-            $b_len = is_array(route_tokens($b)) ? count(route_tokens($b)) : 0;
-            if ($a_len !== $b_len) return $a_len > $b_len ? 1 : -1;
-            return 0;
-        });
+        $n = count($layouts);
+        for ($i = 0; $i < $n - 1; $i++) {
+            for ($j = $i + 1; $j < $n; $j++) {
+                $a = $layouts[$i];
+                $b = $layouts[$j];
+                $a_len = is_array(route_tokens($a)) ? count(route_tokens($a)) : 0;
+                $b_len = is_array(route_tokens($b)) ? count(route_tokens($b)) : 0;
+                if ($a_len > $b_len) {
+                    $layouts[$i] = $b;
+                    $layouts[$j] = $a;
+                }
+            }
+        }
     }
     if (is_array($apis)) {
-        usort($apis, function($a, $b) {
-            $a_tokens = route_tokens($a);
-            $b_tokens = route_tokens($b);
-            $a_score = route_specificity($a_tokens);
-            $b_score = route_specificity($b_tokens);
-            if ($a_score !== $b_score) return $a_score > $b_score ? -1 : 1;
-            return 0;
-        });
+        $n = count($apis);
+        for ($i = 0; $i < $n - 1; $i++) {
+            for ($j = $i + 1; $j < $n; $j++) {
+                $a = $apis[$i];
+                $b = $apis[$j];
+                $a_tokens = route_tokens($a);
+                $b_tokens = route_tokens($b);
+                $a_score = route_specificity($a_tokens);
+                $b_score = route_specificity($b_tokens);
+                if ($a_score < $b_score) {
+                    $apis[$i] = $b;
+                    $apis[$j] = $a;
+                }
+            }
+        }
     }
 }
 
@@ -367,7 +393,7 @@ function match_layouts($layouts, $url_segments) {
     $matched = [];
     foreach ($layouts as $layout) {
         $tokens = route_tokens($layout);
-        $params = match_route_tokens($tokens, array_slice($url_segments, 0, count($tokens)));
+        $params = match_route_tokens($tokens, slice_array($url_segments, 0, count($tokens)));
         if ($params === false) continue;
         $matched[] = route_field($layout, 'file');
     }
@@ -379,7 +405,7 @@ function match_layout_module_ids($layouts, $url_segments) {
     $matched = [];
     foreach ($layouts as $layout) {
         $tokens = route_tokens($layout);
-        $params = match_route_tokens($tokens, array_slice($url_segments, 0, count($tokens)));
+        $params = match_route_tokens($tokens, slice_array($url_segments, 0, count($tokens)));
         if ($params === false) continue;
         $module_id = route_field($layout, 'module_id');
         if ($module_id !== null && $module_id !== '') {
@@ -396,15 +422,34 @@ function route_tokens($route) {
     return [];
 }
 
+function slice_array($arr, $start, $length = null) {
+    if (!is_array($arr)) return [];
+    $out = [];
+    $n = count($arr);
+    $i = $start < 0 ? 0 : $start;
+    $end = $length === null ? $n : $i + $length;
+    if ($end > $n) $end = $n;
+    for (; $i < $end; $i++) {
+        $out[] = $arr[$i];
+    }
+    return $out;
+}
+
 function route_field($route, $key) {
     if (is_array($route) && array_key_exists($key, $route)) return $route[$key];
-    if (is_object($route) && isset($route->{$key})) return $route->{$key};
+    if (is_object($route)) {
+        $vars = get_object_vars($route);
+        if (array_key_exists($key, $vars)) return $vars[$key];
+    }
     return null;
 }
 
 function token_field($token, $key) {
     if (is_array($token) && array_key_exists($key, $token)) return $token[$key];
-    if (is_object($token) && isset($token->{$key})) return $token->{$key};
+    if (is_object($token)) {
+        $vars = get_object_vars($token);
+        if (array_key_exists($key, $vars)) return $vars[$key];
+    }
     return null;
 }
 
@@ -435,7 +480,7 @@ function match_route_tokens($tokens, $url_segments) {
         if ($kind === 'catchall') {
             if ($j >= $seg_count) return false;
             $name = token_field($token, 'name');
-            $rest = array_slice($url_segments, $j);
+            $rest = slice_array($url_segments, $j);
             $params[$name] = implode('/', $rest);
             $i += 1;
             $j = $seg_count;
@@ -443,7 +488,7 @@ function match_route_tokens($tokens, $url_segments) {
         }
         if ($kind === 'optional_catchall') {
             $name = token_field($token, 'name');
-            $rest = array_slice($url_segments, $j);
+            $rest = slice_array($url_segments, $j);
             $params[$name] = implode('/', $rest);
             $i += 1;
             $j = $seg_count;
@@ -456,6 +501,7 @@ function match_route_tokens($tokens, $url_segments) {
 }
 
 function parse_route_token($segment) {
+    $m = [];
     $raw = '' . $segment;
     if (preg_match('/^\\[\\[\\.\\.\\.([A-Za-z_][A-Za-z0-9_]*)\\]\\]$/', $raw, $m)) {
         return { kind: 'optional_catchall', name: $m[1] };
@@ -471,7 +517,23 @@ function parse_route_token($segment) {
 
 function normalize_root($root) {
     $root = '' . $root;
-    if ($root === '') return '.';
+    if ($root === '' || $root === '.') {
+        if (isset($_SERVER) && is_array($_SERVER)) {
+            if (isset($_SERVER['PWD']) && $_SERVER['PWD'] !== '') {
+                return '' . $_SERVER['PWD'];
+            }
+            if (isset($_SERVER['SCRIPT_FILENAME']) && $_SERVER['SCRIPT_FILENAME'] !== '') {
+                $script = '' . $_SERVER['SCRIPT_FILENAME'];
+                $marker = '/app/';
+                $pos = last_index_of($script, $marker);
+                if ($pos >= 0) {
+                    return substr($script, 0, $pos);
+                }
+                return path_dirname($script);
+            }
+        }
+        return '.';
+    }
     return $root;
 }
 
@@ -481,6 +543,31 @@ function join_path($a, $b) {
     if ($a === '') return $b;
     if ($b === '') return $a;
     return $a . '/' . $b;
+}
+
+function path_dirname($path) {
+    $path = rtrim('' . $path, '/');
+    if ($path === '') return '.';
+    $pos = last_index_of($path, '/');
+    if ($pos < 0) return '.';
+    if ($pos === 0) return '/';
+    return substr($path, 0, $pos);
+}
+
+function last_index_of($haystack, $needle) {
+    $hay = '' . $haystack;
+    $need = '' . $needle;
+    $h_len = strlen($hay);
+    $n_len = strlen($need);
+    if ($n_len === 0) return 0;
+    $i = $h_len - $n_len;
+    while ($i >= 0) {
+        if (substr($hay, $i, $n_len) === $need) {
+            return $i;
+        }
+        $i = $i - 1;
+    }
+    return -1;
 }
 
 function path_relative($base, $path) {

@@ -85,7 +85,8 @@ async fn handle_request(
         headers,
         body,
     )
-    .await {
+    .await
+    {
         Ok(mut response_envelope) => {
             if http_debug_enabled() {
                 tracing::info!("[http] response {} {}", response_envelope.status, uri);
@@ -172,7 +173,8 @@ fn is_truthy(value: &str) -> bool {
 
 fn is_html_response(headers: &std::collections::HashMap<String, String>) -> bool {
     for (key, value) in headers {
-        if key.eq_ignore_ascii_case("content-type") && value.to_ascii_lowercase().contains("text/html")
+        if key.eq_ignore_ascii_case("content-type")
+            && value.to_ascii_lowercase().contains("text/html")
         {
             return true;
         }

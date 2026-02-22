@@ -160,6 +160,24 @@ pub fn cmd(context: &Context) {
     }
 
     if let Err(err) = ensure_file(
+        &php_modules.join("fs").join("index.phpx"),
+        load_module_template("fs/index.phpx").unwrap_or_else(default_fs_phpx),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+
+    if let Err(err) = ensure_file(
+        &php_modules.join("time").join("index.phpx"),
+        load_module_template("time/index.phpx").unwrap_or_else(default_time_phpx),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+
+    if let Err(err) = ensure_file(
         &php_modules.join("core").join("result.phpx"),
         load_module_template("core/result.phpx").unwrap_or_else(default_core_result_phpx),
         &mut touched,
@@ -171,6 +189,15 @@ pub fn cmd(context: &Context) {
     if let Err(err) = ensure_file(
         &php_modules.join("core").join("byte.phpx"),
         load_module_template("core/byte.phpx").unwrap_or_else(default_core_byte_phpx),
+        &mut touched,
+    ) {
+        stdio_error("init", &err);
+        return;
+    }
+
+    if let Err(err) = ensure_file(
+        &php_modules.join("core").join("bytes.phpx"),
+        load_module_template("core/bytes.phpx").unwrap_or_else(default_core_bytes_phpx),
         &mut touched,
     ) {
         stdio_error("init", &err);
@@ -202,8 +229,11 @@ pub fn cmd(context: &Context) {
             ("component/dom", "php_modules/component/dom.phpx"),
             ("component/router", "php_modules/component/router.phpx"),
             ("encoding/json", "php_modules/encoding/json/index.phpx"),
+            ("fs", "php_modules/fs/index.phpx"),
+            ("time", "php_modules/time/index.phpx"),
             ("core/result", "php_modules/core/result.phpx"),
             ("core/byte", "php_modules/core/byte.phpx"),
+            ("core/bytes", "php_modules/core/bytes.phpx"),
             ("core/num", "php_modules/core/num.phpx"),
             ("core/bridge", "php_modules/core/bridge.phpx"),
         ],
@@ -502,8 +532,54 @@ export function json_last_error_msg(): string {
 export function json_validate($value): bool {
     return true;
 }
-"#
+"# 
         .to_string()
+}
+
+fn default_fs_phpx() -> String {
+    r#"import { result_err } from 'core/result';
+
+export function readDirSync($path) {
+    return result_err('fs unavailable');
+}
+
+export function readDir($path) {
+    return readDirSync($path);
+}
+
+export function readFileSync($path) {
+    return result_err('fs unavailable');
+}
+
+export function readFile($path) {
+    return readFileSync($path);
+}
+
+export function writeFileSync($path, $bytes) {
+    return result_err('fs unavailable');
+}
+
+export function writeFile($path, $bytes) {
+    return writeFileSync($path, $bytes);
+}
+
+export function mkdirSync($path) {
+    return result_err('fs unavailable');
+}
+
+export function mkdir($path) {
+    return mkdirSync($path);
+}
+"#
+    .to_string()
+}
+
+fn default_time_phpx() -> String {
+    r#"export function now_ms() {
+    return 0;
+}
+"#
+    .to_string()
 }
 
 fn default_core_result_phpx() -> String {
@@ -560,6 +636,18 @@ export function byte_is_digit($byte): bool {
 
 export function byte_is_hex($byte): bool {
     return ($byte >= 48 && $byte <= 57) || ($byte >= 65 && $byte <= 70) || ($byte >= 97 && $byte <= 102);
+}
+"# 
+        .to_string()
+}
+
+fn default_core_bytes_phpx() -> String {
+    r#"export function bytes_from_array($arr) {
+    return '';
+}
+
+export function bytes_to_array($bytes) {
+    return [];
 }
 "#
         .to_string()

@@ -1,7 +1,7 @@
 /*
-TEST: db facade contract for mysql wrapper (connect/query/query_one/close)
+TEST: db facade contract for mysql wrapper (connectSync/querySync/query_one/closeSync)
 */
-import { connect, query, query_one, close } from 'db/mysql'
+import { connectSync, querySync, query_one, closeSync } from 'db/mysql'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
@@ -15,19 +15,19 @@ $database = getenv('MYSQL_DB') ?: 'test'
 $user = getenv('MYSQL_USER') ?: 'root'
 $password = getenv('MYSQL_PASSWORD') ?: ''
 
-$conn = connect({ host: $host, port: $port, database: $database, user: $user, password: $password })
+$conn = connectSync({ host: $host, port: $port, database: $database, user: $user, password: $password })
 if (!result_is_ok($conn)) {
-    echo "ERR connect\n"
+    echo "ERR connectSync\n"
     return
 }
 
 $h = $conn->value
-$many = query($h, 'select 1 as c', [])
+$many = querySync($h, 'select 1 as c', [])
 $one = query_one($h, 'select ? + ? as c', [1, 0])
-close($h)
+closeSync($h)
 
 if (!result_is_ok($many) || !result_is_ok($one)) {
-    echo "ERR query\n"
+    echo "ERR querySync\n"
     return
 }
 

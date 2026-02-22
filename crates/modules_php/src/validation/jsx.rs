@@ -1,13 +1,13 @@
 use std::collections::HashSet;
 
 use bumpalo::Bump;
-use php_rs::phpx::typeck::check_program_with_path;
 use php_rs::parser::ast::BinaryOp;
 use php_rs::parser::ast::visitor::{Visitor, walk_expr};
 use php_rs::parser::ast::{Expr, ExprId, JsxAttribute, JsxChild, Name, Program, Stmt};
 use php_rs::parser::lexer::Lexer;
 use php_rs::parser::parser::{Parser, ParserMode};
 use php_rs::parser::span::Span;
+use php_rs::phpx::typeck::check_program_with_path;
 
 use super::{ErrorKind, Severity, ValidationError};
 use crate::validation::imports::{
@@ -600,7 +600,10 @@ impl JsxComponentValidator<'_> {
             for attr in directives {
                 self.validate_island_directive(attr);
             }
-            if self.async_components.contains(last) && self.suspense_depth == 0 && last != "Suspense" {
+            if self.async_components.contains(last)
+                && self.suspense_depth == 0
+                && last != "Suspense"
+            {
                 self.errors.push(jsx_error(
                     name.span,
                     self.source,
@@ -810,7 +813,8 @@ async function Card($props: Object<{ label: string }>): Promise<VNode> {
 <div><Card label="x" /></div>
 "#;
         let arena = Bump::new();
-        let mut parser = Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
         let program = parser.parse_program();
         let errors = validate_components(&program, source);
         assert!(
@@ -833,7 +837,8 @@ async function Card($props: Object<{ label: string }>): Promise<VNode> {
 </Suspense>
 "#;
         let arena = Bump::new();
-        let mut parser = Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
+        let mut parser =
+            Parser::new_with_mode(Lexer::new(source.as_bytes()), &arena, ParserMode::Phpx);
         let program = parser.parse_program();
         let errors = validate_components(&program, source);
         assert!(

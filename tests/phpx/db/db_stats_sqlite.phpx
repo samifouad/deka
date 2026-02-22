@@ -1,7 +1,7 @@
 /*
 TEST: db stats reports active handles and sqlite query metrics.
 */
-import { open_handle, query_one, close, stats } from 'db'
+import { open_handle, query_one, closeSync, statsSync } from 'db'
 import { result_is_ok } from 'core/result'
 
 $path = '/tmp/deka_phpx_stats.sqlite'
@@ -14,14 +14,14 @@ if (!result_is_ok($open)) {
 $h = $open->value
 $q = query_one($h, 'select 1 as v', [])
 if (!result_is_ok($q)) {
-    close($h)
+    closeSync($h)
     echo "ERR query\n"
     return
 }
 
-$s = stats()
+$s = statsSync()
 if (!result_is_ok($s)) {
-    close($h)
+    closeSync($h)
     echo "ERR stats\n"
     return
 }
@@ -32,29 +32,29 @@ $cacheHits = array_key_exists('statement_cache_hits', $s->value) ? $s->value['st
 $cacheMisses = array_key_exists('statement_cache_misses', $s->value) ? $s->value['statement_cache_misses'] : -1
 $metrics = $s->value['metrics']
 if (!is_int($active) || $active < 1) {
-    close($h)
+    closeSync($h)
     echo "ERR active\n"
     return
 }
 
 if (!is_int($cacheEntries) || !is_int($cacheHits) || !is_int($cacheMisses)) {
-    close($h)
+    closeSync($h)
     echo "ERR cache-metrics\n"
     return
 }
 
 if (!is_array($metrics) || !array_key_exists('query:sqlite', $metrics)) {
-    close($h)
+    closeSync($h)
     echo "ERR metric-key\n"
     return
 }
 
 $bucket = $metrics['query:sqlite']
 if (!is_array($bucket) || !array_key_exists('calls', $bucket) || $bucket['calls'] < 1) {
-    close($h)
+    closeSync($h)
     echo "ERR metric-calls\n"
     return
 }
 
-close($h)
+closeSync($h)
 echo "OK stats\n"

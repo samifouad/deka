@@ -4,7 +4,7 @@ Mode:
 - Default: prints SKIP unless PHPX_DB_SMOKE=1.
 - Smoke: when enabled, opens a sqlite file, writes row, then reads count.
 */
-import { connect, exec, query, close } from 'db/sqlite'
+import { connectSync, execSync, querySync, closeSync } from 'db/sqlite'
 import { result_is_ok } from 'core/result'
 
 if (getenv('PHPX_DB_SMOKE') !== '1') {
@@ -14,35 +14,35 @@ if (getenv('PHPX_DB_SMOKE') !== '1') {
 
 $path = getenv('SQLITE_PATH') ?: '/tmp/deka_phpx_smoke.sqlite'
 
-$conn = connect({
+$conn = connectSync({
     path: $path
 })
 
 if (!result_is_ok($conn)) {
-    echo "ERR connect\n"
+    echo "ERR connectSync\n"
     return
 }
 
 $handle = $conn->value
-$create = exec($handle, 'create table if not exists smoke_items(id integer primary key, name text)', [])
+$create = execSync($handle, 'create table if not exists smoke_items(id integer primary key, name text)', [])
 if (!result_is_ok($create)) {
-    close($handle)
-    echo "ERR exec\n"
+    closeSync($handle)
+    echo "ERR execSync\n"
     return
 }
 
-$insert = exec($handle, 'insert into smoke_items(name) values (?)', ['ok'])
+$insert = execSync($handle, 'insert into smoke_items(name) values (?)', ['ok'])
 if (!result_is_ok($insert)) {
-    close($handle)
-    echo "ERR exec\n"
+    closeSync($handle)
+    echo "ERR execSync\n"
     return
 }
 
-$rows = query($handle, 'select count(*) as c from smoke_items', [])
-close($handle)
+$rows = querySync($handle, 'select count(*) as c from smoke_items', [])
+closeSync($handle)
 
 if (!result_is_ok($rows)) {
-    echo "ERR query\n"
+    echo "ERR querySync\n"
     return
 }
 

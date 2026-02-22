@@ -194,7 +194,10 @@ fn cmd_build(context: &Context) {
     };
     let wasm_path = target_dir.join(format!("{wasm_name}.wasm"));
     if !wasm_path.exists() {
-        stdio::error("wasm", &format!("missing wasm output at {}", wasm_path.display()));
+        stdio::error(
+            "wasm",
+            &format!("missing wasm output at {}", wasm_path.display()),
+        );
         return;
     }
 
