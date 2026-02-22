@@ -49,6 +49,18 @@ Default prefix mappings:
 
 Additional fallback mappings are generated for any other bare import specifiers found in frontmatter imports. Relative/absolute/URL imports are not added.
 
+## Bundled Output (`deka build --bundle`)
+
+When `--bundle` is provided, Deka emits JS in-memory and runs the SWC bundler to
+produce a single-file output. No intermediate JS file is written and no
+`importmap.json` is emitted.
+
+- `--bundle` produces a single JS file containing the entry and its dependencies.
+- `--minify` enables the SWC minifier for the bundled output.
+- `.phpx` dependencies are compiled to JS on-demand during bundling.
+- Runtime bridge calls (for example, modules that rely on host `bridge(...)`
+  behavior) still require a compatible JS runtime implementation.
+
 ## Design Rule
 
 For JS target features:
