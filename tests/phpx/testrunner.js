@@ -62,6 +62,9 @@ for (const raw of skipArgs.flatMap((arg) => arg.split(","))) {
   }
   skipPatterns.push(path.resolve(repoRoot, trimmed));
 }
+if (process.env.PHPX_DB_SMOKE !== "1") {
+  skipPatterns.push(path.resolve(repoRoot, "tests/phpx/db"));
+}
 
 async function collectPhpxFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
