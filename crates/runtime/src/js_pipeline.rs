@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use bundler::{bundle_virtual_entry, BundleOptions, VirtualSource};
-use phpx_js::{compile_phpx_source_to_js, parse_source_module_meta, SourceModuleMeta};
+use phpx_js::{
+    build_stdlib_prelude, compile_phpx_source_to_js, parse_source_module_meta, SourceModuleMeta,
+};
 
 pub fn build_phpx_handler_bundle(handler_path: &str) -> Result<String, String> {
     let input_path = Path::new(handler_path);
@@ -19,7 +21,9 @@ pub fn build_phpx_handler_bundle(handler_path: &str) -> Result<String, String> {
     let project_root = resolve_project_root(input_path)?;
     ensure_project_layout(&project_root, &meta)?;
 
-    let entry_js = compile_phpx_source_to_js(&source, input, meta)?;
+    let mut entry_js = compile_phpx_source_to_js(&source, input, meta)?;
+    let prelude = build_stdlib_prelude(&project_root)?;
+    entry_js = format!("{prelude}\n{entry_js}");
     let entry_path = fs::canonicalize(input_path)
         .map_err(|err| format!("failed to resolve {}: {}", input_path.display(), err))?;
 
