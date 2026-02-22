@@ -10,5 +10,7 @@ pub fn php_extension() -> Extension {
 }
 
 pub fn extensions() -> Vec<Extension> {
-    vec![modules::deka_php::init(), modules::php::init()]
+    // MVP2 JS runtime path: keep php_core loaded for host ops/prelude glue.
+    // Legacy deka_php wasm runtime remains in-tree but is no longer wired.
+    vec![modules::php::init()]
 }
