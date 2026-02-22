@@ -140,3 +140,114 @@ struct Download {
   $ipAddress: string @map("ip_address")
   $userAgent: string @map("user_agent")
 }
+
+// deka-git service tables (source of truth for Rust API storage)
+struct User {
+  $id: int @id @autoIncrement
+  $username: string @unique
+  $email: Option<string>
+  $passwordHash: Option<string> @map("password_hash")
+  $status: string
+  $emailVerifiedAt: Option<string> @map("email_verified_at")
+  $displayName: Option<string> @map("display_name")
+  $createdAt: string @map("created_at")
+}
+
+struct UserToken {
+  $id: int @id @autoIncrement
+  $userId: int @map("user_id")
+  $tokenName: string @map("token_name")
+  $tokenHash: string @map("token_hash") @unique
+  $createdAt: string @map("created_at")
+  $lastUsedAt: Option<string> @map("last_used_at")
+  $expiresAt: Option<string> @map("expires_at")
+  $revokedAt: Option<string> @map("revoked_at")
+}
+
+struct UserSshKey {
+  $id: int @id @autoIncrement
+  $userId: int @map("user_id")
+  $keyName: string @map("key_name")
+  $algorithm: string
+  $publicKey: string @map("public_key")
+  $fingerprint: string @unique
+  $createdAt: string @map("created_at")
+  $lastUsedAt: Option<string> @map("last_used_at")
+}
+
+struct PackageRelease {
+  $id: int @id @autoIncrement
+  $packageName: string @map("package_name")
+  $version: string
+  $owner: string
+  $repo: string
+  $gitRef: string @map("git_ref")
+  $description: Option<string>
+  $manifest: Option<mixed>
+  $apiSnapshot: Option<mixed> @map("api_snapshot")
+  $apiChangeKind: Option<string> @map("api_change_kind")
+  $requiredBump: Option<string> @map("required_bump")
+  $capabilityMetadata: Option<mixed> @map("capability_metadata")
+  $createdAt: string @map("created_at")
+}
+
+struct Issue {
+  $id: int @id @autoIncrement
+  $repoOwner: string @map("repo_owner")
+  $repoName: string @map("repo_name")
+  $number: int
+  $title: string
+  $body: Option<string>
+  $state: string
+  $author: string
+  $createdAt: string @map("created_at")
+  $updatedAt: string @map("updated_at")
+  $closedAt: Option<string> @map("closed_at")
+}
+
+struct IssueComment {
+  $id: int @id @autoIncrement
+  $issueId: int @map("issue_id")
+  $body: string
+  $author: string
+  $createdAt: string @map("created_at")
+  $updatedAt: Option<string> @map("updated_at")
+}
+
+struct Label {
+  $id: int @id @autoIncrement
+  $repoOwner: string @map("repo_owner")
+  $repoName: string @map("repo_name")
+  $name: string
+  $color: string
+  $description: Option<string>
+}
+
+
+struct PullRequest {
+  $id: int @id @autoIncrement
+  $repoOwner: string @map("repo_owner")
+  $repoName: string @map("repo_name")
+  $number: int
+  $title: string
+  $body: Option<string>
+  $state: string
+  $author: string
+  $sourceRef: string @map("source_ref")
+  $targetRef: string @map("target_ref")
+  $createdAt: string @map("created_at")
+  $updatedAt: string @map("updated_at")
+  $closedAt: Option<string> @map("closed_at")
+}
+
+struct PullComment {
+  $id: int @id @autoIncrement
+  $pullId: int @map("pull_id")
+  $body: string
+  $author: string
+  $createdAt: string @map("created_at")
+  $updatedAt: Option<string> @map("updated_at")
+}
+
+// Note: issue_labels, issue_sequences, and pull_sequences use composite
+// primary keys and are defined in SQL migrations under db/migrations.
