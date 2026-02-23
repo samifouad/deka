@@ -18,7 +18,7 @@
       "modules": {
         "component/core": {
           "src": "php_modules/component/core.phpx",
-          "hash": "sha256:96dee767a818011cf2e97eb1753a10a47274c99b008584cc9346e7b9d918d514",
+          "hash": "sha256:70f6f93cdf664786733ec807b49d0bc06f491523a2d20e90e39fbfae81644f26",
           "cache": "php_modules/.cache/phpx/component/core.php",
           "compiler": "phpx-cache-v3",
           "deps": [],
@@ -40,7 +40,7 @@
         },
         "component/dom": {
           "src": "php_modules/component/dom.phpx",
-          "hash": "sha256:ddd233a97eff6b9472486f586aac952bfad4d61a784457036d7c69771aa7461b",
+          "hash": "sha256:74196f06fa1de3029f29d0efbeb0602253eafb6b120067f2b73011594167e28a",
           "cache": "php_modules/.cache/phpx/component/dom.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -63,7 +63,7 @@
         },
         "json": {
           "src": "php_modules/json/index.phpx",
-          "hash": "sha256:467de2e4ecf613bd790b7455c6c0f58922f40248c22cfa3e944727508f046972",
+          "hash": "sha256:2b29fc670b06b229bca1cd54be46bd1c21b42ea5165770a86cef5178c1b7cc28",
           "cache": "php_modules/.cache/phpx/json/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [
@@ -105,7 +105,7 @@
         },
         "core/reader": {
           "src": "php_modules/core/reader.phpx",
-          "hash": "sha256:f2c682e4ce996451b772e42145f1c4ac68401de50f5238d983f89f6bb00907d3",
+          "hash": "sha256:fd122836132ffefbe3a8f0401b11d6f4410bfe4c513c1b0586e5ec391c053330",
           "cache": "php_modules/.cache/phpx/core/reader.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -151,7 +151,7 @@
         },
         "@user/phpx_tests": {
           "src": "php_modules/@user/phpx_tests/index.phpx",
-          "hash": "sha256:9c4b186184cffbfcf3de3d464d935e8dc8a8b8074c825700dfb1761f44c8db5c",
+          "hash": "sha256:44a26d107503930dab853ca06f3e1ad7f761ff78ca24ff808d55c26f9daa1e0f",
           "cache": "php_modules/.cache/phpx/@user/phpx_tests/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [],
@@ -161,7 +161,7 @@
         },
         "core/option": {
           "src": "php_modules/core/option.phpx",
-          "hash": "sha256:bc1447b77ebe77efb1f80936224b4597d80ecde781ace0468688235c636497ae",
+          "hash": "sha256:607334cb73f4796768c8e0b6d503bef1c6a277a9c4a234569376d41056259a96",
           "cache": "php_modules/.cache/phpx/core/option.php",
           "compiler": "phpx-cache-v3",
           "deps": [],
@@ -197,7 +197,7 @@
         },
         "array/utils": {
           "src": "php_modules/array/utils.phpx",
-          "hash": "sha256:44c9fc4438ed8dc4b5422271a0e389907735da869595ee3d87ee7f9294567ce8",
+          "hash": "sha256:b25382e24dc00c4db65f28a53b83b8a8d71db5cdaaa2c9c1a4d6e612d78761de",
           "cache": "php_modules/.cache/phpx/array/utils.php",
           "compiler": "phpx-cache-v3",
           "deps": [],
@@ -1095,7 +1095,7 @@
         },
         "string/bytes_utils": {
           "src": "php_modules/string/bytes_utils.phpx",
-          "hash": "sha256:d5b775c88acbe981af2b067042f85a5dc561630519da6bac508cd79ea8e5eb1f",
+          "hash": "sha256:c53a1624fc24dc5233b3f8a733463b54b5db65f19b90713fa46feb29b8979ace",
           "cache": "php_modules/.cache/phpx/string/bytes_utils.php",
           "compiler": "phpx-cache-v3",
           "deps": [],
@@ -1135,7 +1135,7 @@
         },
         "string/trim_utils": {
           "src": "php_modules/string/trim_utils.phpx",
-          "hash": "sha256:4507d6c43e48f2145884663c501879469aad5020aff99bb48f78d751bb1112d3",
+          "hash": "sha256:973550f001bcfbea3e299ba1b7efb9306b07f18f7f5a296b1d6d85bfc2ad43d5",
           "cache": "php_modules/.cache/phpx/string/trim_utils.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -1576,7 +1576,7 @@
         },
         "string/html_utils": {
           "src": "php_modules/string/html_utils.phpx",
-          "hash": "sha256:a7079e2ff7fa57a69e9e2f3a83c0e38d0e7b37a60306837bee6b2e9450986e75",
+          "hash": "sha256:f8ccb4968e23b69a7e17c83b5f257869f377fd69dc328646df5561685d7a7a5b",
           "cache": "php_modules/.cache/phpx/string/html_utils.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -1601,7 +1601,7 @@
         },
         "string/printf_utils": {
           "src": "php_modules/string/printf_utils.phpx",
-          "hash": "sha256:691425ad71d722e3fcda10d915ff96872c589700e8df0ffe57db089926ef05b6",
+          "hash": "sha256:026c3fbc487b8fe17a487b134b5f6c20e9a453550b7d84037cc25cbae070bcbb",
           "cache": "php_modules/.cache/phpx/string/printf_utils.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -2126,7 +2126,7 @@
         },
         "string/strlen": {
           "src": "php_modules/string/strlen.phpx",
-          "hash": "sha256:ea9ecff1cd469468e507dd3b16e0d7c929e1bf0643a3645a5082d23f7031dbd8",
+          "hash": "sha256:10057a97c196cee5d13e89a18e623518a274064759bff77e9df1d21e1b8591eb",
           "cache": "php_modules/.cache/phpx/string/strlen.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -2295,25 +2295,9 @@
             "html_entity_decode"
           ]
         },
-        "internals/deka_builtins": {
-          "src": "php_modules/internals/deka_builtins.phpx",
-          "hash": "sha256:fa762ab59204c3ef68b2a0b5116787e6c83acaff5a926fd68168606a3e80b1e6",
-          "cache": "php_modules/.cache/phpx/internals/deka_builtins.php",
-          "compiler": "phpx-cache-v1",
-          "deps": [],
-          "exports": []
-        },
-        "internals/primitives": {
-          "src": "php_modules/internals/primitives.phpx",
-          "hash": "sha256:4a225ee3a54847b0dcb4b41c2ef992ca5365149a29e2547300eb1d92adc6c829",
-          "cache": "php_modules/.cache/phpx/internals/primitives.php",
-          "compiler": "phpx-cache-v1",
-          "deps": [],
-          "exports": []
-        },
         "core/bytes": {
           "src": "php_modules/core/bytes.phpx",
-          "hash": "sha256:1b80b7bff4bb00334d4cc8dd7fd5f5fc5917ee9555a69421ec932cce15f9c6d6",
+          "hash": "sha256:3a8191db2e767540a8727c06a20564283b531eb13a65b3779a98e6a9a5450b9d",
           "cache": "php_modules/.cache/phpx/core/bytes.php",
           "compiler": "phpx-cache-v3",
           "deps": [],
@@ -2329,36 +2313,9 @@
             "bytes_from_array"
           ]
         },
-        "postgres": {
-          "src": "php_modules/postgres/index.phpx",
-          "hash": "sha256:81dc6f98e29263773eafc7fe1eee52df5b7bb567715e54d9770f8966e44e535e",
-          "cache": "php_modules/.cache/phpx/postgres/index.php",
-          "compiler": "phpx-cache-v1",
-          "deps": [
-            "db/postgres"
-          ],
-          "exports": [
-            "connect",
-            "query",
-            "query_one",
-            "exec",
-            "begin",
-            "commit",
-            "rollback",
-            "close",
-            "pg_connect",
-            "pg_query",
-            "pg_query_one",
-            "pg_exec",
-            "pg_begin",
-            "pg_commit",
-            "pg_rollback",
-            "pg_close"
-          ]
-        },
         "db": {
           "src": "php_modules/db/index.phpx",
-          "hash": "sha256:ff9fa58c5cb4e3d2f2fd6c54f5cb2f91482d5609c0b920a8a1aab09f7bffaae7",
+          "hash": "sha256:0aeeae807365625ec6dc26d23f9a05d0cd6e5c76bad406a866994af67c540aa1",
           "cache": "php_modules/.cache/phpx/db/index.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -2393,70 +2350,6 @@
             "affectedRows"
           ]
         },
-        "sqlite": {
-          "src": "php_modules/sqlite/index.phpx",
-          "hash": "sha256:38e4bf1634314cf2d69c78c40c4ba2fde010b9b6b46f5b18ba76a1314ec5f8e1",
-          "cache": "php_modules/.cache/phpx/sqlite/index.php",
-          "compiler": "phpx-cache-v1",
-          "deps": [
-            "db/sqlite"
-          ],
-          "exports": [
-            "connect",
-            "query",
-            "query_one",
-            "exec",
-            "begin",
-            "commit",
-            "rollback",
-            "close",
-            "sqlite_connect",
-            "sqlite_query",
-            "sqlite_query_one",
-            "sqlite_exec",
-            "sqlite_begin",
-            "sqlite_commit",
-            "sqlite_rollback",
-            "sqlite_close"
-          ]
-        },
-        "mysql": {
-          "src": "php_modules/mysql/index.phpx",
-          "hash": "sha256:512ed8ecdd48beafcfac53ce6bb00a0ba3612b4b8bcce50ee82d78df7481de9f",
-          "cache": "php_modules/.cache/phpx/mysql/index.php",
-          "compiler": "phpx-cache-v1",
-          "deps": [
-            "db/mysql"
-          ],
-          "exports": [
-            "connect",
-            "query",
-            "query_one",
-            "exec",
-            "begin",
-            "commit",
-            "rollback",
-            "close",
-            "mysql_connect",
-            "mysql_query",
-            "mysql_query_one",
-            "mysql_exec",
-            "mysql_begin",
-            "mysql_commit",
-            "mysql_rollback",
-            "mysql_close"
-          ]
-        },
-        "internals/wasm": {
-          "src": "php_modules/internals/wasm.phpx",
-          "hash": "sha256:c86fb3bd48749c2d69b5a5893c07b25d36b855b3b78d34720318806e6626b1b2",
-          "cache": "php_modules/.cache/phpx/internals/wasm.php",
-          "compiler": "phpx-cache-v1",
-          "deps": [],
-          "exports": [
-            "__deka_db_call"
-          ]
-        },
         "encoding/json": {
           "src": "php_modules/encoding/json/index.phpx",
           "hash": "sha256:1263b2a506528bd5d6d0762ab8bd3b558835af1b897de4860cf646a8e44d4dae",
@@ -2479,7 +2372,7 @@
         },
         "bytes": {
           "src": "php_modules/bytes/index.phpx",
-          "hash": "sha256:e9e06ee8366ddd0d2cac948cb04426484dd8a32a1cd4407c6630df36363b0098",
+          "hash": "sha256:05919f1cf1a7009e78d290f6e2114486d32b2ae28156331fe7f0c5b2af001420",
           "cache": "php_modules/.cache/phpx/bytes/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [
@@ -2499,7 +2392,7 @@
         },
         "buffer": {
           "src": "php_modules/buffer/index.phpx",
-          "hash": "sha256:ff4b114e0c6da3b75b2e4830d85552ed6b19a4f8f2018d2768beac0e0d5ea144",
+          "hash": "sha256:0eaf885411076f1e87d4b8c32cce5d9692742ea5f88f9933e1f8f3b41f19d67b",
           "cache": "php_modules/.cache/phpx/buffer/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [
@@ -2525,7 +2418,7 @@
         },
         "tcp": {
           "src": "php_modules/tcp/index.phpx",
-          "hash": "sha256:7b8e53d913e50e99dcc28219cf4362a3e90286885be073982bb8f2466d9f8838",
+          "hash": "sha256:ff7a4ec1626e1cdf9e00bac3e490228cae5e33a615f0bc57fa01b2ec4c441661",
           "cache": "php_modules/.cache/phpx/tcp/index.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -2555,19 +2448,9 @@
             "tcp_close"
           ]
         },
-        "internals/net": {
-          "src": "php_modules/internals/net.phpx",
-          "hash": "sha256:24062113b0b398bb6e982cff944332112d658595b4515f436c9f02f983b07629",
-          "cache": "php_modules/.cache/phpx/internals/net.php",
-          "compiler": "phpx-cache-v1",
-          "deps": [],
-          "exports": [
-            "__deka_net_call"
-          ]
-        },
         "db/mysql": {
           "src": "php_modules/db/mysql/index.phpx",
-          "hash": "sha256:5f64791cf5784bd451f5239ed3debaea057e2ff26c712bad524e475004319470",
+          "hash": "sha256:5d9539001ca3ffc919dc807db4550b8b3b23afd0b6117d2236bc7bfbeb6a5f24",
           "cache": "php_modules/.cache/phpx/db/mysql/index.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -2654,7 +2537,7 @@
         },
         "tls": {
           "src": "php_modules/tls/index.phpx",
-          "hash": "sha256:c6ffa3a3ac0ddcc92b18e49786d6f07545683455017e7b4a61b81187fb98f7d0",
+          "hash": "sha256:d6ceef1997aceac2ef1b66fc94da61dedcbcbb89a38d9e815ed289d6d410596c",
           "cache": "php_modules/.cache/phpx/tls/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [
@@ -2676,7 +2559,7 @@
         },
         "encoding/binary": {
           "src": "php_modules/encoding/binary/index.phpx",
-          "hash": "sha256:40550d920cd8c55bfa5160280f49dc4d7ec64adc0c771ea6adcd6156c3f355d8",
+          "hash": "sha256:5f426e7775b9c5b622ec97af283c849ea2be02c5f11f6f0c089f66fcb9394b3d",
           "cache": "php_modules/.cache/phpx/encoding/binary/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [
@@ -2712,7 +2595,7 @@
         },
         "fs": {
           "src": "php_modules/fs/index.phpx",
-          "hash": "sha256:f37d9485ecdcbfa70e95f425852963be335c193aa50fc084e5f785c279647462",
+          "hash": "sha256:a6ea8f61567c9238949a5e996dab54a066695e7766a39679fcf9cd7674bf9ccb",
           "cache": "php_modules/.cache/phpx/fs/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [
@@ -2731,7 +2614,7 @@
         },
         "cookies": {
           "src": "php_modules/cookies/index.phpx",
-          "hash": "sha256:5197ca8c42aca946f656485163363768880ec08403d072038ecc15e919c489d7",
+          "hash": "sha256:7810ace872ebf5b3658e65f1509c9b064a622ffb8abf5cc937916d89dca53435",
           "cache": "php_modules/.cache/phpx/cookies/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [],
@@ -2746,7 +2629,7 @@
         },
         "jwt": {
           "src": "php_modules/jwt/index.phpx",
-          "hash": "sha256:47da495f54de4f8de52ec0d54d50f41450da482df9cac79a4311bb330f6d9dde",
+          "hash": "sha256:e02e43cb306a44eab3d8cc0536f69bb080c117f43d65ba9a0d5906f027217eee",
           "cache": "php_modules/.cache/phpx/jwt/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [
@@ -2762,7 +2645,7 @@
         },
         "crypto": {
           "src": "php_modules/crypto/index.phpx",
-          "hash": "sha256:c799cab3d67feaf6b77197902320c7ee19b037bb8d506df4564ead65c9b7cda5",
+          "hash": "sha256:e18ca5078c6b195757a2bf1b802c2ff2b7c50eceade09ccab32863c5d77beaf3",
           "cache": "php_modules/.cache/phpx/crypto/index.php",
           "compiler": "phpx-cache-v1",
           "deps": [
@@ -2782,7 +2665,7 @@
         },
         "time": {
           "src": "php_modules/time/index.phpx",
-          "hash": "sha256:38925f5fe2b19a5742a3b05a4b872e4bd4d8b14b36dd519283da317e98378833",
+          "hash": "sha256:7ba843bf8ea1bc16c35ad4c13249a1fd383d1c0d8978fbec0a44a8df160e46a5",
           "cache": "php_modules/.cache/phpx/time/index.php",
           "compiler": "phpx-cache-v3",
           "deps": [
