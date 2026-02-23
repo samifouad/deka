@@ -317,12 +317,10 @@ const ensureBundledProjectSeed = () => {
       vfs.writeFile(path, new TextEncoder().encode(String(content)));
     }
   }
-  // Force-refresh lock/config from bundled project to avoid stale browser
-  // snapshots causing lock drift errors after runtime/module updates.
-  for (const pinned of ["/deka.lock", `${DEMO_ROOT}/deka.lock`, "/deka.json", `${DEMO_ROOT}/deka.json`]) {
-    if (Object.prototype.hasOwnProperty.call(mergedFiles, pinned)) {
-      vfs.writeFile(pinned, new TextEncoder().encode(String(mergedFiles[pinned])));
-    }
+  // Force-refresh bundled project files every boot so stale browser snapshots
+  // never keep old php_modules/deka.lock/deka.json content around.
+  for (const [path, content] of Object.entries(bundledProjectTree)) {
+    vfs.writeFile(path, new TextEncoder().encode(String(content)));
   }
   // Older snapshots may not include the mirrored local module root.
   const localModuleDir = normalizePath(`${DEMO_ROOT}/php_modules`);
@@ -1551,10 +1549,13 @@ const sha256Hex = (input) => {
   ];
   const rotr = (x, n) => ((x >>> n) | (x << (32 - n))) >>> 0;
   const bytes = Array.from(new TextEncoder().encode(String(input ?? "")));
-  const bitLen = bytes.length * 8;
+  const bitLen = BigInt(bytes.length) * 8n;
   bytes.push(0x80);
   while ((bytes.length % 64) !== 56) bytes.push(0);
-  for (let i = 7; i >= 0; i -= 1) bytes.push((bitLen >>> (i * 8)) & 0xff);
+  for (let i = 7; i >= 0; i -= 1) {
+    const shift = BigInt(i * 8);
+    bytes.push(Number((bitLen >> shift) & 0xffn));
+  }
 
   let h0 = 0x6a09e667;
   let h1 = 0xbb67ae85;
