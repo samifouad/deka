@@ -317,6 +317,13 @@ const ensureBundledProjectSeed = () => {
       vfs.writeFile(path, new TextEncoder().encode(String(content)));
     }
   }
+  // Force-refresh lock/config from bundled project to avoid stale browser
+  // snapshots causing lock drift errors after runtime/module updates.
+  for (const pinned of ["/deka.lock", `${DEMO_ROOT}/deka.lock`, "/deka.json", `${DEMO_ROOT}/deka.json`]) {
+    if (Object.prototype.hasOwnProperty.call(mergedFiles, pinned)) {
+      vfs.writeFile(pinned, new TextEncoder().encode(String(mergedFiles[pinned])));
+    }
+  }
   // Older snapshots may not include the mirrored local module root.
   const localModuleDir = normalizePath(`${DEMO_ROOT}/php_modules`);
   if (!pathExists(localModuleDir) && pathExists("/php_modules")) {
