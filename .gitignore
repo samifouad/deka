@@ -1,0 +1,7 @@
+# Global monorepo ignores
+**/.DS_Store
+**/node_modules/
+**/.next/
+**/.open-next/
+**/target/
+**/dist/
