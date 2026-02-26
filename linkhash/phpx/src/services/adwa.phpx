@@ -1,0 +1,25 @@
+export function buildAdwaBaseUrl($rawBase) {
+  $base = trim('' . $rawBase)
+  if ($base === '') {
+    return 'http://localhost:8600'
+  }
+  return rtrim($base, '/')
+}
+
+export function buildAdwaPreviewUrl($base, $owner, $repo, $commit) {
+  return buildAdwaBaseUrl($base)
+    . '/open?mode=preview&owner=' . rawurlencode(trim('' . $owner))
+    . '&repo=' . rawurlencode(trim('' . $repo))
+    . '&commit=' . rawurlencode(trim('' . $commit))
+}
+
+export function buildAdwaEditUrl($base, $owner, $repo, $commit = '') {
+  $url = buildAdwaBaseUrl($base)
+    . '/open?mode=edit&owner=' . rawurlencode(trim('' . $owner))
+    . '&repo=' . rawurlencode(trim('' . $repo))
+  $commitId = trim('' . $commit)
+  if ($commitId !== '') {
+    $url = $url . '&commit=' . rawurlencode($commitId)
+  }
+  return $url
+}
