@@ -1,0 +1,6 @@
+if (function_exists('shell_exec')) {
+  $out = shell_exec('ls ../rust/deka-git/repos')
+  echo '' . $out
+} else {
+  echo 'no_shell_exec'
+}

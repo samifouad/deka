@@ -12,6 +12,7 @@ Adwa is a Rust-first browser runtime and UI playground for Deka's web-host execu
 - Node/Bun compatibility mode.
 - Native desktop/host runtime parity in this repository.
 - Owning package-manager/runtime logic that belongs in `mvp`.
+- UI-owned command semantics (no browser-side `deka` subcommand emulation; commands must execute via process runtime).
 
 ## Project layout
 - `crates/adwa-core`: platform-agnostic Rust core APIs and host model.

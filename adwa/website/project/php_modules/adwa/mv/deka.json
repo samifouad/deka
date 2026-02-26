@@ -1,0 +1,9 @@
+{
+  "name": "adwa-mv",
+  "version": "0.1.0",
+  "type": "cli-adwa",
+  "main": "main.phpx",
+  "bin": {
+    "mv": "main.phpx"
+  }
+}

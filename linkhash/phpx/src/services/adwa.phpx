@@ -7,10 +7,27 @@ export function buildAdwaBaseUrl($rawBase) {
 }
 
 export function buildAdwaPreviewUrl($base, $owner, $repo, $commit) {
+  $url = buildAdwaBaseUrl($base)
+    . '/open?mode=preview&owner=' . rawurlencode(trim('' . $owner))
+    . '&repo=' . rawurlencode(trim('' . $repo))
+  $target = trim('' . $commit)
+  if ($target !== '') {
+    $url = $url . '&commit=' . rawurlencode($target)
+  } else {
+    $url = $url . '&ref=HEAD'
+  }
+  return $url
+}
+
+export function buildAdwaPreviewUrlForRef($base, $owner, $repo, $ref = 'HEAD') {
+  $targetRef = trim('' . $ref)
+  if ($targetRef === '') {
+    $targetRef = 'HEAD'
+  }
   return buildAdwaBaseUrl($base)
     . '/open?mode=preview&owner=' . rawurlencode(trim('' . $owner))
     . '&repo=' . rawurlencode(trim('' . $repo))
-    . '&commit=' . rawurlencode(trim('' . $commit))
+    . '&ref=' . rawurlencode($targetRef)
 }
 
 export function buildAdwaEditUrl($base, $owner, $repo, $commit = '') {

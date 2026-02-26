@@ -9,18 +9,20 @@ export function PreviewRouteSection($props) {
   $shortCommit = isset($props->shortCommit) ? ('' . $props->shortCommit) : ''
   $previewUrl = isset($props->previewUrl) ? ('' . $props->previewUrl) : '#'
   $editUrl = isset($props->editUrl) ? ('' . $props->editUrl) : '#'
+  $previewPath = isset($props->previewPath) ? ('' . $props->previewPath) : ('/@' . $owner . '/' . $repo . '/' . ($ref === '' ? 'HEAD' : $ref))
+  $showActions = $previewUrl !== '#' || $editUrl !== '#'
 
   return <section class="rounded-2xl bg-white p-8 shadow-sm">
     <div class="text-sm font-semibold uppercase tracking-wide text-blue-600">Preview</div>
     <h1 class="mt-2 text-2xl font-bold text-gray-900">{'@' . $owner . '/' . $repo . ' @ ' . $ref}</h1>
     {!$ok ? <div class="mt-4 rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{'Resolve failed: ' . ($error === '' ? 'unknown error' : $error)}</div> : null}
     {$ok ? <div class="mt-4 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{'Resolved commit: ' . $shortCommit}</div> : null}
-    {$ok ? <div class="mt-4 flex flex-wrap gap-2">
-      <a class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href={$previewUrl}>Open preview in Adwa</a>
-      <a class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" href={$editUrl}>Open editor in Adwa</a>
+    {$showActions ? <div class="mt-4 flex flex-wrap gap-2">
+      {$previewUrl !== '#' ? <a class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href={$previewUrl}>{$ok ? 'Open preview in Adwa' : 'Try preview in Adwa'}</a> : null}
+      {$editUrl !== '#' ? <a class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" href={$editUrl}>{$ok ? 'Open editor in Adwa' : 'Open editor anyway'}</a> : null}
     </div> : null}
     <div class="mt-4 text-xs text-gray-500">
-      {'Preview URL: linkha.sh/@' . $owner . '/' . $repo . '/' . ($ref === '' ? 'HEAD' : $ref)}
+      {'Preview URL: ' . $previewPath}
     </div>
   </section>
 }

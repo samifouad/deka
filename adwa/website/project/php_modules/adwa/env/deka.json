@@ -1,0 +1,9 @@
+{
+  "name": "adwa-env",
+  "version": "0.1.0",
+  "type": "cli-adwa",
+  "main": "main.phpx",
+  "bin": {
+    "env": "main.phpx"
+  }
+}

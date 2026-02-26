@@ -1,0 +1,3 @@
+import { renderToString } from 'component/dom'
+
+echo renderToString(<div>hi</div>)

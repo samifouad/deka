@@ -13,14 +13,14 @@ export interface CLIDoc {
 
 const cliDocs = bundledCLIDocs as CLIDoc[]
 
-export async function getCLIDoc(slug: string[]): Promise<CLIDoc | null> {
-  const doc = cliDocs.find((d) =>
+export async function getCLIDoc(slug: string[], docs: CLIDoc[] = cliDocs): Promise<CLIDoc | null> {
+  const doc = docs.find((d) =>
     d.slug.length === slug.length &&
     d.slug.every((s, i) => s === slug[i])
   )
   return doc || null
 }
 
-export function getAllCLIDocs(): string[][] {
-  return cliDocs.map((doc) => doc.slug)
+export function getAllCLIDocs(docs: CLIDoc[] = cliDocs): string[][] {
+  return docs.map((doc) => doc.slug)
 }

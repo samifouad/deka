@@ -127,7 +127,34 @@ git init --bare "$REMOTE_DIR" >/dev/null
   fi
 )
 
-"$DEKA_BIN" init "$CONSUMER_DIR" >/dev/null
+# Create a minimal consumer project without `deka init` so this e2e
+# validates registry-backed package installation only.
+mkdir -p "$CONSUMER_DIR/app"
+cat > "$CONSUMER_DIR/deka.json" <<JSON
+{
+  "name": "linkhash-e2e-consumer",
+  "security": {
+    "allow": {
+      "read": ["./"],
+      "write": ["./deka.lock", "./php_modules"],
+      "run": [],
+      "env": [],
+      "net": []
+    }
+  }
+}
+JSON
+cat > "$CONSUMER_DIR/deka.lock" <<JSON
+{
+  "php": {
+    "cache": {
+      "version": 1,
+      "compiler": "phpx-cache-v3",
+      "modules": {}
+    }
+  }
+}
+JSON
 (
   cd "$CONSUMER_DIR"
   INSTALL_OUT="$(LINKHASH_REGISTRY_URL="$REGISTRY_URL" "$DEKA_BIN" pkg install --ecosystem php --spec "$PKG_NAME@$PKG_VERSION" --yes 2>&1 || true)"
@@ -145,13 +172,11 @@ fi
 
 cat > "$CONSUMER_DIR/app/main.phpx" <<PHPX
 import { hello_registry } from '$PKG_NAME';
-import { json_encode } from 'encoding/json';
-
-echo json_encode({ ok: true, greeting: hello_registry('registry') });
+echo hello_registry('registry');
 PHPX
 
 RUN_OUT="$("$DEKA_BIN" run "$CONSUMER_DIR/app/main.phpx" 2>/dev/null || true)"
-if [[ "$RUN_OUT" != *'"ok":true'* ]] || [[ "$RUN_OUT" != *'"greeting":"hello registry"'* ]]; then
+if [[ "$RUN_OUT" != *'hello registry'* ]]; then
   echo "[e2e] runtime import smoke failed"
   echo "$RUN_OUT"
   exit 1

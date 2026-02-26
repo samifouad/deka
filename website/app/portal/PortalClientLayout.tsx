@@ -16,8 +16,7 @@ import {
   Database,
   LogOut,
   Menu,
-  X,
-  Server
+  X
 } from 'lucide-react'
 import styles from './portal.module.css'
 
@@ -51,13 +50,17 @@ export function PortalClientLayout({ user, children }: PortalClientLayoutProps) 
   return (
     <div className={styles.page}>
       {/* Mobile sidebar toggle */}
-      <div className={`${styles.mobileHeader} lg:hidden`}>
+        <div className={`${styles.mobileHeader} lg:hidden`}>
         <div className="flex items-center justify-between">
           <div className={styles.brandRow}>
             <div className={styles.brandMark}>
-              <Server className="h-4 w-4" />
+              <img
+                src="/android-chrome-512x512.png"
+                alt="deka"
+                className="h-9 w-9 rounded-full"
+              />
             </div>
-            <span className={styles.brandTitle}>Deka Portal</span>
+            <span className={styles.brandTitle}>deka portal</span>
           </div>
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -81,11 +84,15 @@ export function PortalClientLayout({ user, children }: PortalClientLayoutProps) 
             {/* Logo - Desktop only */}
             <div className={`hidden lg:flex ${styles.sidebarHeader}`}>
               <div className={styles.brandMark}>
-                <Server className="h-5 w-5" />
+                <img
+                  src="/android-chrome-512x512.png"
+                  alt="deka"
+                  className="h-9 w-9 rounded-full"
+                />
               </div>
               <div>
-                <h1 className={styles.sidebarTitle}>Deka</h1>
-                <p className={styles.sidebarSubtitle}>User Portal</p>
+                <h1 className={styles.sidebarTitle}>deka</h1>
+                <p className={styles.sidebarSubtitle}>user portal</p>
               </div>
             </div>
 

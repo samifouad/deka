@@ -2,7 +2,6 @@ pub mod env;
 pub mod handler;
 pub mod module_spec;
 pub mod modules;
-pub mod php_pipeline;
 pub mod process;
 pub mod security;
 pub mod security_policy;

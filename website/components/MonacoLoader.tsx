@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { ensureDocsTheme } from '@/lib/monaco'
 
 declare global {
   interface Window {
@@ -27,30 +28,7 @@ export function MonacoLoader() {
       })
 
       window.require(['vs/editor/editor.main'], () => {
-        // Define docs theme
-        window.monaco.editor.defineTheme('docs-dark', {
-          base: 'vs-dark',
-          inherit: true,
-          rules: [
-            { token: 'comment', foreground: '64748b' },
-            { token: 'keyword', foreground: '38bdf8', fontStyle: 'bold' },
-            { token: 'string', foreground: '86efac' },
-            { token: 'number', foreground: 'fbbf24' },
-            { token: 'type', foreground: 'c084fc', fontStyle: 'italic' },
-            { token: 'function', foreground: '60a5fa' },
-            { token: 'variable', foreground: 'e2e8f0' },
-            { token: 'identifier', foreground: 'e2e8f0' },
-            { token: 'delimiter', foreground: '94a3b8' },
-            { token: 'operator', foreground: 'f472b6' },
-          ],
-          colors: {
-            'editor.background': '#14151a',
-            'editor.foreground': '#f1f5f9',
-            'editor.lineHighlightBackground': '#1a1b21',
-            'editorLineNumber.foreground': '#475569',
-            'editorLineNumber.activeForeground': '#94a3b8',
-          }
-        })
+        ensureDocsTheme()
 
         // Define blueprint theme for examples
         window.monaco.editor.defineTheme('blueprint', {
@@ -176,6 +154,7 @@ export function MonacoLoader() {
         // Mark as loaded
         window.monacoLoaded = true
         window.monacoLoading = false
+        window.dispatchEvent(new Event('deka:monaco-ready'))
       })
     }
 

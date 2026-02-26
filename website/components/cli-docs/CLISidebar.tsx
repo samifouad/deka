@@ -2,9 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { VersionSelect } from '@/components/docs/VersionSelect'
+import { useDocsVersion } from '@/components/docs/useDocsVersion'
+import { LanguageSelect } from '@/components/docs/LanguageSelect'
 
 interface CLISidebarProps {
   isOpen: boolean
+  basePath?: string
 }
 
 const cliTools = [
@@ -73,16 +77,21 @@ const cliTools = [
   }
 ]
 
-export function CLISidebar({ isOpen }: CLISidebarProps) {
+export function CLISidebar({ isOpen, basePath }: CLISidebarProps) {
   const pathname = usePathname()
+  const { version } = useDocsVersion()
+  const resolvedBasePath = basePath
+    ? (version && version !== 'latest' ? `${basePath}/${version}` : basePath)
+    : '/cli'
 
   return (
     <aside
       className={`${
         isOpen ? 'block' : 'hidden'
-      } md:block w-64 overflow-y-auto scrollbar-hide border-r border-border/30 mx-auto md:mx-0`}
+      } md:block w-64 overflow-y-auto scrollbar-hide border-r border-border/30 mx-auto md:mx-0 relative z-30`}
     >
       <nav className="p-4 space-y-6">
+        <VersionSelect />
         {cliTools.map((section, sectionIndex) => (
           <div key={sectionIndex}>
             <h3 className="text-sm font-semibold text-foreground mb-2 uppercase tracking-wide">
@@ -90,7 +99,7 @@ export function CLISidebar({ isOpen }: CLISidebarProps) {
             </h3>
             <ul className="space-y-1">
               {section.items.map((tool) => {
-                const href = `/cli/${tool.slug}`
+                const href = `${resolvedBasePath}/${tool.slug}`
                 const isActive = pathname === href
                 return (
                   <li key={tool.slug}>
@@ -98,14 +107,13 @@ export function CLISidebar({ isOpen }: CLISidebarProps) {
                       href={href}
                       prefetch={true}
                       scroll={false}
-                      className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
+                      className={`block px-3 py-1 rounded-lg text-sm transition-colors truncate ${
                         isActive
                           ? 'bg-primary/10 text-primary font-medium'
                           : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
                       }`}
                     >
-                      <div>{tool.name}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{tool.description}</div>
+                      <span className="block truncate">{tool.name}</span>
                     </Link>
                   </li>
                 )
@@ -113,6 +121,9 @@ export function CLISidebar({ isOpen }: CLISidebarProps) {
             </ul>
           </div>
         ))}
+        <div className="pt-4 border-t border-border/30">
+          <LanguageSelect />
+        </div>
       </nav>
     </aside>
   )

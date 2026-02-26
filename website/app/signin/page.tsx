@@ -5,7 +5,6 @@
  */
 
 import { redirect } from 'next/navigation'
-import { Server } from 'lucide-react'
 import { BlueskyForm } from './BlueskyForm'
 import styles from './signin.module.css'
 
@@ -57,9 +56,13 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         {/* Logo */}
         <div className={styles.logoRow}>
           <div className={styles.logoMark}>
-            <Server className="w-5 h-5" />
+            <img
+              src="/android-chrome-512x512.png"
+              alt="deka"
+              className="h-9 w-9 rounded-full"
+            />
           </div>
-          <h1 className={styles.logoTitle}>Deka</h1>
+          <h1 className={styles.logoTitle}>deka</h1>
         </div>
 
         {/* Sign in card */}

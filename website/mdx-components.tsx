@@ -1,5 +1,6 @@
 import type { MDXComponents } from 'mdx/types'
 import Link from 'next/link'
+import { DekaDiff } from '@/components/docs/DekaDiff'
 
 // Direct export for server components
 export const mdxComponents: MDXComponents = {
@@ -87,6 +88,9 @@ export const mdxComponents: MDXComponents = {
       <td className="border border-border px-4 py-2 text-muted-foreground">
         {children}
       </td>
+    ),
+    DekaDiff: ({ children, title }) => (
+      <DekaDiff title={title}>{children}</DekaDiff>
     ),
 }
 

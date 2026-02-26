@@ -38,25 +38,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 32px;
 }
 
 .logoMark {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--signin-accent);
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: transparent;
   display: grid;
   place-items: center;
-  color: #fff;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+  color: inherit;
+  box-shadow: none;
 }
 
 .logoTitle {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .card {

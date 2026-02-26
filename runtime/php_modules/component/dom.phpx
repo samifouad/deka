@@ -1,4 +1,4 @@
-import { isValidElement, __component_push_context, __component_pop_context, ContextProvider, Suspense } from 'component/core';
+import { isValidElement, __component_push_context, __component_pop_context } from 'component/core';
 import { json_encode, json_decode } from 'encoding/json';
 
 struct Root {
@@ -708,16 +708,16 @@ function __component_assoc_to_object($value) {
             }
             return $out;
         }
-        $out = [];
+        $out = {};
         foreach ($value as $k => $v) {
-            $out[$k] = __component_assoc_to_object($v);
+            $out->{$k} = __component_assoc_to_object($v);
         }
         return $out;
     }
     if (is_object($value)) {
-        $out = [];
+        $out = {};
         foreach ($value as $k => $v) {
-            $out[$k] = __component_assoc_to_object($v);
+            $out->{$k} = __component_assoc_to_object($v);
         }
         return $out;
     }
@@ -1029,9 +1029,6 @@ function __component_render_suspense_fallback() {
 }
 
 function __component_is_suspense_provider($type): bool {
-    if ($type === Suspense) {
-        return true
-    }
     if (is_string($type)) {
         if ($type === 'Suspense' || $type === '__phpx_component_core\\Suspense') {
             return true
@@ -1355,12 +1352,12 @@ function __component_strip_island_props($props) {
         'serverDefer',
         'server-defer',
     ];
-    $out = [];
+    $out = {};
     foreach ($props as $k => $v) {
         if (in_array($k, $drop, true)) {
             continue;
         }
-        $out[$k] = $v;
+        $out->{$k} = $v;
     }
     return $out;
 }
@@ -1370,29 +1367,29 @@ function __component_server_island_payload_props($props) {
     if (!is_array($clean) && !is_object($clean)) {
         return {};
     }
-    $out = [];
+    $out = {};
     foreach ($clean as $k => $v) {
         if ($k === 'children' || $k === 'fallback') {
             continue;
         }
-        $out[$k] = $v;
+        $out->{$k} = $v;
     }
     return $out;
 }
 
 function __component_split_component_call_props($props) {
     $call = __component_strip_island_props($props)
-    $passthrough = []
+    $passthrough = {}
     if (!is_array($call) && !is_object($call)) {
         return { call: $call, passthrough: false }
     }
-    $clean = []
+    $clean = {}
     foreach ($call as $k => $v) {
         if (__component_is_component_passthrough_prop($k)) {
-            $passthrough[$k] = $v
+            $passthrough->{$k} = $v
             continue
         }
-        $clean[$k] = $v
+        $clean->{$k} = $v
     }
     return { call: $clean, passthrough: __component_has_keys($passthrough) ? $passthrough : false }
 }
@@ -1600,9 +1597,6 @@ function __component_is_component_name($tag) {
 }
 
 function __component_is_context_provider($type) {
-    if ($type === ContextProvider) {
-        return true
-    }
     if (is_string($type)) {
         $trim = ltrim($type, '\\');
         if ($trim === '') {

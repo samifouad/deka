@@ -1,0 +1,577 @@
+{
+  "lockfileVersion": 1,
+  "phpx": {
+    "modules": {
+      "core/result": {
+        "source": "php_modules/core/result.phpx",
+        "hash": "sha256:placeholder",
+        "cache": "php_modules/.cache/phpx/core/result.php",
+        "dependencies": [],
+        "exports": [
+          "Result",
+          "Ok",
+          "Err"
+        ]
+      },
+      "core/option": {
+        "source": "php_modules/core/option.phpx",
+        "hash": "sha256:placeholder",
+        "cache": "php_modules/.cache/phpx/core/option.php",
+        "dependencies": [],
+        "exports": [
+          "Option",
+          "Some",
+          "None"
+        ]
+      }
+    }
+  },
+  "node": {
+    "dependencies": {}
+  },
+  "gleam": {
+    "dependencies": {}
+  },
+  "php": {
+    "packages": {},
+    "cache": {
+      "version": 1,
+      "compiler": "phpx-cache-v1",
+      "modules": {
+        "registry/artifacts": {
+          "src": "php_modules/registry/artifacts.phpx",
+          "hash": "sha256:fb18323fcb365bbb930efc824558ee1ab6f7738e2902fbd20e3b690dfd4f6da9",
+          "cache": "php_modules/.cache/phpx/registry/artifacts.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "fs",
+            "bytes",
+            "core/result"
+          ],
+          "exports": [
+            "canonical_input",
+            "canonical_id",
+            "artifact_key",
+            "store_artifact",
+            "read_artifact"
+          ]
+        },
+        "core/result": {
+          "src": "php_modules/core/result.phpx",
+          "hash": "sha256:c138f94b55755045e7575843cb791ef653ed1089dd6c6dac0adcde228ae3f3d6",
+          "cache": "php_modules/.cache/phpx/core/result.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "result_ok",
+            "result_err",
+            "result_is_ok",
+            "result_is_err",
+            "result_unwrap",
+            "result_unwrap_or"
+          ]
+        },
+        "bytes": {
+          "src": "php_modules/bytes/index.phpx",
+          "hash": "sha256:e9e06ee8366ddd0d2cac948cb04426484dd8a32a1cd4407c6630df36363b0098",
+          "cache": "php_modules/.cache/phpx/bytes/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "core/bytes"
+          ],
+          "exports": [
+            "from_string",
+            "to_string",
+            "len",
+            "get",
+            "set",
+            "slice",
+            "concat",
+            "to_array",
+            "from_array"
+          ]
+        },
+        "core/bytes": {
+          "src": "php_modules/core/bytes.phpx",
+          "hash": "sha256:1b80b7bff4bb00334d4cc8dd7fd5f5fc5917ee9555a69421ec932cce15f9c6d6",
+          "cache": "php_modules/.cache/phpx/core/bytes.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "bytes_from_string",
+            "bytes_to_string",
+            "bytes_len",
+            "bytes_get",
+            "bytes_set",
+            "bytes_slice",
+            "bytes_concat",
+            "bytes_to_array",
+            "bytes_from_array"
+          ]
+        },
+        "fs": {
+          "src": "php_modules/fs/index.phpx",
+          "hash": "sha256:80987cedbf3e0288c7d36cc0e6a5d9ece6dc2b269730be9a7e3dd0dd5cf2e6fa",
+          "cache": "php_modules/.cache/phpx/fs/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "core/result",
+            "core/bridge",
+            "core/bytes"
+          ],
+          "exports": [
+            "open",
+            "read",
+            "write",
+            "close",
+            "read_file",
+            "write_file"
+          ]
+        },
+        "core/bridge": {
+          "src": "php_modules/core/bridge.phpx",
+          "hash": "sha256:2efb6d046cda3db74e5ecfc288b0241da26723d80ffe929c524758cde0e8055a",
+          "cache": "php_modules/.cache/phpx/core/bridge.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "bridge"
+          ]
+        },
+        "tls": {
+          "src": "php_modules/tls/index.phpx",
+          "hash": "sha256:40a09cfb44ec7030c30d5f7fb658e8e4e2e0926d4103c77ba5949ff06d05ae6a",
+          "cache": "php_modules/.cache/phpx/tls/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "core/result",
+            "core/bridge"
+          ],
+          "exports": [
+            "upgrade",
+            "tls_upgrade",
+            "read",
+            "tls_read",
+            "read_exact",
+            "tls_read_exact",
+            "write",
+            "tls_write",
+            "close",
+            "tls_close"
+          ]
+        },
+        "tcp": {
+          "src": "php_modules/tcp/index.phpx",
+          "hash": "sha256:f026e4532d30ad2ab4a87c2690299db22fc3b48082590f2ce3100daae47e4c15",
+          "cache": "php_modules/.cache/phpx/tcp/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "core/result",
+            "core/bridge"
+          ],
+          "exports": [
+            "connect",
+            "tcp_connect",
+            "read",
+            "tcp_read",
+            "read_exact",
+            "tcp_read_exact",
+            "write",
+            "tcp_write",
+            "set_deadline",
+            "tcp_set_deadline",
+            "close",
+            "tcp_close"
+          ]
+        },
+        "crypto": {
+          "src": "php_modules/crypto/index.phpx",
+          "hash": "sha256:ea2da4b98285fea4e4444cf127594d88c8387ce0e31bc372f0c8843fa36bb714",
+          "cache": "php_modules/.cache/phpx/crypto/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "bytes",
+            "core/result",
+            "core/bridge"
+          ],
+          "exports": [
+            "random_bytes_result",
+            "random_hex",
+            "sha256_hex",
+            "hmac_sha256_hex",
+            "hmac_sha256_bytes",
+            "secure_compare",
+            "uuid_v4"
+          ]
+        },
+        "cookies": {
+          "src": "php_modules/cookies/index.phpx",
+          "hash": "sha256:c80b9d5ea62ae4683e992aa172e479113517bbf25184ce8311931afbf3c22b72",
+          "cache": "php_modules/.cache/phpx/cookies/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "all",
+            "has",
+            "get",
+            "build_set_cookie",
+            "set_header",
+            "clear_header"
+          ]
+        },
+        "db/mysql": {
+          "src": "php_modules/db/mysql/index.phpx",
+          "hash": "sha256:bf460594baa38caee197f85aa44c4f1e3941fa73b37cd55ba622806a410468b6",
+          "cache": "php_modules/.cache/phpx/db/mysql/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "core/result",
+            "db",
+            "tcp",
+            "core/bytes"
+          ],
+          "exports": [
+            "connect",
+            "query",
+            "query_one",
+            "exec",
+            "begin",
+            "commit",
+            "rollback",
+            "close"
+          ]
+        },
+        "db": {
+          "src": "php_modules/db/index.phpx",
+          "hash": "sha256:c32f6e425ea4f95f6ead3ff471f07f7b0aee70534cae7847c1539d75e0caf939",
+          "cache": "php_modules/.cache/phpx/db/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "core/result",
+            "core/bridge"
+          ],
+          "exports": [
+            "open",
+            "open_handle",
+            "query",
+            "rows",
+            "query_one",
+            "exec",
+            "affected_rows",
+            "begin",
+            "commit",
+            "rollback",
+            "close",
+            "stats"
+          ]
+        },
+        "db/sqlite": {
+          "src": "php_modules/db/sqlite/index.phpx",
+          "hash": "sha256:e5a24f45dafe82b82917a5ab43deaffb17c85186823ae0a52db360adcacb03d9",
+          "cache": "php_modules/.cache/phpx/db/sqlite/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "db"
+          ],
+          "exports": [
+            "connect",
+            "query",
+            "query_one",
+            "exec",
+            "begin",
+            "commit",
+            "rollback",
+            "close"
+          ]
+        },
+        "db/postgres": {
+          "src": "php_modules/db/postgres/index.phpx",
+          "hash": "sha256:e752dd0e8595c1926f7ed53b009bb809716338b7a4069c624253a22d0da3d945",
+          "cache": "php_modules/.cache/phpx/db/postgres/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:3b4a567f2b6776f5ad0888a371d96fc887028577f9da99b15e449c8faa26aad8",
+          "deps": [
+            "db"
+          ],
+          "exports": [
+            "connect",
+            "query",
+            "query_one",
+            "exec",
+            "begin",
+            "commit",
+            "rollback",
+            "close"
+          ]
+        },
+        "encoding/json": {
+          "src": "php_modules/encoding/json/index.phpx",
+          "hash": "sha256:ae524c9e0f91cec16997788acd2b69b0bc991db065ba213c4e135dd7f2eca7c7",
+          "cache": "php_modules/.cache/phpx/encoding/json/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "core/result",
+            "core/byte",
+            "core/num",
+            "core/bridge"
+          ],
+          "exports": [
+            "json_encode",
+            "json_decode",
+            "json_decode_result",
+            "json_last_error",
+            "json_last_error_msg",
+            "json_validate"
+          ]
+        },
+        "core/num": {
+          "src": "php_modules/core/num.phpx",
+          "hash": "sha256:5f9c6553ddf78dc899e56b124b99274f55986c9c21bd6a630e9574fcc45c9ffc",
+          "cache": "php_modules/.cache/phpx/core/num.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "num_parse_int",
+            "num_parse_float"
+          ]
+        },
+        "core/byte": {
+          "src": "php_modules/core/byte.phpx",
+          "hash": "sha256:345ed51e8ff79620faaf941cef2e6359644263475826eb5a78e2003dd7a004d3",
+          "cache": "php_modules/.cache/phpx/core/byte.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "byte_from_char",
+            "byte_to_char",
+            "byte_is_whitespace",
+            "byte_is_digit",
+            "byte_is_hex"
+          ]
+        },
+        "component/dom": {
+          "src": "php_modules/component/dom.phpx",
+          "hash": "sha256:b301bd327a9a47ef8d94e566ab1d8ae451fa95f5501d00e389fe7c33ab0e8f45",
+          "cache": "php_modules/.cache/phpx/component/dom.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "component/core",
+            "encoding/json"
+          ],
+          "exports": [
+            "createRoot",
+            "renderToString",
+            "renderToStream",
+            "renderPartial",
+            "renderPartialJson",
+            "renderPartialResponse",
+            "Link",
+            "Hydration",
+            "isPartialRequest"
+          ]
+        },
+        "component/core": {
+          "src": "php_modules/component/core.phpx",
+          "hash": "sha256:0156e5767f68c927237ba0c0e704914e7589430adf89153c01a3f150971b50bb",
+          "cache": "php_modules/.cache/phpx/component/core.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "jsx",
+            "jsxs",
+            "createElement",
+            "isValidElement",
+            "childrenToArray",
+            "createContext",
+            "__component_push_context",
+            "__component_pop_context",
+            "useContext",
+            "ContextProvider",
+            "__component_each",
+            "__component_each_kv"
+          ]
+        },
+        "@/src/pages/repo_flows": {
+          "src": "src/pages/repo_flows.phpx",
+          "hash": "sha256:2c2aaf7664679363b11d37f91cddff434494acb5dc9d121fff3942e70e80798d",
+          "cache": "php_modules/.cache/src/pages/repo_flows.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "component/core"
+          ],
+          "exports": [
+            "PreviewRouteSection",
+            "ForkResultSection"
+          ]
+        },
+        "@/src/services/adwa": {
+          "src": "src/services/adwa.phpx",
+          "hash": "sha256:61040512149acce347bfe1fe2d24a0c8bf37b052759e77d331ded489acc7a305",
+          "cache": "php_modules/.cache/src/services/adwa.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "buildAdwaBaseUrl",
+            "buildAdwaPreviewUrl",
+            "buildAdwaPreviewUrlForRef",
+            "buildAdwaEditUrl"
+          ]
+        },
+        "@/src/api/repo_actions": {
+          "src": "src/api/repo_actions.phpx",
+          "hash": "sha256:3b0d44e3dd7c80c66e18eb90155ead05c908fab7a8e28ac8dc775c3e9d764921",
+          "cache": "php_modules/.cache/src/api/repo_actions.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "repoIssueCreateRoute",
+            "repoIssueCommentRoute",
+            "repoPullCreateRoute",
+            "repoPullCommentRoute",
+            "repoForkRoute",
+            "buildRepoActionRedirectPath"
+          ]
+        },
+        "@/src/services/linkhash_git": {
+          "src": "src/services/linkhash_git.phpx",
+          "hash": "sha256:4e1692530dfd296e62cf5c069d859587f517806434d406e2f851e18becb5afd9",
+          "cache": "php_modules/.cache/src/services/linkhash_git.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "gitApiDefaultBase",
+            "scopedReleaseDocsPath",
+            "scopedReleaseTreePath",
+            "scopedReleaseBlobPath",
+            "repoIssuesPath",
+            "repoIssueDetailPath",
+            "repoIssueCommentPath",
+            "repoPullsPath",
+            "repoPullDetailPath",
+            "repoPullCommentPath",
+            "repoResolvePath",
+            "repoForkPath"
+          ]
+        },
+        "@/src/pages/package_detail": {
+          "src": "src/pages/package_detail.phpx",
+          "hash": "sha256:5b70aa7284a09dd77bb1ecc7965849f0183867c883adae7281a18fb852a4608b",
+          "cache": "php_modules/.cache/src/pages/package_detail.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "component/core"
+          ],
+          "exports": [
+            "PackageStatPills",
+            "PackageVersionRows"
+          ]
+        },
+        "@/db": {
+          "src": "db/index.phpx",
+          "hash": "sha256:2558cc04a7b1bc4f24e1edca87f86400d2d31f46604f13cbce3c5ef9b406ceb7",
+          "cache": "php_modules/.cache/db/index.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "@/db/client"
+          ],
+          "exports": [
+            "connect",
+            "close",
+            "select",
+            "selectMany",
+            "selectOne",
+            "insert",
+            "insertOne",
+            "update",
+            "updateWhere",
+            "deleteQuery",
+            "deleteWhere",
+            "loadRelation",
+            "transaction",
+            "eq",
+            "ilike",
+            "isNull",
+            "andWhere",
+            "orWhere",
+            "asc",
+            "desc",
+            "limit",
+            "offset",
+            "createClient"
+          ]
+        },
+        "@/db/client": {
+          "src": "db/client.phpx",
+          "hash": "sha256:6f85a3748828fc94ed84e9bf6e859a7c6936e989c4465a2a5544120769034885",
+          "cache": "php_modules/.cache/db/client.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [
+            "db",
+            "core/result"
+          ],
+          "exports": [
+            "eq",
+            "ilike",
+            "isNull",
+            "andWhere",
+            "orWhere",
+            "asc",
+            "desc",
+            "limit",
+            "offset",
+            "connect",
+            "close",
+            "selectMany",
+            "selectOne",
+            "insertOne",
+            "updateWhere",
+            "deleteWhere",
+            "insert",
+            "select",
+            "update",
+            "deleteQuery",
+            "loadRelation",
+            "transaction",
+            "createClient"
+          ]
+        },
+        "@/db/meta": {
+          "src": "db/meta.phpx",
+          "hash": "sha256:1678b707b71bf06412bfe1e96cc8727dedf5f1d9442e4dd144d8a62e474c866d",
+          "cache": "php_modules/.cache/db/meta.php",
+          "compiler": "phpx-cache-v3",
+          "lockIdentity": "1:9f9a931b391c19cd077a2b0540653affcff39365f500da056576ea9fabebc0cc",
+          "deps": [],
+          "exports": [
+            "meta"
+          ]
+        }
+      }
+    }
+  }
+}

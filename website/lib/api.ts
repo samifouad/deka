@@ -13,14 +13,14 @@ export interface APIDoc {
 
 const apiDocs = bundledAPIDocs as APIDoc[]
 
-export async function getAPIDoc(slug: string[]): Promise<APIDoc | null> {
-  const doc = apiDocs.find((d) =>
+export async function getAPIDoc(slug: string[], docs: APIDoc[] = apiDocs): Promise<APIDoc | null> {
+  const doc = docs.find((d) =>
     d.slug.length === slug.length &&
     d.slug.every((s, i) => s === slug[i])
   )
   return doc || null
 }
 
-export function getAllAPIDocs(): string[][] {
-  return apiDocs.map((doc) => doc.slug)
+export function getAllAPIDocs(docs: APIDoc[] = apiDocs): string[][] {
+  return docs.map((doc) => doc.slug)
 }

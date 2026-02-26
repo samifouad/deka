@@ -8,9 +8,10 @@ ADWA_JS_DIST_DIR="$ROOT_DIR/js/dist"
 SQL_JS_DIST_DIR="$ROOT_DIR/js/node_modules/sql.js/dist"
 MVP_ROOT="${DEKA_MVP_ROOT:-$ROOT_DIR/../mvp2}"
 if [ ! -d "$MVP_ROOT" ]; then
-  MVP_ROOT="$ROOT_DIR/../mvp"
+  MVP_ROOT="$ROOT_DIR/../mvp-ARCHIVE"
 fi
 PHP_RS_WASM_PATH="$MVP_ROOT/target/wasm32-unknown-unknown/release/php_rs.wasm"
+ARCHIVE_WASM_PATH="$ROOT_DIR/../mvp-ARCHIVE/target/wasm32-unknown-unknown/release/php_rs.wasm"
 WASM_VENDOR_DIR="$DEMO_DIR/vendor/adwa_wasm"
 JS_VENDOR_DIR="$DEMO_DIR/vendor/adwa_js"
 EDITOR_VENDOR_DIR="$DEMO_DIR/vendor/adwa_editor"
@@ -27,6 +28,32 @@ INCLUDE_EDITOR_ASSETS="${ADWA_DEMO_INCLUDE_EDITOR:-0}"
   cd "$MVP_ROOT"
   cargo build -p php-rs --release --target wasm32-unknown-unknown --lib --no-default-features >/dev/null
 )
+
+has_php_exports() {
+  local wasm_path="$1"
+  [ -f "$wasm_path" ] || return 1
+  WASM_PATH="$wasm_path" node <<'EOF2' >/dev/null 2>&1
+const fs = require("node:fs");
+const wasmPath = process.env.WASM_PATH;
+const bytes = fs.readFileSync(wasmPath);
+const module = new WebAssembly.Module(bytes);
+const names = new Set(WebAssembly.Module.exports(module).map((entry) => entry.name));
+if (names.has("php_alloc") && names.has("php_free") && names.has("php_run")) {
+  process.exit(0);
+}
+process.exit(1);
+EOF2
+}
+
+if ! has_php_exports "$PHP_RS_WASM_PATH"; then
+  if has_php_exports "$ARCHIVE_WASM_PATH"; then
+    echo "[adwa-playground] using archived php_rs.wasm with php_* exports"
+    PHP_RS_WASM_PATH="$ARCHIVE_WASM_PATH"
+  else
+    echo "[adwa-playground] php_rs.wasm at $PHP_RS_WASM_PATH is missing php_* exports and no archive fallback was found" >&2
+    exit 1
+  fi
+fi
 
 if ! command -v wasm-bindgen >/dev/null 2>&1; then
   echo "wasm-bindgen not found. Install it with: cargo install wasm-bindgen-cli"
@@ -89,6 +116,7 @@ EOF2
 ROOT_DIR_ENV="$ROOT_DIR" PHP_MODULES_SRC_ENV="$PHP_MODULES_SRC" PROJECT_PHP_MODULES_SRC_ENV="$PROJECT_PHP_MODULES_SRC" DEKA_LOCK_SRC_ENV="$DEKA_LOCK_SRC" DEKA_CONFIG_SRC_ENV="$DEKA_CONFIG_SRC" JS_VENDOR_DIR_ENV="$JS_VENDOR_DIR" node <<'EOF2'
 const fs = require("node:fs");
 const path = require("node:path");
+const crypto = require("node:crypto");
 
 const phpModulesRoot = process.env.PHP_MODULES_SRC_ENV;
 const projectPhpModulesRoot = process.env.PROJECT_PHP_MODULES_SRC_ENV;
@@ -130,7 +158,7 @@ if (fs.existsSync(dekaConfigPath)) {
 
 const content =
   `export const bundledProjectFiles = ${JSON.stringify(files)};\n` +
-  `export const bundledProjectVersion = "php-bundle-v1";\n`;
+  `export const bundledProjectVersion = "php-bundle-${crypto.createHash("sha256").update(JSON.stringify(files)).digest("hex").slice(0, 12)}";\n`;
 fs.writeFileSync(outPath, content, "utf8");
 EOF2
 

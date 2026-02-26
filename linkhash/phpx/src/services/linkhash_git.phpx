@@ -1,5 +1,5 @@
 export function gitApiDefaultBase() {
-  return 'http://localhost:8508'
+  return 'http://127.0.0.1:8508'
 }
 
 export function scopedReleaseDocsPath($scope, $name, $version) {

@@ -1,7 +1,11 @@
 #!/usr/bin/env bun
 /**
  * Pre-bundle all CLI markdown files into a static JSON file
- * for Cloudflare Workers compatibility
+ * for Cloudflare Workers compatibility.
+ *
+ * Usage:
+ *   bun scripts/bundle-cli.ts --source content/cli --lang en
+ *   bun scripts/bundle-cli.ts --source content-i18n/es/cli --lang es
  */
 
 import fs from 'fs'
@@ -21,8 +25,41 @@ interface CLIDoc {
   codeBlocks: Array<{lang: string, code: string}>
 }
 
-const cliDirectory = path.join(process.cwd(), 'content/cli')
-const outputPath = path.join(process.cwd(), 'lib/bundled-cli.json')
+function parseArgs(argv: string[]) {
+  const args = new Map<string, string | boolean>()
+  for (let i = 2; i < argv.length; i += 1) {
+    const arg = argv[i]
+    if (!arg.startsWith('--')) continue
+    const [key, value] = arg.split('=')
+    if (value === undefined) {
+      const next = argv[i + 1]
+      if (next && !next.startsWith('--')) {
+        args.set(key, next)
+        i += 1
+      } else {
+        args.set(key, true)
+      }
+    } else {
+      args.set(key, value)
+    }
+  }
+
+  const source = String(args.get('--source') || 'content/cli')
+  const lang = String(args.get('--lang') || 'en')
+  const out = args.get('--out')
+
+  return { source, lang, out }
+}
+
+const { source, lang, out } = parseArgs(process.argv)
+const cliDirectory = path.join(process.cwd(), source)
+const outputPath = out
+  ? path.join(process.cwd(), String(out))
+  : path.join(
+      process.cwd(),
+      'lib',
+      lang === 'en' ? 'bundled-cli.json' : `bundled-cli.${lang}.json`
+    )
 
 async function convertToHtml(content: string): Promise<string> {
   try {
@@ -85,7 +122,7 @@ async function getAllCLIDocs(): Promise<CLIDoc[]> {
 }
 
 // Generate the bundle
-console.log('📦 Bundling CLI docs...')
+console.log(`📦 Bundling CLI docs (${lang})...`)
 const docs = await getAllCLIDocs()
 const bundleContent = JSON.stringify(docs, null, 2)
 

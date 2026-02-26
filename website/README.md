@@ -20,6 +20,52 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Build & Translation Pipeline
+
+This repo bundles markdown/MDX docs into JSON for runtime use and generates localized versions during build.
+
+### High-level flow
+
+1) `bundle:i18n` (translation + localized bundles)
+   - Reads `.env` and requires `OPENAI_API_KEY`.
+   - Iterates all languages in `i18n/i18n.ts` (except `en`).
+   - For each language:
+     - Translates:
+       - `content/docs` -> `content-i18n/<lang>/docs`
+       - `content/cli` -> `content-i18n/<lang>/cli`
+       - `content/api` -> `content-i18n/<lang>/api`
+     - Bundles localized output:
+       - `lib/bundled-runtime.<lang>.json`
+       - `lib/bundled-cli.<lang>.json`
+       - `lib/bundled-api.<lang>.json`
+
+2) `bundle:all` (English bundles)
+   - Generates the default English bundles:
+     - `lib/bundled-runtime.json`
+     - `lib/bundled-cli.json`
+     - `lib/bundled-api.json`
+     - `lib/bundled-docs.json`
+     - `lib/bundled-examples.json`
+
+3) `next build`
+   - Pages load the appropriate bundle based on the `deka-language` cookie.
+   - Localized bundles merge over English so missing translations fall back to English.
+
+### Commands
+
+```bash
+bun run bundle:i18n
+bun run bundle:all
+bun run build
+```
+
+### Notes for future agents
+
+- Translation is driven by `scripts/build-i18n.ts` + `scripts/translate-docs.ts`.
+- Bundlers are in `scripts/bundle-runtime.ts`, `scripts/bundle-cli.ts`, `scripts/bundle-api.ts`.
+- Language selection comes from the `deka-language` cookie and `lib/i18n-server.ts`.
+- If you add a new language, update `i18n/i18n.ts` and re-run `bun run bundle:i18n`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

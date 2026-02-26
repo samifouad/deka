@@ -24,6 +24,14 @@ PHPX still enforces its language-specific guarantees at compile time:
 
 This means emitted JS is the runtime source of truth, not PHP compatibility emulation.
 
+## Runtime (MVP2)
+
+`deka run` and `deka serve` execute PHPX through the JS runtime as ESM:
+- Transpile on demand in dev and cache output under `.cache/phpx_js/`.
+- Resolve stdlib imports from `php_modules/`.
+- Entry modules should set a top-level `app` variable or export
+  `default`/`app`/`handler`; the runtime maps that value to `globalThis.app`.
+
 ## What stays PHPX-specific
 
 - Type declarations (`interface`, `type`, struct/type rules) remain compile-time constraints.
@@ -52,6 +60,18 @@ Default prefix mappings:
 - `db/` -> `/php_modules/db/`
 
 Additional fallback mappings are generated for any other bare import specifiers found in frontmatter imports. Relative/absolute/URL imports are not added.
+
+## Bundled Output (`deka build --bundle`)
+
+When `--bundle` is provided, Deka emits JS in-memory and runs the SWC bundler to
+produce a single-file output. No intermediate JS file is written and no
+`importmap.json` is emitted.
+
+- `--bundle` produces a single JS file containing the entry and its dependencies.
+- `--minify` enables the SWC minifier for the bundled output.
+- `.phpx` dependencies are compiled to JS on-demand during bundling.
+- Runtime bridge calls (for example, modules that rely on host `bridge(...)`
+  behavior) still require a compatible JS runtime implementation.
 
 ## Design Rule
 

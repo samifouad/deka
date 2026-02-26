@@ -12,7 +12,7 @@ const ADWA_CAPS = {
     net: true,
     processEnv: false,
     clockRandom: true,
-    db: true,
+    db: false,
     wasmImports: true,
 };
 export class PhpHostBridge {

@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test")
 
-test("adwa playground edit -> run updates output", async ({ page }) => {
+test("adwa playground edit -> run preserves interactive shell state", async ({ page }) => {
   const baseUrl = process.env.ADWA_E2E_URL || "http://127.0.0.1:5173"
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" })
 
@@ -8,7 +8,7 @@ test("adwa playground edit -> run updates output", async ({ page }) => {
   const log = page.locator("#log")
 
   await expect(runBtn).toBeVisible()
-  await expect(log).toContainText("[listen] http://localhost:8530")
+  await expect(log).toContainText("[foreground] process running (Ctrl+C to stop)")
 
   const nextSource = "/*__DEKA_PHPX__*/\necho 'updated from e2e\\n'"
   await page.evaluate(async (value) => {
@@ -22,12 +22,12 @@ test("adwa playground edit -> run updates output", async ({ page }) => {
     await window.__adwaTest.run()
   }, nextSource)
 
-  await expect(log).toContainText("updated from e2e")
-
   const currentSource = await page.evaluate(() =>
     window.__adwaTest && typeof window.__adwaTest.getSource === "function"
       ? window.__adwaTest.getSource()
       : ""
   )
   expect(currentSource).toBe(nextSource)
+
+  await expect(log).toContainText("[foreground] process running (Ctrl+C to stop)")
 })

@@ -3,7 +3,7 @@ import {
   WebContainer,
 } from "./vendor/adwa_js/index.js";
 import { phpRuntimeRawWasmDataUrl } from "./vendor/adwa_js/php_runtime_raw_wasm_data.js";
-import { bundledProjectFiles } from "./vendor/adwa_js/php_project_bundle.js";
+import { bundledProjectFiles, bundledProjectVersion } from "./vendor/adwa_js/php_project_bundle.js";
 import { renderWorkbench } from "./ui/workbench.js";
 import { fileIconFor, folderIconFor, icon } from "./ui/file_icons.js";
 import { initMonacoEditor } from "./ui/editor_monaco.js";
@@ -160,6 +160,7 @@ const defaultSource = [
   "interface HelloProps {",
   "  $name: string",
   "}",
+  "",
   "function Hello({ $name }: HelloProps): string {",
   "  return $name",
   "}",
@@ -168,7 +169,7 @@ const defaultSource = [
   "<html>",
   "  <body class=\"m-0 bg-slate-950 text-slate-100\">",
   "    <main class=\"min-h-screen flex items-center justify-center p-8\">",
-  "      <h1 class=\"text-5xl font-bold tracking-tight\">Hello <Hello name=\"adwa\" /></h1>",
+  "      <h1 class=\"text-5xl font-bold tracking-tight\">Hello <Hello name=\"bob\" /></h1>",
   "    </main>",
   "  </body>",
   "</html>",
@@ -231,6 +232,7 @@ for (const dir of BASE_FS_DIRS) {
 
 const EXPANDED_FOLDERS_STORAGE_KEY = "adwa.explorer.expanded.v1";
 const VFS_SNAPSHOT_KEY = "adwa.vfs.snapshot.v1";
+const PROJECT_TEMPLATE_VERSION = "2026-02-25-defaultsource-v2";
 
 
 
@@ -255,6 +257,12 @@ const loadVfsSnapshot = () => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
+    const snapshotVersion = typeof parsed.version === "string" ? parsed.version : "";
+    const expectedVersion = `${String(bundledProjectVersion || "")}:${PROJECT_TEMPLATE_VERSION}`;
+    if (snapshotVersion && snapshotVersion !== expectedVersion) {
+      localStorage.removeItem(VFS_SNAPSHOT_KEY);
+      return null;
+    }
     const dirs = Array.isArray(parsed.dirs) ? parsed.dirs.filter((d) => typeof d === "string") : [];
     const files = parsed.files && typeof parsed.files === "object" ? parsed.files : {};
     return { dirs, files };
@@ -336,6 +344,7 @@ const saveVfsSnapshot = () => {
       files[filePath] = bytesToBase64(vfs.readFile(filePath));
     }
     const payload = {
+      version: `${String(bundledProjectVersion || "")}:${PROJECT_TEMPLATE_VERSION}`,
       dirs: vfs.listDirs(),
       files,
     };
@@ -651,6 +660,7 @@ const setServePreviewStatus = (path = null) => {
 
 const stripAnsi = (value) => String(value).replace(/\u001b\[[0-9;]*m/g, "");
 const resultView = createResultView(resultFrame, resultBannerEl);
+const GENERIC_FAILURE_MESSAGE = /^(unreachable|php_error|run failed\.?)$/i;
 
 const firstErrorLine = (text) => {
   const line = String(text || "")
@@ -664,6 +674,138 @@ const looksLikeHtmlOutput = (value) => {
   const text = stripAnsi(String(value || "")).trim();
   if (!text) return false;
   return /<!doctype html|<html[\s>]|<body[\s>]|<\/[a-z][a-z0-9:-]*>/i.test(text);
+};
+
+const normalizeDiagRange = (diag) => {
+  const range = diag?.range || {};
+  const start = range.start || {};
+  const end = range.end || {};
+  return {
+    startLine: Number(start.line || 0) + 1,
+    startColumn: Number(start.character || 0) + 1,
+    endLine: Number(end.line || start.line || 0) + 1,
+    endColumn: Number(end.character || start.character || 0) + 1,
+  };
+};
+
+const formatDiagLocation = (diag) => {
+  const file = String(diag?.file || currentFile || "");
+  const r = normalizeDiagRange(diag);
+  if (!file) return `${r.startLine}:${r.startColumn}`;
+  return `${file}:${r.startLine}:${r.startColumn}`;
+};
+
+const formatRuntimeDiagnostic = (diag) => {
+  const message = String(diag?.message || "").trim();
+  if (!message) return "";
+  if (isRichValidationMessage(message)) return message;
+  return `${message} (${formatDiagLocation(diag)})`;
+};
+
+const isRichValidationMessage = (message) => {
+  const text = String(message || "").trim();
+  if (!text) return false;
+  return text.startsWith("Validation Error") || text.startsWith("Validation Warning");
+};
+
+const firstEditorErrorMarker = () => {
+  if (!monacoApi || !monacoEditor) return null;
+  const model = monacoEditor.getModel();
+  if (!model) return null;
+  const markers = monacoApi.editor
+    .getModelMarkers({ resource: model.uri })
+    .filter((marker) => Number(marker.severity) === monacoApi.MarkerSeverity.Error)
+    .sort((a, b) => {
+      const la = Number(a.startLineNumber || 0);
+      const lb = Number(b.startLineNumber || 0);
+      if (la !== lb) return la - lb;
+      return Number(a.startColumn || 0) - Number(b.startColumn || 0);
+    });
+  if (!markers.length) return null;
+  return markers[0];
+};
+
+const collectEditorErrorMarkers = () => {
+  if (!monacoApi || !monacoEditor) return [];
+  const model = monacoEditor.getModel();
+  if (!model) return [];
+  return monacoApi.editor
+    .getModelMarkers({ resource: model.uri })
+    .filter((marker) => Number(marker.severity) === monacoApi.MarkerSeverity.Error)
+    .sort((a, b) => {
+      const la = Number(a.startLineNumber || 0);
+      const lb = Number(b.startLineNumber || 0);
+      if (la !== lb) return la - lb;
+      return Number(a.startColumn || 0) - Number(b.startColumn || 0);
+    });
+};
+
+const shouldTreatAsGenericFailure = (message) => {
+  const text = String(message || "").trim();
+  if (!text) return true;
+  return GENERIC_FAILURE_MESSAGE.test(text);
+};
+
+const buildFailureMessage = async (result) => {
+  const runtimeDiag =
+    Array.isArray(result?.diagnostics) && result.diagnostics.length ? result.diagnostics[0] : null;
+  const runtimeMessage = String(runtimeDiag?.message || "").trim();
+  if (runtimeDiag && !shouldTreatAsGenericFailure(runtimeMessage)) {
+    return formatRuntimeDiagnostic(runtimeDiag);
+  }
+
+  await refreshDiagnostics();
+  const marker = firstEditorErrorMarker();
+  if (marker) {
+    const message = String(marker.message || "PHPX type error");
+    if (isRichValidationMessage(message)) return message;
+    const file = String(currentFile || "");
+    return `${message} (${file}:${marker.startLineNumber}:${marker.startColumn})`;
+  }
+
+  const stderrMsg = firstErrorLine(result?.stderr || phpStderrBuffer);
+  if (stderrMsg && !shouldTreatAsGenericFailure(stderrMsg)) return stderrMsg;
+  if (runtimeDiag) return formatRuntimeDiagnostic(runtimeDiag) || runtimeMessage;
+  return "Run failed. Diagnostics unavailable. Check LSP sidecar and editor markers.";
+};
+
+const buildGenericFailureMessage = async (rawMessage) => {
+  const text = String(rawMessage || "").trim();
+  if (!shouldTreatAsGenericFailure(text)) return text;
+  await refreshDiagnostics();
+  const marker = firstEditorErrorMarker();
+  if (marker) {
+    const file = String(currentFile || "");
+    const message = String(marker.message || "PHPX type error");
+    if (isRichValidationMessage(message)) return message;
+    return `${message} (${file}:${marker.startLineNumber}:${marker.startColumn})`;
+  }
+  return text || "Run failed. Showing last good result.";
+};
+
+const formatEditorMarkerMessage = (marker) => {
+  const message = String(marker?.message || "PHPX type error");
+  if (isRichValidationMessage(message)) return message;
+  const file = String(currentFile || "");
+  return `${message} (${file}:${marker.startLineNumber}:${marker.startColumn})`;
+};
+
+const showPreflightDiagnosticsIfAny = async (fromAuto = false) => {
+  await refreshDiagnostics();
+  const errors = collectEditorErrorMarkers();
+  if (!errors.length) return false;
+
+  const first = errors[0];
+  const message = formatEditorMarkerMessage(first);
+  resetLog(fromAuto ? "Auto-run blocked by diagnostics." : "Run blocked by diagnostics.");
+  log(`[error] ${message}`);
+  resultView.showResultBanner(message);
+  return true;
+};
+
+const isGeneratedRuntimeDiagnostic = (text) => {
+  const value = stripAnsi(String(text || ""));
+  return value.includes("Validation Error") && value.includes("unknown:");
 };
 
 
@@ -1766,9 +1908,10 @@ const runPhpxEntry = async (entryFile, requestPath = null) => {
   return executePhpFile(entryFile, requestPath, null);
 };
 
-const writeRunResult = (result) => {
+const writeRunResult = async (result) => {
   const stdoutText = String(result?.stdout ?? phpStdoutBuffer ?? "");
   const isOk = Boolean(result?.ok);
+  const failureMsg = !isOk ? await buildFailureMessage(result) : "";
   if (isOk) {
     resultView.renderResult(stdoutText);
     resultView.clearResultBanner();
@@ -1777,22 +1920,33 @@ const writeRunResult = (result) => {
     if (!resultView.hasLastGoodResult()) {
       resultView.renderResult(stdoutText);
     }
-    const diagMsg =
-      Array.isArray(result?.diagnostics) && result.diagnostics.length
-        ? `${result.diagnostics[0].severity || "error"}: ${result.diagnostics[0].message || "run failed"}`
-        : "";
-    const stderrMsg = firstErrorLine(result?.stderr || phpStderrBuffer);
-    const msg = diagMsg || stderrMsg || "Run failed. Showing last good result.";
-    resultView.showResultBanner(msg);
+    resultView.showResultBanner(failureMsg);
   }
 
   if (result?.stdout && !looksLikeHtmlOutput(result.stdout)) {
     log(String(result.stdout).trimEnd());
   }
-  if (result?.stderr) log(`[stderr]\n${String(result.stderr).trimEnd()}`);
-  if (phpStderrBuffer.trim()) log(`[stderr]\n${phpStderrBuffer.trimEnd()}`);
+  const stderrText = stripAnsi(String(result?.stderr || "")).trimEnd();
+  const phpStderrText = stripAnsi(String(phpStderrBuffer || "")).trimEnd();
+  if (stderrText) {
+    if (isGeneratedRuntimeDiagnostic(stderrText) && failureMsg) {
+      log(`[error] ${failureMsg}`);
+    } else {
+      log(`[stderr]\n${stderrText}`);
+    }
+  }
+  if (phpStderrText) {
+    if (isGeneratedRuntimeDiagnostic(phpStderrText) && failureMsg) {
+      log(`[error] ${failureMsg}`);
+    } else {
+      log(`[stderr]\n${phpStderrText}`);
+    }
+  }
   if (result.diagnostics?.length) {
-    for (const diag of result.diagnostics) log(`[${diag.severity}] ${diag.message}`);
+    for (const diag of result.diagnostics) {
+      const location = formatDiagLocation(diag);
+      log(`[${diag.severity || "error"}] ${diag.message}${location ? ` (${location})` : ""}`);
+    }
   }
   if (!result.ok && !result.diagnostics?.length) {
     log("[error] runtime returned not-ok without diagnostics");
@@ -1802,7 +1956,7 @@ const writeRunResult = (result) => {
 
 const runPhpxScript = async () => {
   const result = await runPhpxEntry(currentFile, null);
-  writeRunResult(result);
+  await writeRunResult(result);
 };
 
 const normalizeServePath = (value) => {
@@ -1836,7 +1990,7 @@ const runServedPath = async (path, opts = {}) => {
   }
   if (!serverState.entry) return;
   const result = await runPhpxEntry(serverState.entry, nextPath);
-  writeRunResult(result);
+  await writeRunResult(result);
 };
 
 const interruptForegroundProcess = async (opts = {}) => {
@@ -1879,7 +2033,7 @@ const runDekaFile = async (entryFile) => {
   }
   const result = await runPhpxEntry(resolved, null);
   log(`PHPX run complete (${resolved}).`);
-  writeRunResult(result);
+  await writeRunResult(result);
 };
 
 const statPath = (path) => {
@@ -2206,7 +2360,7 @@ const runShebangScript = async (scriptPath, argv, shebang) => {
   const result = await executePhpFile(runPath, null, envOverrides);
   log(`[shebang] executed ${scriptPath}`);
   log(`PHPX run complete (${scriptPath}).`);
-  writeRunResult(result);
+  await writeRunResult(result);
   return true;
 };
 
@@ -2240,6 +2394,9 @@ const executeRun = async (fromAuto = false) => {
   runInFlight = true;
   if (runBtn instanceof HTMLButtonElement) runBtn.disabled = true;
   try {
+    if (await showPreflightDiagnosticsIfAny(fromAuto)) {
+      return;
+    }
     if (runtimePortState.url) {
       await runServedPath(serverState.path || "/", { pushHistory: false, reload: true });
     } else {
@@ -2248,8 +2405,9 @@ const executeRun = async (fromAuto = false) => {
   } catch (err) {
     resetLog(fromAuto ? "Auto-run failed." : "Run failed.");
     const message = err instanceof Error ? err.message : String(err);
-    log(message);
-    resultView.showResultBanner(message || "Run failed. Showing last good result.");
+    const uiMessage = await buildGenericFailureMessage(message);
+    log(uiMessage);
+    resultView.showResultBanner(uiMessage);
   } finally {
     runInFlight = false;
     if (runBtn instanceof HTMLButtonElement) runBtn.disabled = false;

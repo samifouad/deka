@@ -372,6 +372,150 @@ export const detailPages: Record<string, DetailPage> = {
         ]
       }
     ]
+  },
+  create: {
+    slug: 'create',
+    title: 'Create',
+    subtitle: 'Spin up a new Deka project with defaults that ship.',
+    summary:
+      'Create gets you a ready-to-run workspace with runtime-friendly defaults for config, routing, and deployment. Customize when you are ready.',
+    highlights: [
+      'Starter templates for common stacks',
+      'Runtime defaults wired in',
+      'Clear upgrade path to production'
+    ],
+    sections: [
+      {
+        title: 'Start with a clean base.',
+        description:
+          'Choose a template and get structure for routes, services, and runtime configuration.',
+        cards: [
+          {
+            label: 'Templates',
+            title: 'Prebuilt layouts.',
+            description: 'Select a starter that matches how your team ships.'
+          },
+          {
+            label: 'Structure',
+            title: 'Organized from day one.',
+            description: 'Consistent project layout for fast onboarding.'
+          }
+        ]
+      },
+      {
+        title: 'Stay aligned with the runtime.',
+        description:
+          'Generated projects keep build and deploy settings close to the runtime so handoff is smooth.',
+        cards: [
+          {
+            label: 'Config',
+            title: 'Runtime-ready defaults.',
+            description: 'Sane settings you can extend later.'
+          },
+          {
+            label: 'Local dev',
+            title: 'Fast iteration loops.',
+            description: 'Run and test without extra wiring.'
+          }
+        ]
+      }
+    ]
+  },
+  introspect: {
+    slug: 'introspect',
+    title: 'Introspect',
+    subtitle: 'See what the runtime is doing, instantly.',
+    summary:
+      'Introspect surfaces runtime behavior, isolate health, and request flow without extra tooling. Get answers fast without noisy logs.',
+    highlights: [
+      'Live isolate and request visibility',
+      'Resource budgets and limits at a glance',
+      'High-signal diagnostics with low overhead'
+    ],
+    sections: [
+      {
+        title: 'Runtime visibility that stays fast.',
+        description:
+          'Inspect isolates, memory, and scheduling while services run so you can spot drift early.',
+        cards: [
+          {
+            label: 'Isolates',
+            title: 'Live runtime views.',
+            description: 'Monitor hot paths and isolate health in real time.'
+          },
+          {
+            label: 'Resources',
+            title: 'Budgets at a glance.',
+            description: 'See CPU and memory limits before they bite.'
+          }
+        ]
+      },
+      {
+        title: 'Trace what matters.',
+        description:
+          'Follow request paths and identify bottlenecks with clean diagnostics.',
+        cards: [
+          {
+            label: 'Requests',
+            title: 'Flow-centric insights.',
+            description: 'Understand how work moves through the runtime.'
+          },
+          {
+            label: 'Diagnostics',
+            title: 'Focused debug signals.',
+            description: 'Find the cause without log spelunking.'
+          }
+        ]
+      }
+    ]
+  },
+  desktop: {
+    slug: 'desktop',
+    title: 'Desktop',
+    subtitle: 'Local runtime control with production parity.',
+    summary:
+      'Desktop brings the Deka runtime to your machine for fast iteration, offline testing, and consistent behavior.',
+    highlights: [
+      'Local runtime with full feature set',
+      'Offline-first workflows',
+      'Easy handoff to production'
+    ],
+    sections: [
+      {
+        title: 'Develop close to production.',
+        description:
+          'Use the same runtime features locally to avoid surprises later.',
+        cards: [
+          {
+            label: 'Parity',
+            title: 'Same runtime, local.',
+            description: 'Test with real behavior, not mocks.'
+          },
+          {
+            label: 'Services',
+            title: 'Local service stack.',
+            description: 'Run the core services on your machine.'
+          }
+        ]
+      },
+      {
+        title: 'Ship from desktop to cluster.',
+        description:
+          'Move configs and artifacts into deployment workflows without rework.',
+        cards: [
+          {
+            label: 'Export',
+            title: 'Portable artifacts.',
+            description: 'Package outputs for staging or production.'
+          },
+          {
+            label: 'Sync',
+            title: 'Consistent handoff.',
+            description: 'Align local and remote runtime settings.'
+          }
+        ]
+      }
+    ]
   }
 }
 

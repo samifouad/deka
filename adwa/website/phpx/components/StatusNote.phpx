@@ -1,0 +1,7 @@
+interface StatusNoteProps {
+  $text: string
+}
+
+export function StatusNote({ $text }: StatusNoteProps) {
+  return <p class="phpxStatusNote">{$text}</p>
+}

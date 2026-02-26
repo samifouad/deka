@@ -2,9 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { VersionSelect } from '@/components/docs/VersionSelect'
+import { useDocsVersion } from '@/components/docs/useDocsVersion'
+import { LanguageSelect } from '@/components/docs/LanguageSelect'
 
 interface APISidebarProps {
   isOpen: boolean
+  basePath?: string
 }
 
 const apiSections = [
@@ -40,16 +44,21 @@ const apiSections = [
   }
 ]
 
-export function APISidebar({ isOpen }: APISidebarProps) {
+export function APISidebar({ isOpen, basePath }: APISidebarProps) {
   const pathname = usePathname()
+  const { version } = useDocsVersion()
+  const resolvedBasePath = basePath
+    ? (version && version !== 'latest' ? `${basePath}/${version}` : basePath)
+    : '/api'
 
   return (
     <aside
       className={`${
         isOpen ? 'block' : 'hidden'
-      } md:block w-64 overflow-y-auto scrollbar-hide border-r border-border/30 mx-auto md:mx-0`}
+      } md:block w-64 overflow-y-auto scrollbar-hide border-r border-border/30 mx-auto md:mx-0 relative z-30`}
     >
       <nav className="p-4 space-y-6">
+        <VersionSelect />
         {apiSections.map((section, sectionIndex) => (
           <div key={sectionIndex}>
             <h3 className="text-sm font-semibold text-foreground mb-2 uppercase tracking-wide">
@@ -57,7 +66,7 @@ export function APISidebar({ isOpen }: APISidebarProps) {
             </h3>
             <ul className="space-y-1">
               {section.items.map((item) => {
-                const href = `/api/${item.slug}`
+                const href = `${resolvedBasePath}/${item.slug}`
                 const isActive = pathname === href
                 return (
                   <li key={item.slug}>
@@ -65,14 +74,13 @@ export function APISidebar({ isOpen }: APISidebarProps) {
                       href={href}
                       prefetch={true}
                       scroll={false}
-                      className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
+                      className={`block px-3 py-1 rounded-lg text-sm transition-colors truncate ${
                         isActive
                           ? 'bg-primary/10 text-primary font-medium'
                           : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
                       }`}
                     >
-                      <div>{item.name}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{item.description}</div>
+                      <span className="block truncate">{item.name}</span>
                     </Link>
                   </li>
                 )
@@ -80,6 +88,9 @@ export function APISidebar({ isOpen }: APISidebarProps) {
             </ul>
           </div>
         ))}
+        <div className="pt-4 border-t border-border/30">
+          <LanguageSelect />
+        </div>
       </nav>
     </aside>
   )

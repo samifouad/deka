@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { getDocsThemeName, getMonacoLanguage, waitForMonacoReady } from '@/lib/monaco'
 
 interface DocsCodeBlockProps {
   code: string
@@ -22,52 +23,6 @@ export function DocsCodeBlock({ code, language }: DocsCodeBlockProps) {
   useEffect(() => {
     if (!editorRef.current) return
 
-    // Only load Monaco once globally
-    if (!window.monaco) {
-      const loadMonaco = async () => {
-        const loaderScript = document.createElement('script')
-        loaderScript.src = 'https://unpkg.com/monaco-editor@latest/min/vs/loader.js'
-        loaderScript.onload = () => {
-          window.require.config({
-            paths: { vs: 'https://unpkg.com/monaco-editor@latest/min/vs' }
-          })
-
-          window.require(['vs/editor/editor.main'], () => {
-            // Define custom theme matching docs
-            window.monaco.editor.defineTheme('docs-dark', {
-              base: 'vs-dark',
-              inherit: true,
-              rules: [
-                { token: 'comment', foreground: '64748b' },
-                { token: 'keyword', foreground: '38bdf8', fontStyle: 'bold' },
-                { token: 'string', foreground: '86efac' },
-                { token: 'number', foreground: 'fbbf24' },
-                { token: 'type', foreground: 'c084fc', fontStyle: 'italic' },
-                { token: 'function', foreground: '60a5fa' },
-                { token: 'variable', foreground: 'e2e8f0' },
-                { token: 'identifier', foreground: 'e2e8f0' },
-                { token: 'delimiter', foreground: '94a3b8' },
-                { token: 'operator', foreground: 'f472b6' },
-              ],
-              colors: {
-                'editor.background': '#14151a',
-                'editor.foreground': '#f1f5f9',
-                'editor.lineHighlightBackground': '#1a1b21',
-                'editorLineNumber.foreground': '#475569',
-                'editorLineNumber.activeForeground': '#94a3b8',
-              }
-            })
-
-            // Mark Monaco as loaded
-            window.monacoLoaded = true
-          })
-        }
-        document.head.appendChild(loaderScript)
-      }
-
-      loadMonaco()
-    }
-
     // Create/update editor when Monaco is loaded
     const createEditor = () => {
       // Dispose existing editor if it exists
@@ -82,53 +37,42 @@ export function DocsCodeBlock({ code, language }: DocsCodeBlockProps) {
       }
 
       // Map language names to Monaco language IDs
-      const languageMap: Record<string, string> = {
-        'bash': 'shell',
-        'sh': 'shell',
-        'shell': 'shell',
-        'typescript': 'typescript',
-        'ts': 'typescript',
-        'javascript': 'javascript',
-        'js': 'javascript',
-        'json': 'json',
-        'markdown': 'markdown',
-        'md': 'markdown',
-        'html': 'html',
-        'css': 'css',
-        'text': 'plaintext',
-      }
-
-      const monacoLanguage = languageMap[language.toLowerCase()] || 'plaintext'
+      const monacoLanguage = getMonacoLanguage(language)
+      const themeName = getDocsThemeName()
+      const lineHeight = 21
+      const padding = 16
 
       // Create new editor
       monacoRef.current = window.monaco.editor.create(editorRef.current!, {
         value: code.trim(),
         language: monacoLanguage,
-        theme: 'docs-dark',
+        theme: themeName,
         automaticLayout: true,
         minimap: { enabled: false },
+        fontFamily: 'Inconsolata, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         fontSize: 14,
+        lineHeight,
         lineNumbers: 'on',
         scrollBeyondLastLine: false,
-        wordWrap: 'off',
+        wordWrap: 'on',
         readOnly: true,
         renderLineHighlight: 'none',
-        lineNumbersMinChars: 3,
+        lineNumbersMinChars: 4,
         glyphMargin: false,
         folding: false,
-        lineDecorationsWidth: 0,
+        lineDecorationsWidth: 12,
         overviewRulerBorder: false,
         overviewRulerLanes: 0,
         hideCursorInOverviewRuler: true,
         scrollbar: {
-          vertical: 'auto',
-          horizontal: 'auto',
+          vertical: 'hidden',
+          horizontal: 'hidden',
           verticalScrollbarSize: 10,
           horizontalScrollbarSize: 10,
         },
         padding: {
-          top: 12,
-          bottom: 12,
+          top: padding,
+          bottom: padding,
         }
       })
     }
@@ -136,15 +80,11 @@ export function DocsCodeBlock({ code, language }: DocsCodeBlockProps) {
     if (window.monaco && window.monacoLoaded) {
       createEditor()
     } else {
-      // Wait for Monaco to load
-      const checkMonaco = setInterval(() => {
-        if (window.monaco && window.monacoLoaded) {
-          clearInterval(checkMonaco)
+      waitForMonacoReady().then(() => {
+        if (editorRef.current) {
           createEditor()
         }
-      }, 100)
-
-      return () => clearInterval(checkMonaco)
+      })
     }
 
     return () => {
@@ -158,10 +98,10 @@ export function DocsCodeBlock({ code, language }: DocsCodeBlockProps) {
   return (
     <div
       ref={editorRef}
-      className="bg-card border border-border rounded-lg overflow-hidden my-4"
+      className="docs-monaco"
       style={{
-        height: Math.max(100, Math.min(600, code.trim().split('\n').length * 19 + 24)) + 'px',
-        minHeight: '100px'
+        height: Math.max(80, code.trim().split('\n').length * lineHeight + padding * 2 + 6) + 'px',
+        minHeight: '80px'
       }}
     />
   )

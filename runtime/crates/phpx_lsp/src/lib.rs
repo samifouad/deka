@@ -571,12 +571,19 @@ pub async fn run_stdio() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn diagnostic_from_error(_file_path: &str, _source: &str, error: &ValidationError) -> Diagnostic {
-    let rendered = diagnostic_message(
+fn diagnostic_from_error(file_path: &str, source: &str, error: &ValidationError) -> Diagnostic {
+    let rendered = deka_validation::format_validation_error_with_suggestion(
+        source,
+        file_path,
         error.kind.as_str(),
+        error.line,
+        error.column,
         &error.message,
         &error.help_text,
-        error.suggestion.as_deref(),
+        error.underline_length,
+        severity_label(error.severity),
+        None,
+        error.suggestion.clone(),
     );
     Diagnostic {
         range: diagnostic_range(error.line, error.column, error.underline_length),
@@ -591,15 +598,22 @@ fn diagnostic_from_error(_file_path: &str, _source: &str, error: &ValidationErro
 }
 
 fn diagnostic_from_warning(
-    _file_path: &str,
-    _source: &str,
+    file_path: &str,
+    source: &str,
     warning: &ValidationWarning,
 ) -> Diagnostic {
-    let rendered = diagnostic_message(
+    let rendered = deka_validation::format_validation_error_with_suggestion(
+        source,
+        file_path,
         warning.kind.as_str(),
+        warning.line,
+        warning.column,
         &warning.message,
         &warning.help_text,
-        warning.suggestion.as_deref(),
+        warning.underline_length,
+        severity_label(warning.severity),
+        None,
+        warning.suggestion.clone(),
     );
     Diagnostic {
         range: diagnostic_range(warning.line, warning.column, warning.underline_length),
@@ -613,29 +627,12 @@ fn diagnostic_from_warning(
     }
 }
 
-fn diagnostic_message(
-    kind: &str,
-    message: &str,
-    help_text: &str,
-    suggestion: Option<&str>,
-) -> String {
-    let mut out = String::new();
-    out.push_str(kind);
-    out.push_str(": ");
-    out.push_str(message);
-    if !help_text.trim().is_empty() {
-        out.push('\n');
-        out.push_str("help: ");
-        out.push_str(help_text.trim());
+fn severity_label(severity: Severity) -> &'static str {
+    match severity {
+        Severity::Error => "error",
+        Severity::Warning => "warning",
+        Severity::Info => "info",
     }
-    if let Some(suggestion) = suggestion {
-        if !suggestion.trim().is_empty() {
-            out.push('\n');
-            out.push_str("suggestion: ");
-            out.push_str(suggestion.trim());
-        }
-    }
-    out
 }
 
 fn strip_ansi_codes(input: &str) -> String {

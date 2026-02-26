@@ -1,7 +1,6 @@
-export default function Create() {
-    return (
-        <>
-            <p>Create page</p>
-        </>
-    )
+import { DetailPage } from '@/components/landing/DetailPage'
+import { detailPages } from '@/data/landing'
+
+export default function CreatePage() {
+  return <DetailPage {...detailPages.create} />
 }

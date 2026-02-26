@@ -31,8 +31,6 @@ use std::time::{Duration, Instant};
 use wit_parser::{Resolve, Results, Type, TypeDefKind, TypeId, WorldItem, WorldKey};
 
 /// Embedded PHP WASM binary produced by the `php-rs` crate.
-static PHP_WASM_BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/php_rs.wasm"));
-
 mod proto {
     pub mod bridge_v1 {
         include!(concat!(env!("OUT_DIR"), "/deka.bridge.v1.rs"));
@@ -1247,13 +1245,6 @@ fn op_php_parse_phpx_types(
             .map(|(k, v)| (k.clone(), BridgeStruct { fields: v.clone() }))
             .collect(),
     })
-}
-
-#[op2]
-#[buffer]
-fn op_php_get_wasm() -> Vec<u8> {
-    let _ = enforce_wasm(Some("php_rs.wasm"));
-    PHP_WASM_BYTES.to_vec()
 }
 
 #[op2]
@@ -4566,7 +4557,6 @@ fn op_php_parse_wit(
 deno_core::extension!(
     php_core,
     ops = [
-        op_php_get_wasm,
         op_php_parse_phpx_types,
         op_php_read_file_sync,
         op_php_write_file_sync,

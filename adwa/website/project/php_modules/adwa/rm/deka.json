@@ -1,0 +1,9 @@
+{
+  "name": "adwa-rm",
+  "version": "0.1.0",
+  "type": "cli-adwa",
+  "main": "main.phpx",
+  "bin": {
+    "rm": "main.phpx"
+  }
+}

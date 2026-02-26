@@ -1,0 +1,9 @@
+{
+  "name": "adwa-export",
+  "version": "0.1.0",
+  "type": "cli-adwa",
+  "main": "main.phpx",
+  "bin": {
+    "export": "main.phpx"
+  }
+}

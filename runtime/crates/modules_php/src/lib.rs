@@ -10,5 +10,5 @@ pub fn php_extension() -> Extension {
 }
 
 pub fn extensions() -> Vec<Extension> {
-    vec![modules::deka_php::init(), modules::php::init()]
+    vec![modules::php::init()]
 }

@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
+import { getDocsThemeName, getMonacoLanguage, waitForMonacoReady } from '@/lib/monaco'
 
 interface DocsContentProps {
   html: string
@@ -9,23 +10,75 @@ interface DocsContentProps {
 
 declare global {
   interface Window {
+    require: any
     monaco: any
     monacoLoaded?: boolean
+    monacoLoading?: boolean
   }
 }
 
 export function DocsContent({ html, codeBlocks }: DocsContentProps) {
   const contentRef = useRef<HTMLDivElement>(null)
-  const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
     if (!contentRef.current) return
 
-    const hydrateCodeBlocks = () => {
-      if (!window.monaco || !window.monacoLoaded) {
-        // Wait for Monaco to load
-        setTimeout(hydrateCodeBlocks, 100)
-        return
+    let cancelled = false
+
+    const hydrateCodeBlocks = async () => {
+      await waitForMonacoReady()
+      if (cancelled || !contentRef.current) return
+
+      const renderEditor = (container: HTMLElement, block: { lang: string, code: string }) => {
+        const monacoLanguage = getMonacoLanguage(block.lang)
+        const lineHeight = 21
+        const padding = 16
+        const lineCount = block.code.split('\n').length
+        const height = Math.max(80, lineCount * lineHeight + padding * 2 + 6)
+        const themeName = getDocsThemeName()
+
+        container.className = 'docs-monaco'
+        container.style.height = `${height}px`
+        container.style.minHeight = '80px'
+
+        const editorDiv = document.createElement('div')
+        editorDiv.style.width = '100%'
+        editorDiv.style.height = '100%'
+        container.appendChild(editorDiv)
+
+        window.monaco.editor.create(editorDiv, {
+          value: block.code,
+          language: monacoLanguage,
+          theme: themeName,
+          automaticLayout: true,
+          minimap: { enabled: false },
+          fontFamily: 'Inconsolata, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+          fontSize: 14,
+          lineHeight,
+          lineNumbers: 'on',
+          scrollBeyondLastLine: false,
+          wordWrap: 'on',
+          readOnly: true,
+          renderLineHighlight: 'none',
+          lineNumbersMinChars: 4,
+          glyphMargin: false,
+          folding: false,
+          lineDecorationsWidth: 12,
+          overviewRulerBorder: false,
+          overviewRulerLanes: 0,
+          hideCursorInOverviewRuler: true,
+          scrollbar: {
+            vertical: 'hidden',
+            horizontal: 'hidden',
+            verticalScrollbarSize: 10,
+            horizontalScrollbarSize: 10,
+            alwaysConsumeMouseWheel: false,
+          },
+          padding: {
+            top: padding,
+            bottom: padding,
+          }
+        })
       }
 
       // Find all code block placeholders
@@ -34,81 +87,39 @@ export function DocsContent({ html, codeBlocks }: DocsContentProps) {
       placeholders.forEach((placeholder) => {
         const index = parseInt(placeholder.getAttribute('data-index') || '0')
         const block = codeBlocks[index]
-
         if (!block) return
 
-        // Map language names to Monaco language IDs
-        const languageMap: Record<string, string> = {
-          'bash': 'shell',
-          'sh': 'shell',
-          'shell': 'shell',
-          'typescript': 'typescript',
-          'ts': 'typescript',
-          'javascript': 'javascript',
-          'js': 'javascript',
-          'json': 'json',
-          'markdown': 'markdown',
-          'md': 'markdown',
-          'html': 'html',
-          'css': 'css',
-          'text': 'plaintext',
-        }
-
-        const monacoLanguage = languageMap[block.lang.toLowerCase()] || 'plaintext'
-
-        // Create container
         const container = document.createElement('div')
-        container.className = 'bg-card border border-border rounded-lg overflow-hidden my-4'
-        const height = Math.max(100, Math.min(600, block.code.split('\n').length * 19 + 24))
-        container.style.height = `${height}px`
-        container.style.minHeight = '100px'
-
-        // Create editor div
-        const editorDiv = document.createElement('div')
-        editorDiv.style.width = '100%'
-        editorDiv.style.height = '100%'
-        container.appendChild(editorDiv)
-
-        // Replace placeholder with container
         placeholder.parentNode?.replaceChild(container, placeholder)
-
-        // Create Monaco editor
-        window.monaco.editor.create(editorDiv, {
-          value: block.code,
-          language: monacoLanguage,
-          theme: 'docs-dark',
-          automaticLayout: true,
-          minimap: { enabled: false },
-          fontSize: 14,
-          lineNumbers: 'on',
-          scrollBeyondLastLine: false,
-          wordWrap: 'off',
-          readOnly: true,
-          renderLineHighlight: 'none',
-          lineNumbersMinChars: 3,
-          glyphMargin: false,
-          folding: false,
-          lineDecorationsWidth: 0,
-          overviewRulerBorder: false,
-          overviewRulerLanes: 0,
-          hideCursorInOverviewRuler: true,
-          scrollbar: {
-            vertical: 'auto',
-            horizontal: 'auto',
-            verticalScrollbarSize: 10,
-            horizontalScrollbarSize: 10,
-          },
-          padding: {
-            top: 12,
-            bottom: 12,
-          }
-        })
+        renderEditor(container, block)
       })
 
-      setIsHydrated(true)
+      // Fallback for pre > code blocks (non-placeholder HTML)
+      const preBlocks = contentRef.current!.querySelectorAll('pre > code')
+      preBlocks.forEach((codeElement) => {
+        const pre = codeElement.parentElement
+        if (!pre) return
+
+        const datasetLang = pre.getAttribute('data-language')
+        const classLang = Array.from(codeElement.classList)
+          .map((name) => name.replace(/^language-/, '').replace(/^lang-/, ''))
+          .find((name) => name !== 'language' && name !== 'lang' && name !== 'code')
+
+        const language = (datasetLang || classLang || 'text').toLowerCase()
+        const code = codeElement.textContent || ''
+
+        const container = document.createElement('div')
+        pre.parentNode?.replaceChild(container, pre)
+        renderEditor(container, { lang: language, code })
+      })
+
     }
 
     hydrateCodeBlocks()
+
+    return () => {
+      cancelled = true
+    }
   }, [html, codeBlocks])
 
   return (

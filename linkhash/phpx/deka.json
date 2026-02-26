@@ -1,0 +1,26 @@
+{
+  "serve": {
+    "entry": "main_online.phpx",
+    "mode": "php"
+  },
+  "scripts": {
+    "dev": "deka serve --dev"
+  },
+  "security": {
+    "allow": {
+      "db": [
+        "postgres",
+        "sqlite"
+      ],
+      "net": [
+        "127.0.0.1:8608",
+        "localhost:8608",
+        "127.0.0.1",
+        "*"
+      ],
+      "read": [
+        "*"
+      ]
+    }
+  }
+}

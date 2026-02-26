@@ -2,11 +2,29 @@
 import http from 'node:http'
 import path from 'node:path'
 import process from 'node:process'
+import fs from 'node:fs'
 import { spawn } from 'node:child_process'
 
 const adwaRoot = process.env.ADWA_ROOT || process.cwd()
 const repoRoot = path.resolve(adwaRoot, '..')
-const lspBin = process.env.PHPX_LSP_BIN || path.resolve(repoRoot, 'target/release/phpx_lsp')
+const defaultModuleRootCandidates = [
+  path.resolve(repoRoot, 'mvp2'),
+  repoRoot,
+]
+const moduleRoot =
+  process.env.PHPX_MODULE_ROOT ||
+  defaultModuleRootCandidates.find((candidate) => fs.existsSync(path.join(candidate, 'deka.lock'))) ||
+  defaultModuleRootCandidates[0]
+const defaultLspCandidates = [
+  path.resolve(repoRoot, 'mvp2/target/release/phpx_lsp'),
+  path.resolve(repoRoot, 'target/release/phpx_lsp'),
+]
+const lspBin =
+  process.env.PHPX_LSP_BIN ||
+  defaultLspCandidates.find((candidate) => {
+    return fs.existsSync(candidate)
+  }) ||
+  defaultLspCandidates[0]
 const host = process.env.PHPX_LSP_HOST || '127.0.0.1'
 const port = Number(process.env.PHPX_LSP_PORT || 8531)
 
@@ -26,12 +44,14 @@ class LspBridge {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        PHPX_MODULE_ROOT: process.env.PHPX_MODULE_ROOT || repoRoot,
+        PHPX_MODULE_ROOT: moduleRoot,
       },
     })
 
     this.proc.stdout.on('data', (chunk) => this.consumeStdout(chunk))
-    this.proc.stderr.on('data', (_chunk) => {})
+    this.proc.stderr.on('data', (chunk) => {
+      process.stderr.write(`[lsp-sidecar] ${chunk.toString('utf8')}`)
+    })
 
     const onDown = (err) => {
       this.proc = null

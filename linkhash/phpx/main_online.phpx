@@ -1,0 +1,362 @@
+import { bridge } from 'core/bridge'
+import { connect as tcp_connect, read as tcp_read, write as tcp_write, close as tcp_close } from 'tcp'
+import { result_is_ok } from 'core/result'
+import { json_decode } from 'encoding/json'
+
+function pathFromUrl($url: string): string {
+  $base = $url
+  $q = strpos($base, '?')
+  if ($q !== false) {
+    $base = substr($base, 0, $q)
+  }
+  if (strpos($base, '://') !== false) {
+    $scheme = strpos($base, '://')
+    $slash = strpos($base, '/', $scheme + 3)
+    if ($slash === false) {
+      return '/'
+    }
+    $base = substr($base, $slash)
+  }
+  if ($base === '') {
+    return '/'
+  }
+  return '' . $base
+}
+
+function to_assoc($value: mixed): mixed {
+  if (is_array($value)) {
+    $out = []
+    $is_entries = true
+    foreach ($value as $entry) {
+      if (!is_array($entry) || count($entry) !== 2 || !is_string($entry[0])) {
+        $is_entries = false
+        break
+      }
+      $out[$entry[0]] = $entry[1]
+    }
+    if ($is_entries) {
+      return $out
+    }
+    return $value
+  }
+  if (is_object($value)) {
+    $out = []
+    if (isset($value->ok)) {
+      $out['ok'] = $value->ok
+    }
+    if (isset($value->error)) {
+      $out['error'] = $value->error
+    }
+    if (isset($value->entries)) {
+      $out['entries'] = $value->entries
+    }
+    if (count($out) > 0) {
+      return $out
+    }
+  }
+  return $value
+}
+
+function to_assoc_deep($value: mixed): mixed {
+  $current = $value
+  for ($i = 0; $i < 8; $i = $i + 1) {
+    $next = to_assoc($current)
+    if ($next === $current) {
+      return $current
+    }
+    $current = $next
+  }
+  return $current
+}
+
+function entryName($entry: mixed): string {
+  if (is_object($entry) && isset($entry->name)) {
+    return '' . $entry->name
+  }
+  if (is_array($entry) && array_key_exists('name', $entry)) {
+    return '' . $entry['name']
+  }
+  $assoc = to_assoc_deep($entry)
+  if (is_object($assoc) && isset($assoc->name)) {
+    return '' . $assoc->name
+  }
+  if (is_array($assoc) && array_key_exists('name', $assoc)) {
+    return '' . $assoc['name']
+  }
+  return ''
+}
+
+function readDirEntries($path: string): mixed {
+  $raw = bridge('fs', 'read_dir', { path: $path, with_types: true })
+  $map = to_assoc_deep($raw)
+
+  // shape A: [ ['ok', true], ['entries', [...]] ] -> assoc map
+  if (is_array($map) && array_key_exists('ok', $map)) {
+    if (!$map['ok']) {
+      $err = array_key_exists('error', $map) ? ('' . $map['error']) : 'read_dir failed'
+      return [ 'ok' => false, 'error' => $err, 'entries' => [] ]
+    }
+    if (!array_key_exists('entries', $map) || !is_array($map['entries'])) {
+      return [ 'ok' => false, 'error' => 'invalid read_dir payload', 'entries' => [] ]
+    }
+    return [ 'ok' => true, 'entries' => $map['entries'] ]
+  }
+
+  // shape B: direct entries array
+  if (is_array($map)) {
+    return [ 'ok' => true, 'entries' => $map ]
+  }
+
+  return [ 'ok' => false, 'error' => 'read_dir failed raw=' . gettype($raw) . ' map=' . gettype($map), 'entries' => [] ]
+}
+
+function reposRoot(): string {
+  $env = getenv('LINKHASH_REPOS_DIR')
+  if ($env !== false && ('' . $env) !== '') {
+    return '' . $env
+  }
+  return '/Users/sami/Projects/deka/linkhash/rust/deka-git/repos'
+}
+
+function mapLookup($value: mixed, $key: string): mixed {
+  if (is_array($value) && array_key_exists($key, $value)) {
+    return $value[$key]
+  }
+  if (is_array($value)) {
+    foreach ($value as $k => $v) {
+      if (('' . $k) === $key) {
+        return $v
+      }
+    }
+  }
+  if (is_object($value) && isset($value->{$key})) {
+    return $value->{$key}
+  }
+  if (is_object($value)) {
+    foreach ($value as $k => $v) {
+      if (('' . $k) === $key) {
+        return $v
+      }
+    }
+  }
+  return null
+}
+
+function readAll($handle: int): string {
+  $buf = ''
+  while (true) {
+    $chunk = tcp_read($handle, 8192)
+    if (!result_is_ok($chunk)) {
+      break
+    }
+    $text = '' . $chunk->value
+    if ($text === '') {
+      break
+    }
+    $buf = $buf . $text
+    if (strlen($text) < 8192) {
+      break
+    }
+  }
+  return $buf
+}
+
+function parseHttpBody($raw: string): string {
+  $sep = strpos($raw, "\r\n\r\n")
+  if ($sep === false) {
+    return ''
+  }
+  return substr($raw, $sep + 4)
+}
+
+function fetchPackagesFromApi(): mixed {
+  $host = getenv('LINKHASH_GIT_HOST')
+  if ($host === false || ('' . $host) === '') {
+    $host = '127.0.0.1'
+  }
+  $port = getenv('LINKHASH_GIT_PORT')
+  if ($port === false || ('' . $port) === '') {
+    $port = '8608'
+  }
+  $token = getenv('LINKHASH_GIT_TOKEN')
+  if ($token === false || ('' . $token) === '') {
+    $token = 'test-token'
+  }
+
+  $conn = tcp_connect('' . $host, (int) $port, { timeout_ms: 1500 })
+  if (!result_is_ok($conn)) {
+    return [ 'ok' => false, 'error' => 'connect failed: ' . ('' . $conn->error), 'packages' => [] ]
+  }
+  $handle = (int) $conn->value
+
+  $request = 'GET /api/repos HTTP/1.1' . "\r\n"
+  $request = $request . 'Host: ' . ('' . $host) . ':' . ('' . $port) . "\r\n"
+  $request = $request . 'Accept: application/json' . "\r\n"
+  $request = $request . 'Authorization: Bearer ' . ('' . $token) . "\r\n"
+  $request = $request . 'Connection: close' . "\r\n\r\n"
+  $written = tcp_write($handle, $request)
+  if (!result_is_ok($written)) {
+    tcp_close($handle)
+    return [ 'ok' => false, 'error' => 'write failed: ' . ('' . $written->error), 'packages' => [] ]
+  }
+
+  $raw = readAll($handle)
+  tcp_close($handle)
+  $body = parseHttpBody($raw)
+  if ($body === '') {
+    return [ 'ok' => false, 'error' => 'empty response body from deka-git', 'packages' => [] ]
+  }
+
+  $decoded = json_decode($body, true)
+  $owner = mapLookup($decoded, 'owner')
+  $repos = mapLookup($decoded, 'repos')
+  if ((!is_string($owner) && !is_numeric($owner)) || (!is_array($repos) && !is_object($repos))) {
+    return [ 'ok' => false, 'error' => 'invalid /api/repos payload', 'packages' => [] ]
+  }
+
+  $packages = []
+  foreach ($repos as $repo) {
+    if (!is_string($repo) && !is_numeric($repo)) {
+      continue
+    }
+    $repoName = '' . $repo
+    if ($repoName === '') {
+      continue
+    }
+    $packages[] = {
+      name: '@' . ('' . $owner) . '/' . $repoName,
+      owner: '' . $owner,
+      repo: $repoName
+    }
+  }
+  return [ 'ok' => true, 'packages' => $packages ]
+}
+
+function fetchPackages(): mixed {
+  $api = fetchPackagesFromApi()
+  if ($api['ok']) {
+    return $api
+  }
+
+  $root = reposRoot()
+  $ownersRes = readDirEntries($root)
+  if (!$ownersRes['ok']) {
+    return [ 'ok' => false, 'error' => $ownersRes['error'], 'packages' => [] ]
+  }
+
+  $packages = []
+  foreach ($ownersRes['entries'] as $ownerEntry) {
+    $owner = entryName($ownerEntry)
+    if ($owner === '') {
+      continue
+    }
+    $ownerPath = $root . '/' . $owner
+    $reposRes = readDirEntries($ownerPath)
+    if (!$reposRes['ok']) {
+      continue
+    }
+    foreach ($reposRes['entries'] as $repoEntry) {
+      $repoRaw = entryName($repoEntry)
+      if ($repoRaw === '') {
+        continue
+      }
+      if (!str_ends_with($repoRaw, '.git')) {
+        continue
+      }
+      $repo = substr($repoRaw, 0, strlen($repoRaw) - 4)
+      $packages[] = {
+        name: '@' . $owner . '/' . $repo,
+        owner: $owner,
+        repo: $repo
+      }
+    }
+  }
+
+  return [ 'ok' => true, 'packages' => $packages ]
+}
+
+function debugJson(): string {
+  $root = reposRoot()
+  $ownersRes = readDirEntries($root)
+  $apiRes = fetchPackagesFromApi()
+  $cwd = function_exists('getcwd') ? ('' . getcwd()) : '(no getcwd)'
+  $ownersCount = 0
+  if (is_array($ownersRes) && array_key_exists('entries', $ownersRes) && is_array($ownersRes['entries'])) {
+    $ownersCount = count($ownersRes['entries'])
+  }
+  $status = (is_array($ownersRes) && array_key_exists('ok', $ownersRes) && $ownersRes['ok']) ? 'true' : 'false'
+  $first = ''
+  if ($ownersCount > 0) {
+    $first = entryName($ownersRes['entries'][0])
+  }
+  $err = ''
+  if (is_array($ownersRes) && array_key_exists('error', $ownersRes)) {
+    $err = '' . $ownersRes['error']
+  }
+  $apiStatus = $apiRes['ok'] ? 'true' : 'false'
+  $apiCount = count($apiRes['packages'])
+  $apiErr = $apiRes['ok'] ? '' : ('' . $apiRes['error'])
+  return '{"cwd":"' . $cwd . '","root":"' . $root . '","owners_ok":' . $status . ',"owners_count":' . ('' . $ownersCount) . ',"first_owner":"' . $first . '","error":"' . $err . '","api_ok":' . $apiStatus . ',"api_count":' . ('' . $apiCount) . ',"api_error":"' . $apiErr . '"}'
+}
+
+function jsonEscape($value: string): string {
+  return $value
+}
+
+function packagesJson($result: mixed): string {
+  if (!$result['ok']) {
+    return '{"ok":false,"error":"' . jsonEscape('' . $result['error']) . '","packages":[]}'
+  }
+  $items = []
+  foreach ($result['packages'] as $pkg) {
+    $items[] = '{"name":"' . jsonEscape('' . $pkg->name) . '","owner":"' . jsonEscape('' . $pkg->owner) . '","repo":"' . jsonEscape('' . $pkg->repo) . '"}'
+  }
+  return '{"ok":true,"packages":[' . implode(',', $items) . ']}'
+}
+
+function statsJson($result: mixed): string {
+  if (!$result['ok']) {
+    return '{"ok":false,"error":"' . jsonEscape('' . $result['error']) . '","packages":0}'
+  }
+  return '{"ok":true,"packages":' . ('' . count($result['packages'])) . '}'
+}
+
+function renderHome($result: mixed): string {
+  $body = '<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>linkha.sh</title>'
+  $body = $body . '<style>body{font-family:ui-monospace,Menlo,monospace;margin:32px;background:#f7f7f7}main{max-width:920px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:10px;padding:20px}a{color:#0b57d0}code{background:#f0f0f0;padding:2px 6px;border-radius:6px}</style>'
+  $body = $body . '</head><body><main>'
+  $body = $body . '<h1>linkha.sh</h1><p>Registry listing is online.</p>'
+  $body = $body . '<p><a href="/api/packages">/api/packages</a> · <a href="/api/stats/packages">/api/stats/packages</a></p>'
+  if (!$result['ok']) {
+    $body = $body . '<p>error: ' . ('' . $result['error']) . '</p>'
+  } else {
+    $body = $body . '<h2>Published packages (' . ('' . count($result['packages'])) . ')</h2><ul>'
+    foreach ($result['packages'] as $pkg) {
+      $body = $body . '<li><code>' . ('' . $pkg->name) . '</code></li>'
+    }
+    $body = $body . '</ul>'
+  }
+  $body = $body . '</main></body></html>'
+  return $body
+}
+
+$app = function($req) {
+  $path = '/'
+  if (is_object($req) && isset($req->url)) {
+    $path = pathFromUrl('' . $req->url)
+  } else if (isset($_SERVER) && is_array($_SERVER) && array_key_exists('REQUEST_URI', $_SERVER)) {
+    $path = pathFromUrl('' . $_SERVER['REQUEST_URI'])
+  }
+
+  $result = fetchPackages()
+  if ($path === '/api/packages') {
+    return packagesJson($result)
+  }
+  if ($path === '/api/stats/packages') {
+    return statsJson($result)
+  }
+  if ($path === '/api/debug') {
+    return debugJson()
+  }
+  return renderHome($result)
+}

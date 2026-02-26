@@ -40,7 +40,7 @@
         },
         "component/dom": {
           "src": "php_modules/component/dom.phpx",
-          "hash": "sha256:74196f06fa1de3029f29d0efbeb0602253eafb6b120067f2b73011594167e28a",
+          "hash": "sha256:70fd8f919e3282798ad87073006c9b1256e9b0bbb4b5f7b31e1532567d651151",
           "cache": "php_modules/.cache/phpx/component/dom.php",
           "compiler": "phpx-cache-v3",
           "deps": [
@@ -2582,7 +2582,7 @@
         },
         "core/bridge": {
           "src": "php_modules/core/bridge.phpx",
-          "hash": "sha256:42189f196032b81f8050c680790cededb532857c798c45d0650a5d59135cbddc",
+          "hash": "sha256:d942558eba935b6893e141247f714042153bc23090e768c197417859f4bd5925",
           "cache": "php_modules/.cache/phpx/core/bridge.php",
           "compiler": "phpx-cache-v3",
           "deps": [
