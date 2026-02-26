@@ -1,0 +1,5 @@
+import { missing } from './bar.phpx';
+
+export function foo() {
+    return missing();
+}

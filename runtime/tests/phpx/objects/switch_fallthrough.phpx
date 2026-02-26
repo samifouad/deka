@@ -1,0 +1,19 @@
+/*
+TEST: Switch fallthrough
+Covers: fallthrough when break is omitted.
+*/
+
+$tag = 'b';
+
+switch ($tag) {
+    case 'a':
+        echo "A\n";
+        break;
+    case 'b':
+        echo "B\n";
+    case 'c':
+        echo "C\n";
+        break;
+    default:
+        echo "Z\n";
+}

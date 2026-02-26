@@ -1,0 +1,10 @@
+/*
+TEST: Hydration component output
+Covers: Hydration component renders client bootstrap code.
+*/
+
+import { renderToString, Hydration } from 'component/dom';
+
+$node = <Hydration container="#app" layout="users" />;
+$out = renderToString($node);
+echo (strpos($out, 'createRoot') !== false ? 'true' : 'false') . "\n";

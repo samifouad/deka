@@ -1,0 +1,368 @@
+import { result_ok, result_err, result_is_ok } from 'core/result'
+import { bridge } from 'core/bridge'
+
+function normalize_result($raw) {
+    if (is_array($raw) && array_key_exists('ok', $raw)) {
+        if ($raw['ok']) {
+            return result_ok($raw)
+        }
+        $msg = array_key_exists('error', $raw) ? $raw['error'] : 'tcp error'
+        return result_err($msg)
+    }
+    if (is_object($raw) && isset($raw->ok)) {
+        if ($raw->ok) {
+            return result_ok($raw)
+        }
+        $msg = isset($raw->error) ? $raw->error : 'tcp error'
+        return result_err($msg)
+    }
+    return result_err('invalid tcp response')
+}
+
+/// docid: phpx/tcp/connectSync()
+/// <Function name="connectSync">
+///   <Description>PHPX standard module function `connectSync` from `tcp`.</Description>
+///   <Parameter name="$host" type="mixed" required="false">
+///     Parameter $host.
+///   </Parameter>
+///   <Parameter name="$port" type="mixed" required="false">
+///     Parameter $port.
+///   </Parameter>
+///   <Parameter name="$options" type="mixed" required="false">
+///     Parameter $options.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function connectSync($host, $port, $options = {}) {
+    $payload = {
+        host: '' . $host,
+        port: (int) $port,
+        timeout_ms: is_array($options) && array_key_exists('timeout_ms', $options) ? (int) $options['timeout_ms'] : 5000
+    }
+    $res = normalize_result(bridge('net', 'connect', $payload))
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+    if (!is_array($res->value) || !array_key_exists('handle', $res->value)) {
+        return result_err('connect succeeded without handle')
+    }
+    return result_ok((int) $res->value['handle'])
+}
+
+/// docid: phpx/tcp/readSync()
+/// <Function name="readSync">
+///   <Description>PHPX standard module function `readSync` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$max_bytes" type="mixed" required="false">
+///     Parameter $max_bytes.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function readSync($handle, $max_bytes = 4096) {
+    $res = normalize_result(bridge('net', 'read', {
+        handle: (int) $handle,
+        max_bytes: (int) $max_bytes
+    }))
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+    if (!is_array($res->value) || !array_key_exists('data', $res->value)) {
+        return result_err('read succeeded without data')
+    }
+    return result_ok($res->value['data'])
+}
+
+/// docid: phpx/tcp/readExactSync()
+/// <Function name="readExactSync">
+///   <Description>PHPX standard module function `readExactSync` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$count" type="mixed" required="false">
+///     Parameter $count.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function readExactSync($handle, $count) {
+    $target = (int) $count
+    $out = ''
+    while (strlen($out) < $target) {
+        $chunk = readSync($handle, $target - strlen($out))
+        if (!result_is_ok($chunk)) {
+            return result_err($chunk->error)
+        }
+        if ($chunk->value === '') {
+            return result_err('short read')
+        }
+        $out = $out . $chunk->value
+    }
+    return result_ok($out)
+}
+
+/// docid: phpx/tcp/writeSync()
+/// <Function name="writeSync">
+///   <Description>PHPX standard module function `writeSync` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$data" type="mixed" required="false">
+///     Parameter $data.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function writeSync($handle, $data) {
+    $res = normalize_result(bridge('net', 'write', {
+        handle: (int) $handle,
+        data: '' . $data
+    }))
+    if (!result_is_ok($res)) {
+        return result_err($res->error)
+    }
+    if (!is_array($res->value) || !array_key_exists('written', $res->value)) {
+        return result_err('write succeeded without written count')
+    }
+    return result_ok((int) $res->value['written'])
+}
+
+/// docid: phpx/tcp/setDeadlineSync()
+/// <Function name="setDeadlineSync">
+///   <Description>PHPX standard module function `setDeadlineSync` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$millis" type="mixed" required="false">
+///     Parameter $millis.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function setDeadlineSync($handle, $millis) {
+    return normalize_result(bridge('net', 'set_deadline', {
+        handle: (int) $handle,
+        millis: (int) $millis
+    }))
+}
+
+/// docid: phpx/tcp/closeSync()
+/// <Function name="closeSync">
+///   <Description>PHPX standard module function `closeSync` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function closeSync($handle) {
+    return normalize_result(bridge('net', 'close', { handle: (int) $handle }))
+}
+
+/// docid: phpx/tcp/connect()
+/// <Function name="connect">
+///   <Description>PHPX standard module function `connect` from `tcp`.</Description>
+///   <Parameter name="$host" type="mixed" required="false">
+///     Parameter $host.
+///   </Parameter>
+///   <Parameter name="$port" type="mixed" required="false">
+///     Parameter $port.
+///   </Parameter>
+///   <Parameter name="$options" type="mixed" required="false">
+///     Parameter $options.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function connect($host, $port, $options = {}) {
+    return connectSync($host, $port, $options)
+}
+
+/// docid: phpx/tcp/read()
+/// <Function name="read">
+///   <Description>PHPX standard module function `read` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$max_bytes" type="mixed" required="false">
+///     Parameter $max_bytes.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function read($handle, $max_bytes = 4096) {
+    return readSync($handle, $max_bytes)
+}
+
+/// docid: phpx/tcp/readExact()
+/// <Function name="readExact">
+///   <Description>PHPX standard module function `readExact` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$count" type="mixed" required="false">
+///     Parameter $count.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function readExact($handle, $count) {
+    return readExactSync($handle, $count)
+}
+
+/// docid: phpx/tcp/write()
+/// <Function name="write">
+///   <Description>PHPX standard module function `write` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$data" type="mixed" required="false">
+///     Parameter $data.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function write($handle, $data) {
+    return writeSync($handle, $data)
+}
+
+/// docid: phpx/tcp/setDeadline()
+/// <Function name="setDeadline">
+///   <Description>PHPX standard module function `setDeadline` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$millis" type="mixed" required="false">
+///     Parameter $millis.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function setDeadline($handle, $millis) {
+    return setDeadlineSync($handle, $millis)
+}
+
+/// docid: phpx/tcp/close()
+/// <Function name="close">
+///   <Description>PHPX standard module function `close` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function close($handle) {
+    return closeSync($handle)
+}
+
+// Backward compatibility aliases.
+/// docid: phpx/tcp/tcp_connect()
+/// <Function name="tcp_connect">
+///   <Description>PHPX standard module function `tcp_connect` from `tcp`.</Description>
+///   <Parameter name="$host" type="mixed" required="false">
+///     Parameter $host.
+///   </Parameter>
+///   <Parameter name="$port" type="mixed" required="false">
+///     Parameter $port.
+///   </Parameter>
+///   <Parameter name="$options" type="mixed" required="false">
+///     Parameter $options.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function tcp_connect($host, $port, $options = {}) {
+    return connectSync($host, $port, $options)
+}
+
+/// docid: phpx/tcp/tcp_read()
+/// <Function name="tcp_read">
+///   <Description>PHPX standard module function `tcp_read` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$max_bytes" type="mixed" required="false">
+///     Parameter $max_bytes.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function tcp_read($handle, $max_bytes = 4096) {
+    return readSync($handle, $max_bytes)
+}
+
+/// docid: phpx/tcp/read_exact()
+/// <Function name="read_exact">
+///   <Description>PHPX standard module function `read_exact` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$count" type="mixed" required="false">
+///     Parameter $count.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function read_exact($handle, $count) {
+    return readExactSync($handle, $count)
+}
+
+/// docid: phpx/tcp/tcp_read_exact()
+/// <Function name="tcp_read_exact">
+///   <Description>PHPX standard module function `tcp_read_exact` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$count" type="mixed" required="false">
+///     Parameter $count.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function tcp_read_exact($handle, $count) {
+    return readExactSync($handle, $count)
+}
+
+/// docid: phpx/tcp/tcp_write()
+/// <Function name="tcp_write">
+///   <Description>PHPX standard module function `tcp_write` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$data" type="mixed" required="false">
+///     Parameter $data.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function tcp_write($handle, $data) {
+    return writeSync($handle, $data)
+}
+
+/// docid: phpx/tcp/set_deadline()
+/// <Function name="set_deadline">
+///   <Description>PHPX standard module function `set_deadline` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$millis" type="mixed" required="false">
+///     Parameter $millis.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function set_deadline($handle, $millis) {
+    return setDeadlineSync($handle, $millis)
+}
+
+/// docid: phpx/tcp/tcp_set_deadline()
+/// <Function name="tcp_set_deadline">
+///   <Description>PHPX standard module function `tcp_set_deadline` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <Parameter name="$millis" type="mixed" required="false">
+///     Parameter $millis.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function tcp_set_deadline($handle, $millis) {
+    return setDeadlineSync($handle, $millis)
+}
+
+/// docid: phpx/tcp/tcp_close()
+/// <Function name="tcp_close">
+///   <Description>PHPX standard module function `tcp_close` from `tcp`.</Description>
+///   <Parameter name="$handle" type="mixed" required="false">
+///     Parameter $handle.
+///   </Parameter>
+///   <ReturnType type="mixed" />
+/// </Function>
+export function tcp_close($handle) {
+    return closeSync($handle)
+}

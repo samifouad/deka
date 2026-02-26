@@ -1,0 +1,4 @@
+<?php
+require_once 'examples/ns2.php';
+var_dump(function_exists('baz'));
+var_dump(function_exists('Foo\\bar'));

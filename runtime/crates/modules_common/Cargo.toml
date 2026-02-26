@@ -1,0 +1,9 @@
+[package]
+name = "modules_common"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+deno_core = { workspace = true }
+deno_permissions = { workspace = true }
+sys_traits = { version = "0.1.22", features = ["real"] }

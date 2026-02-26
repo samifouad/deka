@@ -1,0 +1,9 @@
+import { Result } from 'core/result'
+
+export function random_bytes_result($len: int = 32): Result<mixed, string>
+export function random_hex($len: int = 32): Result<string, string>
+export function sha256_hex($value: mixed): string
+export function hmac_sha256_hex($value: mixed, $key: mixed): string
+export function hmac_sha256_bytes($value: mixed, $key: mixed): mixed
+export function secure_compare($a: mixed, $b: mixed): bool
+export function uuid_v4(): Result<string, string>

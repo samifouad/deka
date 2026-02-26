@@ -1,0 +1,1 @@
+re:^(SKIP|ERR connect|OK wire mysql unsupported param type.*)\n?$

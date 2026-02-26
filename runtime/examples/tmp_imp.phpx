@@ -1,0 +1,2 @@
+import { trim } from 'string';
+echo trim(' ok ');
